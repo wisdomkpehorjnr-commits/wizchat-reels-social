@@ -4,22 +4,28 @@ export const mockUsers: User[] = [
   {
     id: '1',
     name: 'Sarah Johnson',
+    username: '@sarahj',
     email: 'sarah@example.com',
     photoURL: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face',
+    avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face',
     createdAt: new Date('2024-01-15'),
   },
   {
     id: '2',
     name: 'Mike Chen',
+    username: '@mikechen',
     email: 'mike@example.com',
     photoURL: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
     createdAt: new Date('2024-01-10'),
   },
   {
     id: '3',
     name: 'Emma Davis',
+    username: '@emmadavis',
     email: 'emma@example.com',
     photoURL: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face',
+    avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face',
     createdAt: new Date('2024-01-12'),
   },
 ];

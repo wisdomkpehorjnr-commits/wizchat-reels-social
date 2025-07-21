@@ -105,7 +105,7 @@ const ReelCard = ({ reel, isActive, onLike }: ReelCardProps) => {
                 className={`w-6 h-6 ${isLiked ? 'fill-red-500 text-red-500' : ''}`} 
               />
             </Button>
-            <span className="text-white text-xs">{reel.likes}</span>
+            <span className="text-white text-xs">{reel.likes.length}</span>
 
             <Button
               variant="ghost"
