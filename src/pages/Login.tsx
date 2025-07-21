@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -9,13 +10,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
 const Login = () => {
-  const { user, login, loginWithGoogle, loading } = useAuth();
+  const { user, login, signUp, loginWithGoogle, loading } = useAuth();
   const { toast } = useToast();
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [isSignUp, setIsSignUp] = useState(false);
 
   if (user) {
     return <Navigate to="/" replace />;
@@ -32,7 +32,37 @@ const Login = () => {
       return;
     }
 
-    if (isSignUp && password !== confirmPassword) {
+    setIsLoggingIn(true);
+    try {
+      await login(email, password);
+      toast({
+        title: "Welcome back!",
+        description: "You've successfully signed in.",
+      });
+    } catch (error: any) {
+      console.error('Login error:', error);
+      toast({
+        title: "Login failed",
+        description: error.message || "Please check your credentials and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleEmailSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password || !confirmPassword) {
+      toast({
+        title: "Missing information",
+        description: "Please fill in all fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (password !== confirmPassword) {
       toast({
         title: "Password mismatch",
         description: "Passwords do not match.",
@@ -43,15 +73,16 @@ const Login = () => {
 
     setIsLoggingIn(true);
     try {
-      await login(email, password);
+      await signUp(email, password);
       toast({
-        title: "Welcome to WizchatPro!",
-        description: isSignUp ? "Account created successfully!" : "You've successfully signed in.",
+        title: "Account created!",
+        description: "Please check your email to verify your account.",
       });
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Sign up error:', error);
       toast({
-        title: isSignUp ? "Sign up failed" : "Login failed",
-        description: "Please try again later.",
+        title: "Sign up failed",
+        description: error.message || "Please try again with different credentials.",
         variant: "destructive",
       });
     } finally {
@@ -65,12 +96,13 @@ const Login = () => {
       await loginWithGoogle();
       toast({
         title: "Welcome to WizchatPro!",
-        description: "You've successfully signed in.",
+        description: "You've successfully signed in with Google.",
       });
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Google login error:', error);
       toast({
-        title: "Login failed",
-        description: "Please try again later.",
+        title: "Google login failed",
+        description: error.message || "Please try again later.",
         variant: "destructive",
       });
     } finally {
@@ -79,30 +111,48 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-primary p-4">
-      <Card className="w-full max-w-md shadow-glow animate-fade-in">
-        <CardHeader className="text-center space-y-4">
-          <div className="mx-auto w-20 h-20 bg-gradient-primary rounded-full flex items-center justify-center animate-pulse-glow">
-            <span className="text-2xl font-bold text-primary-foreground">W</span>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-4 relative overflow-hidden">
+      {/* Glassmorphism background elements */}
+      <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-blue-100/20 to-purple-100/10 backdrop-blur-3xl"></div>
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-full blur-3xl animate-pulse"></div>
+      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-gradient-to-br from-indigo-400/20 to-pink-400/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
+      
+      <Card className="w-full max-w-md relative z-10 bg-white/80 backdrop-blur-xl border-white/20 shadow-2xl shadow-black/10">
+        <CardHeader className="text-center space-y-6 pb-8">
+          <div className="mx-auto w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg shadow-blue-500/25 animate-pulse">
+            <span className="text-2xl font-bold text-white">W</span>
           </div>
-          <CardTitle className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-            WizchatPro
-          </CardTitle>
-          <CardDescription className="text-lg">
-            Connect, share, and chat with friends
-          </CardDescription>
+          <div className="space-y-2">
+            <CardTitle className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              WizchatPro
+            </CardTitle>
+            <CardDescription className="text-lg text-gray-600">
+              Connect, share, and chat with friends
+            </CardDescription>
+          </div>
         </CardHeader>
+        
         <CardContent className="space-y-6">
           <Tabs defaultValue="login" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="login">Sign In</TabsTrigger>
-              <TabsTrigger value="signup">Sign Up</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 bg-gray-100/80 backdrop-blur-sm">
+              <TabsTrigger 
+                value="login" 
+                className="data-[state=active]:bg-white/90 data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/10"
+              >
+                Sign In
+              </TabsTrigger>
+              <TabsTrigger 
+                value="signup"
+                className="data-[state=active]:bg-white/90 data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/10"
+              >
+                Sign Up
+              </TabsTrigger>
             </TabsList>
             
-            <TabsContent value="login" className="space-y-4">
-              <form onSubmit={(e) => { setIsSignUp(false); handleEmailLogin(e); }} className="space-y-4">
+            <TabsContent value="login" className="space-y-4 mt-6">
+              <form onSubmit={handleEmailLogin} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email" className="text-gray-700 font-medium">Email</Label>
                   <Input
                     id="email"
                     type="email"
@@ -110,10 +160,11 @@ const Login = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    className="bg-white/60 backdrop-blur-sm border-gray-200/50 focus:border-blue-400 focus:ring-blue-400/20"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
+                  <Label htmlFor="password" className="text-gray-700 font-medium">Password</Label>
                   <Input
                     id="password"
                     type="password"
@@ -121,16 +172,17 @@ const Login = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    className="bg-white/60 backdrop-blur-sm border-gray-200/50 focus:border-blue-400 focus:ring-blue-400/20"
                   />
                 </div>
                 <Button
                   type="submit"
                   disabled={loading || isLoggingIn}
-                  className="w-full h-12 bg-primary hover:bg-primary/90"
+                  className="w-full h-12 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium shadow-lg shadow-blue-500/25 transition-all duration-200 transform hover:scale-[1.02]"
                 >
                   {isLoggingIn ? (
                     <div className="flex items-center space-x-2">
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-foreground"></div>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
                       <span>Signing in...</span>
                     </div>
                   ) : (
@@ -140,10 +192,10 @@ const Login = () => {
               </form>
             </TabsContent>
             
-            <TabsContent value="signup" className="space-y-4">
-              <form onSubmit={(e) => { setIsSignUp(true); handleEmailLogin(e); }} className="space-y-4">
+            <TabsContent value="signup" className="space-y-4 mt-6">
+              <form onSubmit={handleEmailSignUp} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email</Label>
+                  <Label htmlFor="signup-email" className="text-gray-700 font-medium">Email</Label>
                   <Input
                     id="signup-email"
                     type="email"
@@ -151,10 +203,11 @@ const Login = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    className="bg-white/60 backdrop-blur-sm border-gray-200/50 focus:border-blue-400 focus:ring-blue-400/20"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="signup-password">Password</Label>
+                  <Label htmlFor="signup-password" className="text-gray-700 font-medium">Password</Label>
                   <Input
                     id="signup-password"
                     type="password"
@@ -162,10 +215,11 @@ const Login = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    className="bg-white/60 backdrop-blur-sm border-gray-200/50 focus:border-blue-400 focus:ring-blue-400/20"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="confirm-password">Confirm Password</Label>
+                  <Label htmlFor="confirm-password" className="text-gray-700 font-medium">Confirm Password</Label>
                   <Input
                     id="confirm-password"
                     type="password"
@@ -173,16 +227,17 @@ const Login = () => {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
+                    className="bg-white/60 backdrop-blur-sm border-gray-200/50 focus:border-blue-400 focus:ring-blue-400/20"
                   />
                 </div>
                 <Button
                   type="submit"
                   disabled={loading || isLoggingIn}
-                  className="w-full h-12 bg-primary hover:bg-primary/90"
+                  className="w-full h-12 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium shadow-lg shadow-blue-500/25 transition-all duration-200 transform hover:scale-[1.02]"
                 >
                   {isLoggingIn ? (
                     <div className="flex items-center space-x-2">
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-foreground"></div>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
                       <span>Creating account...</span>
                     </div>
                   ) : (
@@ -195,10 +250,10 @@ const Login = () => {
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
+              <span className="w-full border-t border-gray-200/50" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+              <span className="bg-white px-2 text-gray-500">Or continue with</span>
             </div>
           </div>
 
@@ -206,7 +261,7 @@ const Login = () => {
             onClick={handleGoogleLogin}
             disabled={loading || isLoggingIn}
             variant="outline"
-            className="w-full h-12"
+            className="w-full h-12 bg-white/80 backdrop-blur-sm border-gray-200/50 hover:bg-white/90 hover:shadow-lg transition-all duration-200 transform hover:scale-[1.02]"
           >
             <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
               <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -217,7 +272,7 @@ const Login = () => {
             Continue with Google
           </Button>
           
-          <p className="text-center text-sm text-muted-foreground">
+          <p className="text-center text-sm text-gray-500">
             By continuing, you agree to our Terms of Service and Privacy Policy
           </p>
         </CardContent>
