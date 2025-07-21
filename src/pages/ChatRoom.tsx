@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Layout from '@/components/Layout';
@@ -5,38 +6,55 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
-import { mockChats, mockMessages, mockCurrentUser } from '@/lib/mockData';
-import { Message } from '@/types';
+import { dataService } from '@/services/dataService';
+import { Message, Chat } from '@/types';
 import { Send, ArrowLeft, Users } from 'lucide-react';
 
 const ChatRoom = () => {
   const { chatId } = useParams<{ chatId: string }>();
-  const [messages, setMessages] = useState<Message[]>(mockMessages.filter(m => m.chatId === chatId));
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [chat, setChat] = useState<Chat | null>(null);
   const [newMessage, setNewMessage] = useState('');
+  const [loading, setLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  
-  const chat = mockChats.find(c => c.id === chatId);
+
+  useEffect(() => {
+    const loadChatData = async () => {
+      if (!chatId) return;
+      
+      try {
+        const chats = await dataService.getChats();
+        const currentChat = chats.find(c => c.id === chatId);
+        setChat(currentChat || null);
+        
+        if (currentChat) {
+          const chatMessages = await dataService.getMessages(chatId);
+          setMessages(chatMessages);
+        }
+      } catch (error) {
+        console.error('Error loading chat data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadChatData();
+  }, [chatId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!newMessage.trim() || !chat) return;
 
-    const message: Message = {
-      id: Date.now().toString(),
-      chatId: chat.id,
-      userId: mockCurrentUser.id,
-      user: mockCurrentUser,
-      content: newMessage,
-      type: 'text',
-      timestamp: new Date(),
-      seen: false,
-    };
-
-    setMessages(prev => [...prev, message]);
-    setNewMessage('');
+    try {
+      const message = await dataService.sendMessage(chat.id, newMessage);
+      setMessages(prev => [...prev, message]);
+      setNewMessage('');
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
   };
 
   const formatTime = (date: Date) => {
@@ -46,6 +64,18 @@ const ChatRoom = () => {
       hour12: true,
     }).format(date);
   };
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="max-w-4xl mx-auto h-[calc(100vh-12rem)] flex flex-col">
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">Loading chat...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   if (!chat) {
     return (
@@ -62,7 +92,7 @@ const ChatRoom = () => {
 
   const chatTitle = chat.isGroup 
     ? chat.name 
-    : chat.participants.find(p => p.id !== mockCurrentUser.id)?.name;
+    : chat.participants.find(p => p.id !== 'current-user')?.name;
 
   return (
     <Layout>
@@ -84,9 +114,9 @@ const ChatRoom = () => {
                   </div>
                 ) : (
                   <Avatar>
-                    <AvatarImage src={chat.participants.find(p => p.id !== mockCurrentUser.id)?.photoURL} />
+                    <AvatarImage src={chat.participants.find(p => p.id !== 'current-user')?.photoURL} />
                     <AvatarFallback>
-                      {chat.participants.find(p => p.id !== mockCurrentUser.id)?.name.charAt(0)}
+                      {chat.participants.find(p => p.id !== 'current-user')?.name.charAt(0)}
                     </AvatarFallback>
                   </Avatar>
                 )}
@@ -109,7 +139,7 @@ const ChatRoom = () => {
           <CardContent className="flex-1 p-4 overflow-y-auto">
             <div className="space-y-4">
               {messages.map((message) => {
-                const isOwn = message.userId === mockCurrentUser.id;
+                const isOwn = message.userId === 'current-user';
                 return (
                   <div
                     key={message.id}

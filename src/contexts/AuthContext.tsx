@@ -1,6 +1,7 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '@/types';
-import { mockCurrentUser } from '@/lib/mockData';
+import { dataService } from '@/services/dataService';
 
 interface AuthContextType {
   user: User | null;
@@ -25,22 +26,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is logged in from localStorage
-    const savedUser = localStorage.getItem('wizchat_user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    setLoading(false);
+    const loadCurrentUser = async () => {
+      try {
+        const currentUser = await dataService.getCurrentUser();
+        setUser(currentUser);
+      } catch (error) {
+        console.error('Error loading current user:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadCurrentUser();
   }, []);
 
   const login = async (email: string, password: string) => {
     setLoading(true);
     try {
-      // Mock login - in real app this would call Firebase Auth
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      const loggedInUser = mockCurrentUser;
-      setUser(loggedInUser);
-      localStorage.setItem('wizchat_user', JSON.stringify(loggedInUser));
+      // TODO: Implement real authentication
+      console.log('Login attempt:', email);
+      throw new Error('Authentication not implemented yet');
     } catch (error) {
       throw error;
     } finally {
@@ -51,11 +56,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginWithGoogle = async () => {
     setLoading(true);
     try {
-      // Mock Google login - in real app this would call Firebase Auth
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      const loggedInUser = mockCurrentUser;
-      setUser(loggedInUser);
-      localStorage.setItem('wizchat_user', JSON.stringify(loggedInUser));
+      // TODO: Implement real Google authentication
+      console.log('Google login attempt');
+      throw new Error('Google authentication not implemented yet');
     } catch (error) {
       throw error;
     } finally {

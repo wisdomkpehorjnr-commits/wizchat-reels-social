@@ -1,16 +1,33 @@
-import { useState } from 'react';
+
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { mockChats } from '@/lib/mockData';
+import { dataService } from '@/services/dataService';
 import { Chat as ChatType } from '@/types';
 import { MessageCircle, Users, Plus } from 'lucide-react';
 
 const Chat = () => {
-  const [chats] = useState<ChatType[]>(mockChats);
+  const [chats, setChats] = useState<ChatType[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadChats = async () => {
+      try {
+        const fetchedChats = await dataService.getChats();
+        setChats(fetchedChats);
+      } catch (error) {
+        console.error('Error loading chats:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadChats();
+  }, []);
 
   const formatTime = (date: Date) => {
     return new Intl.DateTimeFormat('en-US', {
@@ -19,6 +36,18 @@ const Chat = () => {
       hour12: true,
     }).format(date);
   };
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="max-w-4xl mx-auto space-y-6">
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">Loading chats...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>

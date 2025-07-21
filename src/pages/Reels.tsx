@@ -1,13 +1,31 @@
+
 import { useState, useRef, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import ReelCard from '@/components/ReelCard';
-import { mockPosts } from '@/lib/mockData';
+import { dataService } from '@/services/dataService';
 import { Post } from '@/types';
 
 const Reels = () => {
-  const [reels] = useState<Post[]>(mockPosts.filter(post => post.isReel));
+  const [reels, setReels] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
   const [currentReelIndex, setCurrentReelIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const loadReels = async () => {
+      try {
+        const fetchedPosts = await dataService.getPosts();
+        const reelPosts = fetchedPosts.filter(post => post.isReel);
+        setReels(reelPosts);
+      } catch (error) {
+        console.error('Error loading reels:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadReels();
+  }, []);
 
   const handleScroll = () => {
     if (!containerRef.current) return;
@@ -30,10 +48,26 @@ const Reels = () => {
     }
   }, [currentReelIndex]);
 
-  const handleLike = (postId: string) => {
-    // Handle like functionality
-    console.log('Liked reel:', postId);
+  const handleLike = async (postId: string) => {
+    try {
+      await dataService.likePost(postId);
+      console.log('Liked reel:', postId);
+    } catch (error) {
+      console.error('Error liking reel:', error);
+    }
   };
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="fixed inset-0 top-16 bg-black flex items-center justify-center">
+          <div className="text-center text-white">
+            <p className="text-xl mb-4">Loading reels...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
