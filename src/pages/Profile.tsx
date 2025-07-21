@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,14 +6,35 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
-import { mockPosts } from '@/lib/mockData';
+import { dataService } from '@/services/dataService';
 import { Post } from '@/types';
 import { Calendar, MapPin, Link as LinkIcon, Edit } from 'lucide-react';
 
 const Profile = () => {
   const { user } = useAuth();
-  const [userPosts] = useState<Post[]>(mockPosts.filter(post => post.userId === user?.id));
-  const [userReels] = useState<Post[]>(mockPosts.filter(post => post.userId === user?.id && post.isReel));
+  const [userPosts, setUserPosts] = useState<Post[]>([]);
+  const [userReels, setUserReels] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchUserPosts = async () => {
+      try {
+        setLoading(true);
+        const posts = await dataService.getPosts();
+        const filteredPosts = posts.filter(post => post.userId === user?.id);
+        setUserPosts(filteredPosts.filter(post => !post.isReel));
+        setUserReels(filteredPosts.filter(post => post.isReel));
+      } catch (error) {
+        console.error('Error fetching user posts:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user) {
+      fetchUserPosts();
+    }
+  }, [user]);
 
   if (!user) return null;
 
