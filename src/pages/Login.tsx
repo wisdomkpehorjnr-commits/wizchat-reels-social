@@ -111,19 +111,23 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-4 relative overflow-hidden">
-      {/* Glassmorphism background elements */}
-      <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-blue-100/20 to-purple-100/10 backdrop-blur-3xl"></div>
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-full blur-3xl animate-pulse"></div>
-      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-gradient-to-br from-indigo-400/20 to-pink-400/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
+    <div className="min-h-screen flex items-center justify-center bg-white p-4 relative overflow-hidden">
+      {/* Green glassmorphism background elements */}
+      <div className="absolute inset-0 bg-gradient-to-br from-green-50/30 via-emerald-50/20 to-green-100/30"></div>
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-br from-green-400/10 to-emerald-400/15 rounded-full blur-3xl animate-pulse"></div>
+      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-gradient-to-br from-emerald-400/10 to-green-500/15 rounded-full blur-3xl animate-pulse delay-1000"></div>
       
-      <Card className="w-full max-w-md relative z-10 bg-white/80 backdrop-blur-xl border-white/20 shadow-2xl shadow-black/10">
+      <Card className="w-full max-w-md relative z-10 bg-white/95 backdrop-blur-xl border-green-200/50 shadow-2xl shadow-green-500/10">
         <CardHeader className="text-center space-y-6 pb-8">
-          <div className="mx-auto w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg shadow-blue-500/25 animate-pulse">
-            <span className="text-2xl font-bold text-white">W</span>
+          <div className="mx-auto w-32 h-32 flex items-center justify-center">
+            <img 
+              src="/lovable-uploads/15358747-e2da-431c-a6b1-721eb6914fc8.png" 
+              alt="WizchatPro Logo"
+              className="w-full h-full object-contain"
+            />
           </div>
           <div className="space-y-2">
-            <CardTitle className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            <CardTitle className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
               WizchatPro
             </CardTitle>
             <CardDescription className="text-lg text-gray-600">
@@ -134,16 +138,16 @@ const Login = () => {
         
         <CardContent className="space-y-6">
           <Tabs defaultValue="login" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 bg-gray-100/80 backdrop-blur-sm">
+            <TabsList className="grid w-full grid-cols-2 bg-green-50/80 backdrop-blur-sm border border-green-200/50">
               <TabsTrigger 
                 value="login" 
-                className="data-[state=active]:bg-white/90 data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/10"
+                className="data-[state=active]:bg-white data-[state=active]:text-green-700 data-[state=active]:shadow-lg data-[state=active]:shadow-green-500/10 data-[state=active]:border-green-300/50"
               >
                 Sign In
               </TabsTrigger>
               <TabsTrigger 
                 value="signup"
-                className="data-[state=active]:bg-white/90 data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/10"
+                className="data-[state=active]:bg-white data-[state=active]:text-green-700 data-[state=active]:shadow-lg data-[state=active]:shadow-green-500/10 data-[state=active]:border-green-300/50"
               >
                 Sign Up
               </TabsTrigger>
@@ -160,7 +164,7 @@ const Login = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="bg-white/60 backdrop-blur-sm border-gray-200/50 focus:border-blue-400 focus:ring-blue-400/20"
+                    className="bg-white/80 backdrop-blur-sm border-green-200/60 focus:border-green-400 focus:ring-green-400/20"
                   />
                 </div>
                 <div className="space-y-2">
@@ -172,13 +176,13 @@ const Login = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="bg-white/60 backdrop-blur-sm border-gray-200/50 focus:border-blue-400 focus:ring-blue-400/20"
+                    className="bg-white/80 backdrop-blur-sm border-green-200/60 focus:border-green-400 focus:ring-green-400/20"
                   />
                 </div>
                 <Button
                   type="submit"
                   disabled={loading || isLoggingIn}
-                  className="w-full h-12 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium shadow-lg shadow-blue-500/25 transition-all duration-200 transform hover:scale-[1.02]"
+                  className="w-full h-12 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-medium shadow-lg shadow-green-500/25 transition-all duration-200 transform hover:scale-[1.02]"
                 >
                   {isLoggingIn ? (
                     <div className="flex items-center space-x-2">
@@ -203,7 +207,7 @@ const Login = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="bg-white/60 backdrop-blur-sm border-gray-200/50 focus:border-blue-400 focus:ring-blue-400/20"
+                    className="bg-white/80 backdrop-blur-sm border-green-200/60 focus:border-green-400 focus:ring-green-400/20"
                   />
                 </div>
                 <div className="space-y-2">
@@ -215,7 +219,7 @@ const Login = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="bg-white/60 backdrop-blur-sm border-gray-200/50 focus:border-blue-400 focus:ring-blue-400/20"
+                    className="bg-white/80 backdrop-blur-sm border-green-200/60 focus:border-green-400 focus:ring-green-400/20"
                   />
                 </div>
                 <div className="space-y-2">
@@ -227,13 +231,13 @@ const Login = () => {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
-                    className="bg-white/60 backdrop-blur-sm border-gray-200/50 focus:border-blue-400 focus:ring-blue-400/20"
+                    className="bg-white/80 backdrop-blur-sm border-green-200/60 focus:border-green-400 focus:ring-green-400/20"
                   />
                 </div>
                 <Button
                   type="submit"
                   disabled={loading || isLoggingIn}
-                  className="w-full h-12 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium shadow-lg shadow-blue-500/25 transition-all duration-200 transform hover:scale-[1.02]"
+                  className="w-full h-12 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-medium shadow-lg shadow-green-500/25 transition-all duration-200 transform hover:scale-[1.02]"
                 >
                   {isLoggingIn ? (
                     <div className="flex items-center space-x-2">
@@ -250,7 +254,7 @@ const Login = () => {
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-gray-200/50" />
+              <span className="w-full border-t border-green-200/50" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
               <span className="bg-white px-2 text-gray-500">Or continue with</span>
@@ -261,7 +265,7 @@ const Login = () => {
             onClick={handleGoogleLogin}
             disabled={loading || isLoggingIn}
             variant="outline"
-            className="w-full h-12 bg-white/80 backdrop-blur-sm border-gray-200/50 hover:bg-white/90 hover:shadow-lg transition-all duration-200 transform hover:scale-[1.02]"
+            className="w-full h-12 bg-white/90 backdrop-blur-sm border-green-200/60 hover:bg-green-50/80 hover:border-green-300/60 hover:shadow-lg transition-all duration-200 transform hover:scale-[1.02] text-gray-700"
           >
             <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
               <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
