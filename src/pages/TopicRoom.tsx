@@ -79,7 +79,7 @@ const TopicRoom = () => {
         .from('room_messages')
         .select(`
           *,
-          profiles!room_messages_user_id_fkey (
+          profiles (
             id,
             name,
             username,
@@ -92,26 +92,41 @@ const TopicRoom = () => {
         .order('created_at', { ascending: true })
         .limit(100);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading messages:', error);
+        setMessages([]);
+        return;
+      }
 
-      setMessages(data?.map(message => ({
-        id: message.id,
-        roomId: message.room_id,
-        userId: message.user_id,
-        user: {
-          id: message.profiles.id,
-          name: message.profiles.name,
-          username: message.profiles.username,
-          email: message.profiles.email,
-          photoURL: message.profiles.avatar || '',
-          avatar: message.profiles.avatar || '',
-          createdAt: new Date(message.profiles.created_at)
-        },
-        content: message.content,
-        createdAt: new Date(message.created_at)
-      })) || []);
+      const messagesData = data?.map(message => {
+        // Handle case where profiles might be null
+        const profile = message.profiles;
+        if (!profile) {
+          return null;
+        }
+
+        return {
+          id: message.id,
+          roomId: message.room_id,
+          userId: message.user_id,
+          user: {
+            id: profile.id,
+            name: profile.name || 'Unknown User',
+            username: profile.username || 'unknown',
+            email: profile.email || '',
+            photoURL: profile.avatar || '',
+            avatar: profile.avatar || '',
+            createdAt: new Date(profile.created_at || new Date())
+          },
+          content: message.content,
+          createdAt: new Date(message.created_at)
+        };
+      }).filter(Boolean) as RoomMessage[] || [];
+
+      setMessages(messagesData);
     } catch (error) {
       console.error('Error loading messages:', error);
+      setMessages([]);
     } finally {
       setLoading(false);
     }

@@ -37,7 +37,7 @@ const StoriesSection: React.FC = () => {
         .from('stories')
         .select(`
           *,
-          profiles!stories_user_id_fkey (
+          profiles (
             id,
             name,
             username,
@@ -49,29 +49,44 @@ const StoriesSection: React.FC = () => {
         .gt('expires_at', new Date().toISOString())
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading stories:', error);
+        setStories([]);
+        return;
+      }
 
-      setStories(data?.map(story => ({
-        id: story.id,
-        userId: story.user_id,
-        user: {
-          id: story.profiles.id,
-          name: story.profiles.name,
-          username: story.profiles.username,
-          email: story.profiles.email,
-          photoURL: story.profiles.avatar || '',
-          avatar: story.profiles.avatar || '',
-          createdAt: new Date(story.profiles.created_at)
-        },
-        content: story.content,
-        mediaUrl: story.media_url,
-        mediaType: story.media_type as 'image' | 'video',
-        viewerCount: story.viewer_count,
-        expiresAt: new Date(story.expires_at),
-        createdAt: new Date(story.created_at)
-      })) || []);
+      const storiesData = data?.map(story => {
+        // Handle case where profiles might be null
+        const profile = story.profiles;
+        if (!profile) {
+          return null;
+        }
+
+        return {
+          id: story.id,
+          userId: story.user_id,
+          user: {
+            id: profile.id,
+            name: profile.name || 'Unknown User',
+            username: profile.username || 'unknown',
+            email: profile.email || '',
+            photoURL: profile.avatar || '',
+            avatar: profile.avatar || '',
+            createdAt: new Date(profile.created_at || new Date())
+          },
+          content: story.content || '',
+          mediaUrl: story.media_url,
+          mediaType: story.media_type as 'image' | 'video',
+          viewerCount: story.viewer_count || 0,
+          expiresAt: new Date(story.expires_at),
+          createdAt: new Date(story.created_at)
+        };
+      }).filter(Boolean) as Story[] || [];
+
+      setStories(storiesData);
     } catch (error) {
       console.error('Error loading stories:', error);
+      setStories([]);
     } finally {
       setLoading(false);
     }
@@ -90,13 +105,16 @@ const StoriesSection: React.FC = () => {
           user_id: user.id
         });
 
-      // Update viewer count by incrementing it
-      const { error } = await supabase
-        .from('stories')
-        .update({ viewer_count: stories.find(s => s.id === storyId)?.viewerCount || 0 + 1 })
-        .eq('id', storyId);
+      // Update viewer count
+      const story = stories.find(s => s.id === storyId);
+      if (story) {
+        const { error } = await supabase
+          .from('stories')
+          .update({ viewer_count: (story.viewerCount || 0) + 1 })
+          .eq('id', storyId);
 
-      if (error) console.error('Error updating story view count:', error);
+        if (error) console.error('Error updating story view count:', error);
+      }
     } catch (error) {
       console.error('Error recording story view:', error);
     }

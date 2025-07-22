@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -17,12 +18,17 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  if (user) {
+  console.log('Login component - user:', user, 'loading:', loading);
+
+  if (user && !loading) {
+    console.log('User is authenticated, redirecting to home');
     return <Navigate to="/" replace />;
   }
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Login form submitted', { email, password: '***' });
+    
     if (!email || !password) {
       toast({
         title: "Missing information",
@@ -34,7 +40,9 @@ const Login = () => {
 
     setIsLoggingIn(true);
     try {
+      console.log('Attempting login...');
       await login(email, password);
+      console.log('Login successful');
       toast({
         title: "Welcome back!",
         description: "You've successfully signed in.",
@@ -53,6 +61,8 @@ const Login = () => {
 
   const handleEmailSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Signup form submitted', { email, password: '***', confirmPassword: '***' });
+    
     if (!email || !password || !confirmPassword) {
       toast({
         title: "Missing information",
@@ -73,7 +83,9 @@ const Login = () => {
 
     setIsLoggingIn(true);
     try {
+      console.log('Attempting signup...');
       await signUp(email, password);
+      console.log('Signup successful');
       toast({
         title: "Account created!",
         description: "Please check your email to verify your account.",
@@ -91,6 +103,7 @@ const Login = () => {
   };
 
   const handleGoogleLogin = async () => {
+    console.log('Google login attempted');
     setIsLoggingIn(true);
     try {
       await loginWithGoogle();
@@ -109,6 +122,14 @@ const Login = () => {
       setIsLoggingIn(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900 p-4 relative overflow-hidden">
@@ -160,6 +181,7 @@ const Login = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    disabled={isLoggingIn}
                     className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-green-200/60 focus:border-green-400 focus:ring-green-400/20"
                   />
                 </div>
@@ -172,13 +194,14 @@ const Login = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    disabled={isLoggingIn}
                     className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-green-200/60 focus:border-green-400 focus:ring-green-400/20"
                   />
                 </div>
                 <Button
                   type="submit"
-                  disabled={loading || isLoggingIn}
-                  className="w-full h-12 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-medium shadow-lg shadow-green-500/25 transition-all duration-200 transform hover:scale-[1.02]"
+                  disabled={isLoggingIn || !email || !password}
+                  className="w-full h-12 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-medium shadow-lg shadow-green-500/25 transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoggingIn ? (
                     <div className="flex items-center space-x-2">
@@ -203,6 +226,7 @@ const Login = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    disabled={isLoggingIn}
                     className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-green-200/60 focus:border-green-400 focus:ring-green-400/20"
                   />
                 </div>
@@ -215,6 +239,7 @@ const Login = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    disabled={isLoggingIn}
                     className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-green-200/60 focus:border-green-400 focus:ring-green-400/20"
                   />
                 </div>
@@ -227,13 +252,14 @@ const Login = () => {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
+                    disabled={isLoggingIn}
                     className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-green-200/60 focus:border-green-400 focus:ring-green-400/20"
                   />
                 </div>
                 <Button
                   type="submit"
-                  disabled={loading || isLoggingIn}
-                  className="w-full h-12 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-medium shadow-lg shadow-green-500/25 transition-all duration-200 transform hover:scale-[1.02]"
+                  disabled={isLoggingIn || !email || !password || !confirmPassword}
+                  className="w-full h-12 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-medium shadow-lg shadow-green-500/25 transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoggingIn ? (
                     <div className="flex items-center space-x-2">
@@ -259,9 +285,9 @@ const Login = () => {
 
           <Button
             onClick={handleGoogleLogin}
-            disabled={loading || isLoggingIn}
+            disabled={isLoggingIn}
             variant="outline"
-            className="w-full h-12 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200/60 hover:bg-green-50/80 dark:hover:bg-green-900/20 hover:border-green-300/60 hover:shadow-lg transition-all duration-200 transform hover:scale-[1.02] text-gray-700 dark:text-gray-300"
+            className="w-full h-12 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200/60 hover:bg-green-50/80 dark:hover:bg-green-900/20 hover:border-green-300/60 hover:shadow-lg transition-all duration-200 transform hover:scale-[1.02] text-gray-700 dark:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
               <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
