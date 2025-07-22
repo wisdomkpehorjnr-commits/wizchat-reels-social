@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import ReelCard from '@/components/ReelCard';

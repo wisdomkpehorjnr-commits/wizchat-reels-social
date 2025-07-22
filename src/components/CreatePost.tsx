@@ -45,6 +45,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated }) => {
         content,
         likes: [],
         comments: [],
+        reactions: [],
         createdAt: new Date(),
       };
       onPostCreated(tempPost);

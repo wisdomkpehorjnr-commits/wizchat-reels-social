@@ -133,7 +133,7 @@ export class DataService {
           avatar: friend.addressee.avatar || '',
           createdAt: new Date(friend.addressee.created_at)
         },
-        status: friend.status,
+        status: friend.status as 'pending' | 'accepted' | 'declined' | 'blocked',
         createdAt: new Date(friend.created_at),
         updatedAt: new Date(friend.updated_at)
       })) || [];
@@ -180,7 +180,7 @@ export class DataService {
         content: post.content,
         imageUrl: post.image_url,
         videoUrl: post.video_url,
-        mediaType: post.media_type || 'text',
+        mediaType: (post.media_type || 'text') as 'text' | 'image' | 'video',
         isReel: post.is_reel || false,
         likes: post.likes?.map((like: any) => like.user_id) || [],
         reactions: post.reactions?.map((reaction: any) => ({
@@ -259,7 +259,7 @@ export class DataService {
         content: post.content,
         imageUrl: post.image_url,
         videoUrl: post.video_url,
-        mediaType: post.media_type || 'text',
+        mediaType: (post.media_type || 'text') as 'text' | 'image' | 'video',
         isReel: post.is_reel || false,
         likes: [],
         reactions: [],
@@ -268,6 +268,45 @@ export class DataService {
       };
     } catch (error) {
       console.error('Error creating post:', error);
+      throw error;
+    }
+  }
+
+  async likePost(postId: string): Promise<void> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      // Check if user already liked the post
+      const { data: existingLike } = await supabase
+        .from('likes')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('post_id', postId)
+        .single();
+
+      if (existingLike) {
+        // Unlike the post
+        const { error } = await supabase
+          .from('likes')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('post_id', postId);
+
+        if (error) throw error;
+      } else {
+        // Like the post
+        const { error } = await supabase
+          .from('likes')
+          .insert({
+            user_id: user.id,
+            post_id: postId
+          });
+
+        if (error) throw error;
+      }
+    } catch (error) {
+      console.error('Error liking post:', error);
       throw error;
     }
   }

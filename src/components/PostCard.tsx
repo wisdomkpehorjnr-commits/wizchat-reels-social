@@ -1,3 +1,4 @@
+
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -7,9 +8,10 @@ import { Heart, MessageCircle, Share } from 'lucide-react';
 interface PostCardProps {
   post: Post;
   onLike: (postId: string) => void;
+  onReaction: (postId: string, emoji: string) => void;
 }
 
-const PostCard: React.FC<PostCardProps> = ({ post, onLike }) => {
+const PostCard: React.FC<PostCardProps> = ({ post, onLike, onReaction }) => {
   const isLiked = post.likes.includes('1');
 
   return (
@@ -67,8 +69,27 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLike }) => {
               <MessageCircle className="w-4 h-4" />
               <span>{post.comments.length}</span>
             </Button>
+
+            {post.reactions.length > 0 && (
+              <div className="flex items-center space-x-1">
+                {post.reactions.slice(0, 3).map((reaction, index) => (
+                  <span key={index} className="text-sm">
+                    {reaction.emoji}
+                  </span>
+                ))}
+                {post.reactions.length > 3 && (
+                  <span className="text-sm text-muted-foreground">
+                    +{post.reactions.length - 3}
+                  </span>
+                )}
+              </div>
+            )}
             
-            <Button variant="ghost" size="sm">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => onReaction(post.id, '👍')}
+            >
               <Share className="w-4 h-4" />
             </Button>
           </div>
