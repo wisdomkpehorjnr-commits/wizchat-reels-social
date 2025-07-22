@@ -193,6 +193,127 @@ export type Database = {
           },
         ]
       }
+      group_members: {
+        Row: {
+          group_id: string
+          id: string
+          joined_at: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          group_id: string
+          id?: string
+          joined_at?: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          group_id?: string
+          id?: string
+          joined_at?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      groups: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          invite_code: string | null
+          is_private: boolean
+          member_count: number
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          invite_code?: string | null
+          is_private?: boolean
+          member_count?: number
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          invite_code?: string | null
+          is_private?: boolean
+          member_count?: number
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      hashtag_follows: {
+        Row: {
+          created_at: string
+          hashtag_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          hashtag_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          hashtag_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hashtag_follows_hashtag_id_fkey"
+            columns: ["hashtag_id"]
+            isOneToOne: false
+            referencedRelation: "hashtags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hashtags: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          post_count: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          post_count?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          post_count?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       likes: {
         Row: {
           created_at: string | null
@@ -280,6 +401,105 @@ export type Database = {
           },
         ]
       }
+      music_library: {
+        Row: {
+          artist: string | null
+          created_at: string
+          duration: number
+          file_url: string
+          id: string
+          is_royalty_free: boolean
+          title: string
+        }
+        Insert: {
+          artist?: string | null
+          created_at?: string
+          duration: number
+          file_url: string
+          id?: string
+          is_royalty_free?: boolean
+          title: string
+        }
+        Update: {
+          artist?: string | null
+          created_at?: string
+          duration?: number
+          file_url?: string
+          id?: string
+          is_royalty_free?: boolean
+          title?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          data: Json | null
+          id: string
+          is_read: boolean
+          message: string
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          data?: Json | null
+          id?: string
+          is_read?: boolean
+          message: string
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          data?: Json | null
+          id?: string
+          is_read?: boolean
+          message?: string
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      post_hashtags: {
+        Row: {
+          created_at: string
+          hashtag_id: string
+          id: string
+          post_id: string
+        }
+        Insert: {
+          created_at?: string
+          hashtag_id: string
+          id?: string
+          post_id: string
+        }
+        Update: {
+          created_at?: string
+          hashtag_id?: string
+          id?: string
+          post_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_hashtags_hashtag_id_fkey"
+            columns: ["hashtag_id"]
+            isOneToOne: false
+            referencedRelation: "hashtags"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_hashtags_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       posts: {
         Row: {
           content: string
@@ -288,6 +508,7 @@ export type Database = {
           image_url: string | null
           is_reel: boolean | null
           media_type: string | null
+          music_id: string | null
           updated_at: string | null
           user_id: string
           video_url: string | null
@@ -299,6 +520,7 @@ export type Database = {
           image_url?: string | null
           is_reel?: boolean | null
           media_type?: string | null
+          music_id?: string | null
           updated_at?: string | null
           user_id: string
           video_url?: string | null
@@ -310,11 +532,19 @@ export type Database = {
           image_url?: string | null
           is_reel?: boolean | null
           media_type?: string | null
+          music_id?: string | null
           updated_at?: string | null
           user_id?: string
           video_url?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "posts_music_id_fkey"
+            columns: ["music_id"]
+            isOneToOne: false
+            referencedRelation: "music_library"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "posts_user_id_fkey"
             columns: ["user_id"]
@@ -393,6 +623,70 @@ export type Database = {
           },
         ]
       }
+      room_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          room_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          room_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          room_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_messages_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "topic_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      room_participants: {
+        Row: {
+          id: string
+          joined_at: string
+          last_seen: string
+          room_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          joined_at?: string
+          last_seen?: string
+          room_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          joined_at?: string
+          last_seen?: string
+          room_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_participants_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "topic_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       site_settings: {
         Row: {
           id: string
@@ -424,6 +718,98 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      stories: {
+        Row: {
+          content: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          media_type: string
+          media_url: string | null
+          user_id: string
+          viewer_count: number
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          media_type?: string
+          media_url?: string | null
+          user_id: string
+          viewer_count?: number
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          media_type?: string
+          media_url?: string | null
+          user_id?: string
+          viewer_count?: number
+        }
+        Relationships: []
+      }
+      story_views: {
+        Row: {
+          id: string
+          story_id: string
+          user_id: string
+          viewed_at: string
+        }
+        Insert: {
+          id?: string
+          story_id: string
+          user_id: string
+          viewed_at?: string
+        }
+        Update: {
+          id?: string
+          story_id?: string
+          user_id?: string
+          viewed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "story_views_story_id_fkey"
+            columns: ["story_id"]
+            isOneToOne: false
+            referencedRelation: "stories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      topic_rooms: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          participant_count: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          participant_count?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          participant_count?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
     }
     Views: {

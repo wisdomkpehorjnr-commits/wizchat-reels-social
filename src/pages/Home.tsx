@@ -3,6 +3,10 @@ import { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import PostCard from '@/components/PostCard';
 import CreatePost from '@/components/CreatePost';
+import StoriesSection from '@/components/StoriesSection';
+import HashtagTrends from '@/components/HashtagTrends';
+import TopicRooms from '@/components/TopicRooms';
+import NotificationCenter from '@/components/NotificationCenter';
 import { dataService } from '@/services/dataService';
 import { Post } from '@/types';
 
@@ -72,7 +76,7 @@ const Home = () => {
   if (loading) {
     return (
       <Layout>
-        <div className="max-w-2xl mx-auto space-y-6">
+        <div className="max-w-6xl mx-auto">
           <div className="text-center py-12">
             <p className="text-muted-foreground">Loading posts...</p>
           </div>
@@ -83,25 +87,44 @@ const Home = () => {
 
   return (
     <Layout>
-      <div className="max-w-2xl mx-auto space-y-6">
-        <CreatePost onPostCreated={handleNewPost} />
+      <div className="max-w-6xl mx-auto">
+        {/* Stories Section */}
+        <StoriesSection />
         
-        <div className="space-y-6">
-          {posts.map((post) => (
-            <PostCard
-              key={post.id}
-              post={post}
-              onLike={handleLike}
-              onReaction={handleReaction}
-            />
-          ))}
-        </div>
-
-        {posts.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">No posts yet. Be the first to share something!</p>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 p-4">
+          {/* Left Sidebar */}
+          <div className="lg:col-span-1 space-y-6">
+            <HashtagTrends />
+            <TopicRooms />
           </div>
-        )}
+          
+          {/* Main Feed */}
+          <div className="lg:col-span-2 space-y-6">
+            <CreatePost onPostCreated={handleNewPost} />
+            
+            <div className="space-y-6">
+              {posts.map((post) => (
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  onLike={handleLike}
+                  onReaction={handleReaction}
+                />
+              ))}
+            </div>
+
+            {posts.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">No posts yet. Be the first to share something!</p>
+              </div>
+            )}
+          </div>
+          
+          {/* Right Sidebar */}
+          <div className="lg:col-span-1">
+            <NotificationCenter />
+          </div>
+        </div>
       </div>
     </Layout>
   );

@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -8,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import Logo from '@/components/Logo';
 
 const Login = () => {
   const { user, login, signUp, loginWithGoogle, loading } = useAuth();
@@ -111,26 +111,22 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white p-4 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900 p-4 relative overflow-hidden">
       {/* Green glassmorphism background elements */}
-      <div className="absolute inset-0 bg-gradient-to-br from-green-50/30 via-emerald-50/20 to-green-100/30"></div>
+      <div className="absolute inset-0 bg-gradient-to-br from-green-50/30 via-emerald-50/20 to-green-100/30 dark:from-green-900/20 dark:via-emerald-900/10 dark:to-green-800/20"></div>
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-br from-green-400/10 to-emerald-400/15 rounded-full blur-3xl animate-pulse"></div>
       <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-gradient-to-br from-emerald-400/10 to-green-500/15 rounded-full blur-3xl animate-pulse delay-1000"></div>
       
-      <Card className="w-full max-w-md relative z-10 bg-white/95 backdrop-blur-xl border-green-200/50 shadow-2xl shadow-green-500/10">
+      <Card className="w-full max-w-md relative z-10 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-green-200/50 shadow-2xl shadow-green-500/10">
         <CardHeader className="text-center space-y-6 pb-8">
-          <div className="mx-auto w-32 h-32 flex items-center justify-center">
-            <img 
-              src="/lovable-uploads/15358747-e2da-431c-a6b1-721eb6914fc8.png" 
-              alt="WizchatPro Logo"
-              className="w-full h-full object-contain"
-            />
+          <div className="mx-auto">
+            <Logo size="xl" />
           </div>
           <div className="space-y-2">
             <CardTitle className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
               WizchatPro
             </CardTitle>
-            <CardDescription className="text-lg text-gray-600">
+            <CardDescription className="text-lg text-gray-600 dark:text-gray-300">
               Connect, share, and chat with friends
             </CardDescription>
           </div>
@@ -138,16 +134,16 @@ const Login = () => {
         
         <CardContent className="space-y-6">
           <Tabs defaultValue="login" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 bg-green-50/80 backdrop-blur-sm border border-green-200/50">
+            <TabsList className="grid w-full grid-cols-2 bg-green-50/80 dark:bg-green-900/20 backdrop-blur-sm border border-green-200/50">
               <TabsTrigger 
                 value="login" 
-                className="data-[state=active]:bg-white data-[state=active]:text-green-700 data-[state=active]:shadow-lg data-[state=active]:shadow-green-500/10 data-[state=active]:border-green-300/50"
+                className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-green-700 data-[state=active]:shadow-lg data-[state=active]:shadow-green-500/10 data-[state=active]:border-green-300/50"
               >
                 Sign In
               </TabsTrigger>
               <TabsTrigger 
                 value="signup"
-                className="data-[state=active]:bg-white data-[state=active]:text-green-700 data-[state=active]:shadow-lg data-[state=active]:shadow-green-500/10 data-[state=active]:border-green-300/50"
+                className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-green-700 data-[state=active]:shadow-lg data-[state=active]:shadow-green-500/10 data-[state=active]:border-green-300/50"
               >
                 Sign Up
               </TabsTrigger>
@@ -156,7 +152,7 @@ const Login = () => {
             <TabsContent value="login" className="space-y-4 mt-6">
               <form onSubmit={handleEmailLogin} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email" className="text-gray-700 font-medium">Email</Label>
+                  <Label htmlFor="email" className="text-gray-700 dark:text-gray-300 font-medium">Email</Label>
                   <Input
                     id="email"
                     type="email"
@@ -164,11 +160,11 @@ const Login = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="bg-white/80 backdrop-blur-sm border-green-200/60 focus:border-green-400 focus:ring-green-400/20"
+                    className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-green-200/60 focus:border-green-400 focus:ring-green-400/20"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password" className="text-gray-700 font-medium">Password</Label>
+                  <Label htmlFor="password" className="text-gray-700 dark:text-gray-300 font-medium">Password</Label>
                   <Input
                     id="password"
                     type="password"
@@ -176,7 +172,7 @@ const Login = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="bg-white/80 backdrop-blur-sm border-green-200/60 focus:border-green-400 focus:ring-green-400/20"
+                    className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-green-200/60 focus:border-green-400 focus:ring-green-400/20"
                   />
                 </div>
                 <Button
@@ -199,7 +195,7 @@ const Login = () => {
             <TabsContent value="signup" className="space-y-4 mt-6">
               <form onSubmit={handleEmailSignUp} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="signup-email" className="text-gray-700 font-medium">Email</Label>
+                  <Label htmlFor="signup-email" className="text-gray-700 dark:text-gray-300 font-medium">Email</Label>
                   <Input
                     id="signup-email"
                     type="email"
@@ -207,11 +203,11 @@ const Login = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="bg-white/80 backdrop-blur-sm border-green-200/60 focus:border-green-400 focus:ring-green-400/20"
+                    className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-green-200/60 focus:border-green-400 focus:ring-green-400/20"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="signup-password" className="text-gray-700 font-medium">Password</Label>
+                  <Label htmlFor="signup-password" className="text-gray-700 dark:text-gray-300 font-medium">Password</Label>
                   <Input
                     id="signup-password"
                     type="password"
@@ -219,11 +215,11 @@ const Login = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="bg-white/80 backdrop-blur-sm border-green-200/60 focus:border-green-400 focus:ring-green-400/20"
+                    className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-green-200/60 focus:border-green-400 focus:ring-green-400/20"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="confirm-password" className="text-gray-700 font-medium">Confirm Password</Label>
+                  <Label htmlFor="confirm-password" className="text-gray-700 dark:text-gray-300 font-medium">Confirm Password</Label>
                   <Input
                     id="confirm-password"
                     type="password"
@@ -231,7 +227,7 @@ const Login = () => {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
-                    className="bg-white/80 backdrop-blur-sm border-green-200/60 focus:border-green-400 focus:ring-green-400/20"
+                    className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-green-200/60 focus:border-green-400 focus:ring-green-400/20"
                   />
                 </div>
                 <Button
@@ -257,7 +253,7 @@ const Login = () => {
               <span className="w-full border-t border-green-200/50" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white px-2 text-gray-500">Or continue with</span>
+              <span className="bg-white dark:bg-gray-900 px-2 text-gray-500">Or continue with</span>
             </div>
           </div>
 
@@ -265,7 +261,7 @@ const Login = () => {
             onClick={handleGoogleLogin}
             disabled={loading || isLoggingIn}
             variant="outline"
-            className="w-full h-12 bg-white/90 backdrop-blur-sm border-green-200/60 hover:bg-green-50/80 hover:border-green-300/60 hover:shadow-lg transition-all duration-200 transform hover:scale-[1.02] text-gray-700"
+            className="w-full h-12 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-green-200/60 hover:bg-green-50/80 dark:hover:bg-green-900/20 hover:border-green-300/60 hover:shadow-lg transition-all duration-200 transform hover:scale-[1.02] text-gray-700 dark:text-gray-300"
           >
             <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
               <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -276,7 +272,7 @@ const Login = () => {
             Continue with Google
           </Button>
           
-          <p className="text-center text-sm text-gray-500">
+          <p className="text-center text-sm text-gray-500 dark:text-gray-400">
             By continuing, you agree to our Terms of Service and Privacy Policy
           </p>
         </CardContent>
