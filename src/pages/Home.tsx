@@ -31,12 +31,11 @@ const Home = () => {
 
   const handleLike = async (postId: string) => {
     try {
-      // TODO: Implement real like/unlike logic
       await dataService.likePost(postId);
       
       setPosts(prev => prev.map(post => {
         if (post.id === postId) {
-          const isLiked = post.likes.includes('current-user'); // Replace with actual user ID
+          const isLiked = post.likes.includes('current-user');
           return {
             ...post,
             likes: isLiked 
@@ -48,6 +47,25 @@ const Home = () => {
       }));
     } catch (error) {
       console.error('Error liking post:', error);
+    }
+  };
+
+  const handleReaction = async (postId: string, emoji: string) => {
+    try {
+      const post = posts.find(p => p.id === postId);
+      const existingReaction = post?.reactions.find(r => r.emoji === emoji && r.userId === 'current-user');
+      
+      if (existingReaction) {
+        await dataService.removeReaction(postId, emoji);
+      } else {
+        await dataService.addReaction(postId, emoji);
+      }
+      
+      // Refresh posts to get updated reactions
+      const updatedPosts = await dataService.getPosts();
+      setPosts(updatedPosts);
+    } catch (error) {
+      console.error('Error handling reaction:', error);
     }
   };
 
@@ -74,6 +92,7 @@ const Home = () => {
               key={post.id}
               post={post}
               onLike={handleLike}
+              onReaction={handleReaction}
             />
           ))}
         </div>

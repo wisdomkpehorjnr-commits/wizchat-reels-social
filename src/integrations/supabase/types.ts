@@ -116,6 +116,83 @@ export type Database = {
           },
         ]
       }
+      custom_emojis: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          id: string
+          image_url: string
+          is_public: boolean | null
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          id?: string
+          image_url: string
+          is_public?: boolean | null
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          id?: string
+          image_url?: string
+          is_public?: boolean | null
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_emojis_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      friends: {
+        Row: {
+          addressee_id: string
+          created_at: string | null
+          id: string
+          requester_id: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          addressee_id: string
+          created_at?: string | null
+          id?: string
+          requester_id: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          addressee_id?: string
+          created_at?: string | null
+          id?: string
+          requester_id?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "friends_addressee_id_fkey"
+            columns: ["addressee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "friends_requester_id_fkey"
+            columns: ["requester_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       likes: {
         Row: {
           created_at: string | null
@@ -157,6 +234,7 @@ export type Database = {
           chat_id: string
           content: string
           created_at: string | null
+          duration: number | null
           id: string
           media_url: string | null
           seen: boolean | null
@@ -167,6 +245,7 @@ export type Database = {
           chat_id: string
           content: string
           created_at?: string | null
+          duration?: number | null
           id?: string
           media_url?: string | null
           seen?: boolean | null
@@ -177,6 +256,7 @@ export type Database = {
           chat_id?: string
           content?: string
           created_at?: string | null
+          duration?: number | null
           id?: string
           media_url?: string | null
           seen?: boolean | null
@@ -207,6 +287,7 @@ export type Database = {
           id: string
           image_url: string | null
           is_reel: boolean | null
+          media_type: string | null
           updated_at: string | null
           user_id: string
           video_url: string | null
@@ -217,6 +298,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_reel?: boolean | null
+          media_type?: string | null
           updated_at?: string | null
           user_id: string
           video_url?: string | null
@@ -227,6 +309,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_reel?: boolean | null
+          media_type?: string | null
           updated_at?: string | null
           user_id?: string
           video_url?: string | null
@@ -271,12 +354,93 @@ export type Database = {
         }
         Relationships: []
       }
+      reactions: {
+        Row: {
+          created_at: string | null
+          emoji: string
+          id: string
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          emoji: string
+          id?: string
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          emoji?: string
+          id?: string
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reactions_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      site_settings: {
+        Row: {
+          id: string
+          setting_key: string
+          setting_value: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          setting_key: string
+          setting_value: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          id?: string
+          setting_key?: string
+          setting_value?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      search_users: {
+        Args: { search_term: string }
+        Returns: {
+          id: string
+          username: string
+          name: string
+          email: string
+          avatar: string
+          created_at: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

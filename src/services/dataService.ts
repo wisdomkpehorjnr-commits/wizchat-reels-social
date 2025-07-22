@@ -1,5 +1,4 @@
-
-import { User, Post, Chat, Message } from '@/types';
+import { User, Post, Chat, Message, Friend, Reaction, CustomEmoji, SiteSetting } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 
 export class DataService {
@@ -41,14 +40,13 @@ export class DataService {
     }
   }
 
-  async getUsers(): Promise<User[]> {
+  async searchUsers(searchTerm: string): Promise<User[]> {
     try {
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const { data } = await supabase.rpc('search_users', { 
+        search_term: searchTerm 
+      });
 
-      return profiles?.map(profile => ({
+      return data?.map((profile: any) => ({
         id: profile.id,
         name: profile.name,
         username: profile.username,
@@ -58,12 +56,94 @@ export class DataService {
         createdAt: new Date(profile.created_at)
       })) || [];
     } catch (error) {
-      console.error('Error getting users:', error);
+      console.error('Error searching users:', error);
       return [];
     }
   }
 
-  // Post methods
+  // Friend system methods
+  async sendFriendRequest(addresseeId: string): Promise<void> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { error } = await supabase
+        .from('friends')
+        .insert({
+          requester_id: user.id,
+          addressee_id: addresseeId,
+          status: 'pending'
+        });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error sending friend request:', error);
+      throw error;
+    }
+  }
+
+  async acceptFriendRequest(friendId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('friends')
+        .update({ status: 'accepted', updated_at: new Date().toISOString() })
+        .eq('id', friendId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error accepting friend request:', error);
+      throw error;
+    }
+  }
+
+  async getFriends(): Promise<Friend[]> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { data: friends } = await supabase
+        .from('friends')
+        .select(`
+          *,
+          requester:profiles!friends_requester_id_fkey(id, name, username, email, avatar, created_at),
+          addressee:profiles!friends_addressee_id_fkey(id, name, username, email, avatar, created_at)
+        `)
+        .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
+        .order('created_at', { ascending: false });
+
+      return friends?.map(friend => ({
+        id: friend.id,
+        requesterId: friend.requester_id,
+        addresseeId: friend.addressee_id,
+        requester: {
+          id: friend.requester.id,
+          name: friend.requester.name,
+          username: friend.requester.username,
+          email: friend.requester.email,
+          photoURL: friend.requester.avatar || '',
+          avatar: friend.requester.avatar || '',
+          createdAt: new Date(friend.requester.created_at)
+        },
+        addressee: {
+          id: friend.addressee.id,
+          name: friend.addressee.name,
+          username: friend.addressee.username,
+          email: friend.addressee.email,
+          photoURL: friend.addressee.avatar || '',
+          avatar: friend.addressee.avatar || '',
+          createdAt: new Date(friend.addressee.created_at)
+        },
+        status: friend.status,
+        createdAt: new Date(friend.created_at),
+        updatedAt: new Date(friend.updated_at)
+      })) || [];
+    } catch (error) {
+      console.error('Error getting friends:', error);
+      return [];
+    }
+  }
+
+  // Enhanced post methods with reactions
   async getPosts(): Promise<Post[]> {
     try {
       const { data: posts } = await supabase
@@ -71,31 +151,16 @@ export class DataService {
         .select(`
           *,
           profiles!posts_user_id_fkey (
-            id,
-            name,
-            username,
-            email,
-            avatar,
-            created_at
+            id, name, username, email, avatar, created_at
           ),
-          likes (
-            id,
-            user_id,
-            created_at
+          likes (id, user_id, created_at),
+          reactions (
+            id, user_id, emoji, created_at,
+            profiles!reactions_user_id_fkey (id, name, username, email, avatar, created_at)
           ),
           comments (
-            id,
-            user_id,
-            content,
-            created_at,
-            profiles!comments_user_id_fkey (
-              id,
-              name,
-              username,
-              email,
-              avatar,
-              created_at
-            )
+            id, user_id, content, created_at,
+            profiles!comments_user_id_fkey (id, name, username, email, avatar, created_at)
           )
         `)
         .order('created_at', { ascending: false });
@@ -115,8 +180,25 @@ export class DataService {
         content: post.content,
         imageUrl: post.image_url,
         videoUrl: post.video_url,
+        mediaType: post.media_type || 'text',
         isReel: post.is_reel || false,
         likes: post.likes?.map((like: any) => like.user_id) || [],
+        reactions: post.reactions?.map((reaction: any) => ({
+          id: reaction.id,
+          userId: reaction.user_id,
+          user: {
+            id: reaction.profiles.id,
+            name: reaction.profiles.name,
+            username: reaction.profiles.username,
+            email: reaction.profiles.email,
+            photoURL: reaction.profiles.avatar || '',
+            avatar: reaction.profiles.avatar || '',
+            createdAt: new Date(reaction.profiles.created_at)
+          },
+          postId: post.id,
+          emoji: reaction.emoji,
+          createdAt: new Date(reaction.created_at)
+        })) || [],
         comments: post.comments?.map((comment: any) => ({
           id: comment.id,
           userId: comment.user_id,
@@ -141,7 +223,7 @@ export class DataService {
     }
   }
 
-  async createPost(postData: { content: string; imageFile?: File; videoFile?: File; isReel?: boolean }): Promise<Post> {
+  async createPost(postData: { content: string; imageFile?: File; videoFile?: File; mediaType?: 'text' | 'image' | 'video'; isReel?: boolean }): Promise<Post> {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
@@ -151,18 +233,12 @@ export class DataService {
         .insert({
           user_id: user.id,
           content: postData.content,
+          media_type: postData.mediaType || 'text',
           is_reel: postData.isReel || false
         })
         .select(`
           *,
-          profiles!posts_user_id_fkey (
-            id,
-            name,
-            username,
-            email,
-            avatar,
-            created_at
-          )
+          profiles!posts_user_id_fkey (id, name, username, email, avatar, created_at)
         `)
         .single();
 
@@ -183,8 +259,10 @@ export class DataService {
         content: post.content,
         imageUrl: post.image_url,
         videoUrl: post.video_url,
+        mediaType: post.media_type || 'text',
         isReel: post.is_reel || false,
         likes: [],
+        reactions: [],
         comments: [],
         createdAt: new Date(post.created_at)
       };
@@ -194,39 +272,151 @@ export class DataService {
     }
   }
 
-  async likePost(postId: string): Promise<void> {
+  async addReaction(postId: string, emoji: string): Promise<void> {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
       const { error } = await supabase
-        .from('likes')
+        .from('reactions')
         .insert({
           user_id: user.id,
-          post_id: postId
+          post_id: postId,
+          emoji: emoji
         });
 
       if (error) throw error;
     } catch (error) {
-      console.error('Error liking post:', error);
+      console.error('Error adding reaction:', error);
       throw error;
     }
   }
 
-  async unlikePost(postId: string): Promise<void> {
+  async removeReaction(postId: string, emoji: string): Promise<void> {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
       const { error } = await supabase
-        .from('likes')
+        .from('reactions')
         .delete()
         .eq('user_id', user.id)
-        .eq('post_id', postId);
+        .eq('post_id', postId)
+        .eq('emoji', emoji);
 
       if (error) throw error;
     } catch (error) {
-      console.error('Error unliking post:', error);
+      console.error('Error removing reaction:', error);
+      throw error;
+    }
+  }
+
+  // Custom emoji methods
+  async getCustomEmojis(): Promise<CustomEmoji[]> {
+    try {
+      const { data: emojis } = await supabase
+        .from('custom_emojis')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      return emojis?.map(emoji => ({
+        id: emoji.id,
+        name: emoji.name,
+        imageUrl: emoji.image_url,
+        createdBy: emoji.created_by,
+        isPublic: emoji.is_public,
+        createdAt: new Date(emoji.created_at)
+      })) || [];
+    } catch (error) {
+      console.error('Error getting custom emojis:', error);
+      return [];
+    }
+  }
+
+  // Voice message methods
+  async sendVoiceMessage(chatId: string, audioBlob: Blob, duration: number): Promise<Message> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      // In a real implementation, you'd upload the audio file to storage first
+      // For now, we'll just create the message record
+      const { data: message, error } = await supabase
+        .from('messages')
+        .insert({
+          chat_id: chatId,
+          user_id: user.id,
+          content: 'Voice message',
+          type: 'voice',
+          duration: duration
+        })
+        .select(`
+          *,
+          profiles!messages_user_id_fkey (id, name, username, email, avatar, created_at)
+        `)
+        .single();
+
+      if (error) throw error;
+
+      return {
+        id: message.id,
+        chatId: message.chat_id,
+        userId: message.user_id,
+        user: {
+          id: message.profiles.id,
+          name: message.profiles.name,
+          username: message.profiles.username,
+          email: message.profiles.email,
+          photoURL: message.profiles.avatar || '',
+          avatar: message.profiles.avatar || '',
+          createdAt: new Date(message.profiles.created_at)
+        },
+        content: message.content,
+        type: message.type as 'text' | 'image' | 'video' | 'voice',
+        mediaUrl: message.media_url,
+        duration: message.duration,
+        timestamp: new Date(message.created_at),
+        seen: message.seen || false
+      };
+    } catch (error) {
+      console.error('Error sending voice message:', error);
+      throw error;
+    }
+  }
+
+  // Site settings methods
+  async getSiteLogo(): Promise<string> {
+    try {
+      const { data } = await supabase
+        .from('site_settings')
+        .select('setting_value')
+        .eq('setting_key', 'site_logo')
+        .single();
+
+      return data?.setting_value || '/lovable-uploads/15358747-e2da-431c-a6b1-721eb6914fc8.png';
+    } catch (error) {
+      console.error('Error getting site logo:', error);
+      return '/lovable-uploads/15358747-e2da-431c-a6b1-721eb6914fc8.png';
+    }
+  }
+
+  async updateSiteLogo(logoUrl: string): Promise<void> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { error } = await supabase
+        .from('site_settings')
+        .upsert({
+          setting_key: 'site_logo',
+          setting_value: logoUrl,
+          updated_by: user.id,
+          updated_at: new Date().toISOString()
+        });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error updating site logo:', error);
       throw error;
     }
   }
@@ -244,25 +434,13 @@ export class DataService {
           chat_participants!inner (
             user_id,
             profiles!chat_participants_user_id_fkey (
-              id,
-              name,
-              username,
-              email,
-              avatar,
-              created_at
+              id, name, username, email, avatar, created_at
             )
           ),
           messages (
-            id,
-            content,
-            created_at,
+            id, content, created_at,
             profiles!messages_user_id_fkey (
-              id,
-              name,
-              username,
-              email,
-              avatar,
-              created_at
+              id, name, username, email, avatar, created_at
             )
           )
         `)
@@ -316,12 +494,7 @@ export class DataService {
         .select(`
           *,
           profiles!messages_user_id_fkey (
-            id,
-            name,
-            username,
-            email,
-            avatar,
-            created_at
+            id, name, username, email, avatar, created_at
           )
         `)
         .eq('chat_id', chatId)
@@ -341,8 +514,9 @@ export class DataService {
           createdAt: new Date(message.profiles.created_at)
         },
         content: message.content,
-        type: message.type as 'text' | 'image' | 'video',
+        type: message.type as 'text' | 'image' | 'video' | 'voice',
         mediaUrl: message.media_url,
+        duration: message.duration,
         timestamp: new Date(message.created_at),
         seen: message.seen || false
       })) || [];
@@ -368,12 +542,7 @@ export class DataService {
         .select(`
           *,
           profiles!messages_user_id_fkey (
-            id,
-            name,
-            username,
-            email,
-            avatar,
-            created_at
+            id, name, username, email, avatar, created_at
           )
         `)
         .single();
@@ -394,8 +563,9 @@ export class DataService {
           createdAt: new Date(message.profiles.created_at)
         },
         content: message.content,
-        type: message.type as 'text' | 'image' | 'video',
+        type: message.type as 'text' | 'image' | 'video' | 'voice',
         mediaUrl: message.media_url,
+        duration: message.duration,
         timestamp: new Date(message.created_at),
         seen: message.seen || false
       };
@@ -421,7 +591,6 @@ export class DataService {
 
       if (error) throw error;
 
-      // Add participants to the chat
       const participantInserts = participants.map(participantId => ({
         chat_id: chat.id,
         user_id: participantId
