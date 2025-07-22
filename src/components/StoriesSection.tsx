@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Plus, Eye } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { Story, User } from '@/types';
+import { Story } from '@/types';
 
 const StoriesSection: React.FC = () => {
   const [stories, setStories] = useState<Story[]>([]);
@@ -37,7 +37,14 @@ const StoriesSection: React.FC = () => {
         .from('stories')
         .select(`
           *,
-          user:profiles(*)
+          profiles!stories_user_id_fkey (
+            id,
+            name,
+            username,
+            email,
+            avatar,
+            created_at
+          )
         `)
         .gt('expires_at', new Date().toISOString())
         .order('created_at', { ascending: false });
@@ -48,13 +55,13 @@ const StoriesSection: React.FC = () => {
         id: story.id,
         userId: story.user_id,
         user: {
-          id: story.user.id,
-          name: story.user.name,
-          username: story.user.username,
-          email: story.user.email,
-          photoURL: story.user.avatar || '',
-          avatar: story.user.avatar || '',
-          createdAt: new Date(story.user.created_at)
+          id: story.profiles.id,
+          name: story.profiles.name,
+          username: story.profiles.username,
+          email: story.profiles.email,
+          photoURL: story.profiles.avatar || '',
+          avatar: story.profiles.avatar || '',
+          createdAt: new Date(story.profiles.created_at)
         },
         content: story.content,
         mediaUrl: story.media_url,
@@ -83,10 +90,11 @@ const StoriesSection: React.FC = () => {
           user_id: user.id
         });
 
-      // Update viewer count
-      const { error } = await supabase.rpc('increment_story_viewers', {
-        story_id: storyId
-      });
+      // Update viewer count by incrementing it
+      const { error } = await supabase
+        .from('stories')
+        .update({ viewer_count: stories.find(s => s.id === storyId)?.viewerCount || 0 + 1 })
+        .eq('id', storyId);
 
       if (error) console.error('Error updating story view count:', error);
     } catch (error) {

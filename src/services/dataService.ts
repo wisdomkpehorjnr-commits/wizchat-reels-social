@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { 
   Post, 
@@ -11,7 +12,8 @@ import {
   Hashtag,
   MusicTrack,
   Story,
-  Notification
+  Notification,
+  CustomEmoji
 } from '@/types';
 
 class DataService {
@@ -84,11 +86,11 @@ class DataService {
 
       // After successful signup, create a user profile
       const newUser: Partial<User> = {
-        id: data.user.id,
-        email: data.user.email,
-        username: data.user.email.split('@')[0], // Default username
-        name: data.user.email.split('@')[0],     // Default name
-        avatar: '',                               // Default avatar
+        id: data.user?.id,
+        email: data.user?.email || email,
+        username: email.split('@')[0], // Default username
+        name: email.split('@')[0],     // Default name
+        avatar: '',                    // Default avatar
       };
 
       return this.createUser(newUser);
@@ -116,10 +118,6 @@ class DataService {
 
       if (error) throw error;
 
-      // The user will be redirected to Google for authentication.
-      // After successful authentication, they will be redirected back to your app.
-      // You can then retrieve the user's information using getCurrentUser().
-
       return this.getCurrentUser();
     } catch (error) {
       console.error('Google login error:', error);
@@ -132,6 +130,7 @@ class DataService {
       const { data, error } = await supabase
         .from('profiles')
         .insert({
+          id: userData.id,
           username: userData.username,
           name: userData.name,
           email: userData.email,
@@ -261,8 +260,14 @@ class DataService {
           *,
           user:profiles(*),
           likes:likes(*),
-          comments:comments(*),
-          reactions:reactions(*),
+          comments:comments(
+            *,
+            user:profiles(*)
+          ),
+          reactions:reactions(
+            *,
+            user:profiles(*)
+          ),
           music:music_library(*),
           post_hashtags(
             hashtag:hashtags(*)
@@ -304,12 +309,35 @@ class DataService {
         reactions: post.reactions?.map((reaction: any) => ({
           id: reaction.id,
           userId: reaction.user_id,
-          user: reaction.user,
+          user: {
+            id: reaction.user.id,
+            name: reaction.user.name,
+            username: reaction.user.username,
+            email: reaction.user.email,
+            photoURL: reaction.user.avatar || '',
+            avatar: reaction.user.avatar || '',
+            createdAt: new Date(reaction.user.created_at)
+          },
           postId: reaction.post_id,
           emoji: reaction.emoji,
           createdAt: new Date(reaction.created_at)
         })) || [],
-        comments: post.comments || [],
+        comments: post.comments?.map((comment: any) => ({
+          id: comment.id,
+          userId: comment.user_id,
+          user: {
+            id: comment.user.id,
+            name: comment.user.name,
+            username: comment.user.username,
+            email: comment.user.email,
+            photoURL: comment.user.avatar || '',
+            avatar: comment.user.avatar || '',
+            createdAt: new Date(comment.user.created_at)
+          },
+          postId: comment.post_id,
+          content: comment.content,
+          createdAt: new Date(comment.created_at)
+        })) || [],
         hashtags: post.post_hashtags?.map((ph: any) => ph.hashtag) || [],
         createdAt: new Date(post.created_at)
       })) || [];
@@ -356,17 +384,17 @@ class DataService {
           avatar: profile.avatar || '',
           createdAt: new Date(profile.created_at)
         },
-        content: post.content,
-        imageUrl: post.image_url,
-        videoUrl: post.video_url,
-        mediaType: (post.media_type || 'text') as 'text' | 'image' | 'video',
-        isReel: post.is_reel || false,
-        musicId: post.music_id,
+        content: data.content,
+        imageUrl: data.image_url,
+        videoUrl: data.video_url,
+        mediaType: (data.media_type || 'text') as 'text' | 'image' | 'video',
+        isReel: data.is_reel || false,
+        musicId: data.music_id,
         likes: [],
         reactions: [],
         comments: [],
         hashtags: [],
-        createdAt: new Date(post.created_at)
+        createdAt: new Date(data.created_at)
       };
     } catch (error) {
       console.error('Error creating post:', error);
@@ -543,6 +571,225 @@ class DataService {
       if (error) throw error;
     } catch (error) {
       console.error('Error creating notification:', error);
+      throw error;
+    }
+  }
+
+  // Chat methods
+  async getChats(): Promise<Chat[]> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { data, error } = await supabase
+        .from('chats')
+        .select(`
+          *,
+          chat_participants(
+            user:profiles(*)
+          )
+        `)
+        .order('updated_at', { ascending: false });
+
+      if (error) throw error;
+
+      return data?.map(chat => ({
+        id: chat.id,
+        participants: chat.chat_participants?.map((cp: any) => ({
+          id: cp.user.id,
+          name: cp.user.name,
+          username: cp.user.username,
+          email: cp.user.email,
+          photoURL: cp.user.avatar || '',
+          avatar: cp.user.avatar || '',
+          createdAt: new Date(cp.user.created_at)
+        })) || [],
+        isGroup: chat.is_group || false,
+        name: chat.name,
+        lastActivity: new Date(chat.updated_at),
+        createdAt: new Date(chat.created_at)
+      })) || [];
+    } catch (error) {
+      console.error('Error fetching chats:', error);
+      throw error;
+    }
+  }
+
+  async getMessages(chatId: string): Promise<Message[]> {
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .select(`
+          *,
+          user:profiles(*)
+        `)
+        .eq('chat_id', chatId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      return data?.map(message => ({
+        id: message.id,
+        chatId: message.chat_id,
+        userId: message.user_id,
+        user: {
+          id: message.user.id,
+          name: message.user.name,
+          username: message.user.username,
+          email: message.user.email,
+          photoURL: message.user.avatar || '',
+          avatar: message.user.avatar || '',
+          createdAt: new Date(message.user.created_at)
+        },
+        content: message.content,
+        type: message.type as 'text' | 'image' | 'video' | 'voice',
+        mediaUrl: message.media_url,
+        duration: message.duration,
+        timestamp: new Date(message.created_at),
+        seen: message.seen || false
+      })) || [];
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      throw error;
+    }
+  }
+
+  async sendMessage(chatId: string, content: string): Promise<Message> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { data, error } = await supabase
+        .from('messages')
+        .insert({
+          chat_id: chatId,
+          user_id: user.id,
+          content
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      return {
+        id: data.id,
+        chatId: data.chat_id,
+        userId: data.user_id,
+        user: {
+          id: profile.id,
+          name: profile.name,
+          username: profile.username,
+          email: profile.email,
+          photoURL: profile.avatar || '',
+          avatar: profile.avatar || '',
+          createdAt: new Date(profile.created_at)
+        },
+        content: data.content,
+        type: 'text',
+        timestamp: new Date(data.created_at),
+        seen: false
+      };
+    } catch (error) {
+      console.error('Error sending message:', error);
+      throw error;
+    }
+  }
+
+  // Custom emoji methods
+  async getCustomEmojis(): Promise<CustomEmoji[]> {
+    try {
+      const { data, error } = await supabase
+        .from('custom_emojis')
+        .select('*')
+        .eq('is_public', true)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      return data?.map(emoji => ({
+        id: emoji.id,
+        name: emoji.name,
+        imageUrl: emoji.image_url,
+        createdBy: emoji.created_by,
+        isPublic: emoji.is_public,
+        createdAt: new Date(emoji.created_at)
+      })) || [];
+    } catch (error) {
+      console.error('Error fetching custom emojis:', error);
+      return [];
+    }
+  }
+
+  // Site settings methods
+  async getSiteLogo(): Promise<string> {
+    try {
+      const { data, error } = await supabase
+        .from('site_settings')
+        .select('setting_value')
+        .eq('setting_key', 'site_logo')
+        .single();
+
+      if (error) return '';
+      return data?.setting_value || '';
+    } catch (error) {
+      console.error('Error fetching site logo:', error);
+      return '';
+    }
+  }
+
+  async updateSiteLogo(logoUrl: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('site_settings')
+        .upsert({
+          setting_key: 'site_logo',
+          setting_value: logoUrl
+        });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error updating site logo:', error);
+      throw error;
+    }
+  }
+
+  // Friend methods
+  async sendFriendRequest(userId: string): Promise<void> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { error } = await supabase
+        .from('friends')
+        .insert({
+          requester_id: user.id,
+          addressee_id: userId,
+          status: 'pending'
+        });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error sending friend request:', error);
+      throw error;
+    }
+  }
+
+  async acceptFriendRequest(requestId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('friends')
+        .update({ status: 'accepted' })
+        .eq('id', requestId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error accepting friend request:', error);
       throw error;
     }
   }
