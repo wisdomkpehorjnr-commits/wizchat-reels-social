@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/types';
@@ -10,6 +9,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, name?: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
+  setUser: (user: User | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -153,6 +153,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           email: profile.email,
           photoURL: profile.avatar || '',
           avatar: profile.avatar || '',
+          bio: profile.bio,
+          location: profile.location,
+          website: profile.website,
+          birthday: profile.birthday ? new Date(profile.birthday) : undefined,
+          gender: profile.gender,
+          pronouns: profile.pronouns,
+          coverImage: profile.cover_image,
+          isPrivate: profile.is_private || false,
+          followerCount: profile.follower_count || 0,
+          followingCount: profile.following_count || 0,
+          profileViews: profile.profile_views || 0,
           createdAt: new Date(profile.created_at)
         };
 
@@ -259,7 +270,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, signUp, loginWithGoogle, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, signUp, loginWithGoogle, logout, setUser }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,98 +1,97 @@
 
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import React, { useState } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Heart, MessageCircle, Share, Bookmark, MoreHorizontal } from 'lucide-react';
 import { Post } from '@/types';
-import { Heart, MessageCircle, Share } from 'lucide-react';
+import { dataService } from '@/services/dataService';
+import { useToast } from '@/components/ui/use-toast';
 
-interface PostCardProps {
+export interface PostCardProps {
   post: Post;
-  onLike: (postId: string) => void;
-  onReaction: (postId: string, emoji: string) => void;
+  onSave?: () => void;
 }
 
-const PostCard: React.FC<PostCardProps> = ({ post, onLike, onReaction }) => {
-  const isLiked = post.likes.includes('1');
+const PostCard: React.FC<PostCardProps> = ({ post, onSave }) => {
+  const { toast } = useToast();
+  const [liked, setLiked] = useState(post.likes.includes(post.userId));
+  const [likeCount, setLikeCount] = useState(post.likes.length);
+
+  const handleLike = async () => {
+    try {
+      await dataService.likePost(post.id);
+      setLiked(!liked);
+      setLikeCount(prev => liked ? prev - 1 : prev + 1);
+    } catch (error) {
+      console.error('Error liking post:', error);
+      toast({
+        title: "Error",
+        description: "Failed to like post",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
-    <Card className="animate-fade-in">
-      <CardHeader className="pb-3">
-        <div className="flex items-center space-x-3">
-          <Avatar>
-            <AvatarImage src={post.user.photoURL} />
+    <Card className="backdrop-blur-md bg-white/10 border-white/20">
+      <CardContent className="p-4">
+        {/* User Header */}
+        <div className="flex items-center space-x-3 mb-3">
+          <Avatar className="w-10 h-10">
+            <AvatarImage src={post.user.avatar} />
             <AvatarFallback>{post.user.name.charAt(0)}</AvatarFallback>
           </Avatar>
-          <div>
-            <p className="font-semibold">{post.user.name}</p>
-            <p className="text-sm text-muted-foreground">
-              {new Date(post.createdAt).toLocaleDateString()}
-            </p>
+          <div className="flex-1">
+            <p className="font-semibold text-white">{post.user.name}</p>
+            <p className="text-sm text-white/60">@{post.user.username}</p>
           </div>
+          <Button variant="ghost" size="sm">
+            <MoreHorizontal className="w-4 h-4" />
+          </Button>
         </div>
-      </CardHeader>
-      
-      <CardContent className="space-y-4">
-        <p>{post.content}</p>
-        
-        {post.imageUrl && (
-          <img
-            src={post.imageUrl}
-            alt="Post content"
-            className="w-full rounded-lg object-cover max-h-96"
-          />
-        )}
-        
-        {post.videoUrl && (
-          <video
-            src={post.videoUrl}
-            controls
-            className="w-full rounded-lg max-h-96"
-            autoPlay={post.isReel}
-            loop={post.isReel}
-            muted={post.isReel}
-          />
-        )}
-        
-        <div className="flex items-center justify-between pt-2">
-          <div className="flex items-center space-x-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onLike(post.id)}
-              className={`flex items-center space-x-1 ${isLiked ? 'text-red-500' : ''}`}
-            >
-              <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
-              <span>{post.likes.length}</span>
-            </Button>
-            
-            <Button variant="ghost" size="sm" className="flex items-center space-x-1">
-              <MessageCircle className="w-4 h-4" />
-              <span>{post.comments.length}</span>
-            </Button>
 
-            {post.reactions.length > 0 && (
-              <div className="flex items-center space-x-1">
-                {post.reactions.slice(0, 3).map((reaction, index) => (
-                  <span key={index} className="text-sm">
-                    {reaction.emoji}
-                  </span>
-                ))}
-                {post.reactions.length > 3 && (
-                  <span className="text-sm text-muted-foreground">
-                    +{post.reactions.length - 3}
-                  </span>
-                )}
-              </div>
-            )}
-            
+        {/* Content */}
+        <div className="mb-3">
+          <p className="text-white">{post.content}</p>
+        </div>
+
+        {/* Media */}
+        {post.imageUrl && (
+          <div className="mb-3 rounded-lg overflow-hidden">
+            <img src={post.imageUrl} alt="Post content" className="w-full h-auto" />
+          </div>
+        )}
+
+        {post.videoUrl && (
+          <div className="mb-3 rounded-lg overflow-hidden">
+            <video src={post.videoUrl} controls className="w-full h-auto" />
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
             <Button 
               variant="ghost" 
-              size="sm"
-              onClick={() => onReaction(post.id, '👍')}
+              size="sm" 
+              onClick={handleLike}
+              className={liked ? 'text-red-500' : 'text-white/60'}
             >
+              <Heart className="w-4 h-4 mr-1" fill={liked ? 'currentColor' : 'none'} />
+              {likeCount}
+            </Button>
+            <Button variant="ghost" size="sm" className="text-white/60">
+              <MessageCircle className="w-4 h-4 mr-1" />
+              {post.comments.length}
+            </Button>
+            <Button variant="ghost" size="sm" className="text-white/60">
               <Share className="w-4 h-4" />
             </Button>
           </div>
+          <Button variant="ghost" size="sm" onClick={onSave} className="text-white/60">
+            <Bookmark className="w-4 h-4" />
+          </Button>
         </div>
       </CardContent>
     </Card>

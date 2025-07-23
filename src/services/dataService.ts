@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { 
   Post, 
@@ -17,6 +16,30 @@ import {
 } from '@/types';
 
 class DataService {
+  // Helper function to map database profile to User type
+  private mapProfileToUser(profile: any): User {
+    return {
+      id: profile.id,
+      name: profile.name,
+      username: profile.username,
+      email: profile.email,
+      photoURL: profile.avatar || '',
+      avatar: profile.avatar || '',
+      bio: profile.bio,
+      location: profile.location,
+      website: profile.website,
+      birthday: profile.birthday ? new Date(profile.birthday) : undefined,
+      gender: profile.gender,
+      pronouns: profile.pronouns,
+      coverImage: profile.cover_image,
+      isPrivate: profile.is_private || false,
+      followerCount: profile.follower_count || 0,
+      followingCount: profile.following_count || 0,
+      profileViews: profile.profile_views || 0,
+      createdAt: new Date(profile.created_at)
+    };
+  }
+
   async getCurrentUser(): Promise<User | null> {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -30,15 +53,7 @@ class DataService {
 
       if (!profile) return null;
 
-      return {
-        id: profile.id,
-        name: profile.name,
-        username: profile.username,
-        email: profile.email,
-        photoURL: profile.avatar || '',
-        avatar: profile.avatar || '',
-        createdAt: new Date(profile.created_at)
-      };
+      return this.mapProfileToUser(profile);
     } catch (error) {
       console.error('Error fetching current user:', error);
       return null;
@@ -60,15 +75,7 @@ class DataService {
         .eq('id', data.user.id)
         .single();
 
-      return {
-        id: profile.id,
-        name: profile.name,
-        username: profile.username,
-        email: profile.email,
-        photoURL: profile.avatar || '',
-        avatar: profile.avatar || '',
-        createdAt: new Date(profile.created_at)
-      };
+      return this.mapProfileToUser(profile);
     } catch (error) {
       console.error('Login error:', error);
       throw error;
@@ -141,15 +148,7 @@ class DataService {
 
       if (error) throw error;
 
-      return {
-        id: data.id,
-        name: data.name,
-        username: data.username,
-        email: data.email,
-        photoURL: data.avatar || '',
-        avatar: data.avatar || '',
-        createdAt: new Date(data.created_at)
-      };
+      return this.mapProfileToUser(data);
     } catch (error) {
       console.error('Error creating user:', error);
       throw error;
@@ -165,15 +164,7 @@ class DataService {
 
       if (error) throw error;
 
-      return data?.map(user => ({
-        id: user.id,
-        name: user.name,
-        username: user.username,
-        email: user.email,
-        photoURL: user.avatar || '',
-        avatar: user.avatar || '',
-        createdAt: new Date(user.created_at)
-      })) || [];
+      return data?.map(profile => this.mapProfileToUser(profile)) || [];
     } catch (error) {
       console.error('Error fetching users:', error);
       throw error;
@@ -188,15 +179,7 @@ class DataService {
 
       if (error) throw error;
 
-      return data?.map((user: any) => ({
-        id: user.id,
-        name: user.name,
-        username: user.username,
-        email: user.email,
-        photoURL: user.avatar || '',
-        avatar: user.avatar || '',
-        createdAt: new Date(user.created_at)
-      })) || [];
+      return data?.map((user: any) => this.mapProfileToUser(user)) || [];
     } catch (error) {
       console.error('Error searching users:', error);
       throw error;
@@ -224,24 +207,8 @@ class DataService {
         id: friend.id,
         requesterId: friend.requester_id,
         addresseeId: friend.addressee_id,
-        requester: {
-          id: friend.requester.id,
-          name: friend.requester.name,
-          username: friend.requester.username,
-          email: friend.requester.email,
-          photoURL: friend.requester.avatar || '',
-          avatar: friend.requester.avatar || '',
-          createdAt: new Date(friend.requester.created_at)
-        },
-        addressee: {
-          id: friend.addressee.id,
-          name: friend.addressee.name,
-          username: friend.addressee.username,
-          email: friend.addressee.email,
-          photoURL: friend.addressee.avatar || '',
-          avatar: friend.addressee.avatar || '',
-          createdAt: new Date(friend.addressee.created_at)
-        },
+        requester: this.mapProfileToUser(friend.requester),
+        addressee: this.mapProfileToUser(friend.addressee),
         status: friend.status as 'pending' | 'accepted' | 'declined' | 'blocked',
         createdAt: new Date(friend.created_at),
         updatedAt: new Date(friend.updated_at)
@@ -281,15 +248,7 @@ class DataService {
       return data?.map(post => ({
         id: post.id,
         userId: post.user_id,
-        user: {
-          id: post.user.id,
-          name: post.user.name,
-          username: post.user.username,
-          email: post.user.email,
-          photoURL: post.user.avatar || '',
-          avatar: post.user.avatar || '',
-          createdAt: new Date(post.user.created_at)
-        },
+        user: this.mapProfileToUser(post.user),
         content: post.content,
         imageUrl: post.image_url,
         videoUrl: post.video_url,
@@ -309,15 +268,7 @@ class DataService {
         reactions: post.reactions?.map((reaction: any) => ({
           id: reaction.id,
           userId: reaction.user_id,
-          user: {
-            id: reaction.user.id,
-            name: reaction.user.name,
-            username: reaction.user.username,
-            email: reaction.user.email,
-            photoURL: reaction.user.avatar || '',
-            avatar: reaction.user.avatar || '',
-            createdAt: new Date(reaction.user.created_at)
-          },
+          user: this.mapProfileToUser(reaction.user),
           postId: reaction.post_id,
           emoji: reaction.emoji,
           createdAt: new Date(reaction.created_at)
@@ -325,15 +276,7 @@ class DataService {
         comments: post.comments?.map((comment: any) => ({
           id: comment.id,
           userId: comment.user_id,
-          user: {
-            id: comment.user.id,
-            name: comment.user.name,
-            username: comment.user.username,
-            email: comment.user.email,
-            photoURL: comment.user.avatar || '',
-            avatar: comment.user.avatar || '',
-            createdAt: new Date(comment.user.created_at)
-          },
+          user: this.mapProfileToUser(comment.user),
           postId: comment.post_id,
           content: comment.content,
           createdAt: new Date(comment.created_at)
@@ -363,6 +306,8 @@ class DataService {
         .insert({
           user_id: user.id,
           content: postData.content,
+          image_url: postData.imageFile ? 'placeholder' : null,
+          video_url: postData.videoFile ? 'placeholder' : null,
           media_type: postData.mediaType || 'text',
           is_reel: postData.isReel || false,
           music_id: postData.musicId
@@ -375,15 +320,7 @@ class DataService {
       return {
         id: data.id,
         userId: data.user_id,
-        user: {
-          id: profile.id,
-          name: profile.name,
-          username: profile.username,
-          email: profile.email,
-          photoURL: profile.avatar || '',
-          avatar: profile.avatar || '',
-          createdAt: new Date(profile.created_at)
-        },
+        user: this.mapProfileToUser(profile),
         content: data.content,
         imageUrl: data.image_url,
         videoUrl: data.video_url,
@@ -533,15 +470,7 @@ class DataService {
       return {
         id: data.id,
         userId: data.user_id,
-        user: {
-          id: profile.id,
-          name: profile.name,
-          username: profile.username,
-          email: profile.email,
-          photoURL: profile.avatar || '',
-          avatar: profile.avatar || '',
-          createdAt: new Date(profile.created_at)
-        },
+        user: this.mapProfileToUser(profile),
         content: data.content,
         mediaUrl: data.media_url,
         mediaType: data.media_type as 'image' | 'video',
@@ -595,15 +524,7 @@ class DataService {
 
       return data?.map(chat => ({
         id: chat.id,
-        participants: chat.chat_participants?.map((cp: any) => ({
-          id: cp.user.id,
-          name: cp.user.name,
-          username: cp.user.username,
-          email: cp.user.email,
-          photoURL: cp.user.avatar || '',
-          avatar: cp.user.avatar || '',
-          createdAt: new Date(cp.user.created_at)
-        })) || [],
+        participants: chat.chat_participants?.map((cp: any) => this.mapProfileToUser(cp.user)) || [],
         isGroup: chat.is_group || false,
         name: chat.name,
         lastActivity: new Date(chat.updated_at),
@@ -632,15 +553,7 @@ class DataService {
         id: message.id,
         chatId: message.chat_id,
         userId: message.user_id,
-        user: {
-          id: message.user.id,
-          name: message.user.name,
-          username: message.user.username,
-          email: message.user.email,
-          photoURL: message.user.avatar || '',
-          avatar: message.user.avatar || '',
-          createdAt: new Date(message.user.created_at)
-        },
+        user: this.mapProfileToUser(message.user),
         content: message.content,
         type: message.type as 'text' | 'image' | 'video' | 'voice',
         mediaUrl: message.media_url,
@@ -681,15 +594,7 @@ class DataService {
         id: data.id,
         chatId: data.chat_id,
         userId: data.user_id,
-        user: {
-          id: profile.id,
-          name: profile.name,
-          username: profile.username,
-          email: profile.email,
-          photoURL: profile.avatar || '',
-          avatar: profile.avatar || '',
-          createdAt: new Date(profile.created_at)
-        },
+        user: this.mapProfileToUser(profile),
         content: data.content,
         type: 'text',
         timestamp: new Date(data.created_at),

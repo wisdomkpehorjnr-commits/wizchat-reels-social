@@ -1,129 +1,97 @@
 
 import { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
-import PostCard from '@/components/PostCard';
 import CreatePost from '@/components/CreatePost';
+import PostCard from '@/components/PostCard';
 import StoriesSection from '@/components/StoriesSection';
 import HashtagTrends from '@/components/HashtagTrends';
 import TopicRooms from '@/components/TopicRooms';
-import NotificationCenter from '@/components/NotificationCenter';
 import { dataService } from '@/services/dataService';
 import { Post } from '@/types';
+import { useToast } from '@/components/ui/use-toast';
 
 const Home = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
-    const loadPosts = async () => {
-      try {
-        const fetchedPosts = await dataService.getPosts();
-        setPosts(fetchedPosts);
-      } catch (error) {
-        console.error('Error loading posts:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadPosts();
+    fetchPosts();
   }, []);
 
-  const handleNewPost = async (newPost: Post) => {
-    setPosts(prev => [newPost, ...prev]);
-  };
-
-  const handleLike = async (postId: string) => {
+  const fetchPosts = async () => {
     try {
-      await dataService.likePost(postId);
-      
-      setPosts(prev => prev.map(post => {
-        if (post.id === postId) {
-          const isLiked = post.likes.includes('current-user');
-          return {
-            ...post,
-            likes: isLiked 
-              ? post.likes.filter(id => id !== 'current-user')
-              : [...post.likes, 'current-user']
-          };
-        }
-        return post;
-      }));
+      setLoading(true);
+      const postsData = await dataService.getPosts();
+      setPosts(postsData);
     } catch (error) {
-      console.error('Error liking post:', error);
+      console.error('Error fetching posts:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load posts",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleReaction = async (postId: string, emoji: string) => {
-    try {
-      const post = posts.find(p => p.id === postId);
-      const existingReaction = post?.reactions.find(r => r.emoji === emoji && r.userId === 'current-user');
-      
-      if (existingReaction) {
-        await dataService.removeReaction(postId, emoji);
-      } else {
-        await dataService.addReaction(postId, emoji);
-      }
-      
-      // Refresh posts to get updated reactions
-      const updatedPosts = await dataService.getPosts();
-      setPosts(updatedPosts);
-    } catch (error) {
-      console.error('Error handling reaction:', error);
-    }
+  const handlePostCreated = async (newPost: Post) => {
+    setPosts(prevPosts => [newPost, ...prevPosts]);
   };
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">Loading posts...</p>
-          </div>
-        </div>
-      </Layout>
-    );
-  }
+  const handleSavePost = async (postId: string) => {
+    try {
+      // Implement save post functionality
+      toast({
+        title: "Saved",
+        description: "Post saved to your collection",
+      });
+    } catch (error) {
+      console.error('Error saving post:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save post",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <Layout>
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-2xl mx-auto space-y-6">
         {/* Stories Section */}
         <StoriesSection />
         
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 p-4">
-          {/* Left Sidebar */}
-          <div className="lg:col-span-1 space-y-6">
-            <HashtagTrends />
-            <TopicRooms />
-          </div>
-          
-          {/* Main Feed */}
-          <div className="lg:col-span-2 space-y-6">
-            <CreatePost onPostCreated={handleNewPost} />
-            
-            <div className="space-y-6">
-              {posts.map((post) => (
-                <PostCard
-                  key={post.id}
-                  post={post}
-                  onLike={handleLike}
-                  onReaction={handleReaction}
-                />
-              ))}
+        {/* Create Post */}
+        <CreatePost onPostCreated={handlePostCreated} />
+        
+        {/* Posts Feed */}
+        <div className="space-y-6">
+          {loading ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+              <p className="text-white/60 mt-2">Loading posts...</p>
             </div>
+          ) : posts.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-white/60">No posts yet. Be the first to share something!</p>
+            </div>
+          ) : (
+            posts.map((post) => (
+              <PostCard 
+                key={post.id} 
+                post={post} 
+                onSave={() => handleSavePost(post.id)}
+              />
+            ))
+          )}
+        </div>
 
-            {posts.length === 0 && (
-              <div className="text-center py-12">
-                <p className="text-muted-foreground">No posts yet. Be the first to share something!</p>
-              </div>
-            )}
-          </div>
-          
-          {/* Right Sidebar */}
-          <div className="lg:col-span-1">
-            <NotificationCenter />
-          </div>
+        {/* Sidebar Components (on larger screens) */}
+        <div className="hidden lg:block fixed right-4 top-20 w-80 space-y-6">
+          <HashtagTrends />
+          <TopicRooms />
         </div>
       </div>
     </Layout>
