@@ -33,32 +33,46 @@ const StoriesSection: React.FC = () => {
 
   const loadStories = async () => {
     try {
-      const { data, error } = await supabase
+      console.log('Loading stories...');
+      
+      // First get stories
+      const { data: storiesData, error: storiesError } = await supabase
         .from('stories')
-        .select(`
-          *,
-          profiles (
-            id,
-            name,
-            username,
-            email,
-            avatar,
-            created_at
-          )
-        `)
+        .select('*')
         .gt('expires_at', new Date().toISOString())
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Error loading stories:', error);
+      if (storiesError) {
+        console.error('Error loading stories:', storiesError);
         setStories([]);
         return;
       }
 
-      const storiesData = data?.map(story => {
-        // Handle case where profiles might be null
-        const profile = story.profiles;
+      if (!storiesData || storiesData.length === 0) {
+        console.log('No stories found');
+        setStories([]);
+        return;
+      }
+
+      // Get user profiles for each story
+      const userIds = storiesData.map(story => story.user_id);
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('id', userIds);
+
+      if (profilesError) {
+        console.error('Error loading profiles:', profilesError);
+        setStories([]);
+        return;
+      }
+
+      // Combine stories with profiles
+      const storiesWithProfiles = storiesData.map(story => {
+        const profile = profilesData?.find(p => p.id === story.user_id);
+        
         if (!profile) {
+          console.warn('Profile not found for story:', story.id);
           return null;
         }
 
@@ -81,9 +95,10 @@ const StoriesSection: React.FC = () => {
           expiresAt: new Date(story.expires_at),
           createdAt: new Date(story.created_at)
         };
-      }).filter(Boolean) as Story[] || [];
+      }).filter(Boolean) as Story[];
 
-      setStories(storiesData);
+      console.log('Stories loaded:', storiesWithProfiles.length);
+      setStories(storiesWithProfiles);
     } catch (error) {
       console.error('Error loading stories:', error);
       setStories([]);

@@ -69,12 +69,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   console.error('Error creating profile:', createError);
                 } else {
                   console.log('Profile created:', newProfile);
-                  profile = newProfile;
+                  if (newProfile) {
+                    const userData = {
+                      id: newProfile.id,
+                      name: newProfile.name,
+                      username: newProfile.username,
+                      email: newProfile.email,
+                      photoURL: newProfile.avatar || '',
+                      avatar: newProfile.avatar || '',
+                      createdAt: new Date(newProfile.created_at)
+                    };
+                    console.log('Setting user data:', userData);
+                    setUser(userData);
+                  }
                 }
               }
-            }
-            
-            if (profile) {
+            } else if (profile) {
               const userData = {
                 id: profile.id,
                 name: profile.name,

@@ -75,33 +75,47 @@ const TopicRoom = () => {
 
   const loadMessages = async () => {
     try {
-      const { data, error } = await supabase
+      console.log('Loading messages for room:', roomId);
+      
+      // First get messages
+      const { data: messagesData, error: messagesError } = await supabase
         .from('room_messages')
-        .select(`
-          *,
-          profiles (
-            id,
-            name,
-            username,
-            email,
-            avatar,
-            created_at
-          )
-        `)
+        .select('*')
         .eq('room_id', roomId)
         .order('created_at', { ascending: true })
         .limit(100);
 
-      if (error) {
-        console.error('Error loading messages:', error);
+      if (messagesError) {
+        console.error('Error loading messages:', messagesError);
         setMessages([]);
         return;
       }
 
-      const messagesData = data?.map(message => {
-        // Handle case where profiles might be null
-        const profile = message.profiles;
+      if (!messagesData || messagesData.length === 0) {
+        console.log('No messages found for room');
+        setMessages([]);
+        return;
+      }
+
+      // Get user profiles for each message
+      const userIds = messagesData.map(msg => msg.user_id);
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('id', userIds);
+
+      if (profilesError) {
+        console.error('Error loading profiles:', profilesError);
+        setMessages([]);
+        return;
+      }
+
+      // Combine messages with profiles
+      const messagesWithProfiles = messagesData.map(message => {
+        const profile = profilesData?.find(p => p.id === message.user_id);
+        
         if (!profile) {
+          console.warn('Profile not found for message:', message.id);
           return null;
         }
 
@@ -121,9 +135,10 @@ const TopicRoom = () => {
           content: message.content,
           createdAt: new Date(message.created_at)
         };
-      }).filter(Boolean) as RoomMessage[] || [];
+      }).filter(Boolean) as RoomMessage[];
 
-      setMessages(messagesData);
+      console.log('Messages loaded:', messagesWithProfiles.length);
+      setMessages(messagesWithProfiles);
     } catch (error) {
       console.error('Error loading messages:', error);
       setMessages([]);
