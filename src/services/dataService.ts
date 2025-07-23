@@ -25,13 +25,13 @@ class DataService {
       email: profile.email,
       photoURL: profile.avatar || '',
       avatar: profile.avatar || '',
-      bio: profile.bio,
-      location: profile.location,
-      website: profile.website,
+      bio: profile.bio || undefined,
+      location: profile.location || undefined,
+      website: profile.website || undefined,
       birthday: profile.birthday ? new Date(profile.birthday) : undefined,
-      gender: profile.gender,
-      pronouns: profile.pronouns,
-      coverImage: profile.cover_image,
+      gender: profile.gender || undefined,
+      pronouns: profile.pronouns || undefined,
+      coverImage: profile.cover_image || undefined,
       isPrivate: profile.is_private || false,
       followerCount: profile.follower_count || 0,
       followingCount: profile.following_count || 0,
@@ -215,6 +215,56 @@ class DataService {
       })) || [];
     } catch (error) {
       console.error('Error fetching friends:', error);
+      throw error;
+    }
+  }
+
+  async getUserChats(): Promise<Chat[]> {
+    return this.getChats();
+  }
+
+  async getUserFriends(): Promise<Friend[]> {
+    return this.getFriends();
+  }
+
+  async createChat(data: CreateChatData): Promise<Chat> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { data: chat, error } = await supabase
+        .from('chats')
+        .insert({
+          is_group: data.isGroup,
+          name: data.name
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Add current user and participants to the chat
+      const participantInserts = [...data.participants, user.id].map(userId => ({
+        chat_id: chat.id,
+        user_id: userId
+      }));
+
+      const { error: participantError } = await supabase
+        .from('chat_participants')
+        .insert(participantInserts);
+
+      if (participantError) throw participantError;
+
+      return {
+        id: chat.id,
+        participants: [],
+        isGroup: chat.is_group || false,
+        name: chat.name,
+        lastActivity: new Date(chat.updated_at),
+        createdAt: new Date(chat.created_at)
+      };
+    } catch (error) {
+      console.error('Error creating chat:', error);
       throw error;
     }
   }

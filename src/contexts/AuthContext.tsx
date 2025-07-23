@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/types';
@@ -154,17 +153,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           email: profile.email,
           photoURL: profile.avatar || '',
           avatar: profile.avatar || '',
-          bio: profile.bio || undefined,
-          location: profile.location || undefined,
-          website: profile.website || undefined,
-          birthday: profile.birthday ? new Date(profile.birthday) : undefined,
-          gender: profile.gender || undefined,
-          pronouns: profile.pronouns || undefined,
-          coverImage: profile.cover_image || undefined,
-          isPrivate: profile.is_private || false,
-          followerCount: profile.follower_count || 0,
-          followingCount: profile.following_count || 0,
-          profileViews: profile.profile_views || 0,
+          bio: (profile as any).bio || undefined,
+          location: (profile as any).location || undefined,
+          website: (profile as any).website || undefined,
+          birthday: (profile as any).birthday ? new Date((profile as any).birthday) : undefined,
+          gender: (profile as any).gender || undefined,
+          pronouns: (profile as any).pronouns || undefined,
+          coverImage: (profile as any).cover_image || undefined,
+          isPrivate: (profile as any).is_private || false,
+          followerCount: (profile as any).follower_count || 0,
+          followingCount: (profile as any).following_count || 0,
+          profileViews: (profile as any).profile_views || 0,
           createdAt: new Date(profile.created_at)
         };
 
