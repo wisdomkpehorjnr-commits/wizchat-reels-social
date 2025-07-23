@@ -5,10 +5,10 @@ import { User } from '@/types';
 
 interface AuthContextType {
   user: User | null;
-  loading: boolean; // Changed from isLoading to loading
+  loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, name?: string) => Promise<void>; // Made name optional
-  loginWithGoogle: () => Promise<void>; // Added missing function
+  signUp: (email: string, password: string, name?: string) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -24,53 +24,77 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true); // Changed from isLoading to loading
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check active session
-    const checkSession = async () => {
-      console.log('Checking session...');
+    let mounted = true;
+
+    const initializeAuth = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        console.log('Session check result:', { session, error });
+        console.log('Initializing auth...');
         
+        // Set up auth state listener first
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+          console.log('Auth state changed:', event, session?.user?.id);
+          
+          if (!mounted) return;
+
+          if (event === 'SIGNED_IN' && session?.user) {
+            setTimeout(() => {
+              if (mounted) {
+                loadUserProfile(session.user.id);
+              }
+            }, 0);
+          } else if (event === 'SIGNED_OUT') {
+            if (mounted) {
+              setUser(null);
+              setLoading(false);
+            }
+          }
+        });
+
+        // Check for existing session
+        const { data: { session }, error } = await supabase.auth.getSession();
+        console.log('Initial session check:', { session: !!session, error });
+
         if (error) {
           console.error('Session check error:', error);
-          setUser(null);
+          if (mounted) {
+            setUser(null);
+            setLoading(false);
+          }
           return;
         }
 
         if (session?.user) {
-          console.log('Found active session for user:', session.user.id);
+          console.log('Found existing session for user:', session.user.id);
           await loadUserProfile(session.user.id);
         } else {
-          console.log('No active session found');
-          setUser(null);
+          console.log('No existing session found');
+          if (mounted) {
+            setUser(null);
+            setLoading(false);
+          }
         }
+
+        return () => {
+          mounted = false;
+          subscription.unsubscribe();
+        };
       } catch (error) {
-        console.error('Error checking session:', error);
-        setUser(null);
-      } finally {
-        setLoading(false);
+        console.error('Auth initialization error:', error);
+        if (mounted) {
+          setUser(null);
+          setLoading(false);
+        }
       }
     };
 
-    checkSession();
+    initializeAuth();
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state changed:', event, session?.user?.id);
-      
-      if (event === 'SIGNED_IN' && session?.user) {
-        await loadUserProfile(session.user.id);
-      } else if (event === 'SIGNED_OUT') {
-        setUser(null);
-      }
-      
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const loadUserProfile = async (userId: string) => {
@@ -108,6 +132,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             if (createError) {
               console.error('Error creating profile:', createError);
+              setLoading(false);
               return;
             }
 
@@ -115,6 +140,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.log('Created new profile:', profile);
           }
         } else {
+          setLoading(false);
           return;
         }
       }
@@ -135,12 +161,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (error) {
       console.error('Error in loadUserProfile:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
   const login = async (email: string, password: string) => {
     console.log('Attempting login for:', email);
-    setLoading(true);
     
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -158,14 +185,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('Login failed:', error);
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
 
   const signUp = async (email: string, password: string, name?: string) => {
     console.log('Attempting signup for:', email);
-    setLoading(true);
     
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -175,6 +199,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           data: {
             full_name: name || email.split('@')[0],
           },
+          emailRedirectTo: `${window.location.origin}/`
         },
       });
 
@@ -188,14 +213,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('Signup failed:', error);
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
 
   const loginWithGoogle = async () => {
     console.log('Attempting Google login...');
-    setLoading(true);
     
     try {
       const { data, error } = await supabase.auth.signInWithOAuth({
@@ -215,14 +237,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('Google login failed:', error);
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
 
   const logout = async () => {
     console.log('Logging out...');
-    setLoading(true);
     
     try {
       const { error } = await supabase.auth.signOut();
@@ -236,8 +255,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('Logout failed:', error);
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
 

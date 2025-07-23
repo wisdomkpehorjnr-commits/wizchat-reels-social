@@ -15,11 +15,15 @@ const Logo: React.FC<LogoProps> = ({ size = 'md', className = '' }) => {
   };
 
   return (
-    <div className={`${sizeClasses[size]} rounded-full overflow-hidden ${className}`}>
+    <div className={`${sizeClasses[size]} rounded-full overflow-hidden bg-white ${className}`}>
       <img 
-        src="/lovable-uploads/15358747-e2da-431c-a6b1-721eb6914fc8.png" 
+        src="/lovable-uploads/3af45968-ee0a-4afb-9557-c058030ab8dc.png" 
         alt="WizchatPro Logo"
         className="w-full h-full object-cover rounded-full"
+        style={{
+          background: 'white',
+          padding: '2px'
+        }}
       />
     </div>
   );

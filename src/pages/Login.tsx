@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -17,7 +16,7 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [name, setName] = useState(''); // Added name field
+  const [name, setName] = useState('');
 
   console.log('Login component - user:', user, 'loading:', loading);
 
@@ -62,7 +61,7 @@ const Login = () => {
 
   const handleEmailSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Signup form submitted', { email, password: '***', confirmPassword: '***' });
+    console.log('Signup form submitted', { email, password: '***', confirmPassword: '***', name });
     
     if (!email || !password || !confirmPassword) {
       toast({
@@ -85,7 +84,7 @@ const Login = () => {
     setIsLoggingIn(true);
     try {
       console.log('Attempting signup...');
-      await signUp(email, password, name || undefined); // Pass name as third parameter
+      await signUp(email, password, name || undefined);
       console.log('Signup successful');
       toast({
         title: "Account created!",
@@ -124,10 +123,14 @@ const Login = () => {
     }
   };
 
-  if (loading) {
+  if (loading && !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+        <div className="text-center space-y-4">
+          <Logo size="lg" className="mx-auto" />
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary mx-auto"></div>
+          <p className="text-gray-600 dark:text-gray-300">Loading WizchatPro...</p>
+        </div>
       </div>
     );
   }
