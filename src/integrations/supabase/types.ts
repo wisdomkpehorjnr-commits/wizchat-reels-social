@@ -223,6 +223,13 @@ export type Database = {
             referencedRelation: "groups"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "group_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       groups: {
@@ -259,7 +266,15 @@ export type Database = {
           name?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "groups_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       hashtag_follows: {
         Row: {
@@ -286,6 +301,13 @@ export type Database = {
             columns: ["hashtag_id"]
             isOneToOne: false
             referencedRelation: "hashtags"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hashtag_follows_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -462,7 +484,15 @@ export type Database = {
           type?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       post_hashtags: {
         Row: {
@@ -653,6 +683,13 @@ export type Database = {
             referencedRelation: "topic_rooms"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "room_messages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       room_participants: {
@@ -683,6 +720,13 @@ export type Database = {
             columns: ["room_id"]
             isOneToOne: false
             referencedRelation: "topic_rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "room_participants_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -750,7 +794,15 @@ export type Database = {
           user_id?: string
           viewer_count?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "stories_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       story_views: {
         Row: {
@@ -777,6 +829,13 @@ export type Database = {
             columns: ["story_id"]
             isOneToOne: false
             referencedRelation: "stories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "story_views_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]

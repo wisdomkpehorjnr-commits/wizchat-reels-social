@@ -1,53 +1,71 @@
 
-import { useState, useEffect, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import Layout from '@/components/Layout';
+import React, { useState, useEffect, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { ArrowLeft, Send, Users, MessageSquare } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { TopicRoom as TopicRoomType, RoomMessage, User } from '@/types';
-import { Send, ArrowLeft, Users, MessageCircle } from 'lucide-react';
+import { RoomMessage, RoomParticipant, TopicRoom } from '@/types';
+import { formatDistanceToNow } from 'date-fns';
 
-const TopicRoom = () => {
+const TopicRoomPage: React.FC = () => {
   const { roomId } = useParams<{ roomId: string }>();
-  const [room, setRoom] = useState<TopicRoomType | null>(null);
+  const navigate = useNavigate();
+  const [room, setRoom] = useState<TopicRoom | null>(null);
   const [messages, setMessages] = useState<RoomMessage[]>([]);
+  const [participants, setParticipants] = useState<RoomParticipant[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
-  const [isParticipant, setIsParticipant] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (roomId) {
-      loadRoom();
-      loadMessages();
-      joinRoom();
-      
-      // Subscribe to real-time messages
-      const channel = supabase
-        .channel(`room-${roomId}`)
-        .on('postgres_changes', {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'room_messages',
-          filter: `room_id=eq.${roomId}`
-        }, () => {
-          loadMessages();
-        })
-        .subscribe();
+    if (!roomId) return;
 
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
+    loadRoom();
+    loadMessages();
+    loadParticipants();
+
+    // Subscribe to real-time updates
+    const messagesChannel = supabase
+      .channel('room-messages')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'room_messages',
+        filter: `room_id=eq.${roomId}`
+      }, () => {
+        loadMessages();
+      })
+      .subscribe();
+
+    const participantsChannel = supabase
+      .channel('room-participants')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'room_participants',
+        filter: `room_id=eq.${roomId}`
+      }, () => {
+        loadParticipants();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(messagesChannel);
+      supabase.removeChannel(participantsChannel);
+    };
   }, [roomId]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    scrollToBottom();
   }, [messages]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   const loadRoom = async () => {
     try {
@@ -75,44 +93,27 @@ const TopicRoom = () => {
 
   const loadMessages = async () => {
     try {
-      console.log('Loading messages for room:', roomId);
-      
-      // First get messages
-      const { data: messagesData, error: messagesError } = await supabase
+      // Use proper join syntax with profiles table
+      const { data, error } = await supabase
         .from('room_messages')
-        .select('*')
+        .select(`
+          *,
+          profiles!room_messages_user_id_fkey (
+            id,
+            name,
+            username,
+            email,
+            avatar,
+            created_at
+          )
+        `)
         .eq('room_id', roomId)
-        .order('created_at', { ascending: true })
-        .limit(100);
+        .order('created_at', { ascending: true });
 
-      if (messagesError) {
-        console.error('Error loading messages:', messagesError);
-        setMessages([]);
-        return;
-      }
+      if (error) throw error;
 
-      if (!messagesData || messagesData.length === 0) {
-        console.log('No messages found for room');
-        setMessages([]);
-        return;
-      }
-
-      // Get user profiles for each message
-      const userIds = messagesData.map(msg => msg.user_id);
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('profiles')
-        .select('*')
-        .in('id', userIds);
-
-      if (profilesError) {
-        console.error('Error loading profiles:', profilesError);
-        setMessages([]);
-        return;
-      }
-
-      // Combine messages with profiles
-      const messagesWithProfiles = messagesData.map(message => {
-        const profile = profilesData?.find(p => p.id === message.user_id);
+      const mappedMessages = data?.map(message => {
+        const profile = message.profiles;
         
         if (!profile) {
           console.warn('Profile not found for message:', message.id);
@@ -137,52 +138,68 @@ const TopicRoom = () => {
         };
       }).filter(Boolean) as RoomMessage[];
 
-      console.log('Messages loaded:', messagesWithProfiles.length);
-      setMessages(messagesWithProfiles);
+      setMessages(mappedMessages || []);
     } catch (error) {
       console.error('Error loading messages:', error);
-      setMessages([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const joinRoom = async () => {
+  const loadParticipants = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Check if already a participant
-      const { data: existingParticipant } = await supabase
+      const { data, error } = await supabase
         .from('room_participants')
-        .select('id')
-        .eq('room_id', roomId)
-        .eq('user_id', user.id)
-        .single();
+        .select(`
+          *,
+          profiles!room_participants_user_id_fkey (
+            id,
+            name,
+            username,
+            email,
+            avatar,
+            created_at
+          )
+        `)
+        .eq('room_id', roomId);
 
-      if (existingParticipant) {
-        setIsParticipant(true);
-        return;
-      }
+      if (error) throw error;
 
-      // Join the room
-      const { error } = await supabase
-        .from('room_participants')
-        .insert({
-          room_id: roomId,
-          user_id: user.id
-        });
+      const mappedParticipants = data?.map(participant => {
+        const profile = participant.profiles;
+        
+        if (!profile) {
+          console.warn('Profile not found for participant:', participant.id);
+          return null;
+        }
 
-      if (!error) {
-        setIsParticipant(true);
-      }
+        return {
+          id: participant.id,
+          roomId: participant.room_id,
+          userId: participant.user_id,
+          user: {
+            id: profile.id,
+            name: profile.name || 'Unknown User',
+            username: profile.username || 'unknown',
+            email: profile.email || '',
+            photoURL: profile.avatar || '',
+            avatar: profile.avatar || '',
+            createdAt: new Date(profile.created_at || new Date())
+          },
+          joinedAt: new Date(participant.joined_at),
+          lastSeen: new Date(participant.last_seen)
+        };
+      }).filter(Boolean) as RoomParticipant[];
+
+      setParticipants(mappedParticipants || []);
     } catch (error) {
-      console.error('Error joining room:', error);
+      console.error('Error loading participants:', error);
     }
   };
 
-  const handleSendMessage = async () => {
-    if (!newMessage.trim() || !isParticipant) return;
+  const sendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMessage.trim()) return;
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -193,7 +210,7 @@ const TopicRoom = () => {
         .insert({
           room_id: roomId,
           user_id: user.id,
-          content: newMessage
+          content: newMessage.trim()
         });
 
       if (error) throw error;
@@ -204,142 +221,127 @@ const TopicRoom = () => {
     }
   };
 
-  const formatTime = (date: Date) => {
-    return new Intl.DateTimeFormat('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    }).format(date);
-  };
-
   if (loading) {
     return (
-      <Layout>
-        <div className="max-w-4xl mx-auto h-[calc(100vh-12rem)] flex flex-col">
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">Loading room...</p>
-          </div>
+      <div className="container max-w-4xl mx-auto p-4">
+        <div className="flex items-center justify-center h-96">
+          <p className="text-muted-foreground">Loading room...</p>
         </div>
-      </Layout>
+      </div>
     );
   }
 
   if (!room) {
     return (
-      <Layout>
-        <div className="text-center py-12">
+      <div className="container max-w-4xl mx-auto p-4">
+        <div className="flex items-center justify-center h-96">
           <p className="text-muted-foreground">Room not found</p>
-          <Link to="/" className="text-primary hover:underline">
-            Back to home
-          </Link>
         </div>
-      </Layout>
+      </div>
     );
   }
 
   return (
-    <Layout>
-      <div className="max-w-4xl mx-auto h-[calc(100vh-12rem)] flex flex-col">
-        {/* Room Header */}
-        <Card className="mb-4">
-          <CardHeader className="pb-3">
-            <div className="flex items-center space-x-4">
-              <Link to="/">
-                <Button variant="ghost" size="sm">
-                  <ArrowLeft className="w-4 h-4" />
-                </Button>
-              </Link>
-              
-              <div className="flex items-center space-x-3 flex-1">
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                  <MessageCircle className="w-5 h-5 text-white" />
-                </div>
-                
-                <div>
-                  <CardTitle className="text-xl">{room.name}</CardTitle>
-                  {room.description && (
-                    <p className="text-sm text-muted-foreground">{room.description}</p>
-                  )}
-                </div>
-              </div>
-              
-              <Badge variant="secondary" className="flex items-center space-x-1">
-                <Users className="w-3 h-3" />
-                <span>{room.participantCount}</span>
-              </Badge>
-            </div>
-          </CardHeader>
-        </Card>
+    <div className="container max-w-4xl mx-auto p-4">
+      <div className="flex items-center gap-4 mb-6">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate(-1)}
+        >
+          <ArrowLeft className="w-4 h-4" />
+        </Button>
+        <div className="flex-1">
+          <h1 className="text-2xl font-bold">{room.name}</h1>
+          {room.description && (
+            <p className="text-muted-foreground">{room.description}</p>
+          )}
+        </div>
+        <Badge variant="secondary" className="flex items-center gap-1">
+          <Users className="w-3 h-3" />
+          {participants.length} participants
+        </Badge>
+      </div>
 
-        {/* Messages */}
-        <Card className="flex-1 flex flex-col">
-          <CardContent className="flex-1 p-4 overflow-y-auto">
-            <div className="space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <Card className="lg:col-span-3">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <MessageSquare className="w-5 h-5" />
+              Messages
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-96 overflow-y-auto mb-4 space-y-4">
               {messages.map((message) => (
-                <div key={message.id} className="flex items-start space-x-3">
+                <div key={message.id} className="flex items-start gap-3">
                   <Avatar className="w-8 h-8">
                     <AvatarImage src={message.user.avatar} />
-                    <AvatarFallback className="text-xs">
+                    <AvatarFallback>
                       {message.user.name.charAt(0)}
                     </AvatarFallback>
                   </Avatar>
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center space-x-2">
-                      <span className="font-medium text-sm">{message.user.name}</span>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-medium text-sm">
+                        {message.user.name}
+                      </span>
                       <span className="text-xs text-muted-foreground">
-                        {formatTime(message.createdAt)}
+                        {formatDistanceToNow(message.createdAt, { addSuffix: true })}
                       </span>
                     </div>
-                    <p className="text-sm text-foreground mt-1">{message.content}</p>
+                    <p className="text-sm">{message.content}</p>
                   </div>
                 </div>
               ))}
               <div ref={messagesEndRef} />
             </div>
 
-            {messages.length === 0 && (
-              <div className="text-center py-12">
-                <MessageCircle className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">No messages yet. Start the conversation!</p>
-              </div>
-            )}
-          </CardContent>
-
-          {/* Message Input */}
-          {isParticipant && (
-            <div className="p-4 border-t">
-              <div className="flex space-x-2">
-                <Input
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="Type a message..."
-                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                  className="flex-1"
-                />
-                <Button 
-                  onClick={handleSendMessage}
-                  disabled={!newMessage.trim()}
-                  size="sm"
-                >
-                  <Send className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {!isParticipant && (
-            <div className="p-4 border-t text-center">
-              <p className="text-muted-foreground">Join the room to participate in the conversation</p>
-              <Button onClick={joinRoom} className="mt-2">
-                Join Room
+            <form onSubmit={sendMessage} className="flex gap-2">
+              <Input
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder="Type a message..."
+                className="flex-1"
+              />
+              <Button type="submit" disabled={!newMessage.trim()}>
+                <Send className="w-4 h-4" />
               </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              Participants
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {participants.map((participant) => (
+                <div key={participant.id} className="flex items-center gap-3">
+                  <Avatar className="w-8 h-8">
+                    <AvatarImage src={participant.user.avatar} />
+                    <AvatarFallback>
+                      {participant.user.name.charAt(0)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-medium text-sm">{participant.user.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      @{participant.user.username}
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
-          )}
+          </CardContent>
         </Card>
       </div>
-    </Layout>
+    </div>
   );
 };
 
-export default TopicRoom;
+export default TopicRoomPage;

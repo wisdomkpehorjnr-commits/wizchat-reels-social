@@ -35,10 +35,20 @@ const StoriesSection: React.FC = () => {
     try {
       console.log('Loading stories...');
       
-      // First get stories
+      // Use proper join syntax with profiles table
       const { data: storiesData, error: storiesError } = await supabase
         .from('stories')
-        .select('*')
+        .select(`
+          *,
+          profiles!stories_user_id_fkey (
+            id,
+            name,
+            username,
+            email,
+            avatar,
+            created_at
+          )
+        `)
         .gt('expires_at', new Date().toISOString())
         .order('created_at', { ascending: false });
 
@@ -54,22 +64,9 @@ const StoriesSection: React.FC = () => {
         return;
       }
 
-      // Get user profiles for each story
-      const userIds = storiesData.map(story => story.user_id);
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('profiles')
-        .select('*')
-        .in('id', userIds);
-
-      if (profilesError) {
-        console.error('Error loading profiles:', profilesError);
-        setStories([]);
-        return;
-      }
-
-      // Combine stories with profiles
+      // Map the data with proper profile handling
       const storiesWithProfiles = storiesData.map(story => {
-        const profile = profilesData?.find(p => p.id === story.user_id);
+        const profile = story.profiles;
         
         if (!profile) {
           console.warn('Profile not found for story:', story.id);
