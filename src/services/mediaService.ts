@@ -34,6 +34,14 @@ export class MediaService {
     return this.uploadFile(file, 'posts', 'media');
   }
 
+  static async uploadPostImage(file: File): Promise<string> {
+    return this.uploadFile(file, 'posts', 'images');
+  }
+
+  static async uploadPostVideo(file: File): Promise<string> {
+    return this.uploadFile(file, 'posts', 'videos');
+  }
+
   static async uploadStoryMedia(file: File): Promise<string> {
     return this.uploadFile(file, 'stories');
   }

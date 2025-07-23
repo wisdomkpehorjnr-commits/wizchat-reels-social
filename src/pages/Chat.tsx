@@ -1,174 +1,158 @@
 
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import Layout from '@/components/Layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Send, Phone, Video, MoreVertical } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { dataService } from '@/services/dataService';
-import { ProfileService } from '@/services/profileService';
-import { VoiceService } from '@/services/voiceService';
-import { Chat as ChatType, User, VoiceCall } from '@/types';
-import { MessageCircle, Plus, Search, Phone, PhoneCall, PhoneOff, Users } from 'lucide-react';
+import { voiceService } from '@/services/voiceService';
 import { useToast } from '@/components/ui/use-toast';
+import { Chat, Message, User } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 
-const Chat = () => {
+const ChatPage: React.FC = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const { toast } = useToast();
-  const [chats, setChats] = useState<ChatType[]>([]);
-  const [friends, setFriends] = useState<User[]>([]);
+  const [chats, setChats] = useState<Chat[]>([]);
+  const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [friends, setFriends] = useState<User[]>([]);
   const [showNewChatDialog, setShowNewChatDialog] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
-  const [incomingCall, setIncomingCall] = useState<VoiceCall | null>(null);
-  const [activeCall, setActiveCall] = useState<VoiceCall | null>(null);
+  const [activeCall, setActiveCall] = useState<any>(null);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        
-        // Fetch chats and friends
-        const [chatsData, friendsData] = await Promise.all([
-          dataService.getChats(),
-          getFriendsList()
-        ]);
-        
-        setChats(chatsData);
-        setFriends(friendsData);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        toast({
-          title: "Error",
-          description: "Failed to load chats",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
     if (user) {
-      fetchData();
-      setupRealTimeSubscriptions();
+      loadChats();
+      loadFriends();
+      setupRealtimeSubscriptions();
     }
-  }, [user, toast]);
+  }, [user]);
 
-  const getFriendsList = async (): Promise<User[]> => {
+  const loadChats = async () => {
     try {
-      const friendsList = await ProfileService.getFollowing(user?.id || '');
-      return friendsList.map(f => f.following);
+      const userChats = await dataService.getUserChats();
+      setChats(userChats);
     } catch (error) {
-      console.error('Error fetching friends:', error);
-      return [];
+      console.error('Error loading chats:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const setupRealTimeSubscriptions = () => {
-    if (!user) return;
+  const loadFriends = async () => {
+    try {
+      const userFriends = await dataService.getUserFriends();
+      setFriends(userFriends.map(f => f.requester.id === user?.id ? f.addressee : f.requester));
+    } catch (error) {
+      console.error('Error loading friends:', error);
+    }
+  };
 
-    // Subscribe to voice calls
-    const callsChannel = supabase
-      .channel('voice-calls')
+  const setupRealtimeSubscriptions = () => {
+    // Listen for new messages
+    const messagesChannel = supabase
+      .channel('messages')
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
-        table: 'voice_calls',
-        filter: `receiver_id=eq.${user.id}`
+        table: 'messages'
       }, (payload) => {
-        handleIncomingCall(payload.new as any);
+        const newMessage = payload.new as any;
+        if (selectedChat && newMessage.chat_id === selectedChat.id) {
+          loadMessages(selectedChat.id);
+        }
       })
+      .subscribe();
+
+    // Listen for voice calls
+    const callsChannel = supabase
+      .channel('voice_calls')
       .on('postgres_changes', {
-        event: 'UPDATE',
+        event: 'INSERT',
         schema: 'public',
         table: 'voice_calls'
       }, (payload) => {
-        handleCallUpdate(payload.new as any);
+        const call = payload.new as any;
+        if (call.receiver_id === user?.id && call.status === 'calling') {
+          setActiveCall(call);
+          toast({
+            title: "Incoming Call",
+            description: `Voice call from ${call.caller_id}`,
+          });
+        }
       })
       .subscribe();
 
     return () => {
-      supabase.removeChannel(callsChannel);
+      messagesChannel.unsubscribe();
+      callsChannel.unsubscribe();
     };
   };
 
-  const handleIncomingCall = async (callData: any) => {
+  const loadMessages = async (chatId: string) => {
     try {
-      // Fetch caller details
-      const { data: callerProfile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', callData.caller_id)
-        .single();
-
-      if (callerProfile) {
-        const call: VoiceCall = {
-          id: callData.id,
-          callerId: callData.caller_id,
-          receiverId: callData.receiver_id,
-          caller: {
-            id: callerProfile.id,
-            name: callerProfile.name,
-            username: callerProfile.username,
-            email: callerProfile.email,
-            photoURL: callerProfile.avatar || '',
-            avatar: callerProfile.avatar || '',
-            bio: callerProfile.bio,
-            followerCount: callerProfile.follower_count,
-            followingCount: callerProfile.following_count,
-            profileViews: callerProfile.profile_views,
-            createdAt: new Date(callerProfile.created_at)
-          },
-          receiver: user!,
-          status: callData.status,
-          startedAt: new Date(callData.started_at),
-          duration: callData.duration
-        };
-
-        setIncomingCall(call);
-      }
+      const chatMessages = await dataService.getMessages(chatId);
+      setMessages(chatMessages);
     } catch (error) {
-      console.error('Error handling incoming call:', error);
+      console.error('Error loading messages:', error);
     }
   };
 
-  const handleCallUpdate = (callData: any) => {
-    if (callData.status === 'ended') {
-      setActiveCall(null);
-      setIncomingCall(null);
-    }
+  const handleChatSelect = (chat: Chat) => {
+    setSelectedChat(chat);
+    loadMessages(chat.id);
   };
 
-  const startVoiceCall = async (friendId: string) => {
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !selectedChat || !user) return;
+
     try {
-      const callId = await VoiceService.initializeCall(friendId);
-      await VoiceService.startCall(callId);
-      await VoiceService.createOffer(callId);
+      await dataService.sendMessage({
+        chatId: selectedChat.id,
+        content: newMessage,
+        type: 'text'
+      });
+      setNewMessage('');
+      loadMessages(selectedChat.id);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send message",
+        variant: "destructive",
+      });
+    }
+  };
 
-      const friend = friends.find(f => f.id === friendId);
-      if (friend) {
-        setActiveCall({
-          id: callId,
-          callerId: user!.id,
-          receiverId: friendId,
-          caller: user!,
-          receiver: friend,
-          status: 'calling',
-          startedAt: new Date(),
-          duration: 0
-        });
-      }
+  const handleStartChat = async (friendId: string) => {
+    try {
+      const chat = await dataService.createChat({
+        participants: [friendId],
+        isGroup: false
+      });
+      setChats(prev => [chat, ...prev]);
+      setSelectedChat(chat);
+      setShowNewChatDialog(false);
+    } catch (error) {
+      console.error('Error creating chat:', error);
+    }
+  };
 
+  const handleVoiceCall = async () => {
+    if (!selectedChat || !user) return;
+
+    const otherParticipant = selectedChat.participants.find(p => p.id !== user.id);
+    if (!otherParticipant) return;
+
+    try {
+      await voiceService.initiateCall(otherParticipant.id);
       toast({
         title: "Calling...",
-        description: `Calling ${friend?.name}`,
+        description: `Calling ${otherParticipant.name}`,
       });
     } catch (error) {
       console.error('Error starting call:', error);
@@ -180,304 +164,228 @@ const Chat = () => {
     }
   };
 
-  const answerCall = async () => {
-    if (!incomingCall) return;
+  const handleAnswerCall = async () => {
+    if (!activeCall) return;
 
     try {
-      await VoiceService.answerCall(incomingCall.id);
-      setActiveCall(incomingCall);
-      setIncomingCall(null);
-
+      await voiceService.answerCall(activeCall.id);
       toast({
         title: "Call Connected",
-        description: `Connected with ${incomingCall.caller.name}`,
+        description: "Voice call connected",
       });
     } catch (error) {
       console.error('Error answering call:', error);
-      toast({
-        title: "Error",
-        description: "Failed to answer call",
-        variant: "destructive",
-      });
     }
   };
 
-  const rejectCall = async () => {
-    if (!incomingCall) return;
+  const handleRejectCall = async () => {
+    if (!activeCall) return;
 
     try {
-      await VoiceService.rejectCall(incomingCall.id);
-      setIncomingCall(null);
+      await voiceService.endCall(activeCall.id);
+      setActiveCall(null);
     } catch (error) {
       console.error('Error rejecting call:', error);
     }
   };
 
-  const endCall = async () => {
-    if (!activeCall) return;
-
-    try {
-      await VoiceService.endCall(activeCall.id);
-      setActiveCall(null);
-
-      toast({
-        title: "Call Ended",
-        description: "Call has been ended",
-      });
-    } catch (error) {
-      console.error('Error ending call:', error);
-    }
-  };
-
-  const createNewChat = async () => {
-    if (selectedFriends.length === 0) return;
-
-    try {
-      const chatData = {
-        participants: [user!.id, ...selectedFriends],
-        isGroup: selectedFriends.length > 1,
-        name: selectedFriends.length > 1 ? 'Group Chat' : undefined
-      };
-
-      // Create chat logic would go here
-      console.log('Creating chat:', chatData);
-      
-      setShowNewChatDialog(false);
-      setSelectedFriends([]);
-      
-      toast({
-        title: "Chat Created",
-        description: "New chat has been created",
-      });
-    } catch (error) {
-      console.error('Error creating chat:', error);
-      toast({
-        title: "Error",
-        description: "Failed to create chat",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const filteredFriends = friends.filter(friend =>
-    friend.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    friend.username.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
   if (loading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        </div>
-      </Layout>
-    );
+    return <div className="p-6">Loading chats...</div>;
   }
 
   return (
-    <Layout>
-      <div className="max-w-4xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Messages</h1>
-          <Button onClick={() => setShowNewChatDialog(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            New Chat
-          </Button>
+    <div className="h-screen flex">
+      {/* Chat List */}
+      <div className="w-1/3 border-r border-white/10">
+        <div className="p-4 border-b border-white/10">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-bold text-white">Messages</h2>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => setShowNewChatDialog(true)}
+              className="text-white"
+            >
+              New Chat
+            </Button>
+          </div>
         </div>
 
-        {/* Friends List */}
-        <Card className="backdrop-blur-md bg-white/10 border-white/20">
-          <CardHeader>
-            <CardTitle className="text-white">Friends</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {friends.slice(0, 12).map((friend) => (
-                <div key={friend.id} className="text-center space-y-2">
-                  <div className="relative">
-                    <Avatar className="w-16 h-16 mx-auto">
-                      <AvatarImage src={friend.avatar} />
-                      <AvatarFallback>{friend.name.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    <Button
-                      size="sm"
-                      className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full p-0"
-                      onClick={() => startVoiceCall(friend.id)}
-                    >
-                      <Phone className="w-3 h-3" />
-                    </Button>
+        <div className="overflow-y-auto">
+          {chats.map((chat) => {
+            const otherParticipant = chat.participants.find(p => p.id !== user?.id);
+            return (
+              <div
+                key={chat.id}
+                onClick={() => handleChatSelect(chat)}
+                className={`p-4 cursor-pointer hover:bg-white/5 border-b border-white/5 ${
+                  selectedChat?.id === chat.id ? 'bg-white/10' : ''
+                }`}
+              >
+                <div className="flex items-center space-x-3">
+                  <Avatar>
+                    <AvatarImage src={otherParticipant?.avatar} />
+                    <AvatarFallback>{otherParticipant?.name.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1">
+                    <p className="font-semibold text-white">{otherParticipant?.name}</p>
+                    <p className="text-sm text-white/60">@{otherParticipant?.username}</p>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-white truncate">{friend.name}</p>
-                    <p className="text-xs text-white/60">@{friend.username}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* New Chat Dialog */}
+        {showNewChatDialog && (
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-50">
+            <Card className="w-96 backdrop-blur-md bg-white/10 border-white/20">
+              <CardHeader>
+                <CardTitle className="text-white">Start New Chat</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {friends.map((friend) => (
+                    <div
+                      key={friend.id}
+                      onClick={() => handleStartChat(friend.id)}
+                      className="flex items-center space-x-3 p-2 cursor-pointer hover:bg-white/5 rounded"
+                    >
+                      <Avatar>
+                        <AvatarImage src={friend.avatar} />
+                        <AvatarFallback>{friend.name.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-semibold text-white">{friend.name}</p>
+                        <p className="text-sm text-white/60">@{friend.username}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowNewChatDialog(false)}
+                  className="mt-4 w-full"
+                >
+                  Cancel
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </div>
+
+      {/* Chat Messages */}
+      <div className="flex-1 flex flex-col">
+        {selectedChat ? (
+          <>
+            {/* Chat Header */}
+            <div className="p-4 border-b border-white/10 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <Avatar>
+                  <AvatarImage src={selectedChat.participants.find(p => p.id !== user?.id)?.avatar} />
+                  <AvatarFallback>
+                    {selectedChat.participants.find(p => p.id !== user?.id)?.name.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="font-semibold text-white">
+                    {selectedChat.participants.find(p => p.id !== user?.id)?.name}
+                  </p>
+                  <p className="text-sm text-white/60">Online</p>
+                </div>
+              </div>
+              <div className="flex space-x-2">
+                <Button variant="ghost" size="sm" onClick={handleVoiceCall}>
+                  <Phone className="w-4 h-4" />
+                </Button>
+                <Button variant="ghost" size="sm">
+                  <Video className="w-4 h-4" />
+                </Button>
+                <Button variant="ghost" size="sm">
+                  <MoreVertical className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex ${message.userId === user?.id ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-xs px-4 py-2 rounded-lg ${
+                      message.userId === user?.id
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-white/10 text-white'
+                    }`}
+                  >
+                    <p>{message.content}</p>
+                    <p className="text-xs opacity-60 mt-1">
+                      {new Date(message.timestamp).toLocaleTimeString()}
+                    </p>
                   </div>
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Chat List */}
-        <Card className="backdrop-blur-md bg-white/10 border-white/20">
-          <CardHeader>
-            <CardTitle className="text-white">Recent Chats</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {chats.length === 0 ? (
-              <div className="text-center py-8">
-                <MessageCircle className="w-12 h-12 text-white/40 mx-auto mb-4" />
-                <p className="text-white/60">No chats yet</p>
-                <p className="text-white/40 text-sm">Start a conversation with your friends</p>
-              </div>
-            ) : (
-              chats.map((chat) => (
-                <div
-                  key={chat.id}
-                  className="flex items-center space-x-3 p-3 rounded-lg hover:bg-white/5 cursor-pointer transition-colors"
-                  onClick={() => navigate(`/chat/${chat.id}`)}
-                >
-                  <div className="relative">
-                    {chat.isGroup ? (
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 flex items-center justify-center">
-                        <Users className="w-6 h-6 text-white" />
-                      </div>
-                    ) : (
-                      <Avatar className="w-12 h-12">
-                        <AvatarImage src={chat.participants[0]?.avatar} />
-                        <AvatarFallback>
-                          {chat.participants[0]?.name.charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium text-white truncate">
-                        {chat.name || chat.participants[0]?.name}
-                      </p>
-                      <span className="text-xs text-white/60">
-                        {new Date(chat.lastActivity).toLocaleDateString()}
-                      </span>
-                    </div>
-                    <p className="text-sm text-white/60 truncate">
-                      {chat.lastMessage?.content || 'No messages yet'}
-                    </p>
-                  </div>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-
-        {/* New Chat Dialog */}
-        <Dialog open={showNewChatDialog} onOpenChange={setShowNewChatDialog}>
-          <DialogContent className="max-w-md backdrop-blur-md bg-white/90 dark:bg-black/90">
-            <DialogHeader>
-              <DialogTitle>New Chat</DialogTitle>
-            </DialogHeader>
-
-            <div className="space-y-4">
-              <Input
-                placeholder="Search friends..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full"
-              />
-
-              <div className="max-h-60 overflow-y-auto space-y-2">
-                {filteredFriends.map((friend) => (
-                  <div
-                    key={friend.id}
-                    className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted cursor-pointer"
-                    onClick={() => {
-                      const isSelected = selectedFriends.includes(friend.id);
-                      setSelectedFriends(prev =>
-                        isSelected
-                          ? prev.filter(id => id !== friend.id)
-                          : [...prev, friend.id]
-                      );
-                    }}
-                  >
-                    <Avatar className="w-10 h-10">
-                      <AvatarImage src={friend.avatar} />
-                      <AvatarFallback>{friend.name.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <p className="font-medium">{friend.name}</p>
-                      <p className="text-sm text-muted-foreground">@{friend.username}</p>
-                    </div>
-                    {selectedFriends.includes(friend.id) && (
-                      <Badge variant="default">Selected</Badge>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex justify-end space-x-2">
-                <Button variant="outline" onClick={() => setShowNewChatDialog(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={createNewChat} disabled={selectedFriends.length === 0}>
-                  Create Chat
+            {/* Message Input */}
+            <div className="p-4 border-t border-white/10">
+              <div className="flex space-x-2">
+                <Input
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  placeholder="Type a message..."
+                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                  className="bg-white/5 border-white/20 text-white placeholder:text-white/40"
+                />
+                <Button onClick={handleSendMessage}>
+                  <Send className="w-4 h-4" />
                 </Button>
               </div>
             </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* Incoming Call Dialog */}
-        {incomingCall && (
-          <Dialog open={true} onOpenChange={() => {}}>
-            <DialogContent className="max-w-sm backdrop-blur-md bg-white/90 dark:bg-black/90">
-              <div className="text-center space-y-4">
-                <Avatar className="w-24 h-24 mx-auto">
-                  <AvatarImage src={incomingCall.caller.avatar} />
-                  <AvatarFallback>{incomingCall.caller.name.charAt(0)}</AvatarFallback>
-                </Avatar>
-                <div>
-                  <h3 className="text-lg font-semibold">{incomingCall.caller.name}</h3>
-                  <p className="text-muted-foreground">Incoming voice call...</p>
-                </div>
-                <div className="flex space-x-4 justify-center">
-                  <Button variant="destructive" onClick={rejectCall}>
-                    <PhoneOff className="w-4 h-4" />
-                  </Button>
-                  <Button onClick={answerCall}>
-                    <PhoneCall className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-        )}
-
-        {/* Active Call Dialog */}
-        {activeCall && (
-          <Dialog open={true} onOpenChange={() => {}}>
-            <DialogContent className="max-w-sm backdrop-blur-md bg-white/90 dark:bg-black/90">
-              <div className="text-center space-y-4">
-                <Avatar className="w-24 h-24 mx-auto">
-                  <AvatarImage src={activeCall.receiver.avatar} />
-                  <AvatarFallback>{activeCall.receiver.name.charAt(0)}</AvatarFallback>
-                </Avatar>
-                <div>
-                  <h3 className="text-lg font-semibold">{activeCall.receiver.name}</h3>
-                  <p className="text-muted-foreground">
-                    {activeCall.status === 'calling' ? 'Calling...' : 'Connected'}
-                  </p>
-                </div>
-                <Button variant="destructive" onClick={endCall}>
-                  <PhoneOff className="w-4 h-4 mr-2" />
-                  End Call
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+          </>
+        ) : (
+          <div className="flex-1 flex items-center justify-center">
+            <p className="text-white/60">Select a chat to start messaging</p>
+          </div>
         )}
       </div>
-    </Layout>
+
+      {/* Incoming Call Modal */}
+      {activeCall && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+          <Card className="w-96 backdrop-blur-md bg-white/10 border-white/20">
+            <CardContent className="p-6 text-center">
+              <h3 className="text-xl font-bold text-white mb-4">Incoming Call</h3>
+              <Avatar className="w-20 h-20 mx-auto mb-4">
+                <AvatarFallback>U</AvatarFallback>
+              </Avatar>
+              <p className="text-white mb-6">Voice call from user</p>
+              <div className="flex space-x-4">
+                <Button 
+                  variant="destructive" 
+                  onClick={handleRejectCall}
+                  className="flex-1"
+                >
+                  Decline
+                </Button>
+                <Button 
+                  onClick={handleAnswerCall}
+                  className="flex-1 bg-green-600 hover:bg-green-700"
+                >
+                  Answer
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </div>
   );
 };
 
-export default Chat;
+export default ChatPage;

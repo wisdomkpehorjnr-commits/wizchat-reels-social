@@ -35,17 +35,17 @@ export class ProfileService {
       email: data.email,
       photoURL: data.avatar || '',
       avatar: data.avatar || '',
-      bio: data.bio,
-      location: data.location,
-      website: data.website,
+      bio: data.bio || undefined,
+      location: data.location || undefined,
+      website: data.website || undefined,
       birthday: data.birthday ? new Date(data.birthday) : undefined,
-      gender: data.gender,
-      pronouns: data.pronouns,
-      coverImage: data.cover_image,
-      isPrivate: data.is_private,
-      followerCount: data.follower_count,
-      followingCount: data.following_count,
-      profileViews: data.profile_views,
+      gender: data.gender || undefined,
+      pronouns: data.pronouns || undefined,
+      coverImage: data.cover_image || undefined,
+      isPrivate: data.is_private || false,
+      followerCount: data.follower_count || 0,
+      followingCount: data.following_count || 0,
+      profileViews: data.profile_views || 0,
       createdAt: new Date(data.created_at)
     };
   }
@@ -55,10 +55,11 @@ export class ProfileService {
     if (!user) throw new Error('User not authenticated');
 
     const { error } = await supabase
-      .from('follows')
+      .from('friends')
       .insert({
-        follower_id: user.id,
-        following_id: userId
+        requester_id: user.id,
+        addressee_id: userId,
+        status: 'accepted'
       });
 
     if (error) throw error;
@@ -69,10 +70,10 @@ export class ProfileService {
     if (!user) throw new Error('User not authenticated');
 
     const { error } = await supabase
-      .from('follows')
+      .from('friends')
       .delete()
-      .eq('follower_id', user.id)
-      .eq('following_id', userId);
+      .eq('requester_id', user.id)
+      .eq('addressee_id', userId);
 
     if (error) throw error;
   }
@@ -82,10 +83,11 @@ export class ProfileService {
     if (!user) return false;
 
     const { data, error } = await supabase
-      .from('follows')
+      .from('friends')
       .select('id')
-      .eq('follower_id', user.id)
-      .eq('following_id', userId)
+      .eq('requester_id', user.id)
+      .eq('addressee_id', userId)
+      .eq('status', 'accepted')
       .single();
 
     return !error && !!data;
@@ -93,81 +95,83 @@ export class ProfileService {
 
   static async getFollowers(userId: string): Promise<Follow[]> {
     const { data, error } = await supabase
-      .from('follows')
+      .from('friends')
       .select(`
         *,
-        follower:profiles!follows_follower_id_fkey(*)
+        requester:profiles!friends_requester_id_fkey(*)
       `)
-      .eq('following_id', userId);
+      .eq('addressee_id', userId)
+      .eq('status', 'accepted');
 
     if (error) throw error;
 
-    return data?.map(follow => ({
-      id: follow.id,
-      followerId: follow.follower_id,
-      followingId: follow.following_id,
+    return data?.map(friend => ({
+      id: friend.id,
+      followerId: friend.requester_id,
+      followingId: friend.addressee_id,
       follower: {
-        id: follow.follower.id,
-        name: follow.follower.name,
-        username: follow.follower.username,
-        email: follow.follower.email,
-        photoURL: follow.follower.avatar || '',
-        avatar: follow.follower.avatar || '',
-        bio: follow.follower.bio,
-        location: follow.follower.location,
-        website: follow.follower.website,
-        birthday: follow.follower.birthday ? new Date(follow.follower.birthday) : undefined,
-        gender: follow.follower.gender,
-        pronouns: follow.follower.pronouns,
-        coverImage: follow.follower.cover_image,
-        isPrivate: follow.follower.is_private,
-        followerCount: follow.follower.follower_count,
-        followingCount: follow.follower.following_count,
-        profileViews: follow.follower.profile_views,
-        createdAt: new Date(follow.follower.created_at)
+        id: friend.requester.id,
+        name: friend.requester.name,
+        username: friend.requester.username,
+        email: friend.requester.email,
+        photoURL: friend.requester.avatar || '',
+        avatar: friend.requester.avatar || '',
+        bio: friend.requester.bio || undefined,
+        location: friend.requester.location || undefined,
+        website: friend.requester.website || undefined,
+        birthday: friend.requester.birthday ? new Date(friend.requester.birthday) : undefined,
+        gender: friend.requester.gender || undefined,
+        pronouns: friend.requester.pronouns || undefined,
+        coverImage: friend.requester.cover_image || undefined,
+        isPrivate: friend.requester.is_private || false,
+        followerCount: friend.requester.follower_count || 0,
+        followingCount: friend.requester.following_count || 0,
+        profileViews: friend.requester.profile_views || 0,
+        createdAt: new Date(friend.requester.created_at)
       },
-      following: {} as User, // Not needed for followers list
-      createdAt: new Date(follow.created_at)
+      following: {} as User,
+      createdAt: new Date(friend.created_at)
     })) || [];
   }
 
   static async getFollowing(userId: string): Promise<Follow[]> {
     const { data, error } = await supabase
-      .from('follows')
+      .from('friends')
       .select(`
         *,
-        following:profiles!follows_following_id_fkey(*)
+        addressee:profiles!friends_addressee_id_fkey(*)
       `)
-      .eq('follower_id', userId);
+      .eq('requester_id', userId)
+      .eq('status', 'accepted');
 
     if (error) throw error;
 
-    return data?.map(follow => ({
-      id: follow.id,
-      followerId: follow.follower_id,
-      followingId: follow.following_id,
-      follower: {} as User, // Not needed for following list
+    return data?.map(friend => ({
+      id: friend.id,
+      followerId: friend.requester_id,
+      followingId: friend.addressee_id,
+      follower: {} as User,
       following: {
-        id: follow.following.id,
-        name: follow.following.name,
-        username: follow.following.username,
-        email: follow.following.email,
-        photoURL: follow.following.avatar || '',
-        avatar: follow.following.avatar || '',
-        bio: follow.following.bio,
-        location: follow.following.location,
-        website: follow.following.website,
-        birthday: follow.following.birthday ? new Date(follow.following.birthday) : undefined,
-        gender: follow.following.gender,
-        pronouns: follow.following.pronouns,
-        coverImage: follow.following.cover_image,
-        isPrivate: follow.following.is_private,
-        followerCount: follow.following.follower_count,
-        followingCount: follow.following.following_count,
-        profileViews: follow.following.profile_views,
-        createdAt: new Date(follow.following.created_at)
+        id: friend.addressee.id,
+        name: friend.addressee.name,
+        username: friend.addressee.username,
+        email: friend.addressee.email,
+        photoURL: friend.addressee.avatar || '',
+        avatar: friend.addressee.avatar || '',
+        bio: friend.addressee.bio || undefined,
+        location: friend.addressee.location || undefined,
+        website: friend.addressee.website || undefined,
+        birthday: friend.addressee.birthday ? new Date(friend.addressee.birthday) : undefined,
+        gender: friend.addressee.gender || undefined,
+        pronouns: friend.addressee.pronouns || undefined,
+        coverImage: friend.addressee.cover_image || undefined,
+        isPrivate: friend.addressee.is_private || false,
+        followerCount: friend.addressee.follower_count || 0,
+        followingCount: friend.addressee.following_count || 0,
+        profileViews: friend.addressee.profile_views || 0,
+        createdAt: new Date(friend.addressee.created_at)
       },
-      createdAt: new Date(follow.created_at)
+      createdAt: new Date(friend.created_at)
     })) || [];
   }
 
@@ -235,17 +239,17 @@ export class ProfileService {
           email: savedPost.post.user.email,
           photoURL: savedPost.post.user.avatar || '',
           avatar: savedPost.post.user.avatar || '',
-          bio: savedPost.post.user.bio,
-          location: savedPost.post.user.location,
-          website: savedPost.post.user.website,
+          bio: savedPost.post.user.bio || undefined,
+          location: savedPost.post.user.location || undefined,
+          website: savedPost.post.user.website || undefined,
           birthday: savedPost.post.user.birthday ? new Date(savedPost.post.user.birthday) : undefined,
-          gender: savedPost.post.user.gender,
-          pronouns: savedPost.post.user.pronouns,
-          coverImage: savedPost.post.user.cover_image,
-          isPrivate: savedPost.post.user.is_private,
-          followerCount: savedPost.post.user.follower_count,
-          followingCount: savedPost.post.user.following_count,
-          profileViews: savedPost.post.user.profile_views,
+          gender: savedPost.post.user.gender || undefined,
+          pronouns: savedPost.post.user.pronouns || undefined,
+          coverImage: savedPost.post.user.cover_image || undefined,
+          isPrivate: savedPost.post.user.is_private || false,
+          followerCount: savedPost.post.user.follower_count || 0,
+          followingCount: savedPost.post.user.following_count || 0,
+          profileViews: savedPost.post.user.profile_views || 0,
           createdAt: new Date(savedPost.post.user.created_at)
         },
         content: savedPost.post.content,
@@ -266,17 +270,17 @@ export class ProfileService {
             email: comment.user.email,
             photoURL: comment.user.avatar || '',
             avatar: comment.user.avatar || '',
-            bio: comment.user.bio,
-            location: comment.user.location,
-            website: comment.user.website,
+            bio: comment.user.bio || undefined,
+            location: comment.user.location || undefined,
+            website: comment.user.website || undefined,
             birthday: comment.user.birthday ? new Date(comment.user.birthday) : undefined,
-            gender: comment.user.gender,
-            pronouns: comment.user.pronouns,
-            coverImage: comment.user.cover_image,
-            isPrivate: comment.user.is_private,
-            followerCount: comment.user.follower_count,
-            followingCount: comment.user.following_count,
-            profileViews: comment.user.profile_views,
+            gender: comment.user.gender || undefined,
+            pronouns: comment.user.pronouns || undefined,
+            coverImage: comment.user.cover_image || undefined,
+            isPrivate: comment.user.is_private || false,
+            followerCount: comment.user.follower_count || 0,
+            followingCount: comment.user.following_count || 0,
+            profileViews: comment.user.profile_views || 0,
             createdAt: new Date(comment.user.created_at)
           },
           postId: comment.post_id,
