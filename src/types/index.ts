@@ -6,6 +6,17 @@ export interface User {
   email: string;
   photoURL: string;
   avatar: string;
+  bio?: string;
+  location?: string;
+  website?: string;
+  birthday?: Date;
+  gender?: string;
+  pronouns?: string;
+  coverImage?: string;
+  isPrivate?: boolean;
+  followerCount: number;
+  followingCount: number;
+  profileViews: number;
   createdAt: Date;
 }
 
@@ -65,6 +76,15 @@ export interface Friend {
   updatedAt: Date;
 }
 
+export interface Follow {
+  id: string;
+  followerId: string;
+  followingId: string;
+  follower: User;
+  following: User;
+  createdAt: Date;
+}
+
 export interface Chat {
   id: string;
   participants: User[];
@@ -86,6 +106,18 @@ export interface Message {
   duration?: number;
   timestamp: Date;
   seen: boolean;
+}
+
+export interface VoiceCall {
+  id: string;
+  callerId: string;
+  receiverId: string;
+  caller: User;
+  receiver: User;
+  status: 'calling' | 'active' | 'ended' | 'missed';
+  startedAt: Date;
+  endedAt?: Date;
+  duration: number;
 }
 
 export interface CreatePostData {
@@ -111,7 +143,6 @@ export interface SiteSetting {
   updatedAt: Date;
 }
 
-// New types for additional features
 export interface Hashtag {
   id: string;
   name: string;
@@ -208,6 +239,14 @@ export interface StoryView {
   userId: string;
   user: User;
   viewedAt: Date;
+}
+
+export interface SavedPost {
+  id: string;
+  userId: string;
+  postId: string;
+  post: Post;
+  createdAt: Date;
 }
 
 export interface Notification {
