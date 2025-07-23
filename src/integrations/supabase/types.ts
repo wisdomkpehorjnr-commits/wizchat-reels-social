@@ -587,30 +587,63 @@ export type Database = {
       profiles: {
         Row: {
           avatar: string | null
+          bio: string | null
+          birthday: string | null
+          cover_image: string | null
           created_at: string | null
           email: string
+          follower_count: number | null
+          following_count: number | null
+          gender: string | null
           id: string
+          is_private: boolean | null
+          location: string | null
           name: string
+          profile_views: number | null
+          pronouns: string | null
           updated_at: string | null
           username: string
+          website: string | null
         }
         Insert: {
           avatar?: string | null
+          bio?: string | null
+          birthday?: string | null
+          cover_image?: string | null
           created_at?: string | null
           email: string
+          follower_count?: number | null
+          following_count?: number | null
+          gender?: string | null
           id: string
+          is_private?: boolean | null
+          location?: string | null
           name: string
+          profile_views?: number | null
+          pronouns?: string | null
           updated_at?: string | null
           username: string
+          website?: string | null
         }
         Update: {
           avatar?: string | null
+          bio?: string | null
+          birthday?: string | null
+          cover_image?: string | null
           created_at?: string | null
           email?: string
+          follower_count?: number | null
+          following_count?: number | null
+          gender?: string | null
           id?: string
+          is_private?: boolean | null
+          location?: string | null
           name?: string
+          profile_views?: number | null
+          pronouns?: string | null
           updated_at?: string | null
           username?: string
+          website?: string | null
         }
         Relationships: []
       }
@@ -724,6 +757,42 @@ export type Database = {
           },
           {
             foreignKeyName: "room_participants_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saved_posts: {
+        Row: {
+          created_at: string | null
+          id: string
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_posts_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saved_posts_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -869,6 +938,51 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      voice_calls: {
+        Row: {
+          caller_id: string
+          duration: number | null
+          ended_at: string | null
+          id: string
+          receiver_id: string
+          started_at: string | null
+          status: string | null
+        }
+        Insert: {
+          caller_id: string
+          duration?: number | null
+          ended_at?: string | null
+          id?: string
+          receiver_id: string
+          started_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          caller_id?: string
+          duration?: number | null
+          ended_at?: string | null
+          id?: string
+          receiver_id?: string
+          started_at?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_calls_caller_id_fkey"
+            columns: ["caller_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_calls_receiver_id_fkey"
+            columns: ["receiver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

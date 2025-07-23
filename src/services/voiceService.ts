@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export interface VoiceCall {
@@ -72,5 +73,4 @@ export class VoiceService {
 }
 
 // Export as both named export and default
-export const voiceService = VoiceService;
 export default VoiceService;
