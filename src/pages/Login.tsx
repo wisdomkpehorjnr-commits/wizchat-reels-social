@@ -17,6 +17,7 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [name, setName] = useState(''); // Added name field
 
   console.log('Login component - user:', user, 'loading:', loading);
 
@@ -84,7 +85,7 @@ const Login = () => {
     setIsLoggingIn(true);
     try {
       console.log('Attempting signup...');
-      await signUp(email, password);
+      await signUp(email, password, name || undefined); // Pass name as third parameter
       console.log('Signup successful');
       toast({
         title: "Account created!",
@@ -217,6 +218,18 @@ const Login = () => {
             
             <TabsContent value="signup" className="space-y-4 mt-6">
               <form onSubmit={handleEmailSignUp} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="signup-name" className="text-gray-700 dark:text-gray-300 font-medium">Name</Label>
+                  <Input
+                    id="signup-name"
+                    type="text"
+                    placeholder="Enter your name (optional)"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    disabled={isLoggingIn}
+                    className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-green-200/60 focus:border-green-400 focus:ring-green-400/20"
+                  />
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="signup-email" className="text-gray-700 dark:text-gray-300 font-medium">Email</Label>
                   <Input

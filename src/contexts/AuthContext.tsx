@@ -5,9 +5,10 @@ import { User } from '@/types';
 
 interface AuthContextType {
   user: User | null;
-  isLoading: boolean;
+  loading: boolean; // Changed from isLoading to loading
   login: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, name: string) => Promise<void>;
+  signUp: (email: string, password: string, name?: string) => Promise<void>; // Made name optional
+  loginWithGoogle: () => Promise<void>; // Added missing function
   logout: () => Promise<void>;
 }
 
@@ -23,7 +24,7 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // Changed from isLoading to loading
 
   useEffect(() => {
     // Check active session
@@ -50,7 +51,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Error checking session:', error);
         setUser(null);
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
 
@@ -66,7 +67,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(null);
       }
       
-      setIsLoading(false);
+      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
@@ -139,7 +140,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string) => {
     console.log('Attempting login for:', email);
-    setIsLoading(true);
+    setLoading(true);
     
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -158,13 +159,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Login failed:', error);
       throw error;
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const signUp = async (email: string, password: string, name: string) => {
+  const signUp = async (email: string, password: string, name?: string) => {
     console.log('Attempting signup for:', email);
-    setIsLoading(true);
+    setLoading(true);
     
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -172,7 +173,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         password,
         options: {
           data: {
-            full_name: name,
+            full_name: name || email.split('@')[0],
           },
         },
       });
@@ -188,13 +189,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Signup failed:', error);
       throw error;
     } finally {
-      setIsLoading(false);
+      setLoading(false);
+    }
+  };
+
+  const loginWithGoogle = async () => {
+    console.log('Attempting Google login...');
+    setLoading(true);
+    
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/`
+        }
+      });
+
+      if (error) {
+        console.error('Google login error:', error);
+        throw error;
+      }
+
+      console.log('Google login initiated');
+      // User profile will be loaded via onAuthStateChange after redirect
+    } catch (error) {
+      console.error('Google login failed:', error);
+      throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
   const logout = async () => {
     console.log('Logging out...');
-    setIsLoading(true);
+    setLoading(true);
     
     try {
       const { error } = await supabase.auth.signOut();
@@ -209,12 +237,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Logout failed:', error);
       throw error;
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, signUp, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, signUp, loginWithGoogle, logout }}>
       {children}
     </AuthContext.Provider>
   );
