@@ -23,6 +23,7 @@ const StoriesSection: React.FC = () => {
   const [mediaType, setMediaType] = useState<'image' | 'video'>('image');
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [viewingStory, setViewingStory] = useState<Story | null>(null);
 
   useEffect(() => {
     loadStories();
@@ -119,7 +120,7 @@ const StoriesSection: React.FC = () => {
     }
   };
 
-  const viewStory = async (storyId: string) => {
+  const viewStory = async (story: Story) => {
     try {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       if (!currentUser) return;
@@ -128,20 +129,20 @@ const StoriesSection: React.FC = () => {
       await supabase
         .from('story_views')
         .insert({
-          story_id: storyId,
+          story_id: story.id,
           user_id: currentUser.id
         });
 
       // Update viewer count
-      const story = stories.find(s => s.id === storyId);
-      if (story) {
-        const { error } = await supabase
-          .from('stories')
-          .update({ viewer_count: (story.viewerCount || 0) + 1 })
-          .eq('id', storyId);
+      const { error } = await supabase
+        .from('stories')
+        .update({ viewer_count: (story.viewerCount || 0) + 1 })
+        .eq('id', story.id);
 
-        if (error) console.error('Error updating story view count:', error);
-      }
+      if (error) console.error('Error updating story view count:', error);
+      
+      // Show story viewer
+      setViewingStory(story);
     } catch (error) {
       console.error('Error recording story view:', error);
     }
@@ -251,18 +252,18 @@ const StoriesSection: React.FC = () => {
 
   return (
     <>
-      <div className="flex gap-4 p-4 overflow-x-auto bg-background/50 backdrop-blur-sm border-b border-white/10">
+      <div className="flex gap-4 p-4 overflow-x-auto bg-background/50 backdrop-blur-sm border-b border-green-500/30">
         {/* Add Story Button */}
         <div className="flex-shrink-0 text-center">
           <Button
             variant="outline"
             size="lg"
-            className="w-16 h-16 rounded-full p-0 backdrop-blur-sm bg-white/10 border-white/20 hover:bg-white/20"
+            className="w-16 h-16 rounded-full p-0 backdrop-blur-sm bg-card border-green-500/50 hover:bg-muted/50"
             onClick={() => setShowCreateDialog(true)}
           >
-            <Plus className="w-6 h-6" />
+            <Plus className="w-6 h-6 text-foreground" />
           </Button>
-          <p className="text-xs mt-1 text-white/80">Your Story</p>
+          <p className="text-xs mt-1 text-foreground">Your Story</p>
         </div>
 
         {/* Stories */}
@@ -270,13 +271,13 @@ const StoriesSection: React.FC = () => {
           <div
             key={story.id}
             className="flex-shrink-0 text-center cursor-pointer"
-            onClick={() => viewStory(story.id)}
+            onClick={() => viewStory(story)}
           >
             <div className="relative">
-              <div className="w-16 h-16 rounded-full p-0.5 bg-gradient-to-r from-pink-500 to-orange-500">
+              <div className="w-16 h-16 rounded-full p-0.5 bg-gradient-to-r from-green-500 to-emerald-500">
                 <Avatar className="w-full h-full border-2 border-background">
                   <AvatarImage src={story.user.avatar} />
-                  <AvatarFallback>
+                  <AvatarFallback className="text-foreground">
                     {story.user.name.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
@@ -288,7 +289,7 @@ const StoriesSection: React.FC = () => {
                 </div>
               )}
             </div>
-            <p className="text-xs mt-1 truncate w-16 text-white/80">
+            <p className="text-xs mt-1 truncate w-16 text-foreground">
               {story.user.username}
             </p>
           </div>
@@ -296,16 +297,76 @@ const StoriesSection: React.FC = () => {
 
         {stories.length === 0 && (
           <div className="flex-1 text-center py-8">
-            <p className="text-white/60">No stories yet. Be the first to share!</p>
+            <p className="text-muted-foreground">No stories yet. Be the first to share!</p>
           </div>
         )}
       </div>
 
+      {/* Story Viewer Dialog */}
+      <Dialog open={!!viewingStory} onOpenChange={() => setViewingStory(null)}>
+        <DialogContent className="max-w-md p-0 bg-black/90 border-green-500/30">
+          {viewingStory && (
+            <div className="relative w-full h-96">
+              {/* Story Header */}
+              <div className="absolute top-0 left-0 right-0 z-10 p-4 bg-gradient-to-b from-black/50 to-transparent">
+                <div className="flex items-center space-x-3">
+                  <Avatar className="w-8 h-8">
+                    <AvatarImage src={viewingStory.user.avatar} />
+                    <AvatarFallback className="text-foreground">
+                      {viewingStory.user.name.charAt(0)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-medium text-white">{viewingStory.user.name}</p>
+                    <p className="text-xs text-white/70">
+                      {new Date(viewingStory.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Story Content */}
+              <div className="w-full h-full flex items-center justify-center">
+                {viewingStory.mediaUrl ? (
+                  viewingStory.mediaType === 'image' ? (
+                    <img 
+                      src={viewingStory.mediaUrl} 
+                      alt="Story" 
+                      className="max-w-full max-h-full object-contain"
+                    />
+                  ) : (
+                    <video 
+                      src={viewingStory.mediaUrl} 
+                      controls 
+                      className="max-w-full max-h-full object-contain"
+                    />
+                  )
+                ) : (
+                  <div className="text-center p-8">
+                    <p className="text-white text-lg">{viewingStory.content}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Close Button */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="absolute top-4 right-4 text-white hover:bg-white/20"
+                onClick={() => setViewingStory(null)}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Create Story Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-md backdrop-blur-md bg-white/90 dark:bg-black/90">
+        <DialogContent className="max-w-md backdrop-blur-md bg-card border-green-500/30">
           <DialogHeader>
-            <DialogTitle>Create Story</DialogTitle>
+            <DialogTitle className="text-foreground">Create Story</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -341,7 +402,7 @@ const StoriesSection: React.FC = () => {
               placeholder="Add text to your story..."
               value={storyContent}
               onChange={(e) => setStoryContent(e.target.value)}
-              className="min-h-[80px]"
+              className="min-h-[80px] text-foreground"
             />
 
             {/* Media Buttons */}
@@ -351,6 +412,7 @@ const StoriesSection: React.FC = () => {
                 variant="outline"
                 size="sm"
                 onClick={() => fileInputRef.current?.click()}
+                className="text-foreground"
               >
                 <Camera className="w-4 h-4 mr-2" />
                 Photo/Video
@@ -363,12 +425,14 @@ const StoriesSection: React.FC = () => {
                 type="button"
                 variant="outline"
                 onClick={() => setShowCreateDialog(false)}
+                className="text-foreground"
               >
                 Cancel
               </Button>
               <Button
                 onClick={createStory}
                 disabled={isUploading || (!storyContent.trim() && !storyMedia)}
+                className="text-foreground"
               >
                 {isUploading ? 'Sharing...' : 'Share Story'}
               </Button>

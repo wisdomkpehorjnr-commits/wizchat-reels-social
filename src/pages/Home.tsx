@@ -1,14 +1,14 @@
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import CreatePost from '@/components/CreatePost';
 import PostCard from '@/components/PostCard';
 import StoriesSection from '@/components/StoriesSection';
-import HashtagTrends from '@/components/HashtagTrends';
 import TopicRooms from '@/components/TopicRooms';
-import { dataService } from '@/services/dataService';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Post } from '@/types';
-import { useToast } from '@/components/ui/use-toast';
+import { dataService } from '@/services/dataService';
+import { useToast } from '@/hooks/use-toast';
 
 const Home = () => {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -16,82 +16,104 @@ const Home = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchPosts();
+    loadPosts();
   }, []);
 
-  const fetchPosts = async () => {
+  const loadPosts = async () => {
     try {
-      setLoading(true);
-      const postsData = await dataService.getPosts();
-      setPosts(postsData);
+      const userPosts = await dataService.getPosts();
+      setPosts(userPosts);
     } catch (error) {
-      console.error('Error fetching posts:', error);
+      console.error('Error loading posts:', error);
       toast({
         title: "Error",
         description: "Failed to load posts",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setLoading(false);
     }
   };
 
-  const handlePostCreated = async (newPost: Post) => {
-    setPosts(prevPosts => [newPost, ...prevPosts]);
+  const handlePostCreated = () => {
+    loadPosts();
   };
 
   const handleSavePost = async (postId: string) => {
     try {
-      // Implement save post functionality
+      await dataService.savePost(postId);
       toast({
-        title: "Saved",
-        description: "Post saved to your collection",
+        title: "Post saved",
+        description: "Post has been saved to your collection",
       });
     } catch (error) {
       console.error('Error saving post:', error);
       toast({
         title: "Error",
         description: "Failed to save post",
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
 
   return (
     <Layout>
-      <div className="max-w-2xl mx-auto space-y-6">
-        {/* Stories Section */}
+      <div className="min-h-screen bg-background">
         <StoriesSection />
         
-        {/* Create Post */}
-        <CreatePost onPostCreated={handlePostCreated} />
-        
-        {/* Posts Feed */}
-        <div className="space-y-6">
-          {loading ? (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-              <p className="text-white/60 mt-2">Loading posts...</p>
+        <div className="container mx-auto px-4 py-6">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            {/* Main Content */}
+            <div className="lg:col-span-3 space-y-6">
+              <CreatePost onPostCreated={handlePostCreated} />
+              
+              {loading ? (
+                <div className="space-y-4">
+                  {[...Array(3)].map((_, i) => (
+                    <Card key={i} className="border-2 green-border">
+                      <CardContent className="p-4">
+                        <div className="animate-pulse space-y-4">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 bg-muted rounded-full" />
+                            <div className="space-y-2">
+                              <div className="w-24 h-4 bg-muted rounded" />
+                              <div className="w-20 h-3 bg-muted rounded" />
+                            </div>
+                          </div>
+                          <div className="w-full h-32 bg-muted rounded" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {posts.map((post) => (
+                    <PostCard 
+                      key={post.id} 
+                      post={post} 
+                      onSave={() => handleSavePost(post.id)} 
+                    />
+                  ))}
+                  
+                  {posts.length === 0 && (
+                    <Card className="border-2 green-border">
+                      <CardContent className="p-8 text-center">
+                        <p className="text-muted-foreground">
+                          No posts yet. Create your first post to get started!
+                        </p>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              )}
             </div>
-          ) : posts.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-white/60">No posts yet. Be the first to share something!</p>
-            </div>
-          ) : (
-            posts.map((post) => (
-              <PostCard 
-                key={post.id} 
-                post={post} 
-                onSave={() => handleSavePost(post.id)}
-              />
-            ))
-          )}
-        </div>
 
-        {/* Sidebar Components (on larger screens) */}
-        <div className="hidden lg:block fixed right-4 top-20 w-80 space-y-6">
-          <HashtagTrends />
-          <TopicRooms />
+            {/* Sidebar */}
+            <div className="lg:col-span-1 space-y-6">
+              <TopicRooms />
+            </div>
+          </div>
         </div>
       </div>
     </Layout>

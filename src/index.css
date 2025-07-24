@@ -30,6 +30,7 @@
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
+    --green-border: 142 76% 36%;
   }
 
   .dark {
@@ -57,6 +58,7 @@
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
+    --green-border: 142 76% 36%;
   }
 }
 
@@ -70,7 +72,7 @@
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 
-  /* Enhanced text visibility */
+  /* Enhanced text visibility - Force colors */
   .text-foreground {
     color: hsl(var(--foreground)) !important;
   }
@@ -79,38 +81,42 @@
     color: hsl(var(--muted-foreground)) !important;
   }
 
-  /* Fix input text visibility */
+  .text-card-foreground {
+    color: hsl(var(--card-foreground)) !important;
+  }
+
+  /* Fix all text elements */
+  p, span, div, h1, h2, h3, h4, h5, h6, a, label {
+    color: hsl(var(--foreground));
+  }
+
+  /* Fix input and textarea text visibility */
   input, textarea {
-    @apply text-foreground placeholder:text-muted-foreground;
+    @apply text-foreground placeholder:text-muted-foreground bg-background;
+    color: hsl(var(--foreground)) !important;
   }
 
   /* Fix button text visibility */
   button {
-    @apply text-foreground;
+    color: hsl(var(--foreground));
   }
 
-  /* Fix card text visibility */
+  /* Fix card text visibility with green borders */
   .card {
-    @apply bg-card text-card-foreground;
+    @apply bg-card text-card-foreground border-2;
+    border-color: hsl(var(--green-border)) !important;
+    color: hsl(var(--card-foreground)) !important;
   }
 
   /* Fix popover text visibility */
   .popover {
     @apply bg-popover text-popover-foreground;
+    color: hsl(var(--popover-foreground)) !important;
   }
 
-  /* Enhanced chat interface styling */
-  .chat-message {
-    @apply text-foreground;
-  }
-
-  .chat-input {
-    @apply bg-background text-foreground border-border;
-  }
-
-  /* Fix notification text visibility */
-  .notification-item {
-    @apply text-foreground;
+  /* Green border utility class */
+  .green-border {
+    border-color: hsl(var(--green-border)) !important;
   }
 
   /* Enhanced scrollbar styling */

@@ -11,6 +11,7 @@ import Home from "./pages/Home";
 import Reels from "./pages/Reels";
 import Chat from "./pages/Chat";
 import ChatRoom from "./pages/ChatRoom";
+import Topics from "./pages/Topics";
 import Profile from "./pages/Profile";
 import Friends from "./pages/Friends";
 import Admin from "./pages/Admin";
@@ -34,6 +35,7 @@ const App = () => (
               <Route path="/reels" element={<ProtectedRoute><Reels /></ProtectedRoute>} />
               <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
               <Route path="/chat/:chatId" element={<ProtectedRoute><ChatRoom /></ProtectedRoute>} />
+              <Route path="/topics" element={<ProtectedRoute><Topics /></ProtectedRoute>} />
               <Route path="/topic-room/:roomId" element={<ProtectedRoute><TopicRoom /></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
               <Route path="/friends" element={<ProtectedRoute><Friends /></ProtectedRoute>} />

@@ -92,9 +92,9 @@ const TopicRooms: React.FC = () => {
 
   if (loading) {
     return (
-      <Card>
+      <Card className="border-2 green-border">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-foreground">
             <Flame className="w-5 h-5" />
             Hot Topic Rooms
           </CardTitle>
@@ -107,9 +107,9 @@ const TopicRooms: React.FC = () => {
   }
 
   return (
-    <Card>
+    <Card className="border-2 green-border">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2 text-foreground">
           <Flame className="w-5 h-5" />
           Hot Topic Rooms
         </CardTitle>
@@ -118,15 +118,15 @@ const TopicRooms: React.FC = () => {
         {rooms.map((room) => (
           <div
             key={room.id}
-            className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+            className="flex items-center justify-between p-3 rounded-lg border border-green-500/50 hover:bg-muted/50 transition-colors"
           >
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
                 <MessageSquare className="w-4 h-4 text-primary" />
-                <h4 className="font-medium">{room.name}</h4>
+                <h4 className="font-medium text-foreground">{room.name}</h4>
                 <Badge variant="secondary" className="text-xs">
                   <Users className="w-3 h-3 mr-1" />
-                  {room.participantCount}
+                  <span className="text-foreground">{room.participantCount}</span>
                 </Badge>
               </div>
               {room.description && (
@@ -138,6 +138,7 @@ const TopicRooms: React.FC = () => {
             <Button
               size="sm"
               onClick={() => joinRoom(room.id)}
+              className="text-foreground"
             >
               Join
             </Button>

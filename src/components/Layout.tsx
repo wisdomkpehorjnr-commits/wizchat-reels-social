@@ -10,10 +10,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Home, Video, MessageCircle, Users, User, Settings, LogOut, Bell } from 'lucide-react';
+import { Home, PlayCircle, MessageCircle, Users, User, Settings, LogOut, MessageSquare } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import Logo from './Logo';
 import ThemeToggle from './ThemeToggle';
+import NotificationSystem from './NotificationSystem';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -35,9 +36,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const navItems = [
     { icon: Home, label: 'Home', path: '/' },
-    { icon: Video, label: 'Reels', path: '/reels' },
+    { icon: PlayCircle, label: 'Reels', path: '/reels' },
     { icon: MessageCircle, label: 'Chat', path: '/chat' },
     { icon: Users, label: 'Friends', path: '/friends' },
+    { icon: MessageSquare, label: 'Topics', path: '/topics' },
   ];
 
   const isActivePath = (path: string) => {
@@ -65,11 +67,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 variant={isActivePath(item.path) ? "default" : "ghost"}
                 size="sm"
                 asChild
-                className={isActivePath(item.path) ? "bg-primary text-primary-foreground" : ""}
+                className={isActivePath(item.path) ? "bg-primary text-primary-foreground" : "text-foreground hover:text-foreground"}
               >
                 <Link to={item.path} className="flex items-center gap-2">
                   <item.icon className="w-4 h-4" />
-                  <span className="hidden lg:inline">{item.label}</span>
+                  <span className="hidden lg:inline text-foreground">{item.label}</span>
                 </Link>
               </Button>
             ))}
@@ -77,18 +79,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            
-            <Button variant="ghost" size="sm" className="relative">
-              <Bell className="w-4 h-4" />
-              <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-            </Button>
+            <NotificationSystem />
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                   <Avatar className="h-8 w-8">
                     <AvatarImage src={user?.photoURL || user?.avatar} alt={user?.name} />
-                    <AvatarFallback>
+                    <AvatarFallback className="text-foreground">
                       {user?.name?.charAt(0) || user?.email?.charAt(0)}
                     </AvatarFallback>
                   </Avatar>
@@ -96,26 +94,26 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="end" forceMount>
                 <div className="flex flex-col space-y-1 p-2">
-                  <p className="text-sm font-medium leading-none">{user?.name}</p>
+                  <p className="text-sm font-medium leading-none text-foreground">{user?.name}</p>
                   <p className="text-xs leading-none text-muted-foreground">
                     {user?.email}
                   </p>
                 </div>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link to="/profile" className="cursor-pointer">
+                  <Link to="/profile" className="cursor-pointer text-foreground">
                     <User className="mr-2 h-4 w-4" />
                     <span>Profile</span>
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link to="/admin" className="cursor-pointer">
+                  <Link to="/admin" className="cursor-pointer text-foreground">
                     <Settings className="mr-2 h-4 w-4" />
                     <span>Settings</span>
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
+                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-foreground">
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Log out</span>
                 </DropdownMenuItem>
@@ -143,7 +141,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             >
               <Link to={item.path}>
                 <item.icon className="w-4 h-4" />
-                <span className="text-xs mt-1">{item.label}</span>
+                <span className="text-xs mt-1 text-foreground">{item.label}</span>
               </Link>
             </Button>
           ))}
