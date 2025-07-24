@@ -37,8 +37,8 @@ const ChatInterface = ({ chat, onClose }: ChatInterfaceProps) => {
   const [showGroupSettings, setShowGroupSettings] = useState(false);
   const [groupForm, setGroupForm] = useState<GroupFormData>({
     name: chat.name || '',
-    description: '',
-    isPublic: false
+    description: chat.description || '',
+    isPublic: chat.isPublic || false
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [availableUsers, setAvailableUsers] = useState<User[]>([]);
@@ -137,15 +137,16 @@ const ChatInterface = ({ chat, onClose }: ChatInterfaceProps) => {
       const mediaUrl = await MediaService.uploadChatMedia(file);
       const mediaType = MediaService.getMediaType(file);
       
-      // Create media message in database
-      await dataService.createMediaMessage(chat.id, mediaUrl, mediaType);
-      
-      loadMessages();
-      
-      toast({
-        title: "Success",
-        description: "File uploaded successfully"
-      });
+      // Only handle image and video for media messages
+      if (mediaType === 'image' || mediaType === 'video') {
+        await dataService.createMediaMessage(chat.id, mediaUrl, mediaType);
+        loadMessages();
+        
+        toast({
+          title: "Success",
+          description: "File uploaded successfully"
+        });
+      }
     } catch (error) {
       console.error('Error uploading file:', error);
       toast({

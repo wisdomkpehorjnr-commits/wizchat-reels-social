@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { 
   Post, 
@@ -36,7 +37,8 @@ class DataService {
       followerCount: profile.follower_count || 0,
       followingCount: profile.following_count || 0,
       profileViews: profile.profile_views || 0,
-      createdAt: new Date(profile.created_at)
+      createdAt: new Date(profile.created_at),
+      role: profile.role || undefined
     };
   }
 
@@ -240,6 +242,10 @@ class DataService {
         participants: [],
         isGroup: true,
         name: chat.name,
+        description: chat.description,
+        isPublic: chat.is_public,
+        inviteCode: chat.invite_code,
+        memberCount: chat.member_count,
         lastActivity: new Date(chat.updated_at),
         createdAt: new Date(chat.created_at)
       };
@@ -500,6 +506,7 @@ class DataService {
         .select(`
           *,
           chat_participants(
+            role,
             user:profiles(*)
           )
         `)
@@ -509,9 +516,17 @@ class DataService {
 
       return data?.map(chat => ({
         id: chat.id,
-        participants: chat.chat_participants?.map((cp: any) => this.mapProfileToUser(cp.user)) || [],
+        participants: chat.chat_participants?.map((cp: any) => ({
+          ...this.mapProfileToUser(cp.user),
+          role: cp.role
+        })) || [],
         isGroup: chat.is_group || false,
         name: chat.name,
+        description: chat.description,
+        avatar: chat.avatar_url,
+        isPublic: chat.is_public,
+        inviteCode: chat.invite_code,
+        memberCount: chat.member_count,
         lastActivity: new Date(chat.updated_at),
         createdAt: new Date(chat.created_at)
       })) || [];
@@ -972,98 +987,6 @@ class DataService {
       if (error) throw error;
     } catch (error) {
       console.error('Error removing reaction:', error);
-      throw error;
-    }
-  }
-
-  async getCustomEmojis(): Promise<CustomEmoji[]> {
-    try {
-      const { data, error } = await supabase
-        .from('custom_emojis')
-        .select('*')
-        .eq('is_public', true)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      return data?.map(emoji => ({
-        id: emoji.id,
-        name: emoji.name,
-        imageUrl: emoji.image_url,
-        createdBy: emoji.created_by,
-        isPublic: emoji.is_public,
-        createdAt: new Date(emoji.created_at)
-      })) || [];
-    } catch (error) {
-      console.error('Error fetching custom emojis:', error);
-      return [];
-    }
-  }
-
-  // Site settings methods
-  async getSiteLogo(): Promise<string> {
-    try {
-      const { data, error } = await supabase
-        .from('site_settings')
-        .select('setting_value')
-        .eq('setting_key', 'site_logo')
-        .single();
-
-      if (error) return '';
-      return data?.setting_value || '';
-    } catch (error) {
-      console.error('Error fetching site logo:', error);
-      return '';
-    }
-  }
-
-  async updateSiteLogo(logoUrl: string): Promise<void> {
-    try {
-      const { error } = await supabase
-        .from('site_settings')
-        .upsert({
-          setting_key: 'site_logo',
-          setting_value: logoUrl
-        });
-
-      if (error) throw error;
-    } catch (error) {
-      console.error('Error updating site logo:', error);
-      throw error;
-    }
-  }
-
-  // Friend methods
-  async sendFriendRequest(userId: string): Promise<void> {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-
-      const { error } = await supabase
-        .from('friends')
-        .insert({
-          requester_id: user.id,
-          addressee_id: userId,
-          status: 'pending'
-        });
-
-      if (error) throw error;
-    } catch (error) {
-      console.error('Error sending friend request:', error);
-      throw error;
-    }
-  }
-
-  async acceptFriendRequest(requestId: string): Promise<void> {
-    try {
-      const { error } = await supabase
-        .from('friends')
-        .update({ status: 'accepted' })
-        .eq('id', requestId);
-
-      if (error) throw error;
-    } catch (error) {
-      console.error('Error accepting friend request:', error);
       throw error;
     }
   }

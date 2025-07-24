@@ -18,6 +18,7 @@ export interface User {
   followingCount: number;
   profileViews: number;
   createdAt: Date;
+  role?: string; // Add role property for chat participants
 }
 
 export interface Post {
@@ -90,9 +91,15 @@ export interface Chat {
   participants: User[];
   isGroup: boolean;
   name?: string;
+  description?: string;
+  avatar?: string; // Add avatar property
   lastMessage?: Message;
   lastActivity: Date;
   createdAt: Date;
+  creatorId?: string;
+  inviteCode?: string;
+  isPublic?: boolean;
+  memberCount?: number;
 }
 
 export interface Message {
