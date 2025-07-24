@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -151,8 +150,20 @@ const StoriesSection: React.FC = () => {
   const handleMediaSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      const detectedMediaType = MediaService.getMediaType(file);
+      
+      // Only allow image and video for stories, not audio
+      if (detectedMediaType === 'audio') {
+        toast({
+          title: "Invalid file type",
+          description: "Stories only support images and videos",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       setStoryMedia(file);
-      setMediaType(MediaService.getMediaType(file));
+      setMediaType(detectedMediaType as 'image' | 'video');
       
       const reader = new FileReader();
       reader.onload = () => setStoryPreview(reader.result as string);
@@ -176,8 +187,15 @@ const StoriesSection: React.FC = () => {
       let finalMediaType: 'image' | 'video' = 'image';
       
       if (storyMedia) {
+        const detectedType = MediaService.getMediaType(storyMedia);
+        
+        // Ensure we only process image/video for stories
+        if (detectedType === 'audio') {
+          throw new Error('Audio files are not supported for stories');
+        }
+        
         mediaUrl = await MediaService.uploadStoryMedia(storyMedia);
-        finalMediaType = MediaService.getMediaType(storyMedia);
+        finalMediaType = detectedType as 'image' | 'video';
       }
 
       const { data: { user: currentUser } } = await supabase.auth.getUser();
@@ -356,7 +374,7 @@ const StoriesSection: React.FC = () => {
               </Button>
             </div>
 
-            {/* Hidden File Input */}
+            {/* Hidden File Input - Only accept images and videos */}
             <input
               ref={fileInputRef}
               type="file"
