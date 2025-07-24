@@ -4,17 +4,25 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Eye, Camera, Video, X } from 'lucide-react';
+import { Plus, Eye, Camera, X, Edit, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Story } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { MediaService } from '@/services/mediaService';
 import { useToast } from '@/components/ui/use-toast';
 
+interface GroupedStory {
+  userId: string;
+  user: Story['user'];
+  stories: Story[];
+  latestStory: Story;
+}
+
 const StoriesSection: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [stories, setStories] = useState<Story[]>([]);
+  const [groupedStories, setGroupedStories] = useState<GroupedStory[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [storyContent, setStoryContent] = useState('');
@@ -23,7 +31,8 @@ const StoriesSection: React.FC = () => {
   const [mediaType, setMediaType] = useState<'image' | 'video'>('image');
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [viewingStory, setViewingStory] = useState<Story | null>(null);
+  const [viewingStories, setViewingStories] = useState<Story[] | null>(null);
+  const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
 
   useEffect(() => {
     loadStories();
@@ -44,6 +53,32 @@ const StoriesSection: React.FC = () => {
       supabase.removeChannel(channel);
     };
   }, []);
+
+  useEffect(() => {
+    // Group stories by user
+    const grouped = stories.reduce((acc, story) => {
+      const existingGroup = acc.find(group => group.userId === story.userId);
+      if (existingGroup) {
+        existingGroup.stories.push(story);
+        // Update latest story if this one is newer
+        if (story.createdAt > existingGroup.latestStory.createdAt) {
+          existingGroup.latestStory = story;
+        }
+      } else {
+        acc.push({
+          userId: story.userId,
+          user: story.user,
+          stories: [story],
+          latestStory: story
+        });
+      }
+      return acc;
+    }, [] as GroupedStory[]);
+
+    // Sort by latest story
+    grouped.sort((a, b) => b.latestStory.createdAt.getTime() - a.latestStory.createdAt.getTime());
+    setGroupedStories(grouped);
+  }, [stories]);
 
   const loadStories = async () => {
     try {
@@ -120,31 +155,77 @@ const StoriesSection: React.FC = () => {
     }
   };
 
-  const viewStory = async (story: Story) => {
+  const viewStoryGroup = async (storyGroup: GroupedStory) => {
     try {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       if (!currentUser) return;
 
-      // Record the view
-      await supabase
-        .from('story_views')
-        .insert({
-          story_id: story.id,
-          user_id: currentUser.id
-        });
+      // Record views for unviewed stories
+      const storiesToView = storyGroup.stories.filter(story => 
+        story.userId !== currentUser.id // Don't record views for own stories
+      );
 
-      // Update viewer count
+      if (storiesToView.length > 0) {
+        await Promise.all(
+          storiesToView.map(story => 
+            supabase
+              .from('story_views')
+              .insert({
+                story_id: story.id,
+                user_id: currentUser.id
+              })
+              .then(() => 
+                supabase
+                  .from('stories')
+                  .update({ viewer_count: (story.viewerCount || 0) + 1 })
+                  .eq('id', story.id)
+              )
+          )
+        );
+      }
+      
+      setViewingStories(storyGroup.stories);
+      setCurrentStoryIndex(0);
+    } catch (error) {
+      console.error('Error viewing stories:', error);
+    }
+  };
+
+  const deleteStory = async (storyId: string) => {
+    try {
       const { error } = await supabase
         .from('stories')
-        .update({ viewer_count: (story.viewerCount || 0) + 1 })
-        .eq('id', story.id);
+        .delete()
+        .eq('id', storyId)
+        .eq('user_id', user?.id);
 
-      if (error) console.error('Error updating story view count:', error);
-      
-      // Show story viewer
-      setViewingStory(story);
+      if (error) throw error;
+
+      toast({
+        title: "Story Deleted",
+        description: "Your story has been deleted successfully.",
+      });
+
+      loadStories();
     } catch (error) {
-      console.error('Error recording story view:', error);
+      console.error('Error deleting story:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete story.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const nextStory = () => {
+    if (viewingStories && currentStoryIndex < viewingStories.length - 1) {
+      setCurrentStoryIndex(currentStoryIndex + 1);
+    }
+  };
+
+  const prevStory = () => {
+    if (currentStoryIndex > 0) {
+      setCurrentStoryIndex(currentStoryIndex - 1);
     }
   };
 
@@ -153,7 +234,6 @@ const StoriesSection: React.FC = () => {
     if (file) {
       const detectedMediaType = MediaService.getMediaType(file);
       
-      // Only allow image and video for stories, not audio
       if (detectedMediaType === 'audio') {
         toast({
           title: "Invalid file type",
@@ -190,7 +270,6 @@ const StoriesSection: React.FC = () => {
       if (storyMedia) {
         const detectedType = MediaService.getMediaType(storyMedia);
         
-        // Ensure we only process image/video for stories
         if (detectedType === 'audio') {
           throw new Error('Audio files are not supported for stories');
         }
@@ -213,7 +292,6 @@ const StoriesSection: React.FC = () => {
 
       if (error) throw error;
 
-      // Reset form
       setStoryContent('');
       setStoryMedia(null);
       setStoryPreview(null);
@@ -224,7 +302,6 @@ const StoriesSection: React.FC = () => {
         description: "Your story has been shared successfully.",
       });
 
-      // Reload stories
       loadStories();
     } catch (error) {
       console.error('Error creating story:', error);
@@ -266,36 +343,54 @@ const StoriesSection: React.FC = () => {
           <p className="text-xs mt-1 text-foreground">Your Story</p>
         </div>
 
-        {/* Stories */}
-        {stories.map((story) => (
+        {/* Grouped Stories */}
+        {groupedStories.map((storyGroup) => (
           <div
-            key={story.id}
+            key={storyGroup.userId}
             className="flex-shrink-0 text-center cursor-pointer"
-            onClick={() => viewStory(story)}
+            onClick={() => viewStoryGroup(storyGroup)}
           >
             <div className="relative">
-              <div className="w-16 h-16 rounded-full p-0.5 bg-gradient-to-r from-green-500 to-emerald-500">
-                <Avatar className="w-full h-full border-2 border-background">
-                  <AvatarImage src={story.user.avatar} />
-                  <AvatarFallback className="text-foreground">
-                    {story.user.name.charAt(0)}
-                  </AvatarFallback>
-                </Avatar>
+              <div className="w-16 h-16 rounded-full p-0.5 bg-gradient-to-r from-green-500 to-emerald-500 overflow-hidden">
+                {/* Show latest story content as preview */}
+                {storyGroup.latestStory.mediaUrl ? (
+                  storyGroup.latestStory.mediaType === 'image' ? (
+                    <img 
+                      src={storyGroup.latestStory.mediaUrl} 
+                      alt="Story preview"
+                      className="w-full h-full object-cover rounded-full"
+                    />
+                  ) : (
+                    <video 
+                      src={storyGroup.latestStory.mediaUrl} 
+                      className="w-full h-full object-cover rounded-full"
+                      muted
+                    />
+                  )
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs font-bold">
+                      {storyGroup.latestStory.content?.charAt(0) || storyGroup.user.name.charAt(0)}
+                    </span>
+                  </div>
+                )}
               </div>
-              {story.viewerCount > 0 && (
+              
+              {/* Story count badge */}
+              {storyGroup.stories.length > 1 && (
                 <div className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground rounded-full text-xs px-1 flex items-center gap-1">
                   <Eye className="w-2 h-2" />
-                  {story.viewerCount}
+                  {storyGroup.stories.length}
                 </div>
               )}
             </div>
             <p className="text-xs mt-1 truncate w-16 text-foreground">
-              {story.user.username}
+              {storyGroup.user.username}
             </p>
           </div>
         ))}
 
-        {stories.length === 0 && (
+        {groupedStories.length === 0 && (
           <div className="flex-1 text-center py-8">
             <p className="text-muted-foreground">No stories yet. Be the first to share!</p>
           </div>
@@ -303,57 +398,121 @@ const StoriesSection: React.FC = () => {
       </div>
 
       {/* Story Viewer Dialog */}
-      <Dialog open={!!viewingStory} onOpenChange={() => setViewingStory(null)}>
+      <Dialog open={!!viewingStories} onOpenChange={() => setViewingStories(null)}>
         <DialogContent className="max-w-md p-0 bg-black/90 border-green-500/30">
-          {viewingStory && (
+          {viewingStories && viewingStories[currentStoryIndex] && (
             <div className="relative w-full h-96">
+              {/* Story progress indicators */}
+              <div className="absolute top-2 left-2 right-2 z-20 flex gap-1">
+                {viewingStories.map((_, index) => (
+                  <div
+                    key={index}
+                    className={`flex-1 h-1 rounded-full ${
+                      index <= currentStoryIndex ? 'bg-white' : 'bg-white/30'
+                    }`}
+                  />
+                ))}
+              </div>
+
               {/* Story Header */}
-              <div className="absolute top-0 left-0 right-0 z-10 p-4 bg-gradient-to-b from-black/50 to-transparent">
-                <div className="flex items-center space-x-3">
-                  <Avatar className="w-8 h-8">
-                    <AvatarImage src={viewingStory.user.avatar} />
-                    <AvatarFallback className="text-foreground">
-                      {viewingStory.user.name.charAt(0)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="font-medium text-white">{viewingStory.user.name}</p>
-                    <p className="text-xs text-white/70">
-                      {new Date(viewingStory.createdAt).toLocaleString()}
-                    </p>
+              <div className="absolute top-6 left-0 right-0 z-10 p-4 bg-gradient-to-b from-black/50 to-transparent">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <Avatar className="w-8 h-8">
+                      <AvatarImage src={viewingStories[currentStoryIndex].user.avatar} />
+                      <AvatarFallback className="text-foreground">
+                        {viewingStories[currentStoryIndex].user.name.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-medium text-white">{viewingStories[currentStoryIndex].user.name}</p>
+                      <p className="text-xs text-white/70">
+                        {new Date(viewingStories[currentStoryIndex].createdAt).toLocaleString()}
+                      </p>
+                    </div>
                   </div>
+                  
+                  {/* Story actions for own stories */}
+                  {viewingStories[currentStoryIndex].userId === user?.id && (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => deleteStory(viewingStories[currentStoryIndex].id)}
+                        className="text-white hover:bg-white/20"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
 
               {/* Story Content */}
               <div className="w-full h-full flex items-center justify-center">
-                {viewingStory.mediaUrl ? (
-                  viewingStory.mediaType === 'image' ? (
+                {viewingStories[currentStoryIndex].mediaUrl ? (
+                  viewingStories[currentStoryIndex].mediaType === 'image' ? (
                     <img 
-                      src={viewingStory.mediaUrl} 
+                      src={viewingStories[currentStoryIndex].mediaUrl} 
                       alt="Story" 
                       className="max-w-full max-h-full object-contain"
                     />
                   ) : (
                     <video 
-                      src={viewingStory.mediaUrl} 
+                      src={viewingStories[currentStoryIndex].mediaUrl} 
                       controls 
                       className="max-w-full max-h-full object-contain"
+                      autoPlay
                     />
                   )
                 ) : (
                   <div className="text-center p-8">
-                    <p className="text-white text-lg">{viewingStory.content}</p>
+                    <p className="text-white text-lg">{viewingStories[currentStoryIndex].content}</p>
                   </div>
                 )}
               </div>
+
+              {/* Navigation */}
+              <div className="absolute inset-0 flex">
+                <div 
+                  className="flex-1 cursor-pointer" 
+                  onClick={prevStory}
+                />
+                <div 
+                  className="flex-1 cursor-pointer" 
+                  onClick={nextStory}
+                />
+              </div>
+
+              {/* Navigation buttons */}
+              {currentStoryIndex > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute left-2 top-1/2 transform -translate-y-1/2 text-white hover:bg-white/20"
+                  onClick={prevStory}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+              )}
+              
+              {currentStoryIndex < viewingStories.length - 1 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-white hover:bg-white/20"
+                  onClick={nextStory}
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              )}
 
               {/* Close Button */}
               <Button
                 variant="ghost"
                 size="sm"
-                className="absolute top-4 right-4 text-white hover:bg-white/20"
-                onClick={() => setViewingStory(null)}
+                className="absolute top-4 right-4 text-white hover:bg-white/20 z-20"
+                onClick={() => setViewingStories(null)}
               >
                 <X className="w-4 h-4" />
               </Button>
@@ -438,7 +597,7 @@ const StoriesSection: React.FC = () => {
               </Button>
             </div>
 
-            {/* Hidden File Input - Only accept images and videos */}
+            {/* Hidden File Input */}
             <input
               ref={fileInputRef}
               type="file"
