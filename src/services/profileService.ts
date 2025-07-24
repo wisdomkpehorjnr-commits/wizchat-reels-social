@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { User, Follow, SavedPost } from '@/types';
 
@@ -15,7 +14,7 @@ export class ProfileService {
         bio: updates.bio,
         location: updates.location,
         website: updates.website,
-        birthday: updates.birthday,
+        birthday: updates.birthday ? updates.birthday.toISOString().split('T')[0] : null,
         gender: updates.gender,
         pronouns: updates.pronouns,
         avatar: updates.avatar,
