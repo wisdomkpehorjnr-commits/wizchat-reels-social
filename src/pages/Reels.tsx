@@ -1,98 +1,63 @@
-import { useState, useRef, useEffect } from 'react';
+
+import { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import ReelCard from '@/components/ReelCard';
-import { dataService } from '@/services/dataService';
 import { Post } from '@/types';
+import { dataService } from '@/services/dataService';
+import { useToast } from '@/hooks/use-toast';
+import { Video } from 'lucide-react';
 
 const Reels = () => {
   const [reels, setReels] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentReelIndex, setCurrentReelIndex] = useState(0);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
-    const loadReels = async () => {
-      try {
-        const fetchedPosts = await dataService.getPosts();
-        const reelPosts = fetchedPosts.filter(post => post.isReel);
-        setReels(reelPosts);
-      } catch (error) {
-        console.error('Error loading reels:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     loadReels();
   }, []);
 
-  const handleScroll = () => {
-    if (!containerRef.current) return;
-    
-    const container = containerRef.current;
-    const scrollTop = container.scrollTop;
-    const itemHeight = container.clientHeight;
-    const newIndex = Math.round(scrollTop / itemHeight);
-    
-    if (newIndex !== currentReelIndex && newIndex >= 0 && newIndex < reels.length) {
-      setCurrentReelIndex(newIndex);
-    }
-  };
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (container) {
-      container.addEventListener('scroll', handleScroll);
-      return () => container.removeEventListener('scroll', handleScroll);
-    }
-  }, [currentReelIndex]);
-
-  const handleLike = async (postId: string) => {
+  const loadReels = async () => {
     try {
-      await dataService.likePost(postId);
-      console.log('Liked reel:', postId);
+      const allPosts = await dataService.getPosts();
+      // Filter for video posts and reels
+      const videoReels = allPosts.filter(post => post.videoUrl || post.isReel);
+      setReels(videoReels);
     } catch (error) {
-      console.error('Error liking reel:', error);
+      console.error('Error loading reels:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load reels",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
   };
-
-  if (loading) {
-    return (
-      <Layout>
-        <div className="fixed inset-0 top-16 bg-black flex items-center justify-center">
-          <div className="text-center text-white">
-            <p className="text-xl mb-4">Loading reels...</p>
-          </div>
-        </div>
-      </Layout>
-    );
-  }
 
   return (
     <Layout>
-      <div className="fixed inset-0 top-16 bg-black">
-        <div
-          ref={containerRef}
-          className="h-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-        >
-          {reels.map((reel, index) => (
-            <div key={reel.id} className="h-full snap-start">
-              <ReelCard
-                reel={reel}
-                isActive={index === currentReelIndex}
-                onLike={handleLike}
-              />
-            </div>
-          ))}
-        </div>
-        
-        {reels.length === 0 && (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center text-white">
-              <p className="text-xl mb-4">No reels yet</p>
-              <p className="text-gray-400">Start creating amazing content!</p>
-            </div>
+      <div className="max-w-md mx-auto">
+        {loading ? (
+          <div className="space-y-6">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="border-2 green-border rounded-lg aspect-[9/16] bg-card animate-pulse">
+                <div className="w-full h-full bg-muted rounded-lg" />
+              </div>
+            ))}
+          </div>
+        ) : reels.length === 0 ? (
+          <div className="text-center py-12">
+            <Video className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">No reels available</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              Create a video post to see it here
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {reels.map((reel) => (
+              <ReelCard key={reel.id} post={reel} />
+            ))}
           </div>
         )}
       </div>
