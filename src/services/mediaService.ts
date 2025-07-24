@@ -3,23 +3,37 @@ import { supabase } from '@/integrations/supabase/client';
 
 export class MediaService {
   private static async uploadFile(file: File, bucket: string, folder?: string): Promise<string> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User not authenticated');
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
 
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${user.id}/${folder ? folder + '/' : ''}${Date.now()}.${fileExt}`;
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/${folder ? folder + '/' : ''}${Date.now()}.${fileExt}`;
 
-    const { data, error } = await supabase.storage
-      .from(bucket)
-      .upload(fileName, file);
+      console.log('Uploading file:', fileName, 'to bucket:', bucket);
 
-    if (error) throw error;
+      const { data, error } = await supabase.storage
+        .from(bucket)
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
 
-    const { data: { publicUrl } } = supabase.storage
-      .from(bucket)
-      .getPublicUrl(data.path);
+      if (error) {
+        console.error('Upload error:', error);
+        throw error;
+      }
 
-    return publicUrl;
+      const { data: { publicUrl } } = supabase.storage
+        .from(bucket)
+        .getPublicUrl(data.path);
+
+      console.log('File uploaded successfully:', publicUrl);
+      return publicUrl;
+    } catch (error) {
+      console.error('MediaService upload error:', error);
+      throw error;
+    }
   }
 
   static async uploadAvatar(file: File): Promise<string> {
@@ -46,8 +60,14 @@ export class MediaService {
     return this.uploadFile(file, 'stories');
   }
 
-  static getMediaType(file: File): 'image' | 'video' {
-    return file.type.startsWith('video/') ? 'video' : 'image';
+  static async uploadChatMedia(file: File): Promise<string> {
+    return this.uploadFile(file, 'chat-media');
+  }
+
+  static getMediaType(file: File): 'image' | 'video' | 'audio' {
+    if (file.type.startsWith('video/')) return 'video';
+    if (file.type.startsWith('audio/')) return 'audio';
+    return 'image';
   }
 
   static async compressImage(file: File, maxWidth = 1920, quality = 0.8): Promise<File> {

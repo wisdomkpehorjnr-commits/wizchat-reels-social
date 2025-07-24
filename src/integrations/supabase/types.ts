@@ -19,18 +19,21 @@ export type Database = {
           chat_id: string
           id: string
           joined_at: string | null
+          role: string | null
           user_id: string
         }
         Insert: {
           chat_id: string
           id?: string
           joined_at?: string | null
+          role?: string | null
           user_id: string
         }
         Update: {
           chat_id?: string
           id?: string
           joined_at?: string | null
+          role?: string | null
           user_id?: string
         }
         Relationships: [
@@ -52,27 +55,53 @@ export type Database = {
       }
       chats: {
         Row: {
+          avatar_url: string | null
           created_at: string | null
+          creator_id: string | null
+          description: string | null
           id: string
+          invite_code: string | null
           is_group: boolean | null
+          is_public: boolean | null
+          member_count: number | null
           name: string | null
           updated_at: string | null
         }
         Insert: {
+          avatar_url?: string | null
           created_at?: string | null
+          creator_id?: string | null
+          description?: string | null
           id?: string
+          invite_code?: string | null
           is_group?: boolean | null
+          is_public?: boolean | null
+          member_count?: number | null
           name?: string | null
           updated_at?: string | null
         }
         Update: {
+          avatar_url?: string | null
           created_at?: string | null
+          creator_id?: string | null
+          description?: string | null
           id?: string
+          invite_code?: string | null
           is_group?: boolean | null
+          is_public?: boolean | null
+          member_count?: number | null
           name?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "chats_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       comments: {
         Row: {

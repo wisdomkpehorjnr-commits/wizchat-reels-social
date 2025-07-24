@@ -186,6 +186,227 @@ class DataService {
     }
   }
 
+  // Enhanced chat methods for groups
+  async createGroup(groupData: {
+    name: string;
+    description: string;
+    isPublic: boolean;
+    members: string[];
+  }): Promise<Chat> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const inviteCode = Math.random().toString(36).substring(2, 15);
+
+      const { data: chat, error } = await supabase
+        .from('chats')
+        .insert({
+          name: groupData.name,
+          description: groupData.description,
+          is_group: true,
+          is_public: groupData.isPublic,
+          creator_id: user.id,
+          invite_code: inviteCode,
+          member_count: groupData.members.length + 1
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Add creator as admin
+      const participantInserts = [
+        {
+          chat_id: chat.id,
+          user_id: user.id,
+          role: 'admin'
+        },
+        ...groupData.members.map(userId => ({
+          chat_id: chat.id,
+          user_id: userId,
+          role: 'member'
+        }))
+      ];
+
+      const { error: participantError } = await supabase
+        .from('chat_participants')
+        .insert(participantInserts);
+
+      if (participantError) throw participantError;
+
+      return {
+        id: chat.id,
+        participants: [],
+        isGroup: true,
+        name: chat.name,
+        lastActivity: new Date(chat.updated_at),
+        createdAt: new Date(chat.created_at)
+      };
+    } catch (error) {
+      console.error('Error creating group:', error);
+      throw error;
+    }
+  }
+
+  async joinGroup(inviteCode: string): Promise<void> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { data: chat, error: chatError } = await supabase
+        .from('chats')
+        .select('id')
+        .eq('invite_code', inviteCode)
+        .single();
+
+      if (chatError || !chat) throw new Error('Invalid invite code');
+
+      const { error } = await supabase
+        .from('chat_participants')
+        .insert({
+          chat_id: chat.id,
+          user_id: user.id,
+          role: 'member'
+        });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error joining group:', error);
+      throw error;
+    }
+  }
+
+  async createVoiceMessage(chatId: string, audioUrl: string, duration: number): Promise<Message> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { data, error } = await supabase
+        .from('messages')
+        .insert({
+          chat_id: chatId,
+          user_id: user.id,
+          content: 'Voice message',
+          type: 'voice',
+          media_url: audioUrl,
+          duration: duration
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      return {
+        id: data.id,
+        chatId: data.chat_id,
+        userId: data.user_id,
+        user: this.mapProfileToUser(profile),
+        content: data.content,
+        type: 'voice',
+        mediaUrl: data.media_url,
+        duration: data.duration,
+        timestamp: new Date(data.created_at),
+        seen: false
+      };
+    } catch (error) {
+      console.error('Error creating voice message:', error);
+      throw error;
+    }
+  }
+
+  async createMediaMessage(chatId: string, mediaUrl: string, mediaType: 'image' | 'video'): Promise<Message> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { data, error } = await supabase
+        .from('messages')
+        .insert({
+          chat_id: chatId,
+          user_id: user.id,
+          content: `${mediaType} message`,
+          type: mediaType,
+          media_url: mediaUrl
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      return {
+        id: data.id,
+        chatId: data.chat_id,
+        userId: data.user_id,
+        user: this.mapProfileToUser(profile),
+        content: data.content,
+        type: mediaType,
+        mediaUrl: data.media_url,
+        timestamp: new Date(data.created_at),
+        seen: false
+      };
+    } catch (error) {
+      console.error('Error creating media message:', error);
+      throw error;
+    }
+  }
+
+  // Enhanced notifications
+  async getNotifications(): Promise<Notification[]> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      return data?.map(notification => ({
+        id: notification.id,
+        userId: notification.user_id,
+        type: notification.type,
+        title: notification.title,
+        message: notification.message,
+        data: notification.data,
+        isRead: notification.is_read,
+        createdAt: new Date(notification.created_at)
+      })) || [];
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      throw error;
+    }
+  }
+
+  async markNotificationAsRead(notificationId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('id', notificationId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+      throw error;
+    }
+  }
+
   async getFriends(): Promise<Friend[]> {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -265,6 +486,281 @@ class DataService {
       };
     } catch (error) {
       console.error('Error creating chat:', error);
+      throw error;
+    }
+  }
+
+  async getChats(): Promise<Chat[]> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { data, error } = await supabase
+        .from('chats')
+        .select(`
+          *,
+          chat_participants(
+            user:profiles(*)
+          )
+        `)
+        .order('updated_at', { ascending: false });
+
+      if (error) throw error;
+
+      return data?.map(chat => ({
+        id: chat.id,
+        participants: chat.chat_participants?.map((cp: any) => this.mapProfileToUser(cp.user)) || [],
+        isGroup: chat.is_group || false,
+        name: chat.name,
+        lastActivity: new Date(chat.updated_at),
+        createdAt: new Date(chat.created_at)
+      })) || [];
+    } catch (error) {
+      console.error('Error fetching chats:', error);
+      throw error;
+    }
+  }
+
+  async getMessages(chatId: string): Promise<Message[]> {
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .select(`
+          *,
+          user:profiles(*)
+        `)
+        .eq('chat_id', chatId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      return data?.map(message => ({
+        id: message.id,
+        chatId: message.chat_id,
+        userId: message.user_id,
+        user: this.mapProfileToUser(message.user),
+        content: message.content,
+        type: message.type as 'text' | 'image' | 'video' | 'voice',
+        mediaUrl: message.media_url,
+        duration: message.duration,
+        timestamp: new Date(message.created_at),
+        seen: message.seen || false
+      })) || [];
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      throw error;
+    }
+  }
+
+  async sendMessage(chatId: string, content: string): Promise<Message> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { data, error } = await supabase
+        .from('messages')
+        .insert({
+          chat_id: chatId,
+          user_id: user.id,
+          content
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      return {
+        id: data.id,
+        chatId: data.chat_id,
+        userId: data.user_id,
+        user: this.mapProfileToUser(profile),
+        content: data.content,
+        type: 'text',
+        timestamp: new Date(data.created_at),
+        seen: false
+      };
+    } catch (error) {
+      console.error('Error sending message:', error);
+      throw error;
+    }
+  }
+
+  async getMusicLibrary(): Promise<MusicTrack[]> {
+    try {
+      const { data, error } = await supabase
+        .from('music_library')
+        .select('*')
+        .order('title', { ascending: true });
+
+      if (error) throw error;
+
+      return data?.map(track => ({
+        id: track.id,
+        title: track.title,
+        artist: track.artist,
+        duration: track.duration,
+        fileUrl: track.file_url,
+        isRoyaltyFree: track.is_royalty_free,
+        createdAt: new Date(track.created_at)
+      })) || [];
+    } catch (error) {
+      console.error('Error fetching music library:', error);
+      throw error;
+    }
+  }
+
+  async createStory(content: string, mediaUrl?: string, mediaType: 'image' | 'video' = 'image'): Promise<Story> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { data, error } = await supabase
+        .from('stories')
+        .insert({
+          user_id: user.id,
+          content,
+          media_url: mediaUrl,
+          media_type: mediaType
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      return {
+        id: data.id,
+        userId: data.user_id,
+        user: this.mapProfileToUser(profile),
+        content: data.content,
+        mediaUrl: data.media_url,
+        mediaType: data.media_type as 'image' | 'video',
+        viewerCount: data.viewer_count,
+        expiresAt: new Date(data.expires_at),
+        createdAt: new Date(data.created_at)
+      };
+    } catch (error) {
+      console.error('Error creating story:', error);
+      throw error;
+    }
+  }
+
+  async createNotification(userId: string, type: string, title: string, message: string, data?: any): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: userId,
+          type,
+          title,
+          message,
+          data
+        });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error creating notification:', error);
+      throw error;
+    }
+  }
+
+  async getCustomEmojis(): Promise<CustomEmoji[]> {
+    try {
+      const { data, error } = await supabase
+        .from('custom_emojis')
+        .select('*')
+        .eq('is_public', true)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      return data?.map(emoji => ({
+        id: emoji.id,
+        name: emoji.name,
+        imageUrl: emoji.image_url,
+        createdBy: emoji.created_by,
+        isPublic: emoji.is_public,
+        createdAt: new Date(emoji.created_at)
+      })) || [];
+    } catch (error) {
+      console.error('Error fetching custom emojis:', error);
+      return [];
+    }
+  }
+
+  async getSiteLogo(): Promise<string> {
+    try {
+      const { data, error } = await supabase
+        .from('site_settings')
+        .select('setting_value')
+        .eq('setting_key', 'site_logo')
+        .single();
+
+      if (error) return '';
+      return data?.setting_value || '';
+    } catch (error) {
+      console.error('Error fetching site logo:', error);
+      return '';
+    }
+  }
+
+  async updateSiteLogo(logoUrl: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('site_settings')
+        .upsert({
+          setting_key: 'site_logo',
+          setting_value: logoUrl
+        });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error updating site logo:', error);
+      throw error;
+    }
+  }
+
+  async sendFriendRequest(userId: string): Promise<void> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { error } = await supabase
+        .from('friends')
+        .insert({
+          requester_id: user.id,
+          addressee_id: userId,
+          status: 'pending'
+        });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error sending friend request:', error);
+      throw error;
+    }
+  }
+
+  async acceptFriendRequest(requestId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('friends')
+        .update({ status: 'accepted' })
+        .eq('id', requestId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error accepting friend request:', error);
       throw error;
     }
   }
@@ -351,13 +847,26 @@ class DataService {
         .eq('id', user.id)
         .single();
 
+      let imageUrl = null;
+      let videoUrl = null;
+
+      if (postData.imageFile) {
+        const { MediaService } = await import('./mediaService');
+        imageUrl = await MediaService.uploadPostImage(postData.imageFile);
+      }
+
+      if (postData.videoFile) {
+        const { MediaService } = await import('./mediaService');
+        videoUrl = await MediaService.uploadPostVideo(postData.videoFile);
+      }
+
       const { data, error } = await supabase
         .from('posts')
         .insert({
           user_id: user.id,
           content: postData.content,
-          image_url: postData.imageFile ? 'placeholder' : null,
-          video_url: postData.videoFile ? 'placeholder' : null,
+          image_url: imageUrl,
+          video_url: videoUrl,
           media_type: postData.mediaType || 'text',
           is_reel: postData.isReel || false,
           music_id: postData.musicId
@@ -467,196 +976,6 @@ class DataService {
     }
   }
 
-  // Music library methods
-  async getMusicLibrary(): Promise<MusicTrack[]> {
-    try {
-      const { data, error } = await supabase
-        .from('music_library')
-        .select('*')
-        .order('title', { ascending: true });
-
-      if (error) throw error;
-
-      return data?.map(track => ({
-        id: track.id,
-        title: track.title,
-        artist: track.artist,
-        duration: track.duration,
-        fileUrl: track.file_url,
-        isRoyaltyFree: track.is_royalty_free,
-        createdAt: new Date(track.created_at)
-      })) || [];
-    } catch (error) {
-      console.error('Error fetching music library:', error);
-      throw error;
-    }
-  }
-
-  // Stories methods
-  async createStory(content: string, mediaUrl?: string, mediaType: 'image' | 'video' = 'image'): Promise<Story> {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-
-      const { data, error } = await supabase
-        .from('stories')
-        .insert({
-          user_id: user.id,
-          content,
-          media_url: mediaUrl,
-          media_type: mediaType
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      return {
-        id: data.id,
-        userId: data.user_id,
-        user: this.mapProfileToUser(profile),
-        content: data.content,
-        mediaUrl: data.media_url,
-        mediaType: data.media_type as 'image' | 'video',
-        viewerCount: data.viewer_count,
-        expiresAt: new Date(data.expires_at),
-        createdAt: new Date(data.created_at)
-      };
-    } catch (error) {
-      console.error('Error creating story:', error);
-      throw error;
-    }
-  }
-
-  // Notifications methods
-  async createNotification(userId: string, type: string, title: string, message: string, data?: any): Promise<void> {
-    try {
-      const { error } = await supabase
-        .from('notifications')
-        .insert({
-          user_id: userId,
-          type,
-          title,
-          message,
-          data
-        });
-
-      if (error) throw error;
-    } catch (error) {
-      console.error('Error creating notification:', error);
-      throw error;
-    }
-  }
-
-  // Chat methods
-  async getChats(): Promise<Chat[]> {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-
-      const { data, error } = await supabase
-        .from('chats')
-        .select(`
-          *,
-          chat_participants(
-            user:profiles(*)
-          )
-        `)
-        .order('updated_at', { ascending: false });
-
-      if (error) throw error;
-
-      return data?.map(chat => ({
-        id: chat.id,
-        participants: chat.chat_participants?.map((cp: any) => this.mapProfileToUser(cp.user)) || [],
-        isGroup: chat.is_group || false,
-        name: chat.name,
-        lastActivity: new Date(chat.updated_at),
-        createdAt: new Date(chat.created_at)
-      })) || [];
-    } catch (error) {
-      console.error('Error fetching chats:', error);
-      throw error;
-    }
-  }
-
-  async getMessages(chatId: string): Promise<Message[]> {
-    try {
-      const { data, error } = await supabase
-        .from('messages')
-        .select(`
-          *,
-          user:profiles(*)
-        `)
-        .eq('chat_id', chatId)
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-
-      return data?.map(message => ({
-        id: message.id,
-        chatId: message.chat_id,
-        userId: message.user_id,
-        user: this.mapProfileToUser(message.user),
-        content: message.content,
-        type: message.type as 'text' | 'image' | 'video' | 'voice',
-        mediaUrl: message.media_url,
-        duration: message.duration,
-        timestamp: new Date(message.created_at),
-        seen: message.seen || false
-      })) || [];
-    } catch (error) {
-      console.error('Error fetching messages:', error);
-      throw error;
-    }
-  }
-
-  async sendMessage(chatId: string, content: string): Promise<Message> {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-
-      const { data, error } = await supabase
-        .from('messages')
-        .insert({
-          chat_id: chatId,
-          user_id: user.id,
-          content
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      return {
-        id: data.id,
-        chatId: data.chat_id,
-        userId: data.user_id,
-        user: this.mapProfileToUser(profile),
-        content: data.content,
-        type: 'text',
-        timestamp: new Date(data.created_at),
-        seen: false
-      };
-    } catch (error) {
-      console.error('Error sending message:', error);
-      throw error;
-    }
-  }
-
-  // Custom emoji methods
   async getCustomEmojis(): Promise<CustomEmoji[]> {
     try {
       const { data, error } = await supabase
