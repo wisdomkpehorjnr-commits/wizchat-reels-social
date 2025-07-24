@@ -14,11 +14,11 @@ import { dataService } from '@/services/dataService';
 import { useToast } from '@/hooks/use-toast';
 
 interface CreateGroupChatProps {
-  onGroupCreated: (groupId: string) => void;
+  onGroupCreated: () => Promise<void>;
+  onClose: () => void;
 }
 
-const CreateGroupChat = ({ onGroupCreated }: CreateGroupChatProps) => {
-  const [open, setOpen] = useState(false);
+const CreateGroupChat = ({ onGroupCreated, onClose }: CreateGroupChatProps) => {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [availableUsers, setAvailableUsers] = useState<User[]>([]);
@@ -84,8 +84,8 @@ const CreateGroupChat = ({ onGroupCreated }: CreateGroupChatProps) => {
         members: selectedUsers.map(u => u.id)
       });
 
-      onGroupCreated(group.id);
-      setOpen(false);
+      await onGroupCreated();
+      onClose();
       
       // Reset form
       setGroupData({ name: '', description: '', isPublic: false });
@@ -109,18 +109,14 @@ const CreateGroupChat = ({ onGroupCreated }: CreateGroupChatProps) => {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" className="w-full">
-          <Plus className="w-4 h-4 mr-2" />
-          Create Group
-        </Button>
-      </DialogTrigger>
-      
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Create Group Chat</DialogTitle>
-        </DialogHeader>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-background border-2 green-border rounded-lg p-6 w-full max-w-md mx-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold text-foreground">Create Group Chat</h2>
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
         
         <div className="space-y-4">
           {/* Group Name */}
@@ -131,6 +127,7 @@ const CreateGroupChat = ({ onGroupCreated }: CreateGroupChatProps) => {
               value={groupData.name}
               onChange={(e) => setGroupData({ ...groupData, name: e.target.value })}
               placeholder="Enter group name"
+              className="border-2 green-border"
             />
           </div>
 
@@ -143,6 +140,7 @@ const CreateGroupChat = ({ onGroupCreated }: CreateGroupChatProps) => {
               onChange={(e) => setGroupData({ ...groupData, description: e.target.value })}
               placeholder="Enter group description"
               rows={3}
+              className="border-2 green-border"
             />
           </div>
 
@@ -172,11 +170,12 @@ const CreateGroupChat = ({ onGroupCreated }: CreateGroupChatProps) => {
                 searchUsers(e.target.value);
               }}
               placeholder="Search users..."
+              className="border-2 green-border"
             />
             
             {/* Search Results */}
             {availableUsers.length > 0 && (
-              <div className="border rounded-md p-2 max-h-32 overflow-y-auto">
+              <div className="border-2 green-border rounded-md p-2 max-h-32 overflow-y-auto">
                 {availableUsers.map((user) => (
                   <div
                     key={user.id}
@@ -228,7 +227,7 @@ const CreateGroupChat = ({ onGroupCreated }: CreateGroupChatProps) => {
 
           {/* Action Buttons */}
           <div className="flex space-x-2">
-            <Button variant="outline" onClick={() => setOpen(false)} className="flex-1">
+            <Button variant="outline" onClick={onClose} className="flex-1">
               Cancel
             </Button>
             <Button onClick={createGroup} disabled={loading} className="flex-1">
@@ -236,8 +235,8 @@ const CreateGroupChat = ({ onGroupCreated }: CreateGroupChatProps) => {
             </Button>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 };
 
