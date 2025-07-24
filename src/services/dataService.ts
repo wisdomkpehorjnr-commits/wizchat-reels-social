@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { 
   Post, 
@@ -987,6 +986,148 @@ class DataService {
       if (error) throw error;
     } catch (error) {
       console.error('Error removing reaction:', error);
+      throw error;
+    }
+  }
+
+  async createComment(postId: string, content: string): Promise<Comment> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { data, error } = await supabase
+        .from('comments')
+        .insert({
+          post_id: postId,
+          user_id: user.id,
+          content: content
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      return {
+        id: data.id,
+        userId: data.user_id,
+        user: this.mapProfileToUser(profile),
+        postId: data.post_id,
+        content: data.content,
+        createdAt: new Date(data.created_at)
+      };
+    } catch (error) {
+      console.error('Error creating comment:', error);
+      throw error;
+    }
+  }
+
+  async reactToPost(postId: string, emoji: string): Promise<void> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      // Check if user already reacted with this emoji
+      const { data: existingReaction } = await supabase
+        .from('reactions')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('post_id', postId)
+        .eq('emoji', emoji)
+        .single();
+
+      if (existingReaction) {
+        // Remove existing reaction
+        const { error } = await supabase
+          .from('reactions')
+          .delete()
+          .eq('id', existingReaction.id);
+
+        if (error) throw error;
+      } else {
+        // Add new reaction
+        const { error } = await supabase
+          .from('reactions')
+          .insert({
+            user_id: user.id,
+            post_id: postId,
+            emoji: emoji
+          });
+
+        if (error) throw error;
+      }
+    } catch (error) {
+      console.error('Error reacting to post:', error);
+      throw error;
+    }
+  }
+
+  async getComments(postId: string): Promise<Comment[]> {
+    try {
+      const { data, error } = await supabase
+        .from('comments')
+        .select(`
+          *,
+          user:profiles(*)
+        `)
+        .eq('post_id', postId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      return data?.map(comment => ({
+        id: comment.id,
+        userId: comment.user_id,
+        user: this.mapProfileToUser(comment.user),
+        postId: comment.post_id,
+        content: comment.content,
+        createdAt: new Date(comment.created_at)
+      })) || [];
+    } catch (error) {
+      console.error('Error fetching comments:', error);
+      throw error;
+    }
+  }
+
+  async savePost(postId: string): Promise<void> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      // Check if post is already saved
+      const { data: existingSave } = await supabase
+        .from('saved_posts')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('post_id', postId)
+        .single();
+
+      if (existingSave) {
+        // Remove from saved posts
+        const { error } = await supabase
+          .from('saved_posts')
+          .delete()
+          .eq('id', existingSave.id);
+
+        if (error) throw error;
+      } else {
+        // Add to saved posts
+        const { error } = await supabase
+          .from('saved_posts')
+          .insert({
+            user_id: user.id,
+            post_id: postId
+          });
+
+        if (error) throw error;
+      }
+    } catch (error) {
+      console.error('Error saving post:', error);
       throw error;
     }
   }

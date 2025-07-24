@@ -1,4 +1,3 @@
-
 export interface User {
   id: string;
   name: string;
@@ -92,7 +91,7 @@ export interface Chat {
   isGroup: boolean;
   name?: string;
   description?: string;
-  avatar?: string; // Add avatar property
+  avatar?: string;
   lastMessage?: Message;
   lastActivity: Date;
   createdAt: Date;
@@ -100,6 +99,7 @@ export interface Chat {
   inviteCode?: string;
   isPublic?: boolean;
   memberCount?: number;
+  unreadCount?: number; // Add unreadCount property
 }
 
 export interface Message {

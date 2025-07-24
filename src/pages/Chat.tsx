@@ -136,7 +136,7 @@ const Chat = () => {
                               {chat.isGroup ? <Users className="w-6 h-6" /> : chat.participants[0]?.name?.charAt(0)}
                             </AvatarFallback>
                           </Avatar>
-                          {chat.unreadCount > 0 && (
+                          {chat.unreadCount && chat.unreadCount > 0 && (
                             <Badge 
                               variant="destructive" 
                               className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs"
@@ -191,11 +191,12 @@ const Chat = () => {
         </div>
       </div>
 
-      <CreateGroupChat 
-        open={showCreateGroup} 
-        onClose={() => setShowCreateGroup(false)} 
-        onGroupCreated={loadChats}
-      />
+      {showCreateGroup && (
+        <CreateGroupChat 
+          onClose={() => setShowCreateGroup(false)} 
+          onGroupCreated={loadChats}
+        />
+      )}
     </Layout>
   );
 };
