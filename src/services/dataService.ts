@@ -315,14 +315,14 @@ export const dataService = {
       .from('friends')
       .select(`
         *,
-        requester:requester_id (
+        requester:profiles!friends_requester_id_fkey (
           id,
           name,
           username,
           email,
           avatar
         ),
-        addressee:addressee_id (
+        addressee:profiles!friends_addressee_id_fkey (
           id,
           name,
           username,
@@ -374,7 +374,7 @@ export const dataService = {
       bio: profile.bio,
       location: profile.location,
       website: profile.website,
-      birthday: profile.birthday,
+      birthday: profile.birthday ? new Date(profile.birthday) : undefined,
       gender: profile.gender,
       pronouns: profile.pronouns,
       coverImage: profile.cover_image,

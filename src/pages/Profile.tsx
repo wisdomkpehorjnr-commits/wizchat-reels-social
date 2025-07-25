@@ -15,10 +15,12 @@ import EditProfileDialog from '@/components/EditProfileDialog';
 import PostCard from '@/components/PostCard';
 import ReelCard from '@/components/ReelCard';
 import { useToast } from '@/components/ui/use-toast';
+import { useNavigate } from 'react-router-dom';
 
 const Profile = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [userPosts, setUserPosts] = useState<Post[]>([]);
   const [userReels, setUserReels] = useState<Post[]>([]);
   const [savedPosts, setSavedPosts] = useState<SavedPost[]>([]);
@@ -111,6 +113,51 @@ const Profile = () => {
       toast({
         title: "Error",
         description: "Failed to save post",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleLikePost = async (postId: string) => {
+    try {
+      await dataService.likePost(postId);
+      toast({
+        title: "Liked",
+        description: "Post liked",
+      });
+    } catch (error) {
+      console.error('Error liking post:', error);
+      toast({
+        title: "Error",
+        description: "Failed to like post",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUserClick = (userId: string) => {
+    navigate(`/profile/${userId}`);
+  };
+
+  const handleSharePost = async (post: Post) => {
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: post.content,
+          url: window.location.href,
+        });
+      } else {
+        navigator.clipboard.writeText(window.location.href);
+        toast({
+          title: "Shared",
+          description: "Link copied to clipboard",
+        });
+      }
+    } catch (error) {
+      console.error('Error sharing post:', error);
+      toast({
+        title: "Error",
+        description: "Failed to share post",
         variant: "destructive",
       });
     }
@@ -262,7 +309,13 @@ const Profile = () => {
             <TabsContent value="reels" className="space-y-4 p-4">
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {userReels.map((reel) => (
-                  <ReelCard key={reel.id} post={reel} />
+                  <ReelCard 
+                    key={reel.id} 
+                    post={reel} 
+                    onLike={handleLikePost}
+                    onUserClick={handleUserClick}
+                    onShare={handleSharePost}
+                  />
                 ))}
               </div>
               
