@@ -96,3 +96,7 @@ export class MediaService {
     });
   }
 }
+
+// Export both named and default for backward compatibility
+export const mediaService = MediaService;
+export default MediaService;

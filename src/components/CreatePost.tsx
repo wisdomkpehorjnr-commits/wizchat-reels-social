@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Camera, Video, Smile, MapPin, Hash, AtSign } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { mediaService } from '@/services/mediaService';
+import { MediaService } from '@/services/mediaService';
 
 interface CreatePostProps {
   onPostCreated?: (postData: any) => void;
@@ -47,8 +47,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
       let mediaType: 'text' | 'image' | 'video' = 'text';
       
       if (selectedFile) {
-        const uploadResult = await mediaService.uploadFile(selectedFile, 'posts');
-        mediaUrl = uploadResult.publicUrl;
+        const uploadResult = await MediaService.uploadPostMedia(selectedFile);
+        mediaUrl = uploadResult;
         mediaType = selectedFile.type.startsWith('image/') ? 'image' : 'video';
       }
 

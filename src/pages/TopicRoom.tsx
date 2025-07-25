@@ -76,12 +76,18 @@ const TopicRoom = () => {
       setParticipants(participantsData || []);
       setIsParticipant(participantsData?.some(p => p.user_id === user.id) || false);
 
-      // Load room posts
+      // Load room posts with proper join
       const { data: postsData, error: postsError } = await supabase
         .from('room_posts')
         .select(`
-          *,
-          profiles (
+          id,
+          user_id,
+          content,
+          image_url,
+          video_url,
+          media_type,
+          created_at,
+          profiles!room_posts_user_id_fkey (
             id,
             name,
             username,
