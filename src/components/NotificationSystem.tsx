@@ -8,27 +8,68 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Notification } from '@/types';
-import { dataService } from '@/services/dataService';
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { formatDistanceToNow } from 'date-fns';
 
 const NotificationSystem = () => {
+  const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    loadNotifications();
-    // Set up real-time subscription for notifications
-    const interval = setInterval(loadNotifications, 30000); // Check every 30 seconds
-    return () => clearInterval(interval);
-  }, []);
+    if (user) {
+      loadNotifications();
+      
+      // Set up real-time subscription for notifications
+      const channel = supabase
+        .channel('notifications-updates')
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`
+        }, (payload) => {
+          console.log('New notification:', payload);
+          loadNotifications();
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [user]);
 
   const loadNotifications = async () => {
+    if (!user) return;
+
     try {
-      const userNotifications = await dataService.getNotifications();
-      setNotifications(userNotifications);
-      setUnreadCount(userNotifications.filter(n => !n.isRead).length);
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+
+      const mappedNotifications = data?.map(notification => ({
+        id: notification.id,
+        userId: notification.user_id,
+        type: notification.type,
+        title: notification.title,
+        message: notification.message,
+        data: notification.data,
+        isRead: notification.is_read,
+        createdAt: new Date(notification.created_at)
+      })) || [];
+
+      setNotifications(mappedNotifications);
+      setUnreadCount(mappedNotifications.filter(n => !n.isRead).length);
     } catch (error) {
       console.error('Error loading notifications:', error);
     }
@@ -36,7 +77,13 @@ const NotificationSystem = () => {
 
   const markAsRead = async (notificationId: string) => {
     try {
-      await dataService.markNotificationAsRead(notificationId);
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('id', notificationId);
+
+      if (error) throw error;
+
       setNotifications(prev => 
         prev.map(n => 
           n.id === notificationId ? { ...n, isRead: true } : n
@@ -54,11 +101,17 @@ const NotificationSystem = () => {
   };
 
   const markAllAsRead = async () => {
+    if (!user) return;
+
     try {
-      const unreadNotifications = notifications.filter(n => !n.isRead);
-      await Promise.all(
-        unreadNotifications.map(n => dataService.markNotificationAsRead(n.id))
-      );
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('user_id', user.id)
+        .eq('is_read', false);
+
+      if (error) throw error;
+
       setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
       setUnreadCount(0);
     } catch (error) {
@@ -84,17 +137,6 @@ const NotificationSystem = () => {
       default:
         return <Bell className="w-4 h-4 text-gray-500" />;
     }
-  };
-
-  const formatTime = (date: Date) => {
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const days = Math.floor(hours / 24);
-
-    if (days > 0) return `${days}d ago`;
-    if (hours > 0) return `${hours}h ago`;
-    return 'Just now';
   };
 
   return (
@@ -167,7 +209,7 @@ const NotificationSystem = () => {
                           
                           <div className="flex items-center space-x-1 ml-2">
                             <span className="text-xs text-muted-foreground">
-                              {formatTime(notification.createdAt)}
+                              {formatDistanceToNow(notification.createdAt, { addSuffix: true })}
                             </span>
                             {!notification.isRead && (
                               <div className="w-2 h-2 bg-primary rounded-full" />

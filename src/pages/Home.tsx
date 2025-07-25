@@ -7,18 +7,22 @@ import StoriesSection from '@/components/StoriesSection';
 import { Post } from '@/types';
 import { dataService } from '@/services/dataService';
 import { useToast } from '@/hooks/use-toast';
+import { RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 const Home = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     loadPosts();
   }, []);
 
-  const loadPosts = async () => {
+  const loadPosts = async (showRefreshing = false) => {
     try {
+      if (showRefreshing) setRefreshing(true);
       const allPosts = await dataService.getPosts();
       // Filter out reels from main feed
       const regularPosts = allPosts.filter(post => !post.isReel);
@@ -32,7 +36,12 @@ const Home = () => {
       });
     } finally {
       setLoading(false);
+      if (showRefreshing) setRefreshing(false);
     }
+  };
+
+  const handleRefresh = () => {
+    loadPosts(true);
   };
 
   const handleSavePost = async (postId: string) => {
@@ -52,9 +61,27 @@ const Home = () => {
     }
   };
 
+  const handlePostDelete = () => {
+    loadPosts();
+  };
+
   return (
     <Layout>
       <div className="max-w-2xl mx-auto space-y-6">
+        {/* Refresh Button */}
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold text-foreground">Home</h1>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
+
         <StoriesSection />
         <CreatePost />
         
@@ -83,6 +110,8 @@ const Home = () => {
                 key={post.id} 
                 post={post} 
                 onSave={() => handleSavePost(post.id)}
+                onPostUpdate={() => loadPosts()}
+                onPostDelete={handlePostDelete}
               />
             ))}
             {posts.length === 0 && (

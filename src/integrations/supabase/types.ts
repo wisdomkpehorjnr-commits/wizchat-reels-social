@@ -1062,6 +1062,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_notification: {
+        Args: {
+          p_user_id: string
+          p_type: string
+          p_title: string
+          p_message: string
+          p_data?: Json
+        }
+        Returns: string
+      }
       search_users: {
         Args: { search_term: string }
         Returns: {

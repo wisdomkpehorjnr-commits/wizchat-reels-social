@@ -1,223 +1,225 @@
 
-import React, { useState, useRef, useEffect } from 'react';
-import { Card } from '@/components/ui/card';
+import React, { useState } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Heart, MessageCircle, Share, Music, MoreHorizontal, Play, Pause } from 'lucide-react';
+import { Heart, MessageCircle, Share, Bookmark, Play, Pause, VolumeX, Volume2, Edit, Trash2 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Post } from '@/types';
+import { dataService } from '@/services/dataService';
+import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import UserLink from './UserLink';
 
-export interface ReelCardProps {
-  post?: Post;
-  reel?: Post;
-  isActive?: boolean;
-  onLike?: (postId: string) => Promise<void>;
-  onUserClick?: (userId: string) => void;
-  onShare?: (post: Post) => void;
+interface ReelCardProps {
+  post: Post;
+  onSave?: () => void;
+  onPostUpdate?: () => void;
+  onPostDelete?: () => void;
 }
 
-const ReelCard: React.FC<ReelCardProps> = ({ 
-  post, 
-  reel, 
-  isActive = false, 
-  onLike,
-  onUserClick,
-  onShare
-}) => {
+const ReelCard: React.FC<ReelCardProps> = ({ post, onSave, onPostUpdate, onPostDelete }) => {
   const { user } = useAuth();
-  const reelData = post || reel;
-  const [isLiked, setIsLiked] = useState(false);
-  const [likesCount, setLikesCount] = useState(0);
+  const { toast } = useToast();
+  const [liked, setLiked] = useState(post.likes.includes(user?.id || ''));
+  const [likeCount, setLikeCount] = useState(post.likes.length);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [showControls, setShowControls] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-
-  useEffect(() => {
-    if (reelData && user) {
-      setIsLiked(reelData.likes?.includes(user.id) || false);
-      setLikesCount(reelData.likes?.length || 0);
-    }
-  }, [reelData, user]);
-
-  useEffect(() => {
-    if (videoRef.current) {
-      if (isActive) {
-        videoRef.current.play();
-        setIsPlaying(true);
-      } else {
-        videoRef.current.pause();
-        setIsPlaying(false);
-      }
-    }
-  }, [isActive]);
-
-  if (!reelData) {
-    return null;
-  }
+  const [isMuted, setIsMuted] = useState(false);
+  const [videoRef, setVideoRef] = useState<HTMLVideoElement | null>(null);
 
   const handleLike = async () => {
-    if (!onLike) return;
-    
     try {
-      await onLike(reelData.id);
-      setIsLiked(!isLiked);
-      setLikesCount(prev => isLiked ? prev - 1 : prev + 1);
+      await dataService.likePost(post.id);
+      setLiked(!liked);
+      setLikeCount(prev => liked ? prev - 1 : prev + 1);
+      
+      if (!liked) {
+        toast({
+          title: "Liked!",
+          description: "You liked this reel",
+        });
+      }
     } catch (error) {
       console.error('Error liking reel:', error);
+      toast({
+        title: "Error",
+        description: "Failed to like reel",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleVideoClick = () => {
-    if (videoRef.current) {
+  const handleDelete = async () => {
+    try {
+      await dataService.deletePost(post.id);
+      if (onPostDelete) onPostDelete();
+      
+      toast({
+        title: "Reel deleted",
+        description: "Your reel has been deleted",
+      });
+    } catch (error) {
+      console.error('Error deleting reel:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete reel",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const togglePlayPause = () => {
+    if (videoRef) {
       if (isPlaying) {
-        videoRef.current.pause();
-        setIsPlaying(false);
+        videoRef.pause();
       } else {
-        videoRef.current.play();
-        setIsPlaying(true);
+        videoRef.play();
       }
+      setIsPlaying(!isPlaying);
     }
   };
 
-  const handleUserClick = () => {
-    if (onUserClick) {
-      onUserClick(reelData.user.id);
+  const toggleMute = () => {
+    if (videoRef) {
+      videoRef.muted = !isMuted;
+      setIsMuted(!isMuted);
     }
   };
 
-  const handleShare = () => {
-    if (onShare) {
-      onShare(reelData);
+  const handleVideoRef = (ref: HTMLVideoElement) => {
+    setVideoRef(ref);
+    if (ref) {
+      ref.addEventListener('play', () => setIsPlaying(true));
+      ref.addEventListener('pause', () => setIsPlaying(false));
     }
   };
 
   return (
-    <Card 
-      className="relative w-full h-full bg-black overflow-hidden"
-      onMouseEnter={() => setShowControls(true)}
-      onMouseLeave={() => setShowControls(false)}
-    >
-      {/* Video/Image Content */}
-      <div className="absolute inset-0" onClick={handleVideoClick}>
-        {reelData.videoUrl ? (
-          <video
-            ref={videoRef}
-            src={reelData.videoUrl}
-            className="w-full h-full object-cover cursor-pointer"
-            muted
-            loop
-            playsInline
-            controls={false}
-          />
-        ) : reelData.imageUrl ? (
-          <img
-            src={reelData.imageUrl}
-            alt="Reel content"
-            className="w-full h-full object-cover cursor-pointer"
-          />
-        ) : (
-          <div className="w-full h-full bg-gradient-to-br from-purple-900 to-blue-900 flex items-center justify-center cursor-pointer">
-            <p className="text-white text-lg px-4 text-center">{reelData.content}</p>
-          </div>
-        )}
-        
-        {/* Play/Pause Overlay */}
-        {reelData.videoUrl && showControls && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-            <div className="w-16 h-16 rounded-full bg-black/50 flex items-center justify-center">
-              {isPlaying ? (
-                <Pause className="w-8 h-8 text-white" />
-              ) : (
-                <Play className="w-8 h-8 text-white ml-1" />
+    <Card className="relative aspect-[9/16] overflow-hidden group">
+      <CardContent className="p-0 h-full">
+        {/* Video Background */}
+        {post.videoUrl && (
+          <div className="relative w-full h-full">
+            <video
+              ref={handleVideoRef}
+              src={post.videoUrl}
+              className="w-full h-full object-cover"
+              loop
+              muted={isMuted}
+              playsInline
+            />
+            
+            {/* Play/Pause overlay */}
+            <div 
+              className="absolute inset-0 flex items-center justify-center cursor-pointer"
+              onClick={togglePlayPause}
+            >
+              {!isPlaying && (
+                <div className="bg-black/50 rounded-full p-4">
+                  <Play className="w-8 h-8 text-white" />
+                </div>
               )}
             </div>
-          </div>
-        )}
-      </div>
 
-      {/* Overlay Content */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30">
-        {/* Top Bar */}
-        <div className="absolute top-4 left-4 right-4 flex justify-between items-center">
-          <div className="flex items-center space-x-2">
-            <span className="text-white font-semibold">Reels</span>
-          </div>
-          <Button variant="ghost" size="sm">
-            <MoreHorizontal className="w-5 h-5 text-white" />
-          </Button>
-        </div>
-
-        {/* Bottom Content */}
-        <div className="absolute bottom-4 left-4 right-16">
-          {/* User Info */}
-          <div className="flex items-center space-x-3 mb-4">
-            <Avatar 
-              className="w-10 h-10 cursor-pointer"
-              onClick={handleUserClick}
+            {/* Volume control */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleMute}
+              className="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white"
             >
-              <AvatarImage src={reelData.user.avatar} />
-              <AvatarFallback>{reelData.user.name.charAt(0)}</AvatarFallback>
-            </Avatar>
-            <div>
-              <p 
-                className="text-white font-semibold cursor-pointer hover:underline"
-                onClick={handleUserClick}
-              >
-                {reelData.user.name}
-              </p>
-              <p className="text-white/80 text-sm">@{reelData.user.username}</p>
-            </div>
-            <Button size="sm" variant="outline" className="text-white border-white hover:bg-white/10">
-              Follow
+              {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
             </Button>
           </div>
+        )}
 
-          {/* Caption */}
-          {reelData.content && (
-            <p className="text-white text-sm mb-2">{reelData.content}</p>
-          )}
+        {/* Image fallback */}
+        {post.imageUrl && !post.videoUrl && (
+          <img src={post.imageUrl} alt="Reel content" className="w-full h-full object-cover" />
+        )}
 
-          {/* Music Info */}
-          {reelData.music && (
-            <div className="flex items-center space-x-2 text-white/80">
-              <Music className="w-4 h-4" />
-              <p className="text-sm">{reelData.music.title}</p>
+        {/* Content Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none">
+          <div className="absolute bottom-0 left-0 right-0 p-4 text-white pointer-events-auto">
+            {/* User Info */}
+            <div className="flex items-center space-x-3 mb-3">
+              <UserLink user={post.user}>
+                <Avatar className="w-8 h-8">
+                  <AvatarImage src={post.user.avatar} />
+                  <AvatarFallback>{post.user.name.charAt(0)}</AvatarFallback>
+                </Avatar>
+              </UserLink>
+              <div className="flex-1">
+                <UserLink user={post.user}>
+                  <p className="font-semibold text-sm hover:underline">{post.user.name}</p>
+                </UserLink>
+                <UserLink user={post.user}>
+                  <p className="text-xs text-white/80 hover:underline">@{post.user.username}</p>
+                </UserLink>
+              </div>
+              {user?.id === post.user.id && (
+                <div className="flex space-x-1">
+                  <Button variant="ghost" size="sm" className="text-white hover:bg-white/20">
+                    <Edit className="w-3 h-3" />
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="sm" className="text-white hover:bg-white/20">
+                        <Trash2 className="w-3 h-3 text-red-400" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Reel</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to delete this reel? This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              )}
             </div>
-          )}
+
+            {/* Content */}
+            <p className="text-sm mb-3 line-clamp-2">{post.content}</p>
+          </div>
         </div>
 
         {/* Side Actions */}
-        <div className="absolute bottom-4 right-4 flex flex-col space-y-4">
+        <div className="absolute right-4 bottom-20 flex flex-col space-y-4">
           <Button
             variant="ghost"
             size="sm"
             onClick={handleLike}
-            className="flex flex-col items-center text-white hover:bg-white/10"
+            className={`text-white hover:bg-white/20 ${liked ? 'text-red-400' : ''}`}
           >
-            <Heart className={`w-6 h-6 ${isLiked ? 'fill-red-500 text-red-500' : ''}`} />
-            <span className="text-xs">{likesCount}</span>
+            <div className="flex flex-col items-center">
+              <Heart className="w-6 h-6" fill={liked ? 'currentColor' : 'none'} />
+              <span className="text-xs mt-1">{likeCount}</span>
+            </div>
           </Button>
-          
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="flex flex-col items-center text-white hover:bg-white/10"
-          >
-            <MessageCircle className="w-6 h-6" />
-            <span className="text-xs">{reelData.comments?.length || 0}</span>
+
+          <Button variant="ghost" size="sm" className="text-white hover:bg-white/20">
+            <div className="flex flex-col items-center">
+              <MessageCircle className="w-6 h-6" />
+              <span className="text-xs mt-1">{post.comments.length}</span>
+            </div>
           </Button>
-          
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="flex flex-col items-center text-white hover:bg-white/10"
-            onClick={handleShare}
-          >
+
+          <Button variant="ghost" size="sm" className="text-white hover:bg-white/20">
             <Share className="w-6 h-6" />
-            <span className="text-xs">Share</span>
+          </Button>
+
+          <Button variant="ghost" size="sm" onClick={onSave} className="text-white hover:bg-white/20">
+            <Bookmark className="w-6 h-6" />
           </Button>
         </div>
-      </div>
+      </CardContent>
     </Card>
   );
 };
