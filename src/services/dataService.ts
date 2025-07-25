@@ -1,5 +1,6 @@
+
 import { supabase } from '@/integrations/supabase/client';
-import { Post, User, Comment, Reaction } from '@/types';
+import { Post, User, Comment, Reaction, Chat, Message } from '@/types';
 
 export const dataService = {
   async getPosts(): Promise<Post[]> {
@@ -12,7 +13,6 @@ export const dataService = {
           name,
           username,
           email,
-          photo_url,
           avatar
         ),
         comments:comments (
@@ -26,7 +26,6 @@ export const dataService = {
             name,
             username,
             email,
-            photo_url,
             avatar
           )
         )
@@ -45,7 +44,7 @@ export const dataService = {
       content: post.content,
       imageUrl: post.image_url,
       videoUrl: post.video_url,
-      mediaType: post.media_type,
+      mediaType: post.media_type as 'text' | 'image' | 'video',
       isReel: post.is_reel,
       likes: [], // You might need to fetch likes separately or include them in the initial query
       comments: (post.comments as any[]).map(comment => ({
@@ -71,26 +70,26 @@ export const dataService = {
 
     if (imageFile) {
       const { data, error } = await supabase.storage
-        .from('post-media')
+        .from('posts')
         .upload(`${user.id}/${Date.now()}-${imageFile.name}`, imageFile, {
           cacheControl: '3600',
           upsert: false
         });
 
       if (error) throw error;
-      imageUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${data.Key}`;
+      imageUrl = `https://cgydbjsuhwsnqsiskmex.supabase.co/storage/v1/object/public/posts/${data.path}`;
     }
 
     if (videoFile) {
       const { data, error } = await supabase.storage
-        .from('post-media')
+        .from('posts')
         .upload(`${user.id}/${Date.now()}-${videoFile.name}`, videoFile, {
           cacheControl: '3600',
           upsert: false
         });
 
       if (error) throw error;
-      videoUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${data.Key}`;
+      videoUrl = `https://cgydbjsuhwsnqsiskmex.supabase.co/storage/v1/object/public/posts/${data.path}`;
     }
 
     const { data, error } = await supabase
@@ -110,7 +109,6 @@ export const dataService = {
           name,
           username,
           email,
-          photo_url,
           avatar
         )
       `)
@@ -128,7 +126,7 @@ export const dataService = {
       content: data.content,
       imageUrl: data.image_url,
       videoUrl: data.video_url,
-      mediaType: data.media_type,
+      mediaType: data.media_type as 'text' | 'image' | 'video',
       isReel: data.is_reel,
       likes: [],
       comments: [],
@@ -142,23 +140,33 @@ export const dataService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
-    // Optimistically update the UI, but handle errors
-    const { error } = await supabase
-      .from('post_likes')
-      .insert({
-        post_id: postId,
-        user_id: user.id
-      });
+    // Check if like already exists
+    const { data: existingLike } = await supabase
+      .from('likes')
+      .select('id')
+      .eq('post_id', postId)
+      .eq('user_id', user.id)
+      .single();
 
-    if (error) {
-      console.error('Error liking post:', error);
+    if (existingLike) {
+      // Unlike
+      const { error } = await supabase
+        .from('likes')
+        .delete()
+        .eq('post_id', postId)
+        .eq('user_id', user.id);
 
-      if (error.message.includes('duplicate')) {
-        // If the user already liked the post, unlike it
-        await this.unlikePost(postId);
-      } else {
-        throw error;
-      }
+      if (error) throw error;
+    } else {
+      // Like
+      const { error } = await supabase
+        .from('likes')
+        .insert({
+          post_id: postId,
+          user_id: user.id
+        });
+
+      if (error) throw error;
     }
   },
 
@@ -167,7 +175,7 @@ export const dataService = {
     if (!user) throw new Error('Not authenticated');
 
     const { error } = await supabase
-      .from('post_likes')
+      .from('likes')
       .delete()
       .eq('post_id', postId)
       .eq('user_id', user.id);
@@ -175,6 +183,40 @@ export const dataService = {
     if (error) {
       console.error('Error unliking post:', error);
       throw error;
+    }
+  },
+
+  async savePost(postId: string): Promise<void> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    // Check if post is already saved
+    const { data: existingSave } = await supabase
+      .from('saved_posts')
+      .select('id')
+      .eq('post_id', postId)
+      .eq('user_id', user.id)
+      .single();
+
+    if (existingSave) {
+      // Unsave
+      const { error } = await supabase
+        .from('saved_posts')
+        .delete()
+        .eq('post_id', postId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+    } else {
+      // Save
+      const { error } = await supabase
+        .from('saved_posts')
+        .insert({
+          post_id: postId,
+          user_id: user.id
+        });
+
+      if (error) throw error;
     }
   },
 
@@ -188,7 +230,6 @@ export const dataService = {
           name,
           username,
           email,
-          photo_url,
           avatar
         )
       `)
@@ -228,7 +269,6 @@ export const dataService = {
           name,
           username,
           email,
-          photo_url,
           avatar
         )
       `)
@@ -254,7 +294,7 @@ export const dataService = {
     if (!user) throw new Error('Not authenticated');
 
     const { error } = await supabase
-      .from('post_reactions')
+      .from('reactions')
       .insert({
         post_id: postId,
         user_id: user.id,
@@ -280,7 +320,6 @@ export const dataService = {
           name,
           username,
           email,
-          photo_url,
           avatar
         ),
         addressee:addressee_id (
@@ -288,7 +327,6 @@ export const dataService = {
           name,
           username,
           email,
-          photo_url,
           avatar
         )
       `)
@@ -326,25 +364,25 @@ export const dataService = {
       throw error;
     }
   
-    return data.map(user => ({
-      id: user.id,
-      name: user.name,
-      username: user.username,
-      email: user.email,
-      photoURL: user.photo_url,
-      avatar: user.avatar,
-      bio: user.bio,
-      location: user.location,
-      website: user.website,
-      birthday: user.birthday,
-      gender: user.gender,
-      pronouns: user.pronouns,
-      coverImage: user.cover_image,
-      isPrivate: user.is_private,
-      followerCount: user.follower_count,
-      followingCount: user.following_count,
-      profileViews: user.profile_views,
-      createdAt: new Date(user.created_at),
+    return data.map(profile => ({
+      id: profile.id,
+      name: profile.name,
+      username: profile.username,
+      email: profile.email,
+      photoURL: profile.avatar,
+      avatar: profile.avatar,
+      bio: profile.bio,
+      location: profile.location,
+      website: profile.website,
+      birthday: profile.birthday,
+      gender: profile.gender,
+      pronouns: profile.pronouns,
+      coverImage: profile.cover_image,
+      isPrivate: profile.is_private,
+      followerCount: profile.follower_count,
+      followingCount: profile.following_count,
+      profileViews: profile.profile_views,
+      createdAt: new Date(profile.created_at),
     }));
   },
 
@@ -425,7 +463,6 @@ export const dataService = {
     }
   },
 
-  // Add missing methods
   async updatePost(postId: string, updates: { content?: string; imageUrl?: string; videoUrl?: string }) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
@@ -484,18 +521,222 @@ export const dataService = {
     if (error) throw error;
   },
 
-  async createChat(participantIds: string[], isGroup: boolean = false, name?: string) {
+  async getChats(): Promise<Chat[]> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
-    // Get current user's profile
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('id', user.id)
+    const { data, error } = await supabase
+      .from('chats')
+      .select(`
+        *,
+        participants:chat_participants (
+          user_id,
+          role,
+          user:user_id (
+            id,
+            name,
+            username,
+            email,
+            avatar
+          )
+        )
+      `)
+      .order('updated_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching chats:', error);
+      throw error;
+    }
+
+    return data.map(chat => ({
+      id: chat.id,
+      participants: (chat.participants as any[]).map(p => ({
+        ...p.user,
+        role: p.role
+      })) as User[],
+      isGroup: chat.is_group || false,
+      name: chat.name,
+      description: chat.description,
+      avatar: chat.avatar_url,
+      lastActivity: new Date(chat.updated_at || chat.created_at),
+      createdAt: new Date(chat.created_at),
+      creatorId: chat.creator_id,
+      inviteCode: chat.invite_code,
+      isPublic: chat.is_public,
+      memberCount: chat.member_count,
+    }));
+  },
+
+  async getMessages(chatId: string): Promise<Message[]> {
+    const { data, error } = await supabase
+      .from('messages')
+      .select(`
+        *,
+        user:user_id (
+          id,
+          name,
+          username,
+          email,
+          avatar
+        )
+      `)
+      .eq('chat_id', chatId)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching messages:', error);
+      throw error;
+    }
+
+    return data.map(message => ({
+      id: message.id,
+      chatId: message.chat_id,
+      userId: message.user_id,
+      user: message.user as User,
+      content: message.content,
+      type: message.type as 'text' | 'image' | 'video' | 'voice',
+      mediaUrl: message.media_url,
+      duration: message.duration,
+      timestamp: new Date(message.created_at),
+      seen: message.seen || false,
+    }));
+  },
+
+  async sendMessage(chatId: string, content: string): Promise<Message> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { data, error } = await supabase
+      .from('messages')
+      .insert({
+        chat_id: chatId,
+        user_id: user.id,
+        content: content,
+        type: 'text'
+      })
+      .select(`
+        *,
+        user:user_id (
+          id,
+          name,
+          username,
+          email,
+          avatar
+        )
+      `)
       .single();
 
-    if (profileError) throw profileError;
+    if (error) {
+      console.error('Error sending message:', error);
+      throw error;
+    }
+
+    return {
+      id: data.id,
+      chatId: data.chat_id,
+      userId: data.user_id,
+      user: data.user as User,
+      content: data.content,
+      type: data.type as 'text' | 'image' | 'video' | 'voice',
+      mediaUrl: data.media_url,
+      duration: data.duration,
+      timestamp: new Date(data.created_at),
+      seen: data.seen || false,
+    };
+  },
+
+  async createVoiceMessage(chatId: string, audioUrl: string, duration: number): Promise<Message> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { data, error } = await supabase
+      .from('messages')
+      .insert({
+        chat_id: chatId,
+        user_id: user.id,
+        content: 'Voice message',
+        type: 'voice',
+        media_url: audioUrl,
+        duration: duration
+      })
+      .select(`
+        *,
+        user:user_id (
+          id,
+          name,
+          username,
+          email,
+          avatar
+        )
+      `)
+      .single();
+
+    if (error) {
+      console.error('Error creating voice message:', error);
+      throw error;
+    }
+
+    return {
+      id: data.id,
+      chatId: data.chat_id,
+      userId: data.user_id,
+      user: data.user as User,
+      content: data.content,
+      type: data.type as 'text' | 'image' | 'video' | 'voice',
+      mediaUrl: data.media_url,
+      duration: data.duration,
+      timestamp: new Date(data.created_at),
+      seen: data.seen || false,
+    };
+  },
+
+  async createMediaMessage(chatId: string, mediaUrl: string, mediaType: 'image' | 'video'): Promise<Message> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { data, error } = await supabase
+      .from('messages')
+      .insert({
+        chat_id: chatId,
+        user_id: user.id,
+        content: `${mediaType} message`,
+        type: mediaType,
+        media_url: mediaUrl
+      })
+      .select(`
+        *,
+        user:user_id (
+          id,
+          name,
+          username,
+          email,
+          avatar
+        )
+      `)
+      .single();
+
+    if (error) {
+      console.error('Error creating media message:', error);
+      throw error;
+    }
+
+    return {
+      id: data.id,
+      chatId: data.chat_id,
+      userId: data.user_id,
+      user: data.user as User,
+      content: data.content,
+      type: data.type as 'text' | 'image' | 'video' | 'voice',
+      mediaUrl: data.media_url,
+      duration: data.duration,
+      timestamp: new Date(data.created_at),
+      seen: data.seen || false,
+    };
+  },
+
+  async createChat(participants: string[], isGroup: boolean = false, name?: string): Promise<Chat> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
 
     // Create chat
     const { data: chat, error: chatError } = await supabase
@@ -503,8 +744,8 @@ export const dataService = {
       .insert({
         is_group: isGroup,
         name: name,
-        creator_id: profile.id,
-        member_count: participantIds.length + 1
+        creator_id: user.id,
+        member_count: participants.length + 1
       })
       .select()
       .single();
@@ -512,43 +753,47 @@ export const dataService = {
     if (chatError) throw chatError;
 
     // Add participants including the creator
-    const participants = [profile.id, ...participantIds];
+    const allParticipants = [user.id, ...participants];
     const { error: participantsError } = await supabase
       .from('chat_participants')
       .insert(
-        participants.map(participantId => ({
+        allParticipants.map(participantId => ({
           chat_id: chat.id,
           user_id: participantId,
-          role: participantId === profile.id ? 'admin' : 'member'
+          role: participantId === user.id ? 'admin' : 'member'
         }))
       );
 
     if (participantsError) throw participantsError;
 
-    return chat;
+    return {
+      id: chat.id,
+      participants: [],
+      isGroup: chat.is_group || false,
+      name: chat.name,
+      description: chat.description,
+      avatar: chat.avatar_url,
+      lastActivity: new Date(chat.updated_at || chat.created_at),
+      createdAt: new Date(chat.created_at),
+      creatorId: chat.creator_id,
+      inviteCode: chat.invite_code,
+      isPublic: chat.is_public,
+      memberCount: chat.member_count,
+    };
   },
 
-  async createGroup(name: string, description?: string, isPrivate: boolean = false) {
+  async createGroup(groupData: { name: string; description: string; isPublic: boolean; members: string[] }): Promise<any> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
-
-    // Get current user's profile
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('id', user.id)
-      .single();
-
-    if (profileError) throw profileError;
 
     // Create group
     const { data: group, error: groupError } = await supabase
       .from('groups')
       .insert({
-        name,
-        description,
-        is_private: isPrivate,
-        created_by: profile.id,
+        name: groupData.name,
+        description: groupData.description,
+        is_private: !groupData.isPublic,
+        created_by: user.id,
         invite_code: Math.random().toString(36).substring(2, 15)
       })
       .select()
@@ -556,48 +801,89 @@ export const dataService = {
 
     if (groupError) throw groupError;
 
-    // Add creator as member
+    // Add members
+    const allMembers = [user.id, ...groupData.members];
     const { error: memberError } = await supabase
       .from('group_members')
-      .insert({
-        group_id: group.id,
-        user_id: profile.id,
-        role: 'admin'
-      });
+      .insert(
+        allMembers.map(memberId => ({
+          group_id: group.id,
+          user_id: memberId,
+          role: memberId === user.id ? 'admin' : 'member'
+        }))
+      );
 
     if (memberError) throw memberError;
 
     return group;
   },
 
-  async joinTopicRoom(roomId: string) {
+  async joinTopicRoom(roomId: string): Promise<void> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
-
-    // Get current user's profile
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('id', user.id)
-      .single();
-
-    if (profileError) throw profileError;
 
     // Join room
     const { error } = await supabase
       .from('room_participants')
       .insert({
         room_id: roomId,
-        user_id: profile.id
+        user_id: user.id
       });
 
     if (error && !error.message.includes('duplicate')) throw error;
+  },
 
-    // Update participant count
-    const { error: updateError } = await supabase.rpc('increment_room_participants', {
-      room_id: roomId
-    });
+  async getCustomEmojis(): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('custom_emojis')
+      .select('*')
+      .eq('is_public', true);
 
-    if (updateError) console.error('Error updating participant count:', updateError);
+    if (error) {
+      console.error('Error fetching custom emojis:', error);
+      throw error;
+    }
+
+    return data.map(emoji => ({
+      id: emoji.id,
+      name: emoji.name,
+      imageUrl: emoji.image_url,
+      createdBy: emoji.created_by,
+      isPublic: emoji.is_public,
+      createdAt: new Date(emoji.created_at)
+    }));
+  },
+
+  async getSiteLogo(): Promise<string> {
+    const { data, error } = await supabase
+      .from('site_settings')
+      .select('setting_value')
+      .eq('setting_key', 'site_logo')
+      .single();
+
+    if (error) {
+      console.error('Error fetching site logo:', error);
+      return '';
+    }
+
+    return data.setting_value || '';
+  },
+
+  async updateSiteLogo(logoUrl: string): Promise<void> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { error } = await supabase
+      .from('site_settings')
+      .upsert({
+        setting_key: 'site_logo',
+        setting_value: logoUrl,
+        updated_by: user.id
+      });
+
+    if (error) {
+      console.error('Error updating site logo:', error);
+      throw error;
+    }
   }
 };

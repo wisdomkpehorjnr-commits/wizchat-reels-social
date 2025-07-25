@@ -83,15 +83,12 @@ const Chat = () => {
       }
 
       // Create new direct chat
-      const newChat = await dataService.createChat({
-        participants: [friendUser.id],
-        isGroup: false
-      });
+      const newChat = await dataService.createChat([friendUser.id], false);
       
       console.log('Created new chat:', newChat.id);
       
       // Add current user and friend to participants for UI
-      const chatWithParticipants = {
+      const chatWithParticipants: ChatType = {
         ...newChat,
         participants: [friendUser]
       };

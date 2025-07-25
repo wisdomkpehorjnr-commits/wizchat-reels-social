@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
@@ -144,16 +143,14 @@ const Reels = () => {
             className="h-full overflow-y-auto snap-y snap-mandatory"
             onScroll={handleScroll}
           >
-            {reels.map((reel, index) => (
-              <div key={reel.id} className="h-full snap-start">
-                <ReelCard 
-                  post={reel} 
-                  isActive={index === currentIndex}
-                  onLike={handleLike}
-                  onUserClick={handleUserClick}
-                  onShare={handleShare}
-                />
-              </div>
+            {reels.map((post) => (
+              <ReelCard
+                key={post.id}
+                post={post}
+                onLike={handleLike}
+                onUserClick={handleUserClick}
+                onShare={handleShare}
+              />
             ))}
           </div>
         )}
