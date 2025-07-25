@@ -14,9 +14,10 @@ import { useAuth } from '@/contexts/AuthContext';
 export interface PostCardProps {
   post: Post;
   onSave?: () => void;
+  onPostUpdate?: () => void;
 }
 
-const PostCard: React.FC<PostCardProps> = ({ post, onSave }) => {
+const PostCard: React.FC<PostCardProps> = ({ post, onSave, onPostUpdate }) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [liked, setLiked] = useState(post.likes.includes(user?.id || ''));
@@ -81,6 +82,11 @@ const PostCard: React.FC<PostCardProps> = ({ post, onSave }) => {
         title: "Reaction added",
         description: `You reacted with ${emoji}`,
       });
+      
+      // Call onPostUpdate if provided to refresh the post data
+      if (onPostUpdate) {
+        onPostUpdate();
+      }
     } catch (error) {
       console.error('Error adding reaction:', error);
       toast({

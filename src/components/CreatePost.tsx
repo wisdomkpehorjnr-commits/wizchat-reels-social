@@ -1,210 +1,194 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { Image, Video, Mic, Music, MapPin, Hash, X } from 'lucide-react';
+import { Camera, Video, Smile, MapPin, Hash, AtSign } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { dataService } from '@/services/dataService';
 import { useToast } from '@/hooks/use-toast';
-import { MediaService } from '@/services/mediaService';
+import { mediaService } from '@/services/mediaService';
 
-const CreatePost = () => {
+interface CreatePostProps {
+  onPostCreated?: (postData: any) => void;
+  placeholder?: string;
+}
+
+const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "What's on your mind?" }) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [content, setContent] = useState('');
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [selectedVideo, setSelectedVideo] = useState<File | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isReel, setIsReel] = useState(false);
-  const imageInputRef = useRef<HTMLInputElement>(null);
-  const videoInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async () => {
-    if (!content.trim() && !selectedImage && !selectedVideo) {
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!content.trim() && !selectedFile) {
       toast({
         title: "Error",
-        description: "Please add some content to your post",
-        variant: "destructive"
+        description: "Please add some content or select a file",
+        variant: "destructive",
       });
       return;
     }
 
-    setIsLoading(true);
+    setIsSubmitting(true);
+    
     try {
+      let mediaUrl = '';
       let mediaType: 'text' | 'image' | 'video' = 'text';
       
-      if (selectedVideo) {
-        mediaType = 'video';
-      } else if (selectedImage) {
-        mediaType = 'image';
+      if (selectedFile) {
+        const uploadResult = await mediaService.uploadFile(selectedFile, 'posts');
+        mediaUrl = uploadResult.publicUrl;
+        mediaType = selectedFile.type.startsWith('image/') ? 'image' : 'video';
       }
 
-      await dataService.createPost({
-        content,
-        imageFile: selectedImage,
-        videoFile: selectedVideo,
+      const postData = {
+        content: content.trim(),
+        imageUrl: mediaType === 'image' ? mediaUrl : undefined,
+        videoUrl: mediaType === 'video' ? mediaUrl : undefined,
         mediaType,
-        isReel
-      });
+      };
 
+      if (onPostCreated) {
+        await onPostCreated(postData);
+      }
+
+      // Reset form
       setContent('');
-      setSelectedImage(null);
-      setSelectedVideo(null);
-      setIsReel(false);
+      setSelectedFile(null);
       
-      toast({
-        title: "Success",
-        description: "Post created successfully!"
-      });
+      // Reset file input
+      const fileInput = document.getElementById('file-input') as HTMLInputElement;
+      if (fileInput) {
+        fileInput.value = '';
+      }
+      
     } catch (error) {
       console.error('Error creating post:', error);
       toast({
         title: "Error",
         description: "Failed to create post",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
-  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setSelectedImage(file);
-      setSelectedVideo(null);
-    }
-  };
-
-  const handleVideoSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setSelectedVideo(file);
-      setSelectedImage(null);
-    }
-  };
-
-  if (!user) return null;
+  if (!user) {
+    return null;
+  }
 
   return (
     <Card className="border-2 green-border bg-card">
-      <CardHeader className="pb-4">
-        <CardTitle className="text-lg font-semibold text-foreground">Create Post</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex space-x-3">
-          <Avatar className="w-10 h-10">
-            <AvatarImage src={user.avatar} />
-            <AvatarFallback className="bg-muted text-foreground">{user.name.charAt(0)}</AvatarFallback>
-          </Avatar>
-          <div className="flex-1">
-            <Textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="What's on your mind?"
-              className="border-2 green-border bg-background text-foreground resize-none min-h-[100px]"
-            />
-          </div>
-        </div>
-
-        {selectedImage && (
-          <div className="relative">
-            <img 
-              src={URL.createObjectURL(selectedImage)} 
-              alt="Selected" 
-              className="w-full h-48 object-cover rounded-lg border-2 green-border"
-            />
-            <Button
-              variant="destructive"
-              size="sm"
-              className="absolute top-2 right-2"
-              onClick={() => setSelectedImage(null)}
-            >
-              <X className="w-4 h-4" />
-            </Button>
-          </div>
-        )}
-
-        {selectedVideo && (
-          <div className="relative">
-            <video 
-              src={URL.createObjectURL(selectedVideo)} 
-              controls 
-              className="w-full h-48 object-cover rounded-lg border-2 green-border"
-            />
-            <Button
-              variant="destructive"
-              size="sm"
-              className="absolute top-2 right-2"
-              onClick={() => setSelectedVideo(null)}
-            >
-              <X className="w-4 h-4" />
-            </Button>
-          </div>
-        )}
-
-        <div className="flex items-center justify-between">
-          <div className="flex space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => imageInputRef.current?.click()}
-              className="border-2 green-border text-foreground"
-            >
-              <Image className="w-4 h-4 mr-1" />
-              Photo
-            </Button>
-            
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => videoInputRef.current?.click()}
-              className="border-2 green-border text-foreground"
-            >
-              <Video className="w-4 h-4 mr-1" />
-              Video
-            </Button>
-            
-            {selectedVideo && (
-              <div className="flex items-center space-x-2">
-                <Badge 
-                  variant={isReel ? "default" : "outline"}
-                  className="cursor-pointer"
-                  onClick={() => setIsReel(!isReel)}
-                >
-                  Reel
-                </Badge>
-              </div>
-            )}
+      <CardContent className="p-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="flex space-x-3">
+            <Avatar className="w-10 h-10">
+              <AvatarImage src={user.photoURL} />
+              <AvatarFallback className="text-foreground">{user.name?.charAt(0)}</AvatarFallback>
+            </Avatar>
+            <div className="flex-1">
+              <Textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder={placeholder}
+                className="min-h-[100px] resize-none border-none focus:ring-0 text-foreground placeholder:text-muted-foreground bg-transparent"
+                disabled={isSubmitting}
+              />
+            </div>
           </div>
           
-          <Button 
-            onClick={handleSubmit} 
-            disabled={isLoading || (!content.trim() && !selectedImage && !selectedVideo)}
-            className="bg-primary text-primary-foreground hover:bg-primary/90"
-          >
-            {isLoading ? 'Posting...' : 'Post'}
-          </Button>
-        </div>
-
-        <input
-          ref={imageInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleImageSelect}
-          className="hidden"
-        />
-        
-        <input
-          ref={videoInputRef}
-          type="file"
-          accept="video/*"
-          onChange={handleVideoSelect}
-          className="hidden"
-        />
+          {selectedFile && (
+            <div className="mt-3 p-3 border border-border rounded-lg">
+              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                {selectedFile.type.startsWith('image/') ? (
+                  <Camera className="w-4 h-4" />
+                ) : (
+                  <Video className="w-4 h-4" />
+                )}
+                <span>{selectedFile.name}</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedFile(null)}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  Remove
+                </Button>
+              </div>
+            </div>
+          )}
+          
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <input
+                id="file-input"
+                type="file"
+                accept="image/*,video/*"
+                onChange={handleFileSelect}
+                className="hidden"
+                disabled={isSubmitting}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => document.getElementById('file-input')?.click()}
+                className="text-muted-foreground hover:text-foreground"
+                disabled={isSubmitting}
+              >
+                <Camera className="w-4 h-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => document.getElementById('file-input')?.click()}
+                className="text-muted-foreground hover:text-foreground"
+                disabled={isSubmitting}
+              >
+                <Video className="w-4 h-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground hover:text-foreground"
+                disabled={isSubmitting}
+              >
+                <Smile className="w-4 h-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground hover:text-foreground"
+                disabled={isSubmitting}
+              >
+                <MapPin className="w-4 h-4" />
+              </Button>
+            </div>
+            <Button
+              type="submit"
+              disabled={(!content.trim() && !selectedFile) || isSubmitting}
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              {isSubmitting ? 'Posting...' : 'Post'}
+            </Button>
+          </div>
+        </form>
       </CardContent>
     </Card>
   );

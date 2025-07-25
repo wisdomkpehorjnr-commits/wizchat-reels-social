@@ -793,6 +793,50 @@ export type Database = {
           },
         ]
       }
+      room_posts: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          image_url: string | null
+          media_type: string | null
+          room_id: string
+          updated_at: string
+          user_id: string
+          video_url: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          media_type?: string | null
+          room_id: string
+          updated_at?: string
+          user_id: string
+          video_url?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          media_type?: string | null
+          room_id?: string
+          updated_at?: string
+          user_id?: string
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_posts_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "topic_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       saved_posts: {
         Row: {
           created_at: string | null

@@ -12,7 +12,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Post, TopicRoom as TopicRoomType } from '@/types';
-import { dataService } from '@/services/dataService';
 
 const TopicRoom = () => {
   const { roomId } = useParams<{ roomId: string }>();
@@ -77,7 +76,7 @@ const TopicRoom = () => {
       setParticipants(participantsData || []);
       setIsParticipant(participantsData?.some(p => p.user_id === user.id) || false);
 
-      // Load room posts (we'll create a posts table for rooms)
+      // Load room posts
       const { data: postsData, error: postsError } = await supabase
         .from('room_posts')
         .select(`
@@ -100,12 +99,12 @@ const TopicRoom = () => {
           id: post.id,
           userId: post.user_id,
           user: {
-            id: post.profiles.id,
-            name: post.profiles.name,
-            username: post.profiles.username,
+            id: post.profiles?.id || post.user_id,
+            name: post.profiles?.name || 'Unknown User',
+            username: post.profiles?.username || 'unknown',
             email: '',
-            photoURL: post.profiles.avatar,
-            avatar: post.profiles.avatar,
+            photoURL: post.profiles?.avatar || '',
+            avatar: post.profiles?.avatar || '',
             bio: '',
             followerCount: 0,
             followingCount: 0,
@@ -115,7 +114,7 @@ const TopicRoom = () => {
           content: post.content,
           imageUrl: post.image_url,
           videoUrl: post.video_url,
-          mediaType: post.media_type,
+          mediaType: post.media_type as 'text' | 'image' | 'video',
           likes: [],
           comments: [],
           reactions: [],
