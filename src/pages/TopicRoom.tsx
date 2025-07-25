@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
@@ -76,7 +75,7 @@ const TopicRoom = () => {
       setParticipants(participantsData || []);
       setIsParticipant(participantsData?.some(p => p.user_id === user.id) || false);
 
-      // Load room posts with proper join
+      // Load room posts with proper join using the foreign key
       const { data: postsData, error: postsError } = await supabase
         .from('room_posts')
         .select(`
@@ -87,7 +86,7 @@ const TopicRoom = () => {
           video_url,
           media_type,
           created_at,
-          profiles!room_posts_user_id_fkey (
+          profiles (
             id,
             name,
             username,
