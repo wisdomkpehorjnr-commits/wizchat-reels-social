@@ -75,59 +75,66 @@ const TopicRoom = () => {
       setParticipants(participantsData || []);
       setIsParticipant(participantsData?.some(p => p.user_id === user.id) || false);
 
-      // Load room posts with proper join using the foreign key
+      // Load room posts - first get the posts, then get profiles separately
       const { data: postsData, error: postsError } = await supabase
         .from('room_posts')
-        .select(`
-          id,
-          user_id,
-          content,
-          image_url,
-          video_url,
-          media_type,
-          created_at,
-          profiles (
-            id,
-            name,
-            username,
-            avatar
-          )
-        `)
+        .select('*')
         .eq('room_id', roomId)
         .order('created_at', { ascending: false });
 
       if (postsError) {
         console.error('Error loading room posts:', postsError);
         setPosts([]);
-      } else {
-        const formattedPosts = postsData?.map(post => ({
-          id: post.id,
-          userId: post.user_id,
-          user: {
-            id: post.profiles?.id || post.user_id,
-            name: post.profiles?.name || 'Unknown User',
-            username: post.profiles?.username || 'unknown',
-            email: '',
-            photoURL: post.profiles?.avatar || '',
-            avatar: post.profiles?.avatar || '',
-            bio: '',
-            followerCount: 0,
-            followingCount: 0,
-            profileViews: 0,
-            createdAt: new Date()
-          },
-          content: post.content,
-          imageUrl: post.image_url,
-          videoUrl: post.video_url,
-          mediaType: post.media_type as 'text' | 'image' | 'video',
-          likes: [],
-          comments: [],
-          reactions: [],
-          hashtags: [],
-          createdAt: new Date(post.created_at)
-        })) || [];
+      } else if (postsData) {
+        // Get unique user IDs from posts
+        const userIds = [...new Set(postsData.map(post => post.user_id))];
         
-        setPosts(formattedPosts);
+        // Fetch profiles for these users
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('*')
+          .in('id', userIds);
+
+        if (profilesError) {
+          console.error('Error loading profiles:', profilesError);
+          setPosts([]);
+        } else {
+          // Create a map of user profiles for quick lookup
+          const profilesMap = new Map(profilesData?.map(profile => [profile.id, profile]) || []);
+          
+          // Format posts with profile data
+          const formattedPosts = postsData.map(post => {
+            const profile = profilesMap.get(post.user_id);
+            return {
+              id: post.id,
+              userId: post.user_id,
+              user: {
+                id: profile?.id || post.user_id,
+                name: profile?.name || 'Unknown User',
+                username: profile?.username || 'unknown',
+                email: profile?.email || '',
+                photoURL: profile?.avatar || '',
+                avatar: profile?.avatar || '',
+                bio: profile?.bio || '',
+                followerCount: profile?.follower_count || 0,
+                followingCount: profile?.following_count || 0,
+                profileViews: profile?.profile_views || 0,
+                createdAt: new Date(profile?.created_at || post.created_at)
+              },
+              content: post.content,
+              imageUrl: post.image_url,
+              videoUrl: post.video_url,
+              mediaType: post.media_type as 'text' | 'image' | 'video',
+              likes: [],
+              comments: [],
+              reactions: [],
+              hashtags: [],
+              createdAt: new Date(post.created_at)
+            };
+          });
+          
+          setPosts(formattedPosts);
+        }
       }
     } catch (error) {
       console.error('Error loading room data:', error);
