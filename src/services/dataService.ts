@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Post, User, Comment, Reaction, Chat, Message } from '@/types';
 
@@ -745,30 +744,63 @@ export const dataService = {
         is_group: isGroup,
         name: name,
         creator_id: user.id,
-        member_count: participants.length + 1
+        member_count: participants.length + 1,
+        is_public: false
       })
       .select()
       .single();
 
-    if (chatError) throw chatError;
+    if (chatError) {
+      console.error('Error creating chat:', chatError);
+      throw chatError;
+    }
 
     // Add participants including the creator
     const allParticipants = [user.id, ...participants];
+    const participantInserts = allParticipants.map(participantId => ({
+      chat_id: chat.id,
+      user_id: participantId,
+      role: participantId === user.id ? 'admin' : 'member'
+    }));
+
     const { error: participantsError } = await supabase
       .from('chat_participants')
-      .insert(
-        allParticipants.map(participantId => ({
-          chat_id: chat.id,
-          user_id: participantId,
-          role: participantId === user.id ? 'admin' : 'member'
-        }))
-      );
+      .insert(participantInserts);
 
-    if (participantsError) throw participantsError;
+    if (participantsError) {
+      console.error('Error adding chat participants:', participantsError);
+      throw participantsError;
+    }
+
+    // Fetch participant profiles
+    const { data: profilesData, error: profilesError } = await supabase
+      .from('profiles')
+      .select('*')
+      .in('id', participants);
+
+    if (profilesError) {
+      console.error('Error fetching participant profiles:', profilesError);
+      throw profilesError;
+    }
+
+    const participantUsers = profilesData?.map(profile => ({
+      id: profile.id,
+      name: profile.name,
+      username: profile.username,
+      email: profile.email,
+      photoURL: profile.avatar,
+      avatar: profile.avatar,
+      bio: profile.bio,
+      followerCount: profile.follower_count,
+      followingCount: profile.following_count,
+      profileViews: profile.profile_views,
+      createdAt: new Date(profile.created_at),
+      role: 'member'
+    })) || [];
 
     return {
       id: chat.id,
-      participants: [],
+      participants: participantUsers,
       isGroup: chat.is_group || false,
       name: chat.name,
       description: chat.description,
@@ -794,26 +826,33 @@ export const dataService = {
         description: groupData.description,
         is_private: !groupData.isPublic,
         created_by: user.id,
-        invite_code: Math.random().toString(36).substring(2, 15)
+        invite_code: Math.random().toString(36).substring(2, 15),
+        member_count: groupData.members.length + 1
       })
       .select()
       .single();
 
-    if (groupError) throw groupError;
+    if (groupError) {
+      console.error('Error creating group:', groupError);
+      throw groupError;
+    }
 
     // Add members
     const allMembers = [user.id, ...groupData.members];
+    const memberInserts = allMembers.map(memberId => ({
+      group_id: group.id,
+      user_id: memberId,
+      role: memberId === user.id ? 'admin' : 'member'
+    }));
+
     const { error: memberError } = await supabase
       .from('group_members')
-      .insert(
-        allMembers.map(memberId => ({
-          group_id: group.id,
-          user_id: memberId,
-          role: memberId === user.id ? 'admin' : 'member'
-        }))
-      );
+      .insert(memberInserts);
 
-    if (memberError) throw memberError;
+    if (memberError) {
+      console.error('Error adding group members:', memberError);
+      throw memberError;
+    }
 
     return group;
   },
@@ -821,6 +860,18 @@ export const dataService = {
   async joinTopicRoom(roomId: string): Promise<void> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
+
+    // Check if user is already a participant
+    const { data: existingParticipant } = await supabase
+      .from('room_participants')
+      .select('id')
+      .eq('room_id', roomId)
+      .eq('user_id', user.id)
+      .single();
+
+    if (existingParticipant) {
+      return; // Already joined
+    }
 
     // Join room
     const { error } = await supabase
@@ -830,7 +881,10 @@ export const dataService = {
         user_id: user.id
       });
 
-    if (error && !error.message.includes('duplicate')) throw error;
+    if (error) {
+      console.error('Error joining room:', error);
+      throw error;
+    }
   },
 
   async getCustomEmojis(): Promise<any[]> {

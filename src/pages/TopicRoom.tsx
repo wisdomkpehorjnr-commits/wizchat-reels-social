@@ -170,21 +170,8 @@ const TopicRoom = () => {
     if (!user || !roomId) return;
     
     try {
-      const { error } = await supabase
-        .from('room_participants')
-        .insert({
-          room_id: roomId,
-          user_id: user.id
-        });
-
-      if (error) throw error;
-
-      // Update participant count
-      await supabase
-        .from('topic_rooms')
-        .update({ participant_count: participants.length + 1 })
-        .eq('id', roomId);
-
+      await dataService.joinTopicRoom(roomId);
+      
       setIsParticipant(true);
       loadRoomData();
       

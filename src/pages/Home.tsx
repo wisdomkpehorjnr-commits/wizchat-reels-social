@@ -1,34 +1,35 @@
-
 import { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import CreatePost from '@/components/CreatePost';
 import PostCard from '@/components/PostCard';
-import StoriesSection from '@/components/StoriesSection';
-import { Post } from '@/types';
-import { dataService } from '@/services/dataService';
-import { useToast } from '@/hooks/use-toast';
-import { RefreshCw } from 'lucide-react';
+import ReelCard from '@/components/ReelCard';
+import StoryCarousel from '@/components/StoryCarousel';
 import { Button } from '@/components/ui/button';
+import { RefreshCw } from 'lucide-react';
+import { dataService } from '@/services/dataService';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
 const Home = () => {
-  const [posts, setPosts] = useState<Post[]>([]);
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const { toast } = useToast();
 
   useEffect(() => {
     loadPosts();
   }, []);
 
-  const loadPosts = async (showRefreshing = false) => {
+  const loadPosts = async () => {
+    if (!user) return;
+
     try {
-      if (showRefreshing) setRefreshing(true);
-      const allPosts = await dataService.getPosts();
-      // Filter out reels from main feed
-      const regularPosts = allPosts.filter(post => !post.isReel);
-      setPosts(regularPosts);
+      setLoading(true);
+      const posts = await dataService.getPosts();
+      setPosts(posts);
     } catch (error) {
-      console.error('Error loading posts:', error);
+      console.error('Error fetching posts:', error);
       toast({
         title: "Error",
         description: "Failed to load posts",
@@ -36,91 +37,155 @@ const Home = () => {
       });
     } finally {
       setLoading(false);
-      if (showRefreshing) setRefreshing(false);
     }
   };
 
-  const handleRefresh = () => {
-    loadPosts(true);
-  };
-
-  const handleSavePost = async (postId: string) => {
+  const handleLikePost = async (postId: string) => {
     try {
-      await dataService.savePost(postId);
-      toast({
-        title: "Success",
-        description: "Post saved successfully"
-      });
+      await dataService.likePost(postId);
+      // Optimistically update the UI
+      setPosts(currentPosts =>
+        currentPosts.map(post =>
+          post.id === postId ? { ...post, likes: post.likes.includes(user?.id) ? post.likes.filter(id => id !== user?.id) : [...post.likes, user?.id] } : post
+        )
+      );
     } catch (error) {
-      console.error('Error saving post:', error);
+      console.error('Error liking post:', error);
       toast({
-        title: "Error", 
-        description: "Failed to save post",
+        title: "Error",
+        description: "Failed to like post",
         variant: "destructive"
       });
     }
   };
 
-  const handlePostDelete = () => {
-    loadPosts();
+  const handleSharePost = (post: any) => {
+    if (navigator.share) {
+      navigator.share({
+        title: 'Check out this post!',
+        text: post.content,
+        url: window.location.origin,
+      }).then(() => {
+        toast({
+          title: "Post Shared",
+          description: "Thanks for sharing!",
+        });
+      }).catch((error) => {
+        console.error('Error sharing:', error);
+        toast({
+          title: "Error",
+          description: "Failed to share post",
+          variant: "destructive"
+        });
+      });
+    } else {
+      navigator.clipboard.writeText(window.location.href)
+        .then(() => {
+          toast({
+            title: "Link Copied",
+            description: "Post link copied to clipboard!",
+          });
+        })
+        .catch((error) => {
+          console.error('Error copying to clipboard:', error);
+          toast({
+            title: "Error",
+            description: "Failed to copy link",
+            variant: "destructive"
+          });
+        });
+    }
+  };
+
+  const refreshFeed = async () => {
+    setRefreshing(true);
+    try {
+      const freshPosts = await dataService.getPosts();
+      setPosts(freshPosts);
+      
+      toast({
+        title: "Feed Refreshed",
+        description: "Your feed has been updated with the latest posts"
+      });
+    } catch (error) {
+      console.error('Error refreshing feed:', error);
+      toast({
+        title: "Error",
+        description: "Failed to refresh feed",
+        variant: "destructive"
+      });
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   return (
     <Layout>
-      <div className="max-w-2xl mx-auto space-y-6">
-        {/* Refresh Button */}
-        <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-foreground">Home</h1>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-          </Button>
-        </div>
-
-        <StoriesSection />
-        <CreatePost />
-        
-        {loading ? (
-          <div className="space-y-6">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="border-2 green-border rounded-lg p-6 animate-pulse bg-card">
-                <div className="flex items-center space-x-3 mb-4">
-                  <div className="w-10 h-10 bg-muted rounded-full" />
-                  <div className="space-y-2">
-                    <div className="w-32 h-4 bg-muted rounded" />
-                    <div className="w-24 h-3 bg-muted rounded" />
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <div className="w-full h-4 bg-muted rounded" />
-                  <div className="w-3/4 h-4 bg-muted rounded" />
-                </div>
-              </div>
-            ))}
+      <div className="container mx-auto px-4 py-6">
+        <div className="max-w-2xl mx-auto">
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-3xl font-bold text-foreground">Home</h1>
+            <Button 
+              onClick={refreshFeed}
+              disabled={refreshing}
+              variant="outline"
+              size="sm"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+              {refreshing ? 'Refreshing...' : 'Refresh'}
+            </Button>
           </div>
-        ) : (
+
+          {/* Stories Section */}
+          <div className="mb-6">
+            <StoryCarousel />
+          </div>
+
+          {/* Create Post */}
+          <div className="mb-6">
+            <CreatePost onPostCreated={loadPosts} />
+          </div>
+
+          {/* Posts Feed */}
           <div className="space-y-6">
             {posts.map((post) => (
-              <PostCard 
-                key={post.id} 
-                post={post} 
-                onSave={() => handleSavePost(post.id)}
-                onPostUpdate={() => loadPosts()}
-                onPostDelete={handlePostDelete}
-              />
+              post.isReel ? (
+                <div key={post.id} className="max-w-sm mx-auto">
+                  <ReelCard
+                    key={post.id}
+                    post={post}
+                    onLike={handleLikePost}
+                    onUserClick={(user) => {
+                      // Navigate to user profile
+                      window.location.href = `/profile/${user.username}`;
+                    }}
+                    onShare={handleSharePost}
+                  />
+                </div>
+              ) : (
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  onPostUpdate={loadPosts}
+                />
+              )
             ))}
-            {posts.length === 0 && (
-              <div className="text-center py-12">
-                <p className="text-muted-foreground">No posts yet. Be the first to share something!</p>
-              </div>
-            )}
           </div>
-        )}
+
+          {/* Loading State */}
+          {loading && (
+            <div className="text-center py-4">
+              Loading posts...
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!loading && posts.length === 0 && (
+            <div className="text-center py-4">
+              No posts yet. Start following people to see their posts!
+            </div>
+          )}
+        </div>
       </div>
     </Layout>
   );

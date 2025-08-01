@@ -1,62 +1,189 @@
-import { useState } from 'react';
-import { Heart, MessageSquare, Share2, User } from 'lucide-react';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Link } from 'react-router-dom';
+import React, { useState, useRef, useEffect } from 'react';
+import { Card } from '@/components/ui/card';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Heart, MessageCircle, Share, Send, Volume2, VolumeX } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Post } from '@/types';
+import { formatDistanceToNow } from 'date-fns';
+import { useAuth } from '@/contexts/AuthContext';
+import { dataService } from '@/services/dataService';
+import { useToast } from '@/hooks/use-toast';
 
 interface ReelCardProps {
   post: Post;
-  onLike: (postId: string) => Promise<void>;
-  onUserClick: (userId: string) => void;
-  onShare: (post: Post) => Promise<void>;
+  onLike: (postId: string) => void;
+  onUserClick: (user: any) => void;
+  onShare: (post: Post) => void;
 }
 
 const ReelCard = ({ post, onLike, onUserClick, onShare }: ReelCardProps) => {
-  const [liked, setLiked] = useState(false);
+  const [isLiked, setIsLiked] = useState(false);
+  const [showComments, setShowComments] = useState(false);
+  const [newComment, setNewComment] = useState('');
+  const [isMuted, setIsMuted] = useState(true);
+  const { user } = useAuth();
+  const { toast } = useToast();
 
-  const handleLikeClick = async () => {
-    setLiked(!liked);
-    await onLike(post.id);
-  };
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Auto-play video when in view
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video) {
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              video.play().catch(console.error);
+            } else {
+              video.pause();
+            }
+          });
+        },
+        { threshold: 0.5 }
+      );
+
+      observer.observe(video);
+      return () => observer.disconnect();
+    }
+  }, []);
 
   return (
-    <div className="relative">
-      {post.videoUrl && (
-        <video src={post.videoUrl} controls className="w-full aspect-video rounded-lg" />
-      )}
-      {post.imageUrl && (
-        <img src={post.imageUrl} alt={post.content} className="w-full aspect-video rounded-lg" />
-      )}
-      <div className="absolute bottom-0 left-0 p-4 w-full">
-        <div className="flex items-center justify-between text-white">
-          <div>
-            <Link to={`/profile/${post.userId}`} onClick={() => onUserClick(post.userId)}>
-              <div className="flex items-center space-x-2">
-                <Avatar className="w-8 h-8">
-                  <AvatarImage src={post.user.avatar} alt={post.user.name} />
-                  <AvatarFallback>{post.user.name.charAt(0)}</AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="text-sm font-semibold">{post.user.name}</p>
-                </div>
-              </div>
-            </Link>
-            <p className="text-sm mt-1">{post.content}</p>
-          </div>
-          <div className="flex flex-col items-center space-y-3">
-            <button onClick={handleLikeClick}>
-              <Heart className={`w-6 h-6 ${liked ? 'text-red-500' : ''}`} fill={liked ? 'red' : 'none'} />
-            </button>
-            <button>
-              <MessageSquare className="w-6 h-6" />
-            </button>
-            <button onClick={() => onShare(post)}>
-              <Share2 className="w-6 h-6" />
-            </button>
+    <Card className="w-full max-w-sm mx-auto border-2 green-border bg-card relative overflow-hidden">
+      {/* Video Content */}
+      <div className="relative aspect-[9/16] bg-black">
+        {post.videoUrl && (
+          <video
+            ref={videoRef}
+            src={post.videoUrl}
+            className="w-full h-full object-cover"
+            loop
+            muted={isMuted}
+            playsInline
+            controls={false}
+            onClick={() => setIsMuted(!isMuted)}
+          />
+        )}
+        
+        {/* Mute/Unmute Button */}
+        <button
+          onClick={() => setIsMuted(!isMuted)}
+          className="absolute top-4 right-4 bg-black bg-opacity-50 text-white p-2 rounded-full"
+        >
+          {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+        </button>
+
+        {/* User Info Overlay */}
+        <div className="absolute bottom-16 left-4 right-16 text-white">
+          <button 
+            onClick={() => onUserClick(post.user)}
+            className="flex items-center space-x-2 mb-2 hover:opacity-80 transition-opacity"
+          >
+            <Avatar className="w-8 h-8">
+              <AvatarImage src={post.user.avatar} />
+              <AvatarFallback>{post.user.name.charAt(0)}</AvatarFallback>
+            </Avatar>
+            <span className="font-semibold text-sm">{post.user.name}</span>
+          </button>
+          
+          <p className="text-sm mb-2">{post.content}</p>
+          
+          {/* Hashtags */}
+          <div className="flex flex-wrap gap-1">
+            {post.hashtags.map((hashtag) => (
+              <span key={hashtag.id} className="text-xs text-blue-300">
+                #{hashtag.name}
+              </span>
+            ))}
           </div>
         </div>
+
+        {/* Action Buttons */}
+        <div className="absolute bottom-4 right-4 flex flex-col space-y-4">
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              onLike(post.id);
+            }}
+            className="flex flex-col items-center text-white"
+          >
+            <div className={`p-3 rounded-full ${isLiked ? 'bg-red-500' : 'bg-black bg-opacity-50'}`}>
+              <Heart className={`w-6 h-6 ${isLiked ? 'fill-current' : ''}`} />
+            </div>
+            <span className="text-xs mt-1">{post.likes.length}</span>
+          </button>
+
+          <button
+            onClick={() => setShowComments(true)}
+            className="flex flex-col items-center text-white"
+          >
+            <div className="p-3 rounded-full bg-black bg-opacity-50">
+              <MessageCircle className="w-6 h-6" />
+            </div>
+            <span className="text-xs mt-1">{post.comments.length}</span>
+          </button>
+
+          <button
+            onClick={() => onShare(post)}
+            className="flex flex-col items-center text-white"
+          >
+            <div className="p-3 rounded-full bg-black bg-opacity-50">
+              <Share className="w-6 h-6" />
+            </div>
+            <span className="text-xs mt-1">Share</span>
+          </button>
+        </div>
       </div>
-    </div>
+
+      {/* Comments Modal */}
+      {showComments && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-background border-2 green-border rounded-lg p-6 w-96 max-h-96 overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Comments</h3>
+              <Button variant="ghost" size="sm" onClick={() => setShowComments(false)}>
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+
+            <div className="space-y-3 mb-4">
+              {post.comments.map((comment) => (
+                <div key={comment.id} className="flex space-x-3">
+                  <button onClick={() => onUserClick(comment.user)}>
+                    <Avatar className="w-6 h-6">
+                      <AvatarImage src={comment.user.avatar} />
+                      <AvatarFallback>{comment.user.name.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                  </button>
+                  <div className="flex-1">
+                    <button 
+                      onClick={() => onUserClick(comment.user)}
+                      className="font-medium text-sm hover:text-primary"
+                    >
+                      {comment.user.name}
+                    </button>
+                    <p className="text-sm text-muted-foreground">{comment.content}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex space-x-2">
+              <Input
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                placeholder="Add a comment..."
+                className="flex-1"
+              />
+              <Button onClick={handleAddComment} size="sm">
+                <Send className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </Card>
   );
 };
 

@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -12,9 +11,10 @@ import { Plus, Users, X } from 'lucide-react';
 import { User } from '@/types';
 import { dataService } from '@/services/dataService';
 import { useToast } from '@/hooks/use-toast';
+import GroupChatPopup from './GroupChatPopup';
 
 interface CreateGroupChatProps {
-  onGroupCreated: () => Promise<void>;
+  onGroupCreated: (groupId?: string) => Promise<void>;
   onClose: () => void;
 }
 
@@ -28,6 +28,7 @@ const CreateGroupChat = ({ onGroupCreated, onClose }: CreateGroupChatProps) => {
     description: '',
     isPublic: false
   });
+  const [createdGroupId, setCreatedGroupId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const searchUsers = async (term: string) => {
@@ -77,6 +78,7 @@ const CreateGroupChat = ({ onGroupCreated, onClose }: CreateGroupChatProps) => {
 
     setLoading(true);
     try {
+      // Create the group first
       const group = await dataService.createGroup({
         name: groupData.name,
         description: groupData.description,
@@ -84,8 +86,17 @@ const CreateGroupChat = ({ onGroupCreated, onClose }: CreateGroupChatProps) => {
         members: selectedUsers.map(u => u.id)
       });
 
-      await onGroupCreated();
-      onClose();
+      // Create a chat for the group
+      const chat = await dataService.createChat(
+        selectedUsers.map(u => u.id), 
+        true, 
+        groupData.name
+      );
+
+      await onGroupCreated(chat.id);
+      
+      // Set the created group ID to open the chat popup
+      setCreatedGroupId(chat.id);
       
       // Reset form
       setGroupData({ name: '', description: '', isPublic: false });
@@ -94,7 +105,7 @@ const CreateGroupChat = ({ onGroupCreated, onClose }: CreateGroupChatProps) => {
       
       toast({
         title: "Success",
-        description: "Group created successfully"
+        description: "Group created successfully! Start chatting with your members."
       });
     } catch (error) {
       console.error('Error creating group:', error);
@@ -107,6 +118,19 @@ const CreateGroupChat = ({ onGroupCreated, onClose }: CreateGroupChatProps) => {
       setLoading(false);
     }
   };
+
+  // If group chat popup is open
+  if (createdGroupId) {
+    return (
+      <GroupChatPopup
+        groupId={createdGroupId}
+        onClose={() => {
+          setCreatedGroupId(null);
+          onClose();
+        }}
+      />
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
