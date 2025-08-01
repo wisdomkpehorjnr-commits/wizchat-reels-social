@@ -208,12 +208,12 @@ const Chat = () => {
                     >
                       <div className="flex items-center space-x-3">
                         <div className="relative">
-                          <Avatar className="w-12 h-12">
-                            <AvatarImage src={chat.isGroup ? chat.avatar : chat.participants[0]?.avatar} />
-                            <AvatarFallback className="text-foreground bg-muted">
-                              {chat.isGroup ? <Users className="w-6 h-6" /> : chat.participants[0]?.name?.charAt(0)}
-                            </AvatarFallback>
-                          </Avatar>
+                           <Avatar className="w-12 h-12">
+                             <AvatarImage src={chat.isGroup ? chat.avatar : chat.participants[0]?.avatar} />
+                             <AvatarFallback className="text-foreground bg-muted">
+                               {chat.isGroup ? <Users className="w-6 h-6" /> : chat.participants[0]?.name?.charAt(0)}
+                             </AvatarFallback>
+                           </Avatar>
                           {chat.unreadCount && chat.unreadCount > 0 && (
                             <Badge 
                               variant="destructive" 
@@ -259,17 +259,17 @@ const Chat = () => {
                       onClick={() => createDirectChat(friend)}
                     >
                       <div className="flex items-center space-x-3">
-                        <Avatar className="w-12 h-12">
-                          <AvatarImage src={friend.avatar} />
-                          <AvatarFallback className="text-foreground bg-muted">
-                            {friend.name?.charAt(0)}
-                          </AvatarFallback>
-                        </Avatar>
+                         <Avatar className="w-12 h-12 cursor-pointer" onClick={() => window.location.href = `/profile/${friend.id}`}>
+                           <AvatarImage src={friend.avatar} />
+                           <AvatarFallback className="text-foreground bg-muted">
+                             {friend.name?.charAt(0)}
+                           </AvatarFallback>
+                         </Avatar>
                         
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-medium truncate text-foreground">
-                            {friend.name}
-                          </h3>
+                         <div className="flex-1 min-w-0">
+                           <h3 className="font-medium truncate text-foreground cursor-pointer hover:text-primary" onClick={() => window.location.href = `/profile/${friend.id}`}>
+                             {friend.name}
+                           </h3>
                           <p className="text-sm text-muted-foreground">
                             Start a conversation
                           </p>

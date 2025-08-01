@@ -19,6 +19,14 @@ const Home = () => {
 
   useEffect(() => {
     loadPosts();
+    
+    // Listen for home refresh events
+    const handleRefreshHome = () => {
+      refreshFeed();
+    };
+    
+    window.addEventListener('refreshHome', handleRefreshHome);
+    return () => window.removeEventListener('refreshHome', handleRefreshHome);
   }, []);
 
   const loadPosts = async () => {
@@ -103,6 +111,9 @@ const Home = () => {
       const freshPosts = await dataService.getPosts();
       setPosts(freshPosts);
       
+      // Scroll to top
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      
       toast({
         title: "Feed Refreshed",
         description: "Your feed has been updated with the latest posts"
@@ -157,7 +168,7 @@ const Home = () => {
                     onLike={handleLikePost}
                     onUserClick={(user) => {
                       // Navigate to user profile
-                      window.location.href = `/profile/${user.username}`;
+                      window.location.href = `/profile/${user.id}`;
                     }}
                     onShare={handleSharePost}
                   />

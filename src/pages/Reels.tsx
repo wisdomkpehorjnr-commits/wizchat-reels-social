@@ -119,8 +119,8 @@ const Reels = () => {
   };
 
   return (
-    <Layout>
-      <div className="max-w-md mx-auto h-[calc(100vh-4rem)] overflow-hidden">
+    <div className="fixed inset-0 bg-black">
+      <div className="w-full h-full overflow-hidden">
         {loading ? (
           <div className="space-y-6">
             {[...Array(3)].map((_, i) => (
@@ -155,7 +155,7 @@ const Reels = () => {
           </div>
         )}
       </div>
-    </Layout>
+    </div>
   );
 };
 

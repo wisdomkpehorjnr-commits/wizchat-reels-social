@@ -46,6 +46,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     return location.pathname === path;
   };
 
+  const handleHomeClick = (e: React.MouseEvent) => {
+    if (location.pathname === '/') {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      // Trigger a custom event for home refresh
+      window.dispatchEvent(new CustomEvent('refreshHome'));
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -69,7 +78,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 asChild
                 className={isActivePath(item.path) ? "bg-primary text-primary-foreground" : "text-foreground hover:text-foreground"}
               >
-                <Link to={item.path} className="flex items-center gap-2">
+                <Link 
+                  to={item.path} 
+                  className="flex items-center gap-2"
+                  onClick={item.path === '/' ? handleHomeClick : undefined}
+                >
                   <item.icon className="w-4 h-4" />
                   <span className="hidden lg:inline text-foreground">{item.label}</span>
                 </Link>
@@ -139,7 +152,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               asChild
               className="flex-col h-auto py-2"
             >
-              <Link to={item.path}>
+              <Link 
+                to={item.path}
+                onClick={item.path === '/' ? handleHomeClick : undefined}
+              >
                 <item.icon className="w-4 h-4" />
                 <span className="text-xs mt-1 text-foreground">{item.label}</span>
               </Link>

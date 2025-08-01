@@ -111,19 +111,38 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
           
           {selectedFile && (
             <div className="mt-3 p-3 border border-border rounded-lg">
-              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+              <div className="flex items-center space-x-2">
                 {selectedFile.type.startsWith('image/') ? (
-                  <Camera className="w-4 h-4" />
+                  <div className="flex items-center space-x-2">
+                    <img 
+                      src={URL.createObjectURL(selectedFile)} 
+                      alt="Preview" 
+                      className="w-16 h-16 object-cover rounded"
+                    />
+                    <div>
+                      <p className="text-sm font-medium">Image selected</p>
+                      <p className="text-xs text-muted-foreground">{selectedFile.name}</p>
+                    </div>
+                  </div>
                 ) : (
-                  <Video className="w-4 h-4" />
+                  <div className="flex items-center space-x-2">
+                    <video 
+                      src={URL.createObjectURL(selectedFile)} 
+                      className="w-16 h-16 object-cover rounded"
+                      muted
+                    />
+                    <div>
+                      <p className="text-sm font-medium">Video selected</p>
+                      <p className="text-xs text-muted-foreground">{selectedFile.name}</p>
+                    </div>
+                  </div>
                 )}
-                <span>{selectedFile.name}</span>
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   onClick={() => setSelectedFile(null)}
-                  className="text-muted-foreground hover:text-foreground"
+                  className="text-muted-foreground hover:text-foreground ml-auto"
                 >
                   Remove
                 </Button>

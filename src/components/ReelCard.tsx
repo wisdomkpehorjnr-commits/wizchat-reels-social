@@ -50,9 +50,9 @@ const ReelCard = ({ post, onLike, onUserClick, onShare }: ReelCardProps) => {
   }, []);
 
   return (
-    <Card className="w-full max-w-sm mx-auto border-2 green-border bg-card relative overflow-hidden">
+    <div className="w-full h-screen relative overflow-hidden bg-black snap-start">
       {/* Video Content */}
-      <div className="relative aspect-[9/16] bg-black">
+      <div className="relative w-full h-full bg-black">
         {post.videoUrl && (
           <video
             ref={videoRef}
@@ -111,7 +111,7 @@ const ReelCard = ({ post, onLike, onUserClick, onShare }: ReelCardProps) => {
             <div className={`p-3 rounded-full ${isLiked ? 'bg-red-500' : 'bg-black bg-opacity-50'}`}>
               <Heart className={`w-6 h-6 ${isLiked ? 'fill-current' : ''}`} />
             </div>
-            <span className="text-xs mt-1">{post.likes.length}</span>
+            <span className="text-xs mt-1">{post.likes?.length || 0}</span>
           </button>
 
           <button
@@ -121,7 +121,7 @@ const ReelCard = ({ post, onLike, onUserClick, onShare }: ReelCardProps) => {
             <div className="p-3 rounded-full bg-black bg-opacity-50">
               <MessageCircle className="w-6 h-6" />
             </div>
-            <span className="text-xs mt-1">{post.comments.length}</span>
+            <span className="text-xs mt-1">{post.comments?.length || 0}</span>
           </button>
 
           <button
@@ -138,8 +138,8 @@ const ReelCard = ({ post, onLike, onUserClick, onShare }: ReelCardProps) => {
 
       {/* Comments Modal */}
       {showComments && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-background border-2 green-border rounded-lg p-6 w-96 max-h-96 overflow-y-auto">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-end justify-center z-50">
+          <div className="bg-background/95 backdrop-blur border-t-2 green-border rounded-t-lg p-6 w-full max-h-96 overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Comments</h3>
               <Button variant="ghost" size="sm" onClick={() => setShowComments(false)}>
@@ -148,7 +148,7 @@ const ReelCard = ({ post, onLike, onUserClick, onShare }: ReelCardProps) => {
             </div>
 
             <div className="space-y-3 mb-4">
-              {post.comments.map((comment) => (
+              {post.comments?.map((comment) => (
                 <div key={comment.id} className="flex space-x-3">
                   <button onClick={() => onUserClick(comment.user)}>
                     <Avatar className="w-6 h-6">
@@ -203,7 +203,7 @@ const ReelCard = ({ post, onLike, onUserClick, onShare }: ReelCardProps) => {
           </div>
         </div>
       )}
-    </Card>
+    </div>
   );
 };
 
