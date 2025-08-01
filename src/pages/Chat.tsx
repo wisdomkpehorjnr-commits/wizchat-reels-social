@@ -140,14 +140,12 @@ const Chat = () => {
 
   if (selectedChat) {
     return (
-      <Layout>
-        <div className="h-[calc(100vh-4rem)]">
-          <ChatInterface 
-            chat={selectedChat} 
-            onClose={() => setSelectedChat(null)} 
-          />
-        </div>
-      </Layout>
+      <div className="fixed inset-0 bg-background z-50">
+        <ChatInterface 
+          chat={selectedChat} 
+          onClose={() => setSelectedChat(null)} 
+        />
+      </div>
     );
   }
 

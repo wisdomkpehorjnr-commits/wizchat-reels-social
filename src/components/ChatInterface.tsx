@@ -92,9 +92,14 @@ const ChatInterface = ({ chat, onClose }: ChatInterfaceProps) => {
     if (!newMessage.trim() || !user) return;
 
     try {
-      await dataService.sendMessage(chat.id, newMessage.trim());
+      const message = await dataService.sendMessage(chat.id, newMessage.trim());
+      setMessages(prev => [...prev, message]);
       setNewMessage('');
-      loadMessages();
+      
+      toast({
+        title: "Success",
+        description: "Message sent"
+      });
     } catch (error) {
       console.error('Error sending message:', error);
       toast({
@@ -111,9 +116,8 @@ const ChatInterface = ({ chat, onClose }: ChatInterfaceProps) => {
       
       // Create voice message in database
       const voiceMessage = await dataService.createVoiceMessage(chat.id, audioUrl, duration);
-      
+      setMessages(prev => [...prev, voiceMessage]);
       setIsRecording(false);
-      loadMessages();
       
       toast({
         title: "Success",
@@ -139,8 +143,8 @@ const ChatInterface = ({ chat, onClose }: ChatInterfaceProps) => {
       
       // Only handle image and video for media messages
       if (mediaType === 'image' || mediaType === 'video') {
-        await dataService.createMediaMessage(chat.id, mediaUrl, mediaType);
-        loadMessages();
+        const mediaMessage = await dataService.createMediaMessage(chat.id, mediaUrl, mediaType);
+        setMessages(prev => [...prev, mediaMessage]);
         
         toast({
           title: "Success",
@@ -237,7 +241,7 @@ const ChatInterface = ({ chat, onClose }: ChatInterfaceProps) => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-background text-foreground">
+    <div className="flex flex-col h-screen bg-background text-foreground">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b bg-card">
         <div className="flex items-center space-x-3">

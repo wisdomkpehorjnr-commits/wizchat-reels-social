@@ -3,7 +3,7 @@ import Layout from '@/components/Layout';
 import CreatePost from '@/components/CreatePost';
 import PostCard from '@/components/PostCard';
 import ReelCard from '@/components/ReelCard';
-import StoryCarousel from '@/components/StoryCarousel';
+import StoriesSection from '@/components/StoriesSection';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
 import { dataService } from '@/services/dataService';
@@ -138,7 +138,7 @@ const Home = () => {
 
           {/* Stories Section */}
           <div className="mb-6">
-            <StoryCarousel />
+            <StoriesSection />
           </div>
 
           {/* Create Post */}
