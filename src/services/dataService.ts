@@ -939,5 +939,23 @@ export const dataService = {
       console.error('Error updating site logo:', error);
       throw error;
     }
-  }
+  },
+
+  addComment: async (postId: string, content: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { data, error } = await supabase
+      .from('comments')
+      .insert({
+        post_id: postId,
+        content,
+        user_id: user.id
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
 };

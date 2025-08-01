@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Heart, MessageCircle, Share, Send, Volume2, VolumeX } from 'lucide-react';
+import { Heart, MessageCircle, Share, Send, Volume2, VolumeX, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Post } from '@/types';
@@ -176,7 +176,27 @@ const ReelCard = ({ post, onLike, onUserClick, onShare }: ReelCardProps) => {
                 placeholder="Add a comment..."
                 className="flex-1"
               />
-              <Button onClick={handleAddComment} size="sm">
+              <Button 
+                onClick={async () => {
+                  if (!newComment.trim() || !user) return;
+                  try {
+                    await dataService.addComment(post.id, newComment);
+                    setNewComment('');
+                    toast({
+                      title: "Comment added",
+                      description: "Your comment has been posted"
+                    });
+                  } catch (error) {
+                    console.error('Error adding comment:', error);
+                    toast({
+                      title: "Error",
+                      description: "Failed to add comment",
+                      variant: "destructive"
+                    });
+                  }
+                }}
+                size="sm"
+              >
                 <Send className="w-4 h-4" />
               </Button>
             </div>

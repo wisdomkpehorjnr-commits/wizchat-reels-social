@@ -10,6 +10,7 @@ import { ArrowLeft, Users, MessageSquare, Settings } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { dataService } from '@/services/dataService';
 import { Post, TopicRoom as TopicRoomType } from '@/types';
 
 const TopicRoom = () => {

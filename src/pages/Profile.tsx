@@ -291,11 +291,11 @@ const Profile = () => {
             <TabsContent value="posts" className="space-y-4 p-4">
               <div className="grid grid-cols-1 gap-4">
                 {userPosts.map((post) => (
-                  <PostCard 
-                    key={post.id} 
-                    post={post} 
-                    onSave={() => handleSavePost(post.id)}
-                  />
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  onPostUpdate={() => {}}
+                />
                 ))}
               </div>
               
@@ -353,11 +353,11 @@ const Profile = () => {
             <TabsContent value="saved" className="space-y-4 p-4">
               <div className="grid grid-cols-1 gap-4">
                 {savedPosts.map((savedPost) => (
-                  <PostCard 
-                    key={savedPost.id} 
-                    post={savedPost.post}
-                    onSave={() => handleSavePost(savedPost.post.id)}
-                  />
+                   <PostCard 
+                     key={savedPost.id} 
+                     post={savedPost.post}
+                     onPostUpdate={() => {}}
+                   />
                 ))}
               </div>
               
