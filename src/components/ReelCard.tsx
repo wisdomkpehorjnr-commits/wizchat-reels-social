@@ -25,6 +25,12 @@ const ReelCard = ({ post, onLike, onUserClick, onShare }: ReelCardProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
 
+  useEffect(() => {
+    if (user && post.likes) {
+      setIsLiked(post.likes.includes(user.id));
+    }
+  }, [user, post.likes]);
+
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // Auto-play video when in view
@@ -104,34 +110,35 @@ const ReelCard = ({ post, onLike, onUserClick, onShare }: ReelCardProps) => {
           <button
             onClick={(e) => {
               e.preventDefault();
+              setIsLiked(!isLiked);
               onLike(post.id);
             }}
-            className="flex flex-col items-center text-white"
+            className="flex flex-col items-center text-white drop-shadow-lg"
           >
-            <div className={`p-3 rounded-full ${isLiked ? 'bg-red-500' : 'bg-black bg-opacity-50'}`}>
-              <Heart className={`w-6 h-6 ${isLiked ? 'fill-current' : ''}`} />
+            <div className={`p-3 rounded-full backdrop-blur-sm ${isLiked ? 'bg-red-500/90' : 'bg-black/60 border border-white/20'}`}>
+              <Heart className={`w-6 h-6 ${isLiked ? 'fill-current text-white' : 'text-white'}`} />
             </div>
-            <span className="text-xs mt-1">{post.likes?.length || 0}</span>
+            <span className="text-xs mt-1 font-semibold drop-shadow-md">{post.likes?.length || 0}</span>
           </button>
 
           <button
             onClick={() => setShowComments(true)}
-            className="flex flex-col items-center text-white"
+            className="flex flex-col items-center text-white drop-shadow-lg"
           >
-            <div className="p-3 rounded-full bg-black bg-opacity-50">
-              <MessageCircle className="w-6 h-6" />
+            <div className="p-3 rounded-full backdrop-blur-sm bg-black/60 border border-white/20">
+              <MessageCircle className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xs mt-1">{post.comments?.length || 0}</span>
+            <span className="text-xs mt-1 font-semibold drop-shadow-md">{post.comments?.length || 0}</span>
           </button>
 
           <button
             onClick={() => onShare(post)}
-            className="flex flex-col items-center text-white"
+            className="flex flex-col items-center text-white drop-shadow-lg"
           >
-            <div className="p-3 rounded-full bg-black bg-opacity-50">
-              <Share className="w-6 h-6" />
+            <div className="p-3 rounded-full backdrop-blur-sm bg-black/60 border border-white/20">
+              <Share className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xs mt-1">Share</span>
+            <span className="text-xs mt-1 font-semibold drop-shadow-md">Share</span>
           </button>
         </div>
       </div>

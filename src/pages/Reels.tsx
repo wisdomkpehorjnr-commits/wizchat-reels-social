@@ -84,23 +84,33 @@ const Reels = () => {
   };
 
   const handleShare = async (post: Post) => {
-    if (navigator.share) {
-      try {
+    try {
+      if (navigator.share) {
         await navigator.share({
           title: `Check out this reel by ${post.user.name}`,
           text: post.content || 'Check out this awesome reel!',
           url: `${window.location.origin}/reel/${post.id}`
         });
-      } catch (error) {
-        console.error('Error sharing:', error);
+        
+        toast({
+          title: "Shared successfully",
+          description: "Reel shared!",
+        });
+      } else {
+        // Fallback for browsers that don't support native sharing
+        const shareText = `Check out this reel by ${post.user.name}: ${window.location.origin}/reel/${post.id}`;
+        await navigator.clipboard.writeText(shareText);
+        toast({
+          title: "Link copied",
+          description: "Reel link copied to clipboard",
+        });
       }
-    } else {
-      // Fallback for browsers that don't support native sharing
-      const shareText = `Check out this reel by ${post.user.name}: ${window.location.origin}/reel/${post.id}`;
-      navigator.clipboard.writeText(shareText);
+    } catch (error) {
+      console.error('Error sharing:', error);
       toast({
-        title: "Link copied",
-        description: "Reel link copied to clipboard",
+        title: "Error",
+        description: "Failed to share reel",
+        variant: "destructive"
       });
     }
   };

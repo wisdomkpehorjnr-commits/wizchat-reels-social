@@ -63,17 +63,28 @@ const TopicRooms: React.FC = () => {
   const joinRoom = async (roomId: string) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        console.error('User not authenticated');
+        return;
+      }
+
+      console.log('Joining room:', roomId, 'for user:', user.id);
 
       // Check if already a participant
-      const { data: existing } = await supabase
+      const { data: existing, error: checkError } = await supabase
         .from('room_participants')
         .select('id')
         .eq('room_id', roomId)
         .eq('user_id', user.id)
         .single();
 
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error('Error checking participant:', checkError);
+        throw checkError;
+      }
+
       if (!existing) {
+        console.log('Adding user as participant');
         const { error } = await supabase
           .from('room_participants')
           .insert({
@@ -81,9 +92,13 @@ const TopicRooms: React.FC = () => {
             user_id: user.id
           });
 
-        if (error) throw error;
+        if (error) {
+          console.error('Error inserting participant:', error);
+          throw error;
+        }
       }
 
+      console.log('Successfully joined room, navigating...');
       navigate(`/topic-room/${roomId}`);
     } catch (error) {
       console.error('Error joining room:', error);

@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useRef } from 'react';
-import { Send, Paperclip, Users, Settings, Search, Plus, Crown, Shield } from 'lucide-react';
+import { Send, Paperclip, Users, Settings, Search, Plus, Crown, Shield, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -241,7 +241,7 @@ const ChatInterface = ({ chat, onClose }: ChatInterfaceProps) => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-background text-foreground">
+    <div className="flex flex-col h-full bg-background text-foreground">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b bg-card">
         <div className="flex items-center space-x-3">
@@ -280,7 +280,7 @@ const ChatInterface = ({ chat, onClose }: ChatInterfaceProps) => {
           )}
           
           <Button variant="ghost" size="sm" onClick={onClose}>
-            ×
+            <ArrowLeft className="w-4 h-4" />
           </Button>
         </div>
       </div>

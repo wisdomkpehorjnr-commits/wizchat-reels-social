@@ -21,7 +21,7 @@ import { Friend, User } from '@/types';
 import { dataService } from '@/services/dataService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import ChatPopup from '@/components/ChatPopup';
+
 
 const Friends = () => {
   const { user } = useAuth();
@@ -31,7 +31,7 @@ const Friends = () => {
   const [searchResults, setSearchResults] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [selectedChatUser, setSelectedChatUser] = useState<User | null>(null);
+  
 
   useEffect(() => {
     if (user) {
@@ -150,9 +150,6 @@ const Friends = () => {
     }
   };
 
-  const startConversation = (friendUser: User) => {
-    setSelectedChatUser(friendUser);
-  };
 
   // Filter friends by status
   const acceptedFriends = friends.filter(f => f.status === 'accepted');
@@ -281,13 +278,6 @@ const Friends = () => {
                           <p className="text-muted-foreground mb-4">@{friendUser.username}</p>
                           
                           <div className="flex space-x-2">
-                            <Button
-                              onClick={() => startConversation(friendUser)}
-                              className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
-                            >
-                              <MessageCircle className="w-4 h-4 mr-2" />
-                              Start Chat
-                            </Button>
                             <Button
                               variant="outline"
                               size="sm"
@@ -422,12 +412,6 @@ const Friends = () => {
         </div>
       </div>
 
-      {selectedChatUser && (
-        <ChatPopup
-          user={selectedChatUser}
-          onClose={() => setSelectedChatUser(null)}
-        />
-      )}
     </Layout>
   );
 };

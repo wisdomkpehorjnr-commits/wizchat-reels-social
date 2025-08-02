@@ -12,9 +12,11 @@ import { Chat as ChatType, Friend, User } from '@/types';
 import { dataService } from '@/services/dataService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 
 const Chat = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [chats, setChats] = useState<ChatType[]>([]);
   const [friends, setFriends] = useState<Friend[]>([]);
   const [selectedChat, setSelectedChat] = useState<ChatType | null>(null);
@@ -140,7 +142,7 @@ const Chat = () => {
 
   if (selectedChat) {
     return (
-      <div className="fixed inset-0 bg-background z-50">
+      <div className="fixed inset-0 bg-background z-50 flex flex-col">
         <ChatInterface 
           chat={selectedChat} 
           onClose={() => setSelectedChat(null)} 
@@ -259,17 +261,17 @@ const Chat = () => {
                       onClick={() => createDirectChat(friend)}
                     >
                       <div className="flex items-center space-x-3">
-                         <Avatar className="w-12 h-12 cursor-pointer" onClick={() => window.location.href = `/profile/${friend.id}`}>
-                           <AvatarImage src={friend.avatar} />
-                           <AvatarFallback className="text-foreground bg-muted">
-                             {friend.name?.charAt(0)}
-                           </AvatarFallback>
-                         </Avatar>
+                           <Avatar className="w-12 h-12 cursor-pointer" onClick={() => navigate(`/profile/${friend.username || friend.id}`)}>
+                            <AvatarImage src={friend.avatar} />
+                            <AvatarFallback className="text-foreground bg-muted">
+                              {friend.name?.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
                         
-                         <div className="flex-1 min-w-0">
-                           <h3 className="font-medium truncate text-foreground cursor-pointer hover:text-primary" onClick={() => window.location.href = `/profile/${friend.id}`}>
-                             {friend.name}
-                           </h3>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-medium truncate text-foreground cursor-pointer hover:text-primary" onClick={() => navigate(`/profile/${friend.username || friend.id}`)}>
+                              {friend.name}
+                            </h3>
                           <p className="text-sm text-muted-foreground">
                             Start a conversation
                           </p>
