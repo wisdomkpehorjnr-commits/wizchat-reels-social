@@ -154,7 +154,19 @@ const Home = () => {
 
           {/* Create Post */}
           <div className="mb-6">
-            <CreatePost onPostCreated={loadPosts} />
+            <CreatePost onPostCreated={async (postData) => {
+              try {
+                await dataService.createPost(postData);
+                await loadPosts();
+              } catch (error) {
+                console.error('Error creating post:', error);
+                toast({
+                  title: "Error",
+                  description: "Failed to create post",
+                  variant: "destructive"
+                });
+              }
+            }} />
           </div>
 
           {/* Posts Feed */}

@@ -72,6 +72,11 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
       if (fileInput) {
         fileInput.value = '';
       }
+
+      toast({
+        title: "Success",
+        description: "Post created successfully!",
+      });
       
     } catch (error) {
       console.error('Error creating post:', error);

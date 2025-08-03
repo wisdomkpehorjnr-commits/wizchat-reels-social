@@ -261,7 +261,13 @@ const Chat = () => {
                       onClick={() => createDirectChat(friend)}
                     >
                       <div className="flex items-center space-x-3">
-                           <Avatar className="w-12 h-12 cursor-pointer" onClick={() => navigate(`/profile/${friend.username || friend.id}`)}>
+                           <Avatar 
+                            className="w-12 h-12 cursor-pointer" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/profile/${friend.username || friend.id}`);
+                            }}
+                          >
                             <AvatarImage src={friend.avatar} />
                             <AvatarFallback className="text-foreground bg-muted">
                               {friend.name?.charAt(0)}
@@ -269,7 +275,13 @@ const Chat = () => {
                           </Avatar>
                         
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-medium truncate text-foreground cursor-pointer hover:text-primary" onClick={() => navigate(`/profile/${friend.username || friend.id}`)}>
+                            <h3 
+                              className="font-medium truncate text-foreground cursor-pointer hover:text-primary" 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/profile/${friend.username || friend.id}`);
+                              }}
+                            >
                               {friend.name}
                             </h3>
                           <p className="text-sm text-muted-foreground">
