@@ -28,7 +28,8 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
   const { toast } = useToast();
   const [showAllComments, setShowAllComments] = useState(false);
   const [newComment, setNewComment] = useState('');
-  const [isLiked, setIsLiked] = useState(false);
+  const [isLiked, setIsLiked] = useState(post.isLiked || false);
+  const [likeCount, setLikeCount] = useState(post.likeCount || 0);
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(post.content);
 
@@ -36,9 +37,10 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
     try {
       await dataService.likePost(post.id);
       setIsLiked(!isLiked);
+      setLikeCount(prev => isLiked ? prev - 1 : prev + 1);
       toast({
         title: "Success",
-        description: "Post liked successfully"
+        description: isLiked ? "Post unliked" : "Post liked"
       });
     } catch (error) {
       console.error('Error liking post:', error);
@@ -172,21 +174,32 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
           </div>
         ) : (
           <div className="mb-4">
-            <p className="text-foreground">{post.content}</p>
+            {post.content && <p className="text-foreground mb-4">{post.content}</p>}
             {post.imageUrl && (
-              <img src={post.imageUrl} alt="Post Image" className="mt-4 rounded-md" />
+              <img 
+                src={post.imageUrl} 
+                alt="Post Image" 
+                className="mt-2 rounded-lg w-full object-cover max-h-96" 
+              />
             )}
             {post.videoUrl && (
-              <video src={post.videoUrl} controls className="mt-4 rounded-md w-full" />
+              <video 
+                src={post.videoUrl} 
+                controls 
+                className="mt-2 rounded-lg w-full max-h-96" 
+                preload="metadata"
+              />
             )}
           </div>
         )}
 
         {/* Actions */}
         <div className="flex justify-between items-center text-muted-foreground">
-          <Button variant="ghost" size="sm" onClick={handleLikePost}>
-            <Heart className="mr-2 h-4 w-4" />
-            Like
+          <Button variant="ghost" size="sm" onClick={handleLikePost} className="hover:text-red-500">
+            <Heart 
+              className={`mr-2 h-4 w-4 ${isLiked ? 'fill-red-500 text-red-500' : ''}`} 
+            />
+            Like {likeCount > 0 && <span className="ml-1 text-xs">({likeCount})</span>}
           </Button>
           <Button variant="ghost" size="sm" onClick={() => setShowAllComments(true)}>
             <MessageSquare className="mr-2 h-4 w-4" />

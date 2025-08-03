@@ -257,8 +257,7 @@ const Chat = () => {
                   {filteredFriends.map((friend) => (
                     <div
                       key={`friend-${friend.id}`}
-                      className="p-4 hover:bg-muted/50 cursor-pointer transition-colors"
-                      onClick={() => createDirectChat(friend)}
+                      className="p-4 hover:bg-muted/50 transition-colors border-b"
                     >
                       <div className="flex items-center space-x-3">
                            <Avatar 
@@ -284,9 +283,16 @@ const Chat = () => {
                             >
                               {friend.name}
                             </h3>
-                          <p className="text-sm text-muted-foreground">
-                            Start a conversation
+                          <p className="text-sm text-muted-foreground mb-2">
+                            {friend.email}
                           </p>
+                          <Button 
+                            size="sm" 
+                            onClick={() => createDirectChat(friend)}
+                            className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                          >
+                            Start Chat
+                          </Button>
                         </div>
                       </div>
                     </div>

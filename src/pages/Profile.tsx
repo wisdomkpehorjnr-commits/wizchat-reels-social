@@ -15,12 +15,13 @@ import EditProfileDialog from '@/components/EditProfileDialog';
 import PostCard from '@/components/PostCard';
 import ReelCard from '@/components/ReelCard';
 import { useToast } from '@/components/ui/use-toast';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 
 const Profile = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { username, userId } = useParams();
   const [userPosts, setUserPosts] = useState<Post[]>([]);
   const [userReels, setUserReels] = useState<Post[]>([]);
   const [savedPosts, setSavedPosts] = useState<SavedPost[]>([]);
@@ -30,15 +31,50 @@ const Profile = () => {
   const [isFollowing, setIsFollowing] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [activeTab, setActiveTab] = useState('posts');
+  const [profileUser, setProfileUser] = useState(null);
+  
+  // Determine if this is the current user's profile or someone else's
+  const isOwnProfile = !username && !userId;
+  const targetUser = profileUser || user;
 
   useEffect(() => {
     const fetchUserData = async () => {
       try {
         setLoading(true);
         
+        let currentUserId = user?.id;
+        
+        // If viewing someone else's profile, fetch their data first
+        if (username || userId) {
+          try {
+            const users = await dataService.searchUsers(username || userId);
+            const foundUser = users.find(u => u.username === username || u.id === userId);
+            if (foundUser) {
+              setProfileUser(foundUser);
+              currentUserId = foundUser.id;
+            } else {
+              toast({
+                title: "Error",
+                description: "User not found",
+                variant: "destructive"
+              });
+              navigate('/profile');
+              return;
+            }
+          } catch (error) {
+            console.error('Error fetching user:', error);
+            toast({
+              title: "Error", 
+              description: "Failed to load user profile",
+              variant: "destructive"
+            });
+            return;
+          }
+        }
+        
         // Fetch posts
         const posts = await dataService.getPosts();
-        const filteredPosts = posts.filter(post => post.userId === user?.id);
+        const filteredPosts = posts.filter(post => post.userId === currentUserId);
         setUserPosts(filteredPosts.filter(post => !post.isReel));
         setUserReels(filteredPosts.filter(post => post.isReel));
 
@@ -47,7 +83,7 @@ const Profile = () => {
         setSavedPosts(saved);
 
         // Fetch followers and following
-        if (user?.id) {
+        if (currentUserId) {
           const [followersList, followingList] = await Promise.all([
             ProfileService.getFollowers(user.id),
             ProfileService.getFollowing(user.id)
@@ -67,10 +103,8 @@ const Profile = () => {
       }
     };
 
-    if (user) {
-      fetchUserData();
-    }
-  }, [user, toast]);
+    fetchUserData();
+  }, [user, username, userId, navigate, toast]);
 
   const handleFollow = async () => {
     if (!user?.id) return;
@@ -171,10 +205,10 @@ const Profile = () => {
         {/* Profile Header with Glassmorphism */}
         <Card className="relative overflow-hidden backdrop-blur-md bg-white/10 border-white/20 shadow-xl">
           {/* Cover Image */}
-          {user.coverImage && (
+          {targetUser?.coverImage && (
             <div className="h-48 md:h-64 relative">
               <img
-                src={user.coverImage}
+                src={targetUser.coverImage}
                 alt="Cover"
                 className="w-full h-full object-cover"
               />
@@ -187,12 +221,12 @@ const Profile = () => {
               {/* Profile Picture */}
               <div className="relative">
                 <Avatar className="w-32 h-32 border-4 border-white/20 backdrop-blur-sm bg-white/10">
-                  <AvatarImage src={user.photoURL} />
+                  <AvatarImage src={targetUser?.avatar || targetUser?.photoURL} />
                   <AvatarFallback className="text-4xl bg-gradient-to-br from-purple-400 to-pink-400 text-white">
-                    {user.name.charAt(0)}
+                    {targetUser?.name?.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
-                {user.isPrivate && (
+                {targetUser?.isPrivate && (
                   <Badge className="absolute -bottom-2 -right-2 bg-orange-500">
                     Private
                   </Badge>
@@ -201,29 +235,29 @@ const Profile = () => {
               
               <div className="flex-1 space-y-4">
                 <div>
-                  <h1 className="text-3xl font-bold text-white">{user.name}</h1>
-                  <p className="text-white/80">@{user.username}</p>
-                  {user.bio && (
-                    <p className="text-white/90 mt-2">{user.bio}</p>
+                  <h1 className="text-3xl font-bold text-white">{targetUser?.name}</h1>
+                  <p className="text-white/80">@{targetUser?.username}</p>
+                  {targetUser?.bio && (
+                    <p className="text-white/90 mt-2">{targetUser.bio}</p>
                   )}
                 </div>
                 
                 <div className="flex flex-wrap gap-4 text-sm text-white/80">
                   <div className="flex items-center space-x-1">
                     <Calendar className="w-4 h-4" />
-                    <span>Joined {new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(user.createdAt)}</span>
+                    <span>Joined {new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(targetUser?.createdAt || new Date())}</span>
                   </div>
-                  {user.location && (
+                  {targetUser?.location && (
                     <div className="flex items-center space-x-1">
                       <MapPin className="w-4 h-4" />
-                      <span>{user.location}</span>
+                      <span>{targetUser.location}</span>
                     </div>
                   )}
-                  {user.website && (
+                  {targetUser?.website && (
                     <div className="flex items-center space-x-1">
                       <LinkIcon className="w-4 h-4" />
-                      <a href={user.website} target="_blank" rel="noopener noreferrer" className="hover:text-white">
-                        {user.website}
+                      <a href={targetUser.website} target="_blank" rel="noopener noreferrer" className="hover:text-white">
+                        {targetUser.website}
                       </a>
                     </div>
                   )}
@@ -240,11 +274,11 @@ const Profile = () => {
                     <p className="text-sm text-white/80">Reels</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-white">{user.followerCount}</p>
+                    <p className="text-2xl font-bold text-white">{targetUser?.followerCount || 0}</p>
                     <p className="text-sm text-white/80">Followers</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-white">{user.followingCount}</p>
+                    <p className="text-2xl font-bold text-white">{targetUser?.followingCount || 0}</p>
                     <p className="text-sm text-white/80">Following</p>
                   </div>
                 </div>
@@ -252,20 +286,42 @@ const Profile = () => {
               
               {/* Action Buttons */}
               <div className="flex space-x-2">
-                <Button 
-                  variant="outline" 
-                  className="backdrop-blur-sm bg-white/10 border-white/20 text-white hover:bg-white/20"
-                  onClick={() => setShowEditDialog(true)}
-                >
-                  <Edit className="w-4 h-4 mr-2" />
-                  Edit Profile
-                </Button>
-                <Button 
-                  variant="outline"
-                  className="backdrop-blur-sm bg-white/10 border-white/20 text-white hover:bg-white/20"
-                >
-                  <Settings className="w-4 h-4" />
-                </Button>
+                {isOwnProfile ? (
+                  <>
+                    <Button 
+                      variant="outline" 
+                      className="backdrop-blur-sm bg-white/10 border-white/20 text-white hover:bg-white/20"
+                      onClick={() => setShowEditDialog(true)}
+                    >
+                      <Edit className="w-4 h-4 mr-2" />
+                      Edit Profile
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      className="backdrop-blur-sm bg-white/10 border-white/20 text-white hover:bg-white/20"
+                    >
+                      <Settings className="w-4 h-4" />
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button 
+                      variant="outline" 
+                      className="backdrop-blur-sm bg-white/10 border-white/20 text-white hover:bg-white/20"
+                      onClick={handleFollow}
+                    >
+                      {isFollowing ? <UserMinus className="w-4 h-4 mr-2" /> : <UserPlus className="w-4 h-4 mr-2" />}
+                      {isFollowing ? 'Unfollow' : 'Follow'}
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      className="backdrop-blur-sm bg-white/10 border-white/20 text-white hover:bg-white/20"
+                    >
+                      <MessageCircle className="w-4 h-4 mr-2" />
+                      Message
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </CardContent>
