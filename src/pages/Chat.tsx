@@ -89,14 +89,18 @@ const Chat = () => {
       
       console.log('Created new chat:', newChat.id);
       
-      // Add current user and friend to participants for UI
-      const chatWithParticipants: ChatType = {
-        ...newChat,
-        participants: [friendUser]
-      };
+      // Reload chats to get updated list
+      await loadData();
       
-      setChats(prev => [...prev, chatWithParticipants]);
-      setSelectedChat(chatWithParticipants);
+      // Find the newly created chat and open it
+      const updatedChats = await dataService.getChats();
+      const createdChat = updatedChats.find(chat => 
+        chat.id === newChat.id
+      );
+      
+      if (createdChat) {
+        setSelectedChat(createdChat);
+      }
       
       toast({
         title: "Success",

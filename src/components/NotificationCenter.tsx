@@ -7,11 +7,13 @@ import { Bell, BellOff, Check, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Notification } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 
 const NotificationCenter: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
+  const navigate = useNavigate();
 
   useEffect(() => {
     loadNotifications();
@@ -99,6 +101,29 @@ const NotificationCenter: React.FC = () => {
     }
   };
 
+  const handleNotificationClick = async (notification: Notification) => {
+    // Mark as read first
+    if (!notification.isRead) {
+      await markAsRead(notification.id);
+    }
+
+    // Navigate based on notification type
+    if (notification.data && notification.data.post_id) {
+      navigate(`/`); // Navigate to home feed where the post would be visible
+    } else if (notification.data && notification.data.user_id) {
+      // For friend requests or profile-related notifications
+      const { data } = await supabase
+        .from('profiles')
+        .select('username, id')
+        .eq('id', notification.data.user_id)
+        .single();
+      
+      if (data) {
+        navigate(`/profile/${data.username || data.id}`);
+      }
+    }
+  };
+
   if (loading) {
     return (
       <Card>
@@ -144,11 +169,12 @@ const NotificationCenter: React.FC = () => {
         {notifications.map((notification) => (
           <div
             key={notification.id}
-            className={`p-3 rounded-lg border transition-colors ${
+            className={`p-3 rounded-lg border transition-colors cursor-pointer ${
               !notification.isRead 
                 ? 'bg-primary/5 border-primary/20' 
                 : 'hover:bg-muted/50'
             }`}
+            onClick={() => handleNotificationClick(notification)}
           >
             <div className="flex items-start justify-between">
               <div className="flex-1">

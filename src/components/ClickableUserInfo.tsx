@@ -20,7 +20,7 @@ const ClickableUserInfo = ({
 }: ClickableUserInfoProps) => {
   return (
     <Link 
-      to={`/profile/${user.username}`} 
+      to={`/profile/${user.username || user.id}`} 
       className={`flex items-center space-x-2 hover:opacity-80 transition-opacity ${className}`}
     >
       {showAvatar && (

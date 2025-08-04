@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { dataService } from '@/services/dataService';
 import { ProfileService } from '@/services/profileService';
 import { Post, SavedPost, Follow } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
 import { Calendar, MapPin, Link as LinkIcon, Edit, MessageCircle, UserPlus, UserMinus, Bookmark, Users, Settings } from 'lucide-react';
 import EditProfileDialog from '@/components/EditProfileDialog';
 import PostCard from '@/components/PostCard';
@@ -32,6 +33,7 @@ const Profile = () => {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [activeTab, setActiveTab] = useState('posts');
   const [profileUser, setProfileUser] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   
   // Determine if this is the current user's profile or someone else's
   const isOwnProfile = !username && !userId;
@@ -39,35 +41,60 @@ const Profile = () => {
 
   useEffect(() => {
     const fetchUserData = async () => {
+      if (!user) return;
+      
       try {
         setLoading(true);
+        setError(null);
         
-        let currentUserId = user?.id;
+        let currentUserId = user.id;
+        let currentUser = user;
         
         // If viewing someone else's profile, fetch their data first
         if (username || userId) {
           try {
-            const users = await dataService.searchUsers(username || userId);
-            const foundUser = users.find(u => u.username === username || u.id === userId);
-            if (foundUser) {
+            // Use supabase directly for more accurate search
+            const { data: profiles, error } = await supabase
+              .from('profiles')
+              .select('*')
+              .or(`username.eq.${username || userId},id.eq.${userId || username}`)
+              .limit(1);
+
+            if (error) throw error;
+
+            if (profiles && profiles.length > 0) {
+              const foundProfile = profiles[0];
+              const foundUser = {
+                id: foundProfile.id,
+                name: foundProfile.name,
+                username: foundProfile.username,
+                email: foundProfile.email,
+                avatar: foundProfile.avatar,
+                photoURL: foundProfile.avatar,
+                bio: foundProfile.bio,
+                location: foundProfile.location,
+                website: foundProfile.website,
+                birthday: foundProfile.birthday ? new Date(foundProfile.birthday) : undefined,
+                gender: foundProfile.gender,
+                pronouns: foundProfile.pronouns,
+                coverImage: foundProfile.cover_image,
+                isPrivate: foundProfile.is_private,
+                followerCount: foundProfile.follower_count,
+                followingCount: foundProfile.following_count,
+                profileViews: foundProfile.profile_views,
+                createdAt: new Date(foundProfile.created_at)
+              };
+              
               setProfileUser(foundUser);
               currentUserId = foundUser.id;
+              currentUser = foundUser;
             } else {
-              toast({
-                title: "Error",
-                description: "User not found",
-                variant: "destructive"
-              });
-              navigate('/profile');
+              setError("User not found");
               return;
             }
           } catch (error) {
             console.error('Error fetching user:', error);
-            toast({
-              title: "Error", 
-              description: "Failed to load user profile",
-              variant: "destructive"
-            });
+            setError("Failed to load user profile");
             return;
           }
         }
@@ -78,33 +105,40 @@ const Profile = () => {
         setUserPosts(filteredPosts.filter(post => !post.isReel));
         setUserReels(filteredPosts.filter(post => post.isReel));
 
-        // Fetch saved posts
-        const saved = await ProfileService.getSavedPosts();
-        setSavedPosts(saved);
+        // Only fetch saved posts for own profile
+        if (isOwnProfile) {
+          try {
+            const saved = await ProfileService.getSavedPosts();
+            setSavedPosts(saved);
+          } catch (error) {
+            console.log('Error fetching saved posts:', error);
+            setSavedPosts([]);
+          }
+        }
 
         // Fetch followers and following
         if (currentUserId) {
-          const [followersList, followingList] = await Promise.all([
-            ProfileService.getFollowers(user.id),
-            ProfileService.getFollowing(user.id)
-          ]);
-          setFollowers(followersList);
-          setFollowing(followingList);
+          try {
+            const [followersList, followingList] = await Promise.all([
+              ProfileService.getFollowers(currentUserId).catch(() => []),
+              ProfileService.getFollowing(currentUserId).catch(() => [])
+            ]);
+            setFollowers(followersList);
+            setFollowing(followingList);
+          } catch (error) {
+            console.log('Error fetching social data:', error);
+          }
         }
       } catch (error) {
         console.error('Error fetching user data:', error);
-        toast({
-          title: "Error",
-          description: "Failed to load profile data",
-          variant: "destructive",
-        });
+        setError("Failed to load profile data");
       } finally {
         setLoading(false);
       }
     };
 
     fetchUserData();
-  }, [user, username, userId, navigate, toast]);
+  }, [user, username, userId, isOwnProfile]);
 
   const handleFollow = async () => {
     if (!user?.id) return;
@@ -198,6 +232,26 @@ const Profile = () => {
   };
 
   if (!user) return null;
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="max-w-4xl mx-auto p-6">
+          <div className="text-center">Loading...</div>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (error) {
+    return (
+      <Layout>
+        <div className="max-w-4xl mx-auto p-6">
+          <div className="text-center text-red-500">{error}</div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>

@@ -3,6 +3,8 @@ import { Post, User, Comment, Reaction, Chat, Message } from '@/types';
 
 export const dataService = {
   async getPosts(): Promise<Post[]> {
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    
     const { data, error } = await supabase
       .from('posts')
       .select(`
@@ -27,6 +29,10 @@ export const dataService = {
             email,
             avatar
           )
+        ),
+        likes:likes (
+          id,
+          user_id
         )
       `)
       .order('created_at', { ascending: false });
@@ -36,28 +42,35 @@ export const dataService = {
       throw error;
     }
 
-    return data.map(post => ({
-      id: post.id,
-      userId: post.user_id,
-      user: post.user as User,
-      content: post.content,
-      imageUrl: post.image_url,
-      videoUrl: post.video_url,
-      mediaType: post.media_type as 'text' | 'image' | 'video',
-      isReel: post.is_reel,
-      likes: [], // You might need to fetch likes separately or include them in the initial query
-      comments: (post.comments as any[]).map(comment => ({
-        id: comment.id,
-        userId: comment.user_id,
-        user: comment.user as User,
-        postId: comment.post_id,
-        content: comment.content,
-        createdAt: new Date(comment.created_at)
-      })),
-      reactions: [], // You might need to fetch reactions separately
-      hashtags: [], // You might need to fetch hashtags separately
-      createdAt: new Date(post.created_at)
-    }));
+    return data.map(post => {
+      const likes = (post.likes as any[]) || [];
+      const isLiked = currentUser ? likes.some(like => like.user_id === currentUser.id) : false;
+      
+      return {
+        id: post.id,
+        userId: post.user_id,
+        user: post.user as User,
+        content: post.content,
+        imageUrl: post.image_url,
+        videoUrl: post.video_url,
+        mediaType: post.media_type as 'text' | 'image' | 'video',
+        isReel: post.is_reel,
+        likes: likes,
+        likeCount: likes.length,
+        isLiked: isLiked,
+        comments: (post.comments as any[]).map(comment => ({
+          id: comment.id,
+          userId: comment.user_id,
+          user: comment.user as User,
+          postId: comment.post_id,
+          content: comment.content,
+          createdAt: new Date(comment.created_at)
+        })),
+        reactions: [],
+        hashtags: [],
+        createdAt: new Date(post.created_at)
+      };
+    });
   },
 
   async createPost(content: string, imageFile?: File, videoFile?: File, isReel: boolean = false): Promise<Post> {

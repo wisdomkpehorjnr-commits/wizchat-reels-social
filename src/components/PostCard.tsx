@@ -30,6 +30,12 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
   const [newComment, setNewComment] = useState('');
   const [isLiked, setIsLiked] = useState(post.isLiked || false);
   const [likeCount, setLikeCount] = useState(post.likeCount || 0);
+
+  // Update local state when post prop changes
+  useState(() => {
+    setIsLiked(post.isLiked || false);
+    setLikeCount(post.likeCount || 0);
+  });
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(post.content);
 
@@ -176,19 +182,33 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
           <div className="mb-4">
             {post.content && <p className="text-foreground mb-4">{post.content}</p>}
             {post.imageUrl && (
-              <img 
-                src={post.imageUrl} 
-                alt="Post Image" 
-                className="mt-2 rounded-lg w-full object-cover max-h-96" 
-              />
+              <div className="mt-2 rounded-lg overflow-hidden">
+                <img 
+                  src={post.imageUrl} 
+                  alt="Post content" 
+                  className="w-full object-cover max-h-96 rounded-lg" 
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    console.error('Failed to load image:', post.imageUrl);
+                  }}
+                />
+              </div>
             )}
             {post.videoUrl && (
-              <video 
-                src={post.videoUrl} 
-                controls 
-                className="mt-2 rounded-lg w-full max-h-96" 
-                preload="metadata"
-              />
+              <div className="mt-2 rounded-lg overflow-hidden">
+                <video 
+                  src={post.videoUrl} 
+                  controls 
+                  className="w-full max-h-96 rounded-lg" 
+                  preload="metadata"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    console.error('Failed to load video:', post.videoUrl);
+                  }}
+                >
+                  Your browser does not support the video tag.
+                </video>
+              </div>
             )}
           </div>
         )}
@@ -199,7 +219,9 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
             <Heart 
               className={`mr-2 h-4 w-4 ${isLiked ? 'fill-red-500 text-red-500' : ''}`} 
             />
-            Like {likeCount > 0 && <span className="ml-1 text-xs">({likeCount})</span>}
+            <span className={isLiked ? 'text-red-500' : ''}>
+              Like {likeCount > 0 && <span className="ml-1">({likeCount})</span>}
+            </span>
           </Button>
           <Button variant="ghost" size="sm" onClick={() => setShowAllComments(true)}>
             <MessageSquare className="mr-2 h-4 w-4" />
