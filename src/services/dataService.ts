@@ -198,6 +198,35 @@ export const dataService = {
     }
   },
 
+  async getLikes(postId: string): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('likes')
+      .select(`
+        *,
+        user:user_id (
+          id,
+          name,
+          username,
+          email,
+          avatar
+        )
+      `)
+      .eq('post_id', postId);
+
+    if (error) {
+      console.error('Error fetching likes:', error);
+      throw error;
+    }
+
+    return data.map(like => ({
+      id: like.id,
+      postId: like.post_id,
+      userId: like.user_id,
+      user: like.user,
+      createdAt: new Date(like.created_at)
+    }));
+  },
+
   async savePost(postId: string): Promise<void> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
@@ -537,6 +566,23 @@ export const dataService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
+    // First get chats where user is a participant
+    const { data: userChats, error: userChatsError } = await supabase
+      .from('chat_participants')
+      .select('chat_id')
+      .eq('user_id', user.id);
+
+    if (userChatsError) {
+      console.error('Error fetching user chats:', userChatsError);
+      throw userChatsError;
+    }
+
+    if (!userChats || userChats.length === 0) {
+      return [];
+    }
+
+    const chatIds = userChats.map(uc => uc.chat_id);
+
     const { data, error } = await supabase
       .from('chats')
       .select(`
@@ -553,6 +599,7 @@ export const dataService = {
           )
         )
       `)
+      .in('id', chatIds)
       .order('updated_at', { ascending: false });
 
     if (error) {
@@ -560,23 +607,31 @@ export const dataService = {
       throw error;
     }
 
-    return data.map(chat => ({
-      id: chat.id,
-      participants: (chat.participants as any[]).map(p => ({
-        ...p.user,
-        role: p.role
-      })) as User[],
-      isGroup: chat.is_group || false,
-      name: chat.name,
-      description: chat.description,
-      avatar: chat.avatar_url,
-      lastActivity: new Date(chat.updated_at || chat.created_at),
-      createdAt: new Date(chat.created_at),
-      creatorId: chat.creator_id,
-      inviteCode: chat.invite_code,
-      isPublic: chat.is_public,
-      memberCount: chat.member_count,
-    }));
+    return data.map(chat => {
+      const participantUsers = (chat.participants as any[])
+        .filter(p => p.user_id !== user.id) // Exclude current user for direct chats
+        .map(p => ({
+          ...p.user,
+          role: p.role
+        })) as User[];
+
+      return {
+        id: chat.id,
+        participants: participantUsers,
+        isGroup: chat.is_group || false,
+        name: chat.name,
+        description: chat.description,
+        avatar: chat.avatar_url,
+        lastActivity: new Date(chat.updated_at || chat.created_at),
+        createdAt: new Date(chat.created_at),
+        creatorId: chat.creator_id,
+        inviteCode: chat.invite_code,
+        isPublic: chat.is_public,
+        memberCount: chat.member_count,
+        unreadCount: 0, // TODO: Implement unread count
+        lastMessage: null // TODO: Implement last message
+      };
+    });
   },
 
   async getMessages(chatId: string): Promise<Message[]> {
@@ -818,12 +873,14 @@ export const dataService = {
       name: chat.name,
       description: chat.description,
       avatar: chat.avatar_url,
-      lastActivity: new Date(chat.updated_at || chat.created_at),
+      lastActivity: new Date(chat.created_at),
       createdAt: new Date(chat.created_at),
       creatorId: chat.creator_id,
       inviteCode: chat.invite_code,
       isPublic: chat.is_public,
       memberCount: chat.member_count,
+      unreadCount: 0,
+      lastMessage: null
     };
   },
 

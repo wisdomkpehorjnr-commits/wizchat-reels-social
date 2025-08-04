@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { formatDistanceToNow } from 'date-fns';
@@ -28,27 +28,46 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
   const { toast } = useToast();
   const [showAllComments, setShowAllComments] = useState(false);
   const [newComment, setNewComment] = useState('');
-  const [isLiked, setIsLiked] = useState(post.isLiked || false);
-  const [likeCount, setLikeCount] = useState(post.likeCount || 0);
-
-  // Update local state when post prop changes
-  useState(() => {
-    setIsLiked(post.isLiked || false);
-    setLikeCount(post.likeCount || 0);
-  });
+  const [isLiked, setIsLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(0);
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(post.content);
 
+  // Load likes when component mounts
+  useEffect(() => {
+    loadLikes();
+  }, [post.id]);
+
+  const loadLikes = async () => {
+    try {
+      const likes = await dataService.getLikes(post.id);
+      setLikeCount(likes.length);
+      
+      if (user) {
+        const userLike = likes.find(like => like.userId === user.id);
+        setIsLiked(!!userLike);
+      }
+    } catch (error) {
+      console.error('Error loading likes:', error);
+    }
+  };
+
   const handleLikePost = async () => {
+    if (!user) return;
+
+    // Optimistic UI update
+    const wasLiked = isLiked;
+    setIsLiked(!isLiked);
+    setLikeCount(prev => isLiked ? prev - 1 : prev + 1);
+
     try {
       await dataService.likePost(post.id);
-      setIsLiked(!isLiked);
-      setLikeCount(prev => isLiked ? prev - 1 : prev + 1);
-      toast({
-        title: "Success",
-        description: isLiked ? "Post unliked" : "Post liked"
-      });
+      onPostUpdate();
     } catch (error) {
+      // Revert optimistic update on error
+      setIsLiked(wasLiked);
+      setLikeCount(prev => wasLiked ? prev + 1 : prev - 1);
+      
       console.error('Error liking post:', error);
       toast({
         title: "Error",
@@ -181,28 +200,31 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
         ) : (
           <div className="mb-4">
             {post.content && <p className="text-foreground mb-4">{post.content}</p>}
-            {post.imageUrl && (
+            
+            {/* Media content */}
+            {(post.imageUrl || (post.mediaType === 'image' && post.imageUrl)) && (
               <div className="mt-2 rounded-lg overflow-hidden">
                 <img 
                   src={post.imageUrl} 
                   alt="Post content" 
                   className="w-full object-cover max-h-96 rounded-lg" 
+                  onLoad={() => console.log('Image loaded successfully:', post.imageUrl)}
                   onError={(e) => {
-                    e.currentTarget.style.display = 'none';
                     console.error('Failed to load image:', post.imageUrl);
                   }}
                 />
               </div>
             )}
-            {post.videoUrl && (
+            
+            {(post.videoUrl || (post.mediaType === 'video' && post.videoUrl)) && (
               <div className="mt-2 rounded-lg overflow-hidden">
                 <video 
                   src={post.videoUrl} 
                   controls 
                   className="w-full max-h-96 rounded-lg" 
                   preload="metadata"
+                  onLoadedData={() => console.log('Video loaded successfully:', post.videoUrl)}
                   onError={(e) => {
-                    e.currentTarget.style.display = 'none';
                     console.error('Failed to load video:', post.videoUrl);
                   }}
                 >
