@@ -108,15 +108,22 @@ const NotificationCenter: React.FC = () => {
     }
 
     // Navigate based on notification type
-    if (notification.data && notification.data.post_id) {
-      navigate(`/`); // Navigate to home feed where the post would be visible
+    if (notification.type === 'like' || notification.type === 'comment') {
+      const postId = notification.data?.post_id;
+      if (postId) {
+        // Navigate to home page with post focus
+        navigate(`/?post=${postId}`);
+      }
+    } else if (notification.type === 'friend_request') {
+      // Navigate to friends page
+      navigate('/friends');
     } else if (notification.data && notification.data.user_id) {
-      // For friend requests or profile-related notifications
+      // For profile-related notifications
       const { data } = await supabase
         .from('profiles')
         .select('username, id')
         .eq('id', notification.data.user_id)
-        .single();
+        .maybeSingle();
       
       if (data) {
         navigate(`/profile/${data.username || data.id}`);

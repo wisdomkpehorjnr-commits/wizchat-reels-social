@@ -38,8 +38,7 @@ const App = () => (
               <Route path="/topics" element={<ProtectedRoute><Topics /></ProtectedRoute>} />
               <Route path="/topic-room/:roomId" element={<ProtectedRoute><TopicRoom /></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-              <Route path="/profile/:userId" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-              <Route path="/profile/:username" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+              <Route path="/profile/:userIdentifier" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
               <Route path="/friends" element={<ProtectedRoute><Friends /></ProtectedRoute>} />
               <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />

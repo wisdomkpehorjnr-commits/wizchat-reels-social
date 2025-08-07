@@ -22,7 +22,7 @@ const Profile = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { username, userId } = useParams();
+  const { userIdentifier } = useParams();
   const [userPosts, setUserPosts] = useState<Post[]>([]);
   const [userReels, setUserReels] = useState<Post[]>([]);
   const [savedPosts, setSavedPosts] = useState<SavedPost[]>([]);
@@ -36,7 +36,7 @@ const Profile = () => {
   const [error, setError] = useState<string | null>(null);
   
   // Determine if this is the current user's profile or someone else's
-  const isOwnProfile = !username && !userId;
+  const isOwnProfile = !userIdentifier;
   const targetUser = profileUser || user;
 
   useEffect(() => {
@@ -51,13 +51,13 @@ const Profile = () => {
         let currentUser = user;
         
         // If viewing someone else's profile, fetch their data first
-        if (username || userId) {
+        if (userIdentifier) {
           try {
             // Use supabase directly for more accurate search
             const { data: profiles, error } = await supabase
               .from('profiles')
               .select('*')
-              .or(`username.eq.${username || userId},id.eq.${userId || username}`)
+              .or(`username.eq.${userIdentifier},id.eq.${userIdentifier}`)
               .limit(1);
 
             if (error) throw error;
@@ -138,7 +138,7 @@ const Profile = () => {
     };
 
     fetchUserData();
-  }, [user, username, userId, isOwnProfile]);
+  }, [user, userIdentifier, isOwnProfile]);
 
   const handleFollow = async () => {
     if (!user?.id) return;

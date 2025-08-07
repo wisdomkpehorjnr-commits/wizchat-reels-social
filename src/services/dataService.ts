@@ -566,72 +566,66 @@ export const dataService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
-    // First get chats where user is a participant
-    const { data: userChats, error: userChatsError } = await supabase
-      .from('chat_participants')
-      .select('chat_id')
-      .eq('user_id', user.id);
-
-    if (userChatsError) {
-      console.error('Error fetching user chats:', userChatsError);
-      throw userChatsError;
-    }
-
-    if (!userChats || userChats.length === 0) {
-      return [];
-    }
-
-    const chatIds = userChats.map(uc => uc.chat_id);
-
-    const { data, error } = await supabase
-      .from('chats')
-      .select(`
-        *,
-        participants:chat_participants (
-          user_id,
-          role,
-          user:user_id (
-            id,
-            name,
-            username,
-            email,
-            avatar
+    try {
+      const { data, error } = await supabase
+        .from('chats')
+        .select(`
+          *,
+          chat_participants (
+            user_id,
+            role,
+            joined_at,
+            profiles (
+              id,
+              name,
+              username,
+              email,
+              avatar
+            )
           )
-        )
-      `)
-      .in('id', chatIds)
-      .order('updated_at', { ascending: false });
+        `)
+        .order('updated_at', { ascending: false });
 
-    if (error) {
-      console.error('Error fetching chats:', error);
+      if (error) {
+        console.error('Error fetching chats:', error);
+        throw error;
+      }
+
+      if (!data) return [];
+
+      return data.map(chat => {
+        const participantUsers = (chat.chat_participants as any[])
+          ?.filter(p => p.user_id !== user.id) // Exclude current user for direct chats
+          .map(p => ({
+            id: p.profiles.id,
+            name: p.profiles.name,
+            username: p.profiles.username,
+            email: p.profiles.email,
+            avatar: p.profiles.avatar,
+            role: p.role
+          })) as User[] || [];
+
+        return {
+          id: chat.id,
+          participants: participantUsers,
+          isGroup: chat.is_group || false,
+          name: chat.name,
+          description: chat.description,
+          avatar: chat.avatar_url,
+          lastActivity: new Date(chat.updated_at || chat.created_at),
+          createdAt: new Date(chat.created_at),
+          creatorId: chat.creator_id,
+          inviteCode: chat.invite_code,
+          isPublic: chat.is_public,
+          memberCount: chat.member_count,
+          unreadCount: 0, // TODO: Implement unread count
+          lastMessage: null // TODO: Implement last message
+        };
+      });
+    } catch (error) {
+      console.error('Error in getChats:', error);
       throw error;
     }
-
-    return data.map(chat => {
-      const participantUsers = (chat.participants as any[])
-        .filter(p => p.user_id !== user.id) // Exclude current user for direct chats
-        .map(p => ({
-          ...p.user,
-          role: p.role
-        })) as User[];
-
-      return {
-        id: chat.id,
-        participants: participantUsers,
-        isGroup: chat.is_group || false,
-        name: chat.name,
-        description: chat.description,
-        avatar: chat.avatar_url,
-        lastActivity: new Date(chat.updated_at || chat.created_at),
-        createdAt: new Date(chat.created_at),
-        creatorId: chat.creator_id,
-        inviteCode: chat.invite_code,
-        isPublic: chat.is_public,
-        memberCount: chat.member_count,
-        unreadCount: 0, // TODO: Implement unread count
-        lastMessage: null // TODO: Implement last message
-      };
-    });
   },
 
   async getMessages(chatId: string): Promise<Message[]> {
@@ -801,87 +795,81 @@ export const dataService = {
     };
   },
 
-  async createChat(participants: string[], isGroup: boolean = false, name?: string): Promise<Chat> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Not authenticated');
+  // Create a new chat using the secure database function
+  createChat: async (participants: string[], isGroup: boolean = false, name?: string): Promise<Chat> => {
+    const { data: user } = await supabase.auth.getUser();
+    if (!user.user) throw new Error('Not authenticated');
 
-    // Create chat
-    const { data: chat, error: chatError } = await supabase
-      .from('chats')
-      .insert({
-        is_group: isGroup,
-        name: name,
-        creator_id: user.id,
-        member_count: participants.length + 1,
-        is_public: false
-      })
-      .select()
-      .single();
+    try {
+      // Use the secure database function to create chat with participants
+      const { data: chatId, error } = await supabase.rpc('create_chat_with_participants', {
+        p_participant_ids: participants,
+        p_is_group: isGroup,
+        p_name: name
+      });
 
-    if (chatError) {
-      console.error('Error creating chat:', chatError);
-      throw chatError;
+      if (error) {
+        console.error('Error creating chat:', error);
+        throw new Error(`Failed to create chat: ${error.message}`);
+      }
+
+      // Fetch the complete chat data
+      const { data: chatData, error: fetchError } = await supabase
+        .from('chats')
+        .select(`
+          *,
+          chat_participants (
+            user_id,
+            role,
+            joined_at,
+            profiles (
+              id,
+              name,
+              username,
+              avatar,
+              email
+            )
+          )
+        `)
+        .eq('id', chatId)
+        .single();
+
+      if (fetchError) {
+        console.error('Error fetching created chat:', fetchError);
+        throw new Error('Failed to fetch created chat');
+      }
+
+      // Transform the data
+      const participants_data = chatData.chat_participants?.map((p: any) => ({
+        id: p.profiles.id,
+        name: p.profiles.name,
+        username: p.profiles.username,
+        avatar: p.profiles.avatar,
+        email: p.profiles.email,
+        photoURL: p.profiles.avatar,
+        bio: '',
+        followerCount: 0,
+        followingCount: 0,
+        profileViews: 0,
+        createdAt: new Date(),
+        role: p.role
+      })) || [];
+
+      return {
+        id: chatData.id,
+        name: chatData.name,
+        isGroup: chatData.is_group,
+        participants: participants_data as User[],
+        lastMessage: null,
+        unreadCount: 0,
+        createdAt: new Date(chatData.created_at),
+        lastActivity: new Date(chatData.created_at),
+        avatar: chatData.avatar_url
+      };
+    } catch (error) {
+      console.error('Chat creation failed:', error);
+      throw error;
     }
-
-    // Add participants including the creator
-    const allParticipants = [user.id, ...participants];
-    const participantInserts = allParticipants.map(participantId => ({
-      chat_id: chat.id,
-      user_id: participantId,
-      role: participantId === user.id ? 'admin' : 'member'
-    }));
-
-    const { error: participantsError } = await supabase
-      .from('chat_participants')
-      .insert(participantInserts);
-
-    if (participantsError) {
-      console.error('Error adding chat participants:', participantsError);
-      throw participantsError;
-    }
-
-    // Fetch participant profiles
-    const { data: profilesData, error: profilesError } = await supabase
-      .from('profiles')
-      .select('*')
-      .in('id', participants);
-
-    if (profilesError) {
-      console.error('Error fetching participant profiles:', profilesError);
-      throw profilesError;
-    }
-
-    const participantUsers = profilesData?.map(profile => ({
-      id: profile.id,
-      name: profile.name,
-      username: profile.username,
-      email: profile.email,
-      photoURL: profile.avatar,
-      avatar: profile.avatar,
-      bio: profile.bio,
-      followerCount: profile.follower_count,
-      followingCount: profile.following_count,
-      profileViews: profile.profile_views,
-      createdAt: new Date(profile.created_at),
-      role: 'member'
-    })) || [];
-
-    return {
-      id: chat.id,
-      participants: participantUsers,
-      isGroup: chat.is_group || false,
-      name: chat.name,
-      description: chat.description,
-      avatar: chat.avatar_url,
-      lastActivity: new Date(chat.created_at),
-      createdAt: new Date(chat.created_at),
-      creatorId: chat.creator_id,
-      inviteCode: chat.invite_code,
-      isPublic: chat.is_public,
-      memberCount: chat.member_count,
-      unreadCount: 0,
-      lastMessage: null
-    };
   },
 
   async createGroup(groupData: { name: string; description: string; isPublic: boolean; members: string[] }): Promise<any> {

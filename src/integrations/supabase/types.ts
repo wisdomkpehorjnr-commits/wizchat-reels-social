@@ -1062,6 +1062,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_chat_with_participants: {
+        Args: {
+          p_participant_ids: string[]
+          p_is_group?: boolean
+          p_name?: string
+          p_description?: string
+        }
+        Returns: string
+      }
       create_notification: {
         Args: {
           p_user_id: string
