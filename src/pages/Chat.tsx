@@ -1,27 +1,20 @@
 import { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
-import ChatInterface from '@/components/ChatInterface';
-import CreateGroupChat from '@/components/CreateGroupChat';
-import { Button } from '@/components/ui/button';
+import ChatPopup from '@/components/ChatPopup';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Users, MessageCircle } from 'lucide-react';
-import { Chat as ChatType, Friend, User } from '@/types';
+import { Search, MessageCircle } from 'lucide-react';
+import { Friend, User } from '@/types';
 import { dataService } from '@/services/dataService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { useNavigate } from 'react-router-dom';
 
 const Chat = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
-  const [chats, setChats] = useState<ChatType[]>([]);
   const [friends, setFriends] = useState<Friend[]>([]);
-  const [selectedChat, setSelectedChat] = useState<ChatType | null>(null);
+  const [selectedFriend, setSelectedFriend] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -36,30 +29,13 @@ const Chat = () => {
     
     try {
       setLoading(true);
-      console.log('Loading chat data...');
-      
-      // Load friends and chats in parallel
-      const [userFriends, userChats] = await Promise.all([
-        dataService.getFriends().catch(err => {
-          console.error('Error loading friends:', err);
-          return [];
-        }),
-        dataService.getChats().catch(err => {
-          console.error('Error loading chats:', err);
-          return [];
-        })
-      ]);
-      
-      console.log('Loaded friends:', userFriends.length);
-      console.log('Loaded chats:', userChats.length);
-      
+      const userFriends = await dataService.getFriends();
       setFriends(userFriends);
-      setChats(userChats);
     } catch (error) {
-      console.error('Error loading chat data:', error);
+      console.error('Error loading friends:', error);
       toast({
         title: "Error",
-        description: "Failed to load chat data",
+        description: "Failed to load friends",
         variant: "destructive"
       });
     } finally {
@@ -67,58 +43,8 @@ const Chat = () => {
     }
   };
 
-  const createDirectChat = async (friendUser: User) => {
-    if (!user) return;
-    
-    try {
-      console.log('Creating direct chat with:', friendUser.name);
-      
-      // Check if chat already exists
-      const existingChat = chats.find(chat => 
-        !chat.isGroup && chat.participants.some(p => p.id === friendUser.id)
-      );
-      
-      if (existingChat) {
-        console.log('Chat already exists, opening:', existingChat.id);
-        setSelectedChat(existingChat);
-        return;
-      }
-
-      // Create new direct chat
-      const newChat = await dataService.createChat([friendUser.id], false);
-      
-      console.log('Created new chat:', newChat.id);
-      
-      // Reload chats to get updated list
-      await loadData();
-      
-      // Find the newly created chat and open it
-      const updatedChats = await dataService.getChats();
-      const createdChat = updatedChats.find(chat => 
-        chat.id === newChat.id
-      );
-      
-      if (createdChat) {
-        setSelectedChat(createdChat);
-      }
-      
-      toast({
-        title: "Success",
-        description: `Started chat with ${friendUser.name}`,
-      });
-    } catch (error) {
-      console.error('Error creating direct chat:', error);
-      toast({
-        title: "Error",
-        description: "Failed to create chat",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const handleGroupCreated = async () => {
-    await loadData();
-    setShowCreateGroup(false);
+  const openChat = (friend: User) => {
+    setSelectedFriend(friend);
   };
 
   const acceptedFriends = friends.filter(f => f.status === 'accepted');
@@ -128,28 +54,16 @@ const Chat = () => {
     friend.requester.id === user?.id ? friend.addressee : friend.requester
   );
 
-  const filteredChats = chats.filter(chat => {
-    if (!searchTerm) return true;
-    
-    if (chat.isGroup && chat.name) {
-      return chat.name.toLowerCase().includes(searchTerm.toLowerCase());
-    }
-    
-    return chat.participants.some(p => 
-      p.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  });
-
   const filteredFriends = friendsData.filter(friend =>
     friend.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (selectedChat) {
+  if (selectedFriend) {
     return (
       <div className="fixed inset-0 bg-background z-50 flex flex-col">
-        <ChatInterface 
-          chat={selectedChat} 
-          onClose={() => setSelectedChat(null)} 
+        <ChatPopup 
+          user={selectedFriend} 
+          onClose={() => setSelectedFriend(null)} 
         />
       </div>
     );
@@ -162,21 +76,14 @@ const Chat = () => {
           <Card className="border-2 green-border mb-6">
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle className="text-2xl font-bold text-foreground">Messages</CardTitle>
-                <Button
-                  onClick={() => setShowCreateGroup(true)}
-                  className="bg-primary text-primary-foreground hover:bg-primary/90"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  New Group
-                </Button>
+                <CardTitle className="text-2xl font-bold text-foreground">Chat</CardTitle>
               </div>
             </CardHeader>
             <CardContent>
               <div className="relative">
                 <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search conversations..."
+                  placeholder="Search friends..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 text-foreground border-2 green-border"
@@ -205,108 +112,40 @@ const Chat = () => {
             <Card className="border-2 green-border">
               <CardContent className="p-0">
                 <div className="divide-y">
-                  {/* Existing Chats */}
-                  {filteredChats.map((chat) => (
-                    <div
-                      key={chat.id}
-                      className="p-4 hover:bg-muted/50 cursor-pointer transition-colors"
-                      onClick={() => setSelectedChat(chat)}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className="relative">
-                           <Avatar className="w-12 h-12">
-                             <AvatarImage src={chat.isGroup ? chat.avatar : chat.participants[0]?.avatar} />
-                             <AvatarFallback className="text-foreground bg-muted">
-                               {chat.isGroup ? <Users className="w-6 h-6" /> : chat.participants[0]?.name?.charAt(0)}
-                             </AvatarFallback>
-                           </Avatar>
-                          {chat.unreadCount && chat.unreadCount > 0 && (
-                            <Badge 
-                              variant="destructive" 
-                              className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs"
-                            >
-                              {chat.unreadCount}
-                            </Badge>
-                          )}
-                        </div>
-                        
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <h3 className="font-medium truncate text-foreground">
-                              {chat.isGroup ? chat.name : chat.participants[0]?.name}
-                            </h3>
-                            {chat.lastMessage && (
-                              <span className="text-xs text-muted-foreground">
-                                {new Date(chat.lastMessage.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center justify-between mt-1">
-                            <p className="text-sm text-muted-foreground truncate">
-                              {chat.lastMessage ? chat.lastMessage.content || 'Media message' : 'No messages yet'}
-                            </p>
-                            {chat.isGroup && (
-                              <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-                                <Users className="w-3 h-3" />
-                                <span>{chat.participants.length}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {/* Friends (for starting new chats) */}
+                  {/* Friends list for chatting */}
                   {filteredFriends.map((friend) => (
                     <div
-                      key={`friend-${friend.id}`}
-                      className="p-4 hover:bg-muted/50 transition-colors border-b"
+                      key={friend.id}
+                      className="p-4 hover:bg-muted/50 cursor-pointer transition-colors"
+                      onClick={() => openChat(friend)}
                     >
                       <div className="flex items-center space-x-3">
-                           <Avatar 
-                            className="w-12 h-12 cursor-pointer" 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/profile/${friend.username || friend.id}`);
-                            }}
-                          >
-                            <AvatarImage src={friend.avatar} />
-                            <AvatarFallback className="text-foreground bg-muted">
-                              {friend.name?.charAt(0)}
-                            </AvatarFallback>
-                          </Avatar>
+                        <Avatar className="w-12 h-12">
+                          <AvatarImage src={friend.avatar} />
+                          <AvatarFallback className="text-foreground bg-muted">
+                            {friend.name?.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
                         
-                          <div className="flex-1 min-w-0">
-                            <h3 
-                              className="font-medium truncate text-foreground cursor-pointer hover:text-primary" 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigate(`/profile/${friend.username || friend.id}`);
-                              }}
-                            >
-                              {friend.name}
-                            </h3>
-                          <p className="text-sm text-muted-foreground mb-2">
-                            {friend.email}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium truncate text-foreground">
+                            {friend.name}
+                          </h3>
+                          <p className="text-sm text-muted-foreground">
+                            Active now
                           </p>
-                          <Button 
-                            size="sm" 
-                            onClick={() => createDirectChat(friend)}
-                            className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                          >
-                            Start Chat
-                          </Button>
                         </div>
+                        
+                        <MessageCircle className="w-5 h-5 text-muted-foreground" />
                       </div>
                     </div>
                   ))}
                   
-                  {filteredChats.length === 0 && filteredFriends.length === 0 && (
+                  {filteredFriends.length === 0 && (
                     <div className="p-8 text-center">
                       <MessageCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                       <p className="text-muted-foreground">
-                        {searchTerm ? 'No chats found' : 'No conversations yet'}
+                        {searchTerm ? 'No friends found' : 'No friends to chat with'}
                       </p>
                       <p className="text-sm text-muted-foreground mt-2">
                         Add friends to start conversations
@@ -319,13 +158,6 @@ const Chat = () => {
           )}
         </div>
       </div>
-
-      {showCreateGroup && (
-        <CreateGroupChat 
-          onClose={() => setShowCreateGroup(false)} 
-          onGroupCreated={handleGroupCreated}
-        />
-      )}
     </Layout>
   );
 };
