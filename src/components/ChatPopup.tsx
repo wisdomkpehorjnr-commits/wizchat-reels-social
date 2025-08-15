@@ -11,6 +11,7 @@ import { dataService } from '@/services/dataService';
 import { MediaService } from '@/services/mediaService';
 import VoiceRecorder from './VoiceRecorder';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ChatPopupProps {
   user: User;
@@ -34,6 +35,60 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  useEffect(() => {
+    if (!chatId) return;
+
+    // Set up real-time message updates
+    const channel = supabase
+      .channel('messages')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `chat_id=eq.${chatId}`
+        },
+        async (payload) => {
+          // Fetch the complete message with user data
+          const { data: messageData } = await supabase
+            .from('messages')
+            .select(`
+              *,
+              user:profiles!messages_user_id_fkey (
+                id,
+                name,
+                username,
+                avatar
+              )
+            `)
+            .eq('id', payload.new.id)
+            .single();
+
+          if (messageData && messageData.user_id !== user?.id) {
+            const newMessage: Message = {
+              id: messageData.id,
+              chatId: messageData.chat_id,
+              userId: messageData.user_id,
+              user: messageData.user as User,
+              content: messageData.content,
+              type: messageData.type as 'text' | 'voice' | 'image' | 'video',
+              mediaUrl: messageData.media_url,
+              duration: messageData.duration,
+              seen: messageData.seen,
+              timestamp: new Date(messageData.created_at)
+            };
+            setMessages(prev => [...prev, newMessage]);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [chatId, user?.id]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
