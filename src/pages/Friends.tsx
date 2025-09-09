@@ -186,34 +186,34 @@ const Friends = () => {
               {searchResults.length > 0 && (
                 <div className="mt-4 space-y-2">
                   <h3 className="font-semibold text-foreground">Search Results</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {searchResults.map((searchUser) => (
-                      <Card key={searchUser.id} className="border green-border">
-                        <CardContent className="p-4">
+                      <Card key={searchUser.id} className="border green-border hover:shadow-md transition-shadow">
+                        <CardContent className="p-3">
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
+                            <div className="flex items-center space-x-2">
                               <Link to={`/profile/${searchUser.username}`}>
-                                <Avatar>
+                                <Avatar className="w-8 h-8">
                                   <AvatarImage src={searchUser.avatar} />
-                                  <AvatarFallback>{searchUser.name.charAt(0)}</AvatarFallback>
+                                  <AvatarFallback className="text-xs">{searchUser.name.charAt(0)}</AvatarFallback>
                                 </Avatar>
                               </Link>
-                              <div>
+                              <div className="min-w-0 flex-1">
                                 <Link to={`/profile/${searchUser.username}`}>
-                                  <h4 className="font-medium text-foreground hover:text-primary">
+                                  <h4 className="font-medium text-sm text-foreground hover:text-primary truncate">
                                     {searchUser.name}
                                   </h4>
                                 </Link>
-                                <p className="text-sm text-muted-foreground">@{searchUser.username}</p>
+                                <p className="text-xs text-muted-foreground truncate">@{searchUser.username}</p>
                               </div>
                             </div>
                             <Button
                               onClick={() => sendFriendRequest(searchUser.id)}
                               size="sm"
-                              className="bg-primary text-primary-foreground hover:bg-primary/90"
+                              className="h-7 px-2 text-xs bg-primary text-primary-foreground hover:bg-primary/90 flex-shrink-0"
                             >
-                              <UserPlus className="w-4 h-4 mr-2" />
-                              Add Friend
+                              <UserPlus className="w-3 h-3 mr-1" />
+                              Add
                             </Button>
                           </div>
                         </CardContent>
@@ -243,50 +243,49 @@ const Friends = () => {
 
             <TabsContent value="friends" className="mt-6">
               {loading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {[...Array(6)].map((_, i) => (
-                    <Card key={i} className="border-2 green-border animate-pulse">
-                      <CardContent className="p-6">
-                        <div className="w-20 h-20 bg-muted rounded-full mx-auto mb-4" />
-                        <div className="w-32 h-4 bg-muted rounded mx-auto mb-2" />
-                        <div className="w-24 h-3 bg-muted rounded mx-auto mb-4" />
-                        <div className="w-full h-8 bg-muted rounded" />
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                  {[...Array(10)].map((_, i) => (
+                    <Card key={i} className="border green-border animate-pulse">
+                      <CardContent className="p-3">
+                        <div className="w-12 h-12 bg-muted rounded-full mx-auto mb-2" />
+                        <div className="w-20 h-3 bg-muted rounded mx-auto mb-1" />
+                        <div className="w-16 h-2 bg-muted rounded mx-auto mb-2" />
+                        <div className="w-full h-6 bg-muted rounded" />
                       </CardContent>
                     </Card>
                   ))}
                 </div>
               ) : acceptedFriends.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                   {acceptedFriends.map((friend) => {
                     const friendUser = friend.requester.id === user?.id ? friend.addressee : friend.requester;
                     return (
-                      <Card key={friend.id} className="border-2 green-border hover:shadow-lg transition-shadow">
-                        <CardContent className="p-6 text-center">
+                      <Card key={friend.id} className="border green-border hover:shadow-md transition-all duration-200 hover:scale-[1.02]">
+                        <CardContent className="p-3 text-center">
                           <Link to={`/profile/${friendUser.username}`}>
-                            <Avatar className="w-20 h-20 mx-auto mb-4">
+                            <Avatar className="w-12 h-12 mx-auto mb-2">
                               <AvatarImage src={friendUser.avatar} />
-                              <AvatarFallback className="text-2xl">
+                              <AvatarFallback className="text-sm">
                                 {friendUser.name.charAt(0)}
                               </AvatarFallback>
                             </Avatar>
                           </Link>
                           <Link to={`/profile/${friendUser.username}`}>
-                            <h3 className="font-semibold text-lg text-foreground mb-1 hover:text-primary">
+                            <h3 className="font-medium text-sm text-foreground mb-1 hover:text-primary truncate">
                               {friendUser.name}
                             </h3>
                           </Link>
-                          <p className="text-muted-foreground mb-4">@{friendUser.username}</p>
+                          <p className="text-xs text-muted-foreground mb-2 truncate">@{friendUser.username}</p>
                           
-                          <div className="flex space-x-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => unfriendUser(friend.id)}
-                              className="text-destructive hover:text-destructive-foreground hover:bg-destructive"
-                            >
-                              <UserMinus className="w-4 h-4" />
-                            </Button>
-                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => unfriendUser(friend.id)}
+                            className="w-full h-7 text-xs text-destructive hover:text-destructive-foreground hover:bg-destructive"
+                          >
+                            <UserMinus className="w-3 h-3 mr-1" />
+                            Remove
+                          </Button>
                         </CardContent>
                       </Card>
                     );
@@ -307,43 +306,42 @@ const Friends = () => {
 
             <TabsContent value="pending" className="mt-6">
               {pendingRequests.length > 0 ? (
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {pendingRequests.map((request) => (
-                    <Card key={request.id} className="border-2 green-border">
-                      <CardContent className="p-4">
+                    <Card key={request.id} className="border green-border hover:shadow-md transition-shadow">
+                      <CardContent className="p-3">
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
+                          <div className="flex items-center space-x-2">
                             <Link to={`/profile/${request.requester.username}`}>
-                              <Avatar>
+                              <Avatar className="w-8 h-8">
                                 <AvatarImage src={request.requester.avatar} />
-                                <AvatarFallback>{request.requester.name.charAt(0)}</AvatarFallback>
+                                <AvatarFallback className="text-xs">{request.requester.name.charAt(0)}</AvatarFallback>
                               </Avatar>
                             </Link>
-                            <div>
+                            <div className="min-w-0 flex-1">
                               <Link to={`/profile/${request.requester.username}`}>
-                                <h4 className="font-medium text-foreground hover:text-primary">
+                                <h4 className="font-medium text-sm text-foreground hover:text-primary truncate">
                                   {request.requester.name}
                                 </h4>
                               </Link>
-                              <p className="text-sm text-muted-foreground">@{request.requester.username}</p>
+                              <p className="text-xs text-muted-foreground truncate">@{request.requester.username}</p>
                             </div>
                           </div>
-                          <div className="flex space-x-2">
+                          <div className="flex space-x-1 flex-shrink-0">
                             <Button
                               onClick={() => acceptFriendRequest(request.id)}
                               size="sm"
-                              className="bg-green-600 hover:bg-green-700 text-white"
+                              className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700 text-white"
                             >
-                              <Check className="w-4 h-4 mr-2" />
+                              <Check className="w-3 h-3 mr-1" />
                               Accept
                             </Button>
                             <Button
                               variant="outline"
                               size="sm"
-                              className="text-destructive hover:text-destructive-foreground hover:bg-destructive"
+                              className="h-7 px-2 text-xs text-destructive hover:text-destructive-foreground hover:bg-destructive"
                             >
-                              <X className="w-4 h-4 mr-2" />
-                              Decline
+                              <X className="w-3 h-3" />
                             </Button>
                           </div>
                         </div>
@@ -366,28 +364,28 @@ const Friends = () => {
 
             <TabsContent value="sent" className="mt-6">
               {sentRequests.length > 0 ? (
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {sentRequests.map((request) => (
-                    <Card key={request.id} className="border-2 green-border">
-                      <CardContent className="p-4">
+                    <Card key={request.id} className="border green-border hover:shadow-md transition-shadow">
+                      <CardContent className="p-3">
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
+                          <div className="flex items-center space-x-2">
                             <Link to={`/profile/${request.addressee.username}`}>
-                              <Avatar>
+                              <Avatar className="w-8 h-8">
                                 <AvatarImage src={request.addressee.avatar} />
-                                <AvatarFallback>{request.addressee.name.charAt(0)}</AvatarFallback>
+                                <AvatarFallback className="text-xs">{request.addressee.name.charAt(0)}</AvatarFallback>
                               </Avatar>
                             </Link>
-                            <div>
+                            <div className="min-w-0 flex-1">
                               <Link to={`/profile/${request.addressee.username}`}>
-                                <h4 className="font-medium text-foreground hover:text-primary">
+                                <h4 className="font-medium text-sm text-foreground hover:text-primary truncate">
                                   {request.addressee.name}
                                 </h4>
                               </Link>
-                              <p className="text-sm text-muted-foreground">@{request.addressee.username}</p>
+                              <p className="text-xs text-muted-foreground truncate">@{request.addressee.username}</p>
                             </div>
                           </div>
-                          <Badge variant="secondary">
+                          <Badge variant="secondary" className="text-xs px-2 py-1">
                             <Clock className="w-3 h-3 mr-1" />
                             Pending
                           </Badge>
