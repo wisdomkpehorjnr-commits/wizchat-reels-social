@@ -202,7 +202,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
             {post.content && <p className="text-foreground mb-4">{post.content}</p>}
             
             {/* Media content */}
-            {(post.imageUrl || (post.mediaType === 'image' && post.imageUrl)) && (
+            {post.imageUrl && (
               <div className="mt-2 rounded-lg overflow-hidden">
                 <img 
                   src={post.imageUrl} 
@@ -216,7 +216,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
               </div>
             )}
             
-            {(post.videoUrl || (post.mediaType === 'video' && post.videoUrl)) && (
+            {post.videoUrl && (
               <div className="mt-2 rounded-lg overflow-hidden">
                 <video 
                   src={post.videoUrl} 

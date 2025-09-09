@@ -73,46 +73,19 @@ export const dataService = {
     });
   },
 
-  async createPost(content: string, imageFile?: File, videoFile?: File, isReel: boolean = false): Promise<Post> {
+  async createPost(postData: any): Promise<Post> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
-
-    let imageUrl: string | undefined = undefined;
-    let videoUrl: string | undefined = undefined;
-
-    if (imageFile) {
-      const { data, error } = await supabase.storage
-        .from('posts')
-        .upload(`${user.id}/${Date.now()}-${imageFile.name}`, imageFile, {
-          cacheControl: '3600',
-          upsert: false
-        });
-
-      if (error) throw error;
-      imageUrl = `https://cgydbjsuhwsnqsiskmex.supabase.co/storage/v1/object/public/posts/${data.path}`;
-    }
-
-    if (videoFile) {
-      const { data, error } = await supabase.storage
-        .from('posts')
-        .upload(`${user.id}/${Date.now()}-${videoFile.name}`, videoFile, {
-          cacheControl: '3600',
-          upsert: false
-        });
-
-      if (error) throw error;
-      videoUrl = `https://cgydbjsuhwsnqsiskmex.supabase.co/storage/v1/object/public/posts/${data.path}`;
-    }
 
     const { data, error } = await supabase
       .from('posts')
       .insert({
         user_id: user.id,
-        content: content,
-        image_url: imageUrl,
-        video_url: videoUrl,
-        media_type: imageFile ? 'image' : videoFile ? 'video' : 'text',
-        is_reel: isReel
+        content: postData.content,
+        image_url: postData.imageUrl,
+        video_url: postData.videoUrl,
+        media_type: postData.mediaType || 'text',
+        is_reel: postData.isReel || false
       })
       .select(`
         *,
