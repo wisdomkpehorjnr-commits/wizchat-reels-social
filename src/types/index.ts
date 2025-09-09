@@ -88,6 +88,7 @@ export interface Follow {
 export interface Chat {
   id: string;
   participants: User[];
+  allParticipants?: User[]; // Add this for internal matching
   isGroup: boolean;
   name?: string;
   description?: string;

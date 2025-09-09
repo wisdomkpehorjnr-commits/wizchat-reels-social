@@ -540,6 +540,21 @@ export const dataService = {
     if (!user) throw new Error('Not authenticated');
 
     try {
+      // First get chats where user is a participant
+      const { data: userChats, error: chatError } = await supabase
+        .from('chat_participants')
+        .select('chat_id')
+        .eq('user_id', user.id);
+
+      if (chatError) {
+        console.error('Error fetching user chats:', chatError);
+        throw chatError;
+      }
+
+      if (!userChats || userChats.length === 0) return [];
+
+      const chatIds = userChats.map(uc => uc.chat_id);
+
       const { data, error } = await supabase
         .from('chats')
         .select(`
@@ -557,6 +572,7 @@ export const dataService = {
             )
           )
         `)
+        .in('id', chatIds)
         .order('updated_at', { ascending: false });
 
       if (error) {
@@ -567,26 +583,29 @@ export const dataService = {
       if (!data) return [];
 
       return data.map(chat => {
-        const participantUsers = (chat.chat_participants as any[])
-          ?.filter(p => p.user_id !== user.id)
-          .map(p => ({
-            id: p.profiles.id,
-            name: p.profiles.name,
-            username: p.profiles.username,
-            email: p.profiles.email,
-            photoURL: p.profiles.avatar,
-            avatar: p.profiles.avatar,
-            bio: '',
-            followerCount: 0,
-            followingCount: 0,
-            profileViews: 0,
-            createdAt: new Date(),
-            role: p.role
-          })) as User[] || [];
+        // Get all participants including current user for proper chat identification
+        const allParticipants = (chat.chat_participants as any[])?.map(p => ({
+          id: p.profiles.id,
+          name: p.profiles.name,
+          username: p.profiles.username,
+          email: p.profiles.email,
+          photoURL: p.profiles.avatar,
+          avatar: p.profiles.avatar,
+          bio: '',
+          followerCount: 0,
+          followingCount: 0,
+          profileViews: 0,
+          createdAt: new Date(),
+          role: p.role
+        })) as User[] || [];
+
+        // For display purposes, show other participants (not current user)
+        const displayParticipants = allParticipants.filter(p => p.id !== user.id);
 
         return {
           id: chat.id,
-          participants: participantUsers,
+          participants: displayParticipants,
+          allParticipants: allParticipants, // Keep all participants for matching
           isGroup: chat.is_group || false,
           name: chat.name,
           description: chat.description,

@@ -100,11 +100,16 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
     try {
       setLoading(true);
       
-      // Check if chat already exists
+      // Check if chat already exists - use allParticipants for matching
       const chats = await dataService.getChats();
-      const existingChat = chats.find(chat => 
-        !chat.isGroup && chat.participants.some(p => p.id === chatUser.id)
-      );
+      const existingChat = chats.find(chat => {
+        if (chat.isGroup) return false;
+        // Check if the chat has exactly 2 participants: current user and target user
+        const allParticipantIds = (chat as any).allParticipants?.map((p: User) => p.id) || [];
+        return allParticipantIds.length === 2 && 
+               allParticipantIds.includes(user.id) && 
+               allParticipantIds.includes(chatUser.id);
+      });
       
       let currentChatId: string;
       
