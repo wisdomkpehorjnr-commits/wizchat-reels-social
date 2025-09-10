@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { dataService } from '@/services/dataService';
 import { MediaService } from '@/services/mediaService';
 import VoiceRecorder from './VoiceRecorder';
+import MessageItem from './MessageItem';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -100,15 +101,15 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
     try {
       setLoading(true);
       
-      // Check if chat already exists - use allParticipants for matching
+      // Check if chat already exists - look for direct chats between two users
       const chats = await dataService.getChats();
       const existingChat = chats.find(chat => {
         if (chat.isGroup) return false;
         // Check if the chat has exactly 2 participants: current user and target user
-        const allParticipantIds = (chat as any).allParticipants?.map((p: User) => p.id) || [];
-        return allParticipantIds.length === 2 && 
-               allParticipantIds.includes(user.id) && 
-               allParticipantIds.includes(chatUser.id);
+        const participantIds = chat.participants?.map((p: User) => p.id) || [];
+        return participantIds.length === 2 && 
+               participantIds.includes(user.id) && 
+               participantIds.includes(chatUser.id);
       });
       
       let currentChatId: string;
@@ -204,6 +205,18 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
     }
   };
 
+  const handleEditMessage = (messageId: string, newContent: string) => {
+    setMessages(prev => prev.map(msg => 
+      msg.id === messageId 
+        ? { ...msg, content: newContent }
+        : msg
+    ));
+  };
+
+  const handleDeleteMessage = (messageId: string) => {
+    setMessages(prev => prev.filter(msg => msg.id !== messageId));
+  };
+
   const formatTime = (date: Date) => {
     return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
@@ -243,69 +256,14 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         {/* Messages */}
         <ScrollArea className="flex-1 p-4">
           <div className="space-y-4">
-            {messages.map((message) => {
-              const isOwn = message.userId === user?.id;
-              return (
-                <div
-                  key={message.id}
-                  className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div className={`flex items-end space-x-2 max-w-xs ${isOwn ? 'flex-row-reverse space-x-reverse' : ''}`}>
-                    {!isOwn && (
-                      <Avatar className="w-6 h-6">
-                        <AvatarImage src={message.user.avatar} />
-                        <AvatarFallback className="text-xs">
-                          {message.user.name.charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                    )}
-                    
-                    <div
-                      className={`px-3 py-2 rounded-lg ${
-                        isOwn
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted text-foreground'
-                      }`}
-                    >
-                      {message.type === 'text' && (
-                        <p className="text-sm">{message.content}</p>
-                      )}
-                      
-                      {message.type === 'voice' && (
-                        <div className="flex items-center space-x-2">
-                          <audio controls className="max-w-32">
-                            <source src={message.mediaUrl} type="audio/webm" />
-                          </audio>
-                          <span className="text-xs">{message.duration}s</span>
-                        </div>
-                      )}
-                      
-                      {(message.type === 'image' || message.type === 'video') && (
-                        <div className="max-w-32">
-                          {message.type === 'image' ? (
-                            <img 
-                              src={message.mediaUrl} 
-                              alt="Shared image" 
-                              className="rounded w-full h-auto"
-                            />
-                          ) : (
-                            <video 
-                              src={message.mediaUrl} 
-                              controls 
-                              className="rounded w-full h-auto"
-                            />
-                          )}
-                        </div>
-                      )}
-                      
-                      <p className={`text-xs mt-1 ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                        {formatTime(message.timestamp)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {messages.map((message) => (
+              <MessageItem
+                key={message.id}
+                message={message}
+                onEdit={handleEditMessage}
+                onDelete={handleDeleteMessage}
+              />
+            ))}
             <div ref={messagesEndRef} />
           </div>
         </ScrollArea>

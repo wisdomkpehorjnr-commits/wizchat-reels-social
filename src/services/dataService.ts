@@ -863,6 +863,62 @@ export const dataService = {
     };
   },
 
+  async editMessage(messageId: string, newContent: string): Promise<Message> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { data, error } = await supabase
+      .from('messages')
+      .update({ content: newContent })
+      .eq('id', messageId)
+      .eq('user_id', user.id) // Only allow editing own messages
+      .select(`
+        *,
+        user:profiles!messages_user_id_fkey (
+          id,
+          name,
+          username,
+          avatar
+        )
+      `)
+      .single();
+
+    if (error) {
+      console.error('Error editing message:', error);
+      throw error;
+    }
+
+    return {
+      id: data.id,
+      chatId: data.chat_id,
+      userId: data.user_id,
+      user: data.user as User,
+      content: data.content,
+      type: data.type as 'text' | 'voice' | 'image' | 'video',
+      mediaUrl: data.media_url,
+      duration: data.duration,
+      seen: data.seen,
+      timestamp: new Date(data.created_at)
+    };
+  },
+
+  async deleteMessage(messageId: string): Promise<void> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { error } = await supabase
+      .from('messages')
+      .delete()
+      .eq('id', messageId)
+      .eq('user_id', user.id); // Only allow deleting own messages
+
+    if (error) {
+      console.error('Error deleting message:', error);
+      throw error;
+    }
+  },
+
+
   async createGroup(groupData: { name: string; description: string; isPublic: boolean; members: string[] }): Promise<any> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
