@@ -6,7 +6,8 @@ import { Post } from '@/types';
 import { dataService } from '@/services/dataService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { Video } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Video, ArrowLeft } from 'lucide-react';
 
 const Reels = () => {
   const { user } = useAuth();
@@ -130,6 +131,16 @@ const Reels = () => {
 
   return (
     <div className="fixed inset-0 bg-black">
+      {/* Exit Arrow Button */}
+      <Button
+        variant="ghost"
+        size="sm"
+        className="absolute top-4 left-4 z-50 text-white hover:bg-white/20 rounded-full p-2"
+        onClick={() => navigate('/')}
+      >
+        <ArrowLeft className="w-6 h-6" />
+      </Button>
+      
       <div className="w-full h-full overflow-hidden">
         {loading ? (
           <div className="space-y-6">
