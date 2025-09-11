@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import CreatePost from '@/components/CreatePost';
 import PostCard from '@/components/PostCard';
-import ReelCard from '@/components/ReelCard';
 import StoriesSection from '@/components/StoriesSection';
+import WatchReelsCard from '@/components/WatchReelsCard';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
 import { dataService } from '@/services/dataService';
@@ -169,30 +169,25 @@ const Home = () => {
             }} />
           </div>
 
-          {/* Posts Feed */}
+          {/* Watch Reels Section */}
+          {posts.filter(post => post.isReel || post.videoUrl).length > 0 && (
+            <div className="mb-6">
+              <WatchReelsCard reelPosts={posts.filter(post => post.isReel || post.videoUrl)} />
+            </div>
+          )}
+
+          {/* Posts Feed - Only non-video posts */}
           <div className="space-y-6">
-            {posts.map((post) => (
-              post.isReel ? (
-                <div key={post.id} className="max-w-sm mx-auto">
-                  <ReelCard
-                    key={post.id}
-                    post={post}
-                    onLike={handleLikePost}
-                    onUserClick={(user) => {
-                      // Navigate to user profile
-                      window.location.href = `/profile/${user.id}`;
-                    }}
-                    onShare={handleSharePost}
-                  />
-                </div>
-              ) : (
+            {posts
+              .filter(post => !post.isReel && !post.videoUrl)
+              .map((post) => (
                 <PostCard
                   key={post.id}
                   post={post}
                   onPostUpdate={loadPosts}
                 />
-              )
-            ))}
+              ))
+            }
           </div>
 
           {/* Loading State */}
