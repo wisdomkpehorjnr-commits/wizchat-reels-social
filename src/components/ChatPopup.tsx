@@ -101,31 +101,64 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
     try {
       setLoading(true);
       
-      // Check if chat already exists - look for direct chats between two users
-      const chats = await dataService.getChats();
-      const existingChat = chats.find(chat => {
-        if (chat.isGroup) return false;
-        // Check if the chat has exactly 2 participants: current user and target user
-        // Use allParticipants which includes the current user
-        const participantIds = (chat as any).allParticipants?.map((p: User) => p.id) || [];
-        return participantIds.length === 2 && 
-               participantIds.includes(user.id) && 
-               participantIds.includes(chatUser.id);
-      });
+      // Check if chat already exists using direct database query for better reliability
+      const { data: existingChats, error: chatError } = await supabase
+        .from('chat_participants')
+        .select(`
+          chat_id,
+          chats!inner (
+            id,
+            is_group,
+            created_at
+          )
+        `)
+        .eq('user_id', user.id);
+
+      if (chatError) {
+        console.error('Error fetching user chats:', chatError);
+        throw chatError;
+      }
+
+      let currentChatId: string | null = null;
+
+      if (existingChats && existingChats.length > 0) {
+        // Check each chat to find one with exactly the current user and target user
+        for (const chatParticipant of existingChats) {
+          const chatId = chatParticipant.chat_id;
+          const chat = (chatParticipant as any).chats;
+          
+          // Skip group chats
+          if (chat.is_group) continue;
+
+          // Get all participants for this chat
+          const { data: allParticipants, error: participantsError } = await supabase
+            .from('chat_participants')
+            .select('user_id')
+            .eq('chat_id', chatId);
+
+          if (participantsError) continue;
+
+          const participantIds = allParticipants?.map(p => p.user_id) || [];
+          
+          // Check if this chat has exactly 2 participants: current user and target user
+          if (participantIds.length === 2 && 
+              participantIds.includes(user.id) && 
+              participantIds.includes(chatUser.id)) {
+            currentChatId = chatId;
+            break;
+          }
+        }
+      }
       
-      let currentChatId: string;
-      
-      if (existingChat) {
-        currentChatId = existingChat.id;
-      } else {
-        // Create new chat
+      // If no existing chat found, create new one
+      if (!currentChatId) {
         const newChat = await dataService.createChat([chatUser.id], false);
         currentChatId = newChat.id;
       }
       
       setChatId(currentChatId);
       
-      // Load messages
+      // Load messages for this chat
       const chatMessages = await dataService.getMessages(currentChatId);
       setMessages(chatMessages);
     } catch (error) {
