@@ -15,13 +15,14 @@ interface ReelCardProps {
   onLike: (postId: string) => void;
   onUserClick: (user: any) => void;
   onShare: (post: Post) => void;
+  isMuted: boolean;
+  onMuteToggle: () => void;
 }
 
-const ReelCard = ({ post, onLike, onUserClick, onShare }: ReelCardProps) => {
+const ReelCard = ({ post, onLike, onUserClick, onShare, isMuted, onMuteToggle }: ReelCardProps) => {
   const [isLiked, setIsLiked] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [newComment, setNewComment] = useState('');
-  const [isMuted, setIsMuted] = useState(true);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -68,13 +69,13 @@ const ReelCard = ({ post, onLike, onUserClick, onShare }: ReelCardProps) => {
             muted={isMuted}
             playsInline
             controls={false}
-            onClick={() => setIsMuted(!isMuted)}
+            onClick={onMuteToggle}
           />
         )}
         
         {/* Mute/Unmute Button */}
         <button
-          onClick={() => setIsMuted(!isMuted)}
+          onClick={onMuteToggle}
           className="absolute top-4 right-4 bg-black bg-opacity-50 text-white p-2 rounded-full"
         >
           {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}

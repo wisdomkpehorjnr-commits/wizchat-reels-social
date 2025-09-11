@@ -28,6 +28,7 @@ const Profile = () => {
   const [savedPosts, setSavedPosts] = useState<SavedPost[]>([]);
   const [followers, setFollowers] = useState<Follow[]>([]);
   const [following, setFollowing] = useState<Follow[]>([]);
+  const [isMuted, setIsMuted] = useState(true);
   const [loading, setLoading] = useState(true);
   const [isFollowing, setIsFollowing] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -425,6 +426,8 @@ const Profile = () => {
                     onLike={handleLikePost}
                     onUserClick={handleUserClick}
                     onShare={handleSharePost}
+                    isMuted={isMuted}
+                    onMuteToggle={() => setIsMuted(!isMuted)}
                   />
                 ))}
               </div>

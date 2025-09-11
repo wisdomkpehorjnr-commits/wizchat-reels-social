@@ -15,6 +15,7 @@ const Reels = () => {
   const [reels, setReels] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isMuted, setIsMuted] = useState(true);
   const { toast } = useToast();
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -171,6 +172,8 @@ const Reels = () => {
                 onLike={handleLike}
                 onUserClick={handleUserClick}
                 onShare={handleShare}
+                isMuted={isMuted}
+                onMuteToggle={() => setIsMuted(!isMuted)}
               />
             ))}
           </div>
