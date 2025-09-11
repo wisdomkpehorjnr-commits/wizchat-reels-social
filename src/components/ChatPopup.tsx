@@ -67,7 +67,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
             .eq('id', payload.new.id)
             .single();
 
-          if (messageData && messageData.user_id !== user?.id) {
+          if (messageData) {
             const newMessage: Message = {
               id: messageData.id,
               chatId: messageData.chat_id,
@@ -106,7 +106,8 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       const existingChat = chats.find(chat => {
         if (chat.isGroup) return false;
         // Check if the chat has exactly 2 participants: current user and target user
-        const participantIds = chat.participants?.map((p: User) => p.id) || [];
+        // Use allParticipants which includes the current user
+        const participantIds = (chat as any).allParticipants?.map((p: User) => p.id) || [];
         return participantIds.length === 2 && 
                participantIds.includes(user.id) && 
                participantIds.includes(chatUser.id);
@@ -142,17 +143,31 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
   const sendMessage = async () => {
     if (!newMessage.trim() || !chatId || !user) return;
 
+    const messageContent = newMessage.trim();
+    setNewMessage(''); // Clear input immediately for better UX
+
     try {
-      const message = await dataService.sendMessage(chatId, newMessage.trim());
-      setMessages(prev => [...prev, message]);
-      setNewMessage('');
+      const message = await dataService.sendMessage(chatId, messageContent);
+      
+      // Update chat's last activity
+      await supabase
+        .from('chats')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', chatId);
+      
+      toast({
+        title: "Message sent",
+        description: "Your message has been delivered",
+      });
     } catch (error) {
       console.error('Error sending message:', error);
       toast({
         title: "Error",
-        description: "Failed to send message",
+        description: "Failed to send message. Please try again.",
         variant: "destructive"
       });
+      // Restore message content on error
+      setNewMessage(messageContent);
     }
   };
 
