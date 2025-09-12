@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Heart, MessageCircle, Share, Send, Volume2, VolumeX, X } from 'lucide-react';
+import { Heart, MessageCircle, Share, Send, Volume2, VolumeX, X, Download } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Post } from '@/types';
@@ -9,6 +9,8 @@ import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import { dataService } from '@/services/dataService';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useDownload } from '@/hooks/useDownload';
 
 interface ReelCardProps {
   post: Post;
@@ -23,14 +25,81 @@ const ReelCard = ({ post, onLike, onUserClick, onShare, isMuted, onMuteToggle }:
   const [isLiked, setIsLiked] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [newComment, setNewComment] = useState('');
+  const [comments, setComments] = useState(post.comments || []);
+  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
+  const { downloadMedia } = useDownload();
 
   useEffect(() => {
     if (user && post.likes) {
       setIsLiked(post.likes.includes(user.id));
     }
   }, [user, post.likes]);
+
+  // Real-time comments subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel(`comments-${post.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'comments',
+          filter: `post_id=eq.${post.id}`
+        },
+        async (payload) => {
+          if (payload.eventType === 'INSERT') {
+            // Fetch the complete comment with user data
+            const { data: newComment } = await supabase
+              .from('comments')
+              .select(`
+                *,
+                user:user_id (
+                  id,
+                  name,
+                  username,
+                  email,
+                  avatar
+                )
+              `)
+              .eq('id', payload.new.id)
+              .single();
+            
+            if (newComment) {
+              const commentWithUser = {
+                id: newComment.id,
+                userId: newComment.user_id,
+                user: {
+                  ...newComment.user,
+                  photoURL: newComment.user.avatar,
+                  followerCount: 0,
+                  followingCount: 0,
+                  profileViews: 0,
+                  createdAt: new Date()
+                },
+                postId: newComment.post_id,
+                content: newComment.content,
+                createdAt: new Date(newComment.created_at)
+              };
+              
+              setComments(prev => [commentWithUser, ...prev]);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [post.id]);
+
+  // Initialize comments from post data
+  useEffect(() => {
+    setComments(post.comments || []);
+  }, [post.comments]);
 
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -56,6 +125,22 @@ const ReelCard = ({ post, onLike, onUserClick, onShare, isMuted, onMuteToggle }:
     }
   }, []);
 
+  const handleLongPressStart = () => {
+    const timer = setTimeout(() => {
+      if (post.videoUrl) {
+        downloadMedia(post.videoUrl, `reel_${post.id}.mp4`);
+      }
+    }, 800);
+    setLongPressTimer(timer);
+  };
+
+  const handleLongPressEnd = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+    }
+  };
+
   return (
     <div className="w-full h-screen relative overflow-hidden bg-black snap-start">
       {/* Video Content */}
@@ -70,6 +155,12 @@ const ReelCard = ({ post, onLike, onUserClick, onShare, isMuted, onMuteToggle }:
             playsInline
             controls={false}
             onClick={onMuteToggle}
+            onTouchStart={handleLongPressStart}
+            onTouchEnd={handleLongPressEnd}
+            onMouseDown={handleLongPressStart}
+            onMouseUp={handleLongPressEnd}
+            onMouseLeave={handleLongPressEnd}
+            poster={post.imageUrl}
           />
         )}
         
@@ -129,7 +220,7 @@ const ReelCard = ({ post, onLike, onUserClick, onShare, isMuted, onMuteToggle }:
             <div className="p-3 rounded-full backdrop-blur-sm bg-black/60 border border-white/20">
               <MessageCircle className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xs mt-1 font-semibold drop-shadow-md">{post.comments?.length || 0}</span>
+            <span className="text-xs mt-1 font-semibold drop-shadow-md">{comments.length}</span>
           </button>
 
           <button
@@ -156,7 +247,7 @@ const ReelCard = ({ post, onLike, onUserClick, onShare, isMuted, onMuteToggle }:
             </div>
 
             <div className="space-y-3 mb-4">
-              {post.comments?.map((comment) => (
+              {comments.map((comment) => (
                 <div key={comment.id} className="flex space-x-3">
                   <button onClick={() => onUserClick(comment.user)}>
                     <Avatar className="w-6 h-6">
@@ -190,6 +281,7 @@ const ReelCard = ({ post, onLike, onUserClick, onShare, isMuted, onMuteToggle }:
                   try {
                     await dataService.addComment(post.id, newComment);
                     setNewComment('');
+                    // The real-time subscription will handle updating the comments
                     toast({
                       title: "Comment added",
                       description: "Your comment has been posted"

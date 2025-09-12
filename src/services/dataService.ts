@@ -1042,7 +1042,7 @@ export const dataService = {
     }
   },
 
-  addComment: async (postId: string, content: string) => {
+  addComment: async (postId: string, content: string): Promise<Comment> => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
@@ -1050,13 +1050,40 @@ export const dataService = {
       .from('comments')
       .insert({
         post_id: postId,
-        content,
-        user_id: user.id
+        user_id: user.id,
+        content: content
       })
-      .select()
+      .select(`
+        *,
+        user:user_id (
+          id,
+          name,
+          username,
+          email,
+          avatar
+        )
+      `)
       .single();
 
-    if (error) throw error;
-    return data;
+    if (error) {
+      console.error('Error adding comment:', error);
+      throw error;
+    }
+
+    return {
+      id: data.id,
+      postId: data.post_id,
+      userId: data.user_id,
+      content: data.content,
+      user: {
+        ...data.user,
+        photoURL: data.user.avatar,
+        followerCount: 0,
+        followingCount: 0,
+        profileViews: 0,
+        createdAt: new Date()
+      } as User,
+      createdAt: new Date(data.created_at)
+    };
   },
 };

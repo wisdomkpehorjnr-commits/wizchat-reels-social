@@ -135,6 +135,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
                       src={URL.createObjectURL(selectedFile)} 
                       className="w-16 h-16 object-cover rounded"
                       muted
+                      preload="metadata"
                     />
                     <div>
                       <p className="text-sm font-medium">Video selected</p>

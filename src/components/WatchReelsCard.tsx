@@ -46,6 +46,8 @@ const WatchReelsCard = ({ reelPosts }: WatchReelsCardProps) => {
                   src={post.videoUrl} 
                   className="w-full h-full object-cover"
                   muted
+                  preload="metadata"
+                  poster={post.imageUrl}
                 />
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center">

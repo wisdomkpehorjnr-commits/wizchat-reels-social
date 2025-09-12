@@ -10,29 +10,21 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Home, PlayCircle, MessageCircle, Users, User, Settings, LogOut, MessageSquare } from 'lucide-react';
+import { Home, PlayCircle, MessageCircle, Users, User, Settings, MessageSquare } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import Logo from './Logo';
 import ThemeToggle from './ThemeToggle';
 import NotificationSystem from './NotificationSystem';
+import LogoutButton from './LogoutButton';
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-
-  const handleLogout = async () => {
-    try {
-      await logout();
-      navigate('/login');
-    } catch (error) {
-      console.error('Error logging out:', error);
-    }
-  };
 
   const navItems = [
     { icon: Home, label: 'Home', path: '/' },
@@ -126,9 +118,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-foreground">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Log out</span>
+                <DropdownMenuItem className="cursor-pointer text-foreground p-0">
+                  <LogoutButton 
+                    variant="ghost" 
+                    size="sm" 
+                    className="w-full justify-start h-auto p-2"
+                  />
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

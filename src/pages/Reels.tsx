@@ -127,6 +127,17 @@ const Reels = () => {
     
     if (newIndex !== currentIndex && newIndex >= 0 && newIndex < reels.length) {
       setCurrentIndex(newIndex);
+      
+      // Snap to the current video after scroll ends
+      setTimeout(() => {
+        const targetScrollTop = newIndex * itemHeight;
+        if (Math.abs(container.scrollTop - targetScrollTop) > 10) {
+          container.scrollTo({
+            top: targetScrollTop,
+            behavior: 'smooth'
+          });
+        }
+      }, 150);
     }
   };
 
@@ -162,8 +173,9 @@ const Reels = () => {
         ) : (
           <div 
             ref={containerRef}
-            className="h-full overflow-y-auto snap-y snap-mandatory"
+            className="h-full overflow-y-auto snap-y snap-mandatory scroll-smooth"
             onScroll={handleScroll}
+            style={{ scrollBehavior: 'smooth' }}
           >
             {reels.map((post) => (
               <ReelCard

@@ -10,13 +10,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { MoreVertical, Heart, MessageSquare, Share, Edit, Trash2 } from 'lucide-react';
+import { MoreVertical, Heart, MessageSquare, Share, Edit, Trash2, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 import { dataService } from '@/services/dataService';
 import { useToast } from '@/hooks/use-toast';
 import ClickableUserInfo from './ClickableUserInfo';
+import ConfirmationDialog from './ui/confirmation-dialog';
+import { useDownload } from '@/hooks/useDownload';
 
 interface PostCardProps {
   post: any;
@@ -32,6 +34,9 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
   const [likeCount, setLikeCount] = useState(0);
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(post.content);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+  const { downloadMedia } = useDownload();
 
   // Load likes when component mounts
   useEffect(() => {
@@ -116,6 +121,21 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
     }
   };
 
+  const handleLongPressStart = (mediaUrl: string, isVideo: boolean) => {
+    const timer = setTimeout(() => {
+      const extension = isVideo ? '.mp4' : '.jpg';
+      downloadMedia(mediaUrl, `wizchat_media_${post.id}${extension}`);
+    }, 800);
+    setLongPressTimer(timer);
+  };
+
+  const handleLongPressEnd = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+    }
+  };
+
   const handleUpdatePost = async () => {
     try {
       await dataService.updatePost(post.id, { content: editedContent });
@@ -169,7 +189,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
                   <DropdownMenuItem onClick={() => setIsEditing(true)}>
                     <Edit className="mr-2 h-4 w-4" /> Edit
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleDeletePost}>
+                  <DropdownMenuItem onClick={() => setShowDeleteConfirm(true)}>
                     <Trash2 className="mr-2 h-4 w-4" /> Delete
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
@@ -207,11 +227,16 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
                 <img 
                   src={post.imageUrl} 
                   alt="Post content" 
-                  className="w-full object-cover max-h-96 rounded-lg" 
+                  className="w-full object-cover max-h-96 rounded-lg cursor-pointer" 
                   onLoad={() => console.log('Image loaded successfully:', post.imageUrl)}
                   onError={(e) => {
                     console.error('Failed to load image:', post.imageUrl);
                   }}
+                  onTouchStart={() => handleLongPressStart(post.imageUrl!, false)}
+                  onTouchEnd={handleLongPressEnd}
+                  onMouseDown={() => handleLongPressStart(post.imageUrl!, false)}
+                  onMouseUp={handleLongPressEnd}
+                  onMouseLeave={handleLongPressEnd}
                 />
               </div>
             )}
@@ -221,12 +246,18 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
                 <video 
                   src={post.videoUrl} 
                   controls 
-                  className="w-full max-h-96 rounded-lg" 
+                  className="w-full max-h-96 rounded-lg cursor-pointer" 
                   preload="metadata"
+                  poster={post.imageUrl}
                   onLoadedData={() => console.log('Video loaded successfully:', post.videoUrl)}
                   onError={(e) => {
                     console.error('Failed to load video:', post.videoUrl);
                   }}
+                  onTouchStart={() => handleLongPressStart(post.videoUrl!, true)}
+                  onTouchEnd={handleLongPressEnd}
+                  onMouseDown={() => handleLongPressStart(post.videoUrl!, true)}
+                  onMouseUp={handleLongPressEnd}
+                  onMouseLeave={handleLongPressEnd}
                 >
                   Your browser does not support the video tag.
                 </video>
@@ -301,6 +332,17 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
           </Button>
         </div>
       </CardContent>
+      
+      <ConfirmationDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title="Delete Post"
+        description="Are you sure you want to delete this post? This action cannot be undone."
+        onConfirm={handleDeletePost}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
+      />
     </Card>
   );
 };
