@@ -1085,6 +1085,10 @@ export type Database = {
         }
         Returns: string
       }
+      get_or_create_direct_chat: {
+        Args: { p_other_user_id: string }
+        Returns: string
+      }
       search_users: {
         Args: { search_term: string }
         Returns: {

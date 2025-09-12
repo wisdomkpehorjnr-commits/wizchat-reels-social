@@ -101,65 +101,20 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
     try {
       setLoading(true);
       
-      // Check if chat already exists using direct database query for better reliability
-      const { data: existingChats, error: chatError } = await supabase
-        .from('chat_participants')
-        .select(`
-          chat_id,
-          chats!inner (
-            id,
-            is_group,
-            created_at
-          )
-        `)
-        .eq('user_id', user.id);
+      // Use the new database function for reliable chat retrieval/creation
+      const { data: chatId, error: chatError } = await supabase.rpc('get_or_create_direct_chat', {
+        p_other_user_id: chatUser.id
+      });
 
       if (chatError) {
-        console.error('Error fetching user chats:', chatError);
+        console.error('Error getting or creating chat:', chatError);
         throw chatError;
       }
-
-      let currentChatId: string | null = null;
-
-      if (existingChats && existingChats.length > 0) {
-        // Check each chat to find one with exactly the current user and target user
-        for (const chatParticipant of existingChats) {
-          const chatId = chatParticipant.chat_id;
-          const chat = (chatParticipant as any).chats;
-          
-          // Skip group chats
-          if (chat.is_group) continue;
-
-          // Get all participants for this chat
-          const { data: allParticipants, error: participantsError } = await supabase
-            .from('chat_participants')
-            .select('user_id')
-            .eq('chat_id', chatId);
-
-          if (participantsError) continue;
-
-          const participantIds = allParticipants?.map(p => p.user_id) || [];
-          
-          // Check if this chat has exactly 2 participants: current user and target user
-          if (participantIds.length === 2 && 
-              participantIds.includes(user.id) && 
-              participantIds.includes(chatUser.id)) {
-            currentChatId = chatId;
-            break;
-          }
-        }
-      }
       
-      // If no existing chat found, create new one
-      if (!currentChatId) {
-        const newChat = await dataService.createChat([chatUser.id], false);
-        currentChatId = newChat.id;
-      }
-      
-      setChatId(currentChatId);
+      setChatId(chatId);
       
       // Load messages for this chat
-      const chatMessages = await dataService.getMessages(currentChatId);
+      const chatMessages = await dataService.getMessages(chatId);
       setMessages(chatMessages);
     } catch (error) {
       console.error('Error initializing chat:', error);
@@ -180,7 +135,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
     setNewMessage(''); // Clear input immediately for better UX
 
     try {
-      const message = await dataService.sendMessage(chatId, messageContent);
+      await dataService.sendMessage(chatId, messageContent);
       
       // Update chat's last activity
       await supabase
@@ -209,8 +164,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
     
     try {
       const audioUrl = await MediaService.uploadChatMedia(new File([audioBlob], 'voice.webm', { type: 'audio/webm' }));
-      const voiceMessage = await dataService.createVoiceMessage(chatId, audioUrl, duration);
-      setMessages(prev => [...prev, voiceMessage]);
+      await dataService.createVoiceMessage(chatId, audioUrl, duration);
       
       toast({
         title: "Success",
@@ -235,8 +189,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       const mediaType = MediaService.getMediaType(file);
       
       if (mediaType === 'image' || mediaType === 'video') {
-        const mediaMessage = await dataService.createMediaMessage(chatId, mediaUrl, mediaType);
-        setMessages(prev => [...prev, mediaMessage]);
+        await dataService.createMediaMessage(chatId, mediaUrl, mediaType);
         
         toast({
           title: "Success",
