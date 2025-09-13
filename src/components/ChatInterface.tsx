@@ -16,6 +16,7 @@ import { dataService } from '@/services/dataService';
 import { MediaService } from '@/services/mediaService';
 import VoiceRecorder from './VoiceRecorder';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ChatInterfaceProps {
   chat: Chat;
@@ -54,9 +55,81 @@ const ChatInterface = ({ chat, onClose }: ChatInterfaceProps) => {
   }, [messages]);
 
   useEffect(() => {
-    if (chat.id) {
-      loadMessages();
-    }
+    if (!chat.id) return;
+
+    loadMessages();
+
+    const channel = supabase
+      .channel(`messages:chat_${chat.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages', filter: `chat_id=eq.${chat.id}` },
+        async (payload) => {
+          const { data: messageData } = await supabase
+            .from('messages')
+            .select(`
+              *,
+              user:profiles!messages_user_id_fkey (
+                id,
+                name,
+                username,
+                avatar
+              )
+            `)
+            .eq('id', payload.new.id)
+            .single();
+
+          if (messageData) {
+            const newMsg: Message = {
+              id: messageData.id,
+              chatId: messageData.chat_id,
+              userId: messageData.user_id,
+              user: messageData.user as User,
+              content: messageData.content,
+              type: messageData.type as 'text' | 'voice' | 'image' | 'video',
+              mediaUrl: messageData.media_url,
+              duration: messageData.duration,
+              seen: messageData.seen,
+              timestamp: new Date(messageData.created_at)
+            };
+            setMessages(prev => prev.some(m => m.id === newMsg.id) ? prev : [...prev, newMsg]);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'messages', filter: `chat_id=eq.${chat.id}` },
+        (payload) => {
+          const updated: any = payload.new;
+          setMessages(prev =>
+            prev.map(m =>
+              m.id === updated.id
+                ? {
+                    ...m,
+                    content: updated.content ?? m.content,
+                    mediaUrl: updated.media_url ?? m.mediaUrl,
+                    type: updated.type ?? m.type,
+                    duration: updated.duration ?? m.duration,
+                    seen: updated.seen ?? m.seen,
+                  }
+                : m
+            )
+          );
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'messages', filter: `chat_id=eq.${chat.id}` },
+        (payload) => {
+          const removed: any = payload.old;
+          setMessages(prev => prev.filter(m => m.id !== removed.id));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [chat.id]);
 
   useEffect(() => {
@@ -91,10 +164,11 @@ const ChatInterface = ({ chat, onClose }: ChatInterfaceProps) => {
   const sendMessage = async () => {
     if (!newMessage.trim() || !user) return;
 
+    const content = newMessage.trim();
+    setNewMessage('');
+
     try {
-      const message = await dataService.sendMessage(chat.id, newMessage.trim());
-      setMessages(prev => [...prev, message]);
-      setNewMessage('');
+      await dataService.sendMessage(chat.id, content);
       
       toast({
         title: "Success",
@@ -102,6 +176,7 @@ const ChatInterface = ({ chat, onClose }: ChatInterfaceProps) => {
       });
     } catch (error) {
       console.error('Error sending message:', error);
+      setNewMessage(content);
       toast({
         title: "Error",
         description: "Failed to send message",
@@ -115,8 +190,7 @@ const ChatInterface = ({ chat, onClose }: ChatInterfaceProps) => {
       const audioUrl = await MediaService.uploadChatMedia(new File([audioBlob], 'voice.webm', { type: 'audio/webm' }));
       
       // Create voice message in database
-      const voiceMessage = await dataService.createVoiceMessage(chat.id, audioUrl, duration);
-      setMessages(prev => [...prev, voiceMessage]);
+      await dataService.createVoiceMessage(chat.id, audioUrl, duration);
       setIsRecording(false);
       
       toast({
@@ -143,8 +217,7 @@ const ChatInterface = ({ chat, onClose }: ChatInterfaceProps) => {
       
       // Only handle image and video for media messages
       if (mediaType === 'image' || mediaType === 'video') {
-        const mediaMessage = await dataService.createMediaMessage(chat.id, mediaUrl, mediaType);
-        setMessages(prev => [...prev, mediaMessage]);
+        await dataService.createMediaMessage(chat.id, mediaUrl, mediaType);
         
         toast({
           title: "Success",
