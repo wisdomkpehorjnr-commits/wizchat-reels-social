@@ -21,9 +21,36 @@ export const useDownload = () => {
       link.href = blobUrl;
       link.download = filename || `wizchat_media_${Date.now()}`;
       
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      // For APK compatibility - try to specify download location
+      if ('showSaveFilePicker' in window) {
+        try {
+          // @ts-ignore - File System Access API
+          const fileHandle = await window.showSaveFilePicker({
+            suggestedName: filename || `wizchat_media_${Date.now()}`,
+            types: [{
+              description: 'Media files',
+              accept: {
+                'image/*': ['.jpg', '.jpeg', '.png', '.gif'],
+                'video/*': ['.mp4', '.webm', '.mov']
+              }
+            }]
+          });
+          // @ts-ignore
+          const writable = await fileHandle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+        } catch (error) {
+          // Fallback to regular download
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+      } else {
+        // Regular download for browsers without File System Access API
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
       
       window.URL.revokeObjectURL(blobUrl);
       

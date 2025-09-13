@@ -54,15 +54,18 @@ const LogoutButton = ({
         Logout
       </Button>
       
-      <ConfirmationDialog
-        open={showConfirm}
-        onOpenChange={setShowConfirm}
-        title="Logout"
-        description="Are you sure you want to log out of your account?"
-        onConfirm={handleLogout}
-        confirmText="Logout"
-        cancelText="Cancel"
-      />
+      {showConfirm && (
+        <ConfirmationDialog
+          open={showConfirm}
+          onOpenChange={setShowConfirm}
+          title="Logout"
+          description="Are you sure you want to log out of your account?"
+          onConfirm={handleLogout}
+          confirmText="Logout"
+          cancelText="Cancel"
+          variant="destructive"
+        />
+      )}
     </>
   );
 };

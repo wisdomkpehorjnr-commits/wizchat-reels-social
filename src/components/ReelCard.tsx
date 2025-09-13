@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Heart, MessageCircle, Share, Send, Volume2, VolumeX, X, Download } from 'lucide-react';
+import { ThumbsUp, MessageSquare, Share2, Send, Volume2, VolumeX, X, Download } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Post } from '@/types';
@@ -27,6 +27,7 @@ const ReelCard = ({ post, onLike, onUserClick, onShare, isMuted, onMuteToggle }:
   const [newComment, setNewComment] = useState('');
   const [comments, setComments] = useState(post.comments || []);
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+  const [showDownloadConfirm, setShowDownloadConfirm] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
   const { downloadMedia } = useDownload();
@@ -127,11 +128,16 @@ const ReelCard = ({ post, onLike, onUserClick, onShare, isMuted, onMuteToggle }:
 
   const handleLongPressStart = () => {
     const timer = setTimeout(() => {
-      if (post.videoUrl) {
-        downloadMedia(post.videoUrl, `reel_${post.id}.mp4`);
-      }
-    }, 800);
+      setShowDownloadConfirm(true);
+    }, 4000); // Extended to 4 seconds
     setLongPressTimer(timer);
+  };
+
+  const handleDownloadConfirm = () => {
+    if (post.videoUrl) {
+      downloadMedia(post.videoUrl, `reel_${post.id}.mp4`);
+    }
+    setShowDownloadConfirm(false);
   };
 
   const handleLongPressEnd = () => {
@@ -154,13 +160,18 @@ const ReelCard = ({ post, onLike, onUserClick, onShare, isMuted, onMuteToggle }:
             muted={isMuted}
             playsInline
             controls={false}
+            preload="metadata"
             onClick={onMuteToggle}
             onTouchStart={handleLongPressStart}
             onTouchEnd={handleLongPressEnd}
             onMouseDown={handleLongPressStart}
             onMouseUp={handleLongPressEnd}
             onMouseLeave={handleLongPressEnd}
-            poster={post.imageUrl}
+            poster={post.imageUrl || `${post.videoUrl}#t=0.5`}
+            style={{
+              WebkitUserSelect: 'none',
+              WebkitTouchCallout: 'none'
+            }}
           />
         )}
         
@@ -207,8 +218,8 @@ const ReelCard = ({ post, onLike, onUserClick, onShare, isMuted, onMuteToggle }:
             }}
             className="flex flex-col items-center text-white drop-shadow-lg"
           >
-            <div className={`p-3 rounded-full backdrop-blur-sm ${isLiked ? 'bg-red-500/90' : 'bg-black/60 border border-white/20'}`}>
-              <Heart className={`w-6 h-6 ${isLiked ? 'fill-current text-white' : 'text-white'}`} />
+            <div className={`p-3 rounded-full backdrop-blur-sm ${isLiked ? 'bg-blue-500/90' : 'bg-black/60 border border-white/20'}`}>
+              <ThumbsUp className={`w-6 h-6 ${isLiked ? 'fill-current text-white' : 'text-white'}`} />
             </div>
             <span className="text-xs mt-1 font-semibold drop-shadow-md">{post.likes?.length || 0}</span>
           </button>
@@ -218,7 +229,7 @@ const ReelCard = ({ post, onLike, onUserClick, onShare, isMuted, onMuteToggle }:
             className="flex flex-col items-center text-white drop-shadow-lg"
           >
             <div className="p-3 rounded-full backdrop-blur-sm bg-black/60 border border-white/20">
-              <MessageCircle className="w-6 h-6 text-white" />
+              <MessageSquare className="w-6 h-6 text-white" />
             </div>
             <span className="text-xs mt-1 font-semibold drop-shadow-md">{comments.length}</span>
           </button>
@@ -228,7 +239,7 @@ const ReelCard = ({ post, onLike, onUserClick, onShare, isMuted, onMuteToggle }:
             className="flex flex-col items-center text-white drop-shadow-lg"
           >
             <div className="p-3 rounded-full backdrop-blur-sm bg-black/60 border border-white/20">
-              <Share className="w-6 h-6 text-white" />
+              <Share2 className="w-6 h-6 text-white" />
             </div>
             <span className="text-xs mt-1 font-semibold drop-shadow-md">Share</span>
           </button>
@@ -298,6 +309,33 @@ const ReelCard = ({ post, onLike, onUserClick, onShare, isMuted, onMuteToggle }:
                 size="sm"
               >
                 <Send className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Download Confirmation Dialog */}
+      {showDownloadConfirm && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-background rounded-lg p-6 max-w-sm mx-4 border">
+            <h3 className="text-lg font-semibold mb-2">Download Video</h3>
+            <p className="text-muted-foreground mb-4">
+              Do you want to download this video to your device?
+            </p>
+            <div className="flex space-x-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowDownloadConfirm(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleDownloadConfirm}
+                className="flex-1"
+              >
+                Download
               </Button>
             </div>
           </div>
