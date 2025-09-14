@@ -117,8 +117,6 @@ const Reels = () => {
     }
   };
 
-  let scrollTimeout: NodeJS.Timeout;
-  
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     if (!containerRef.current) return;
     
@@ -127,20 +125,20 @@ const Reels = () => {
     const itemHeight = container.clientHeight;
     const newIndex = Math.round(scrollTop / itemHeight);
     
-    // Clear previous timeout
-    clearTimeout(scrollTimeout);
-    
-    // Set new timeout for snap behavior
-    scrollTimeout = setTimeout(() => {
-      if (newIndex >= 0 && newIndex < reels.length) {
+    if (newIndex !== currentIndex && newIndex >= 0 && newIndex < reels.length) {
+      setCurrentIndex(newIndex);
+      
+      // Snap to the current video after scroll ends
+      setTimeout(() => {
         const targetScrollTop = newIndex * itemHeight;
-        container.scrollTo({
-          top: targetScrollTop,
-          behavior: 'smooth'
-        });
-        setCurrentIndex(newIndex);
-      }
-    }, 100);
+        if (Math.abs(container.scrollTop - targetScrollTop) > 10) {
+          container.scrollTo({
+            top: targetScrollTop,
+            behavior: 'smooth'
+          });
+        }
+      }, 150);
+    }
   };
 
   return (
@@ -175,13 +173,9 @@ const Reels = () => {
         ) : (
           <div 
             ref={containerRef}
-            className="h-full overflow-y-auto snap-y snap-mandatory"
+            className="h-full overflow-y-auto snap-y snap-mandatory scroll-smooth"
             onScroll={handleScroll}
-            style={{ 
-              scrollBehavior: 'smooth',
-              scrollSnapType: 'y mandatory',
-              overscrollBehavior: 'contain'
-            }}
+            style={{ scrollBehavior: 'smooth' }}
           >
             {reels.map((post) => (
               <ReelCard

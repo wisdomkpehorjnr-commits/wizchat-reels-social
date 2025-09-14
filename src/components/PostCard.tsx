@@ -121,23 +121,12 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
     }
   };
 
-  const [showDownloadConfirm, setShowDownloadConfirm] = useState(false);
-  const [downloadUrl, setDownloadUrl] = useState('');
-  const [isVideoDownload, setIsVideoDownload] = useState(false);
-
   const handleLongPressStart = (mediaUrl: string, isVideo: boolean) => {
     const timer = setTimeout(() => {
-      setDownloadUrl(mediaUrl);
-      setIsVideoDownload(isVideo);
-      setShowDownloadConfirm(true);
-    }, 4000); // Extended to 4 seconds
+      const extension = isVideo ? '.mp4' : '.jpg';
+      downloadMedia(mediaUrl, `wizchat_media_${post.id}${extension}`);
+    }, 800);
     setLongPressTimer(timer);
-  };
-
-  const handleDownloadConfirm = () => {
-    const extension = isVideoDownload ? '.mp4' : '.jpg';
-    downloadMedia(downloadUrl, `wizchat_media_${post.id}${extension}`);
-    setShowDownloadConfirm(false);
   };
 
   const handleLongPressEnd = () => {
@@ -253,13 +242,13 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
             )}
             
             {post.videoUrl && (
-              <div className="mt-2 rounded-lg overflow-hidden relative">
+              <div className="mt-2 rounded-lg overflow-hidden">
                 <video 
                   src={post.videoUrl} 
                   controls 
                   className="w-full max-h-96 rounded-lg cursor-pointer" 
                   preload="metadata"
-                  poster={post.imageUrl || `${post.videoUrl}#t=0.5`}
+                  poster={post.imageUrl}
                   onLoadedData={() => console.log('Video loaded successfully:', post.videoUrl)}
                   onError={(e) => {
                     console.error('Failed to load video:', post.videoUrl);
@@ -269,22 +258,9 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
                   onMouseDown={() => handleLongPressStart(post.videoUrl!, true)}
                   onMouseUp={handleLongPressEnd}
                   onMouseLeave={handleLongPressEnd}
-                  style={{
-                    WebkitUserSelect: 'none',
-                    WebkitTouchCallout: 'none'
-                  }}
                 >
                   Your browser does not support the video tag.
                 </video>
-                {/* Fallback preview for APK compatibility */}
-                <div 
-                  className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 hover:opacity-100 transition-opacity pointer-events-none"
-                  style={{
-                    backgroundImage: post.imageUrl ? `url(${post.imageUrl})` : 'none',
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center'
-                  }}
-                />
               </div>
             )}
           </div>
@@ -366,16 +342,6 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
         confirmText="Delete"
         cancelText="Cancel"
         variant="destructive"
-      />
-      
-      <ConfirmationDialog
-        open={showDownloadConfirm}
-        onOpenChange={setShowDownloadConfirm}
-        title="Download Media"
-        description="Do you want to download this media to your device?"
-        onConfirm={handleDownloadConfirm}
-        confirmText="Download"
-        cancelText="Cancel"
       />
     </Card>
   );

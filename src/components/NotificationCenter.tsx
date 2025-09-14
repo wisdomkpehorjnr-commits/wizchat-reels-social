@@ -107,48 +107,27 @@ const NotificationCenter: React.FC = () => {
       await markAsRead(notification.id);
     }
 
-    // Navigate based on notification type and data
-    switch (notification.type) {
-      case 'like':
-      case 'comment':
-        if (notification.data?.post_id) {
-          // Navigate to home with post focus
-          navigate(`/?post=${notification.data.post_id}`);
-        } else if (notification.data?.reel_id) {
-          // Navigate to reels
-          navigate('/reels');
-        }
-        break;
-        
-      case 'friend_request':
-      case 'friend_accept':
-        navigate('/friends');
-        break;
-        
-      case 'follow':
-      case 'profile_view':
-        if (notification.data?.user_id) {
-          // Direct navigation to avoid TypeScript issues
-          navigate(`/profile/${notification.data.user_id}`);
-        }
-        break;
-        
-      case 'new_message':
-        if (notification.data?.chat_id) {
-          navigate(`/chat/${notification.data.chat_id}`);
-        } else {
-          navigate('/chat');
-        }
-        break;
-        
-      default:
-        // For any other notification types, try to navigate based on available data
-        if (notification.data?.post_id) {
-          navigate(`/?post=${notification.data.post_id}`);
-        } else if (notification.data?.user_id) {
-          navigate(`/profile/${notification.data.user_id}`);
-        }
-        break;
+    // Navigate based on notification type
+    if (notification.type === 'like' || notification.type === 'comment') {
+      const postId = notification.data?.post_id;
+      if (postId) {
+        // Navigate to home page with post focus
+        navigate(`/?post=${postId}`);
+      }
+    } else if (notification.type === 'friend_request') {
+      // Navigate to friends page
+      navigate('/friends');
+    } else if (notification.data && notification.data.user_id) {
+      // For profile-related notifications
+      const { data } = await supabase
+        .from('profiles')
+        .select('username, id')
+        .eq('id', notification.data.user_id)
+        .maybeSingle();
+      
+      if (data) {
+        navigate(`/profile/${data.username || data.id}`);
+      }
     }
   };
 
