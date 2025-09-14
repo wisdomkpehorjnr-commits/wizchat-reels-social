@@ -1,8 +1,9 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,6 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Home, PlayCircle, MessageCircle, Users, User, Settings, MessageSquare } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNotificationBadges } from '@/hooks/useNotificationBadges';
 import Logo from './Logo';
 import ThemeToggle from './ThemeToggle';
 import NotificationSystem from './NotificationSystem';
@@ -25,14 +27,31 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const { badges, clearBadge } = useNotificationBadges();
 
   const navItems = [
-    { icon: Home, label: 'Home', path: '/' },
-    { icon: PlayCircle, label: 'Reels', path: '/reels' },
-    { icon: MessageCircle, label: 'Chat', path: '/chat' },
-    { icon: Users, label: 'Friends', path: '/friends' },
-    { icon: MessageSquare, label: 'Topics', path: '/topics' },
+    { icon: Home, label: 'Home', path: '/', badge: badges.home },
+    { icon: PlayCircle, label: 'Reels', path: '/reels', badge: badges.reels },
+    { icon: MessageCircle, label: 'Chat', path: '/chat', badge: badges.chat },
+    { icon: Users, label: 'Friends', path: '/friends', badge: badges.friends },
+    { icon: MessageSquare, label: 'Topics', path: '/topics', badge: badges.topics },
   ];
+
+  // Clear badge when navigating to a tab
+  useEffect(() => {
+    const tabMap: { [key: string]: keyof typeof badges } = {
+      '/': 'home',
+      '/reels': 'reels',
+      '/chat': 'chat',
+      '/friends': 'friends',
+      '/topics': 'topics'
+    };
+    
+    const currentTab = tabMap[location.pathname];
+    if (currentTab) {
+      clearBadge(currentTab);
+    }
+  }, [location.pathname, clearBadge]);
 
   const isActivePath = (path: string) => {
     return location.pathname === path;
@@ -72,11 +91,19 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               >
                 <Link 
                   to={item.path} 
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 relative"
                   onClick={item.path === '/' ? handleHomeClick : undefined}
                 >
                   <item.icon className="w-4 h-4" />
                   <span className="hidden lg:inline text-foreground">{item.label}</span>
+                  {item.badge > 0 && (
+                    <Badge 
+                      variant="destructive" 
+                      className="absolute -top-2 -right-2 h-5 w-5 p-0 text-xs flex items-center justify-center"
+                    >
+                      {item.badge > 99 ? '99+' : item.badge}
+                    </Badge>
+                  )}
                 </Link>
               </Button>
             ))}
@@ -145,7 +172,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               variant={isActivePath(item.path) ? "default" : "ghost"}
               size="sm"
               asChild
-              className="flex-col h-auto py-2"
+              className="flex-col h-auto py-2 relative"
             >
               <Link 
                 to={item.path}
@@ -153,6 +180,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               >
                 <item.icon className="w-4 h-4" />
                 <span className="text-xs mt-1 text-foreground">{item.label}</span>
+                {item.badge > 0 && (
+                  <Badge 
+                    variant="destructive" 
+                    className="absolute -top-1 -right-1 h-4 w-4 p-0 text-xs flex items-center justify-center"
+                  >
+                    {item.badge > 9 ? '9+' : item.badge}
+                  </Badge>
+                )}
               </Link>
             </Button>
           ))}

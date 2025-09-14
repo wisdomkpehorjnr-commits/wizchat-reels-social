@@ -19,6 +19,7 @@ import { useToast } from '@/hooks/use-toast';
 import ClickableUserInfo from './ClickableUserInfo';
 import ConfirmationDialog from './ui/confirmation-dialog';
 import { useDownload } from '@/hooks/useDownload';
+import ImageModal from './ImageModal';
 
 interface PostCardProps {
   post: any;
@@ -124,6 +125,8 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
   const [showDownloadConfirm, setShowDownloadConfirm] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState('');
   const [isVideoDownload, setIsVideoDownload] = useState(false);
+  const [imageModalOpen, setImageModalOpen] = useState(false);
+  const [imageModalSrc, setImageModalSrc] = useState('');
 
   const handleLongPressStart = (mediaUrl: string, isVideo: boolean) => {
     const timer = setTimeout(() => {
@@ -238,10 +241,14 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
                 <img 
                   src={post.imageUrl} 
                   alt="Post content" 
-                  className="w-full object-cover max-h-96 rounded-lg cursor-pointer" 
+                  className="w-full object-cover max-h-96 rounded-lg cursor-pointer hover:opacity-90 transition-opacity" 
                   onLoad={() => console.log('Image loaded successfully:', post.imageUrl)}
                   onError={(e) => {
                     console.error('Failed to load image:', post.imageUrl);
+                  }}
+                  onClick={() => {
+                    setImageModalSrc(post.imageUrl!);
+                    setImageModalOpen(true);
                   }}
                   onTouchStart={() => handleLongPressStart(post.imageUrl!, false)}
                   onTouchEnd={handleLongPressEnd}
@@ -376,6 +383,13 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
         onConfirm={handleDownloadConfirm}
         confirmText="Download"
         cancelText="Cancel"
+      />
+      
+      <ImageModal
+        src={imageModalSrc}
+        alt="Post image"
+        isOpen={imageModalOpen}
+        onClose={() => setImageModalOpen(false)}
       />
     </Card>
   );

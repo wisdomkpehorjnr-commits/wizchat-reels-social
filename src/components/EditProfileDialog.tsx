@@ -44,13 +44,30 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({ open, onOpenChang
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setAvatarFile(file);
-      const reader = new FileReader();
-      reader.onload = () => setAvatarPreview(reader.result as string);
-      reader.readAsDataURL(file);
+      try {
+        // Compress image for better performance on mobile
+        const compressedFile = await MediaService.compressImage(file, 300, 0.9);
+        setAvatarFile(compressedFile);
+        
+        const reader = new FileReader();
+        reader.onload = () => setAvatarPreview(reader.result as string);
+        reader.readAsDataURL(compressedFile);
+        
+        toast({
+          title: "Image Selected",
+          description: "Profile picture ready to upload",
+        });
+      } catch (error) {
+        console.error('Error processing image:', error);
+        toast({
+          title: "Error",
+          description: "Failed to process image. Please try again.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -74,7 +91,15 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({ open, onOpenChang
 
       // Upload new avatar if selected
       if (avatarFile) {
-        avatarUrl = await MediaService.uploadAvatar(avatarFile);
+        try {
+          avatarUrl = await MediaService.uploadAvatar(avatarFile);
+          toast({
+            title: "Upload Successful",
+            description: "Profile picture uploaded successfully",
+          });
+        } catch (error) {
+          throw new Error('Failed to upload profile picture');
+        }
       }
 
       // Upload new cover if selected

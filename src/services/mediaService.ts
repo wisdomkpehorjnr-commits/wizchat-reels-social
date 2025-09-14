@@ -95,6 +95,39 @@ export class MediaService {
       img.src = URL.createObjectURL(file);
     });
   }
+
+  static async generateVideoThumbnail(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement('video');
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d')!;
+
+      video.onloadedmetadata = () => {
+        video.currentTime = 0.5; // Capture frame at 0.5 seconds
+      };
+
+      video.oncanplay = () => {
+        canvas.width = Math.min(video.videoWidth, 300);
+        canvas.height = Math.min(video.videoHeight, 300);
+        
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+          } else {
+            reject(new Error('Failed to generate thumbnail'));
+          }
+        }, 'image/jpeg', 0.8);
+      };
+
+      video.onerror = () => reject(new Error('Failed to load video'));
+      video.src = URL.createObjectURL(file);
+      video.load();
+    });
+  }
 }
 
 // Export both named and default for backward compatibility

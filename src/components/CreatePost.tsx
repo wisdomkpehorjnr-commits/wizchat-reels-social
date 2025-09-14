@@ -21,10 +21,21 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      setSelectedFile(file);
+      try {
+        // Generate video thumbnail for better previews
+        if (file.type.startsWith('video/')) {
+          const thumbnail = await MediaService.generateVideoThumbnail(file);
+          setSelectedFile({ ...file, thumbnailUrl: thumbnail } as any);
+        } else {
+          setSelectedFile(file);
+        }
+      } catch (error) {
+        console.error('Error processing file:', error);
+        setSelectedFile(file);
+      }
     }
   };
 

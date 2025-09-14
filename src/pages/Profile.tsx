@@ -54,48 +54,65 @@ const Profile = () => {
         // If viewing someone else's profile, fetch their data first
         if (userIdentifier) {
           try {
-            // Use supabase directly for more accurate search
+            // Enhanced user search with better error handling
             const { data: profiles, error } = await supabase
               .from('profiles')
               .select('*')
-              .or(`username.eq.${userIdentifier},id.eq.${userIdentifier}`)
+              .or(`username.ilike.${userIdentifier},id.eq.${userIdentifier}`)
               .limit(1);
 
-            if (error) throw error;
+            if (error) {
+              console.error('Database error fetching user:', error);
+              setError("Check your connection and try again");
+              return;
+            }
 
-            if (profiles && profiles.length > 0) {
-              const foundProfile = profiles[0];
-              const foundUser = {
-                id: foundProfile.id,
-                name: foundProfile.name,
-                username: foundProfile.username,
-                email: foundProfile.email,
-                avatar: foundProfile.avatar,
-                photoURL: foundProfile.avatar,
-                bio: foundProfile.bio,
-                location: foundProfile.location,
-                website: foundProfile.website,
-                birthday: foundProfile.birthday ? new Date(foundProfile.birthday) : undefined,
-                gender: foundProfile.gender,
-                pronouns: foundProfile.pronouns,
-                coverImage: foundProfile.cover_image,
-                isPrivate: foundProfile.is_private,
-                followerCount: foundProfile.follower_count,
-                followingCount: foundProfile.following_count,
-                profileViews: foundProfile.profile_views,
-                createdAt: new Date(foundProfile.created_at)
-              };
-              
-              setProfileUser(foundUser);
-              currentUserId = foundUser.id;
-              currentUser = foundUser;
-            } else {
+            if (!profiles || profiles.length === 0) {
               setError("User not found");
               return;
             }
+
+            const foundProfile = profiles[0];
+            
+            // Validate essential profile data
+            if (!foundProfile.id || !foundProfile.name) {
+              setError("Invalid user profile data");
+              return;
+            }
+
+            const foundUser = {
+              id: foundProfile.id,
+              name: foundProfile.name,
+              username: foundProfile.username || `user_${foundProfile.id.slice(0, 8)}`,
+              email: foundProfile.email,
+              avatar: foundProfile.avatar,
+              photoURL: foundProfile.avatar,
+              bio: foundProfile.bio,
+              location: foundProfile.location,
+              website: foundProfile.website,
+              birthday: foundProfile.birthday ? new Date(foundProfile.birthday) : undefined,
+              gender: foundProfile.gender,
+              pronouns: foundProfile.pronouns,
+              coverImage: foundProfile.cover_image,
+              isPrivate: foundProfile.is_private,
+              followerCount: foundProfile.follower_count || 0,
+              followingCount: foundProfile.following_count || 0,
+              profileViews: foundProfile.profile_views || 0,
+              createdAt: new Date(foundProfile.created_at)
+            };
+            
+            setProfileUser(foundUser);
+            currentUserId = foundUser.id;
+            currentUser = foundUser;
+            
+            toast({
+              title: "Profile Loaded",
+              description: `Viewing ${foundUser.name}'s profile`,
+            });
+            
           } catch (error) {
             console.error('Error fetching user:', error);
-            setError("Failed to load user profile");
+            setError("Failed to load user profile. Please try again.");
             return;
           }
         }
