@@ -160,7 +160,7 @@ const VoiceRecorder = ({ onVoiceMessage, onCancel }: VoiceRecorderProps) => {
           </span>
         </div>
         
-        <Button size="sm" onClick={sendVoiceMessage} className="h-8 bg-green-600 hover:bg-green-700">
+        <Button size="sm" onClick={sendVoiceMessage} className="h-8 bg-green-600 hover:bg-green-700 text-white">
           <Send className="h-4 w-4" />
         </Button>
         

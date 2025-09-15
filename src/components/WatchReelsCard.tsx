@@ -37,43 +37,32 @@ const WatchReelsCard = ({ reelPosts }: WatchReelsCardProps) => {
         </div>
       </CardHeader>
       
-      <CardContent className="pt-0">
-        <div className="grid grid-cols-3 gap-2">
-          {reelPosts.slice(0, 6).map((post, index) => (
-            <div key={post.id} className="relative aspect-video rounded-lg overflow-hidden bg-muted">
-              {post.videoUrl ? (
-                <video 
-                  src={post.videoUrl} 
-                  className="w-full h-full object-cover"
-                  muted
-                  preload="metadata"
-                  poster={post.imageUrl}
-                />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center">
-                  <Video className="w-6 h-6 text-primary" />
-                </div>
-              )}
-              <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                <Play className="w-4 h-4 text-white" />
-              </div>
-            </div>
-          ))}
-          
-          {reelPosts.length > 6 && (
-            <div className="aspect-video rounded-lg bg-muted flex items-center justify-center border-2 border-dashed border-primary/30">
-              <div className="text-center">
-                <Video className="w-4 h-4 text-primary mx-auto mb-1" />
-                <span className="text-xs text-primary font-medium">+{reelPosts.length - 6}</span>
-              </div>
+      <CardContent className="pt-0 p-0">
+        <div className="relative aspect-video rounded-lg overflow-hidden bg-muted">
+          {reelPosts.length > 0 && reelPosts[0].imageUrl ? (
+            <img 
+              src={reelPosts[0].imageUrl} 
+              alt="Featured reel"
+              className="w-full h-full object-cover"
+            />
+          ) : reelPosts.length > 0 && reelPosts[0].videoUrl ? (
+            <video 
+              src={reelPosts[0].videoUrl} 
+              className="w-full h-full object-cover"
+              muted
+              preload="metadata"
+            />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center">
+              <Video className="w-8 h-8 text-primary" />
             </div>
           )}
-        </div>
-        
-        <div className="mt-4 text-center">
-          <p className="text-sm text-muted-foreground">
-            Tap to watch all videos in full screen
-          </p>
+          <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+            <div className="text-center text-white">
+              <Play className="w-12 h-12 mx-auto mb-2" />
+              <p className="text-sm font-medium">Watch {reelPosts.length} Reel{reelPosts.length !== 1 ? 's' : ''}</p>
+            </div>
+          </div>
         </div>
       </CardContent>
     </Card>

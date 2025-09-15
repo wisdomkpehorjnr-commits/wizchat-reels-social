@@ -9,6 +9,7 @@ import { Friend, User } from '@/types';
 import { dataService } from '@/services/dataService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import OnlineStatusIndicator from '@/components/OnlineStatusIndicator';
 
 const Chat = () => {
   const { user } = useAuth();
@@ -128,11 +129,14 @@ const Chat = () => {
                         </Avatar>
                         
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-medium truncate text-foreground">
-                            {friend.name}
-                          </h3>
+                          <div className="flex items-center space-x-2">
+                            <h3 className="font-medium truncate text-foreground">
+                              {friend.name}
+                            </h3>
+                            <OnlineStatusIndicator userId={friend.id} />
+                          </div>
                           <p className="text-sm text-muted-foreground">
-                            Active now
+                            {friend.username ? `@${friend.username}` : 'Active now'}
                           </p>
                         </div>
                         

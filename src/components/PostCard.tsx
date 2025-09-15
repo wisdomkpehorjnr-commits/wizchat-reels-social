@@ -37,6 +37,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
   const [editedContent, setEditedContent] = useState(post.content);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+  const [longPressProgress, setLongPressProgress] = useState(0);
   const { downloadMedia } = useDownload();
 
   // Load likes when component mounts
@@ -129,10 +130,25 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
   const [imageModalSrc, setImageModalSrc] = useState('');
 
   const handleLongPressStart = (mediaUrl: string, isVideo: boolean) => {
+    setLongPressProgress(0);
+    const startTime = Date.now();
+    
+    const progressInterval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min((elapsed / 4000) * 100, 100);
+      setLongPressProgress(progress);
+      
+      if (elapsed >= 4000) {
+        clearInterval(progressInterval);
+      }
+    }, 50);
+    
     const timer = setTimeout(() => {
       setDownloadUrl(mediaUrl);
       setIsVideoDownload(isVideo);
       setShowDownloadConfirm(true);
+      clearInterval(progressInterval);
+      setLongPressProgress(100);
     }, 4000); // Extended to 4 seconds
     setLongPressTimer(timer);
   };
@@ -148,6 +164,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
       clearTimeout(longPressTimer);
       setLongPressTimer(null);
     }
+    setLongPressProgress(0);
   };
 
   const handleUpdatePost = async () => {

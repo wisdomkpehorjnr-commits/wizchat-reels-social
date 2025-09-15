@@ -15,6 +15,7 @@ import { Calendar, MapPin, Link as LinkIcon, Edit, MessageCircle, UserPlus, User
 import EditProfileDialog from '@/components/EditProfileDialog';
 import PostCard from '@/components/PostCard';
 import ReelCard from '@/components/ReelCard';
+import ImageModal from '@/components/ImageModal';
 import { useToast } from '@/components/ui/use-toast';
 import { useNavigate, useParams } from 'react-router-dom';
 
@@ -35,6 +36,7 @@ const Profile = () => {
   const [activeTab, setActiveTab] = useState('posts');
   const [profileUser, setProfileUser] = useState(null);
   const [error, setError] = useState<string | null>(null);
+  const [showImageModal, setShowImageModal] = useState<string | null>(null);
   
   // Determine if this is the current user's profile or someone else's
   const isOwnProfile = !userIdentifier;
@@ -291,8 +293,11 @@ const Profile = () => {
           <CardContent className="relative p-6">
             <div className="flex flex-col md:flex-row items-start md:items-end space-y-4 md:space-y-0 md:space-x-6 -mt-16 md:-mt-12">
               {/* Profile Picture */}
-              <div className="relative">
-                <Avatar className="w-32 h-32 border-4 border-white/20 backdrop-blur-sm bg-white/10">
+                <div className="relative">
+                <Avatar 
+                  className="w-32 h-32 border-4 border-white/20 backdrop-blur-sm bg-white/10 cursor-pointer hover:scale-105 transition-transform"
+                  onClick={() => targetUser?.avatar && setShowImageModal(targetUser.avatar)}
+                >
                   <AvatarImage src={targetUser?.avatar || targetUser?.photoURL} />
                   <AvatarFallback className="text-4xl bg-gradient-to-br from-purple-400 to-pink-400 text-white">
                     {targetUser?.name?.charAt(0)}
@@ -307,14 +312,14 @@ const Profile = () => {
               
               <div className="flex-1 space-y-4">
                 <div>
-                  <h1 className="text-3xl font-bold text-white">{targetUser?.name}</h1>
-                  <p className="text-white/80">@{targetUser?.username}</p>
+                  <h1 className="text-3xl font-bold text-strong-contrast profile-text">{targetUser?.name}</h1>
+                  <p className="text-strong-contrast/80 profile-bio">@{targetUser?.username}</p>
                   {targetUser?.bio && (
-                    <p className="text-white/90 mt-2">{targetUser.bio}</p>
+                    <p className="text-strong-contrast/90 profile-bio mt-2">{targetUser.bio}</p>
                   )}
                 </div>
                 
-                <div className="flex flex-wrap gap-4 text-sm text-white/80">
+                <div className="flex flex-wrap gap-4 text-sm text-strong-contrast/80">
                   <div className="flex items-center space-x-1">
                     <Calendar className="w-4 h-4" />
                     <span>Joined {new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(targetUser?.createdAt || new Date())}</span>
@@ -328,7 +333,7 @@ const Profile = () => {
                   {targetUser?.website && (
                     <div className="flex items-center space-x-1">
                       <LinkIcon className="w-4 h-4" />
-                      <a href={targetUser.website} target="_blank" rel="noopener noreferrer" className="hover:text-white">
+                      <a href={targetUser.website} target="_blank" rel="noopener noreferrer" className="hover:text-strong-contrast">
                         {targetUser.website}
                       </a>
                     </div>
@@ -336,22 +341,22 @@ const Profile = () => {
                 </div>
                 
                 {/* Stats */}
-                <div className="flex space-x-6">
+                <div className="flex space-x-6 profile-stats">
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-white">{userPosts.length}</p>
-                    <p className="text-sm text-white/80">Posts</p>
+                    <p className="text-2xl font-bold text-strong-contrast">{userPosts.length}</p>
+                    <p className="text-sm text-strong-contrast/80">Posts</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-white">{userReels.length}</p>
-                    <p className="text-sm text-white/80">Reels</p>
+                    <p className="text-2xl font-bold text-strong-contrast">{userReels.length}</p>
+                    <p className="text-sm text-strong-contrast/80">Reels</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-white">{targetUser?.followerCount || 0}</p>
-                    <p className="text-sm text-white/80">Followers</p>
+                    <p className="text-2xl font-bold text-strong-contrast">{targetUser?.followerCount || 0}</p>
+                    <p className="text-sm text-strong-contrast/80">Followers</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-white">{targetUser?.followingCount || 0}</p>
-                    <p className="text-sm text-white/80">Following</p>
+                    <p className="text-2xl font-bold text-strong-contrast">{targetUser?.followingCount || 0}</p>
+                    <p className="text-sm text-strong-contrast/80">Following</p>
                   </div>
                 </div>
               </div>
@@ -362,7 +367,7 @@ const Profile = () => {
                   <>
                     <Button 
                       variant="outline" 
-                      className="backdrop-blur-sm bg-white/10 border-white/20 text-white hover:bg-white/20"
+                      className="backdrop-blur-sm bg-white/10 border-white/20 text-strong-contrast hover:bg-white/20"
                       onClick={() => setShowEditDialog(true)}
                     >
                       <Edit className="w-4 h-4 mr-2" />
@@ -370,7 +375,7 @@ const Profile = () => {
                     </Button>
                     <Button 
                       variant="outline"
-                      className="backdrop-blur-sm bg-white/10 border-white/20 text-white hover:bg-white/20"
+                      className="backdrop-blur-sm bg-white/10 border-white/20 text-strong-contrast hover:bg-white/20"
                     >
                       <Settings className="w-4 h-4" />
                     </Button>
@@ -379,7 +384,7 @@ const Profile = () => {
                   <>
                     <Button 
                       variant="outline" 
-                      className="backdrop-blur-sm bg-white/10 border-white/20 text-white hover:bg-white/20"
+                      className="backdrop-blur-sm bg-white/10 border-white/20 text-strong-contrast hover:bg-white/20"
                       onClick={handleFollow}
                     >
                       {isFollowing ? <UserMinus className="w-4 h-4 mr-2" /> : <UserPlus className="w-4 h-4 mr-2" />}
@@ -387,7 +392,7 @@ const Profile = () => {
                     </Button>
                     <Button 
                       variant="outline"
-                      className="backdrop-blur-sm bg-white/10 border-white/20 text-white hover:bg-white/20"
+                      className="backdrop-blur-sm bg-white/10 border-white/20 text-strong-contrast hover:bg-white/20"
                     >
                       <MessageCircle className="w-4 h-4 mr-2" />
                       Message
@@ -429,7 +434,7 @@ const Profile = () => {
               
               {userPosts.length === 0 && (
                 <div className="text-center py-12">
-                  <p className="text-white/60">No posts yet</p>
+                  <p className="text-strong-contrast/60 card-text">No posts yet</p>
                 </div>
               )}
             </TabsContent>
@@ -451,7 +456,7 @@ const Profile = () => {
               
               {userReels.length === 0 && (
                 <div className="text-center py-12">
-                  <p className="text-white/60">No reels yet</p>
+                  <p className="text-strong-contrast/60 card-text">No reels yet</p>
                 </div>
               )}
             </TabsContent>
@@ -513,6 +518,16 @@ const Profile = () => {
           user={user}
         />
       </div>
+      
+      {/* Profile Image Modal */}
+      {showImageModal && (
+        <ImageModal
+          src={showImageModal}
+          alt="Profile Picture"
+          isOpen={!!showImageModal}
+          onClose={() => setShowImageModal(null)}
+        />
+      )}
     </Layout>
   );
 };

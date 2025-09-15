@@ -1,16 +1,18 @@
 
 import { useState, useEffect, useRef } from 'react';
-import { Send, Paperclip, Mic, X, Users } from 'lucide-react';
+import { Send, Paperclip, Mic, X, Users, Download, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { User, Message } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { dataService } from '@/services/dataService';
 import { MediaService } from '@/services/mediaService';
 import VoiceRecorder from './VoiceRecorder';
 import MessageItem from './MessageItem';
+import OnlineStatusIndicator from './OnlineStatusIndicator';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -263,7 +265,10 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
           </Avatar>
           <div>
             <h3 className="font-semibold text-foreground">{chatUser.name}</h3>
-            <p className="text-sm text-muted-foreground">@{chatUser.username}</p>
+            <div className="flex items-center space-x-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <p className="text-sm text-muted-foreground">Active now</p>
+            </div>
           </div>
         </div>
         <Button variant="ghost" size="sm" onClick={onClose}>
@@ -312,6 +317,11 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
             onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
             className="flex-1 bg-background text-foreground"
           />
+          
+          {/* Typing indicator space */}
+          <div className="absolute -top-8 left-0 text-xs text-muted-foreground">
+            {/* Typing indicator would go here */}
+          </div>
           
           <VoiceRecorder
             onVoiceMessage={handleVoiceMessage}

@@ -37,7 +37,9 @@ export class MediaService {
   }
 
   static async uploadAvatar(file: File): Promise<string> {
-    return this.uploadFile(file, 'avatars');
+    // Compress image for better mobile performance
+    const compressedFile = await this.compressImage(file, 800, 0.8);
+    return this.uploadFile(compressedFile, 'avatars');
   }
 
   static async uploadCover(file: File): Promise<string> {
@@ -53,7 +55,27 @@ export class MediaService {
   }
 
   static async uploadPostVideo(file: File): Promise<string> {
-    return this.uploadFile(file, 'posts', 'videos');
+    const videoUrl = await this.uploadFile(file, 'posts', 'videos');
+    
+    // Generate thumbnail for better mobile APK support
+    try {
+      const thumbnailDataUrl = await this.generateVideoThumbnail(file);
+      const thumbnailBlob = await fetch(thumbnailDataUrl).then(r => r.blob());
+      const thumbnailFile = new File([thumbnailBlob], 'thumbnail.jpg', { type: 'image/jpeg' });
+      
+      // Upload thumbnail
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const thumbnailPath = `${user.id}/thumbnails/${Date.now()}.jpg`;
+        await supabase.storage
+          .from('posts')
+          .upload(thumbnailPath, thumbnailFile);
+      }
+    } catch (error) {
+      console.warn('Failed to generate video thumbnail:', error);
+    }
+    
+    return videoUrl;
   }
 
   static async uploadStoryMedia(file: File): Promise<string> {
@@ -103,12 +125,21 @@ export class MediaService {
       const ctx = canvas.getContext('2d')!;
 
       video.onloadedmetadata = () => {
-        video.currentTime = 0.5; // Capture frame at 0.5 seconds
+        video.currentTime = 1; // Capture frame at 1 second for better quality
       };
 
       video.oncanplay = () => {
-        canvas.width = Math.min(video.videoWidth, 300);
-        canvas.height = Math.min(video.videoHeight, 300);
+        // Optimize thumbnail size for mobile APK
+        const maxSize = 300;
+        const aspectRatio = video.videoWidth / video.videoHeight;
+        
+        if (aspectRatio > 1) {
+          canvas.width = maxSize;
+          canvas.height = maxSize / aspectRatio;
+        } else {
+          canvas.width = maxSize * aspectRatio;
+          canvas.height = maxSize;
+        }
         
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         
@@ -120,11 +151,13 @@ export class MediaService {
           } else {
             reject(new Error('Failed to generate thumbnail'));
           }
-        }, 'image/jpeg', 0.8);
+        }, 'image/jpeg', 0.9);
       };
 
       video.onerror = () => reject(new Error('Failed to load video'));
+      video.crossOrigin = 'anonymous';
       video.src = URL.createObjectURL(file);
+      video.muted = true; // Ensure it can play on mobile
       video.load();
     });
   }

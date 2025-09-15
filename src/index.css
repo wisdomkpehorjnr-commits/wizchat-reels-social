@@ -154,24 +154,44 @@ input::placeholder, textarea::placeholder {
   color: hsl(var(--primary-foreground)) !important;
 }
 
-/* Fix button variants */
-.variant-outline {
-  border: 2px solid hsl(var(--primary));
-  background-color: transparent;
-  color: hsl(var(--primary));
+/* Enhanced contrast fixes for light and dark mode */
+:root {
+  --text-strong-contrast: 0 0% 0%;
 }
 
-.variant-outline:hover {
-  background-color: hsl(var(--primary));
-  color: hsl(var(--primary-foreground));
+.dark {
+  --text-strong-contrast: 0 0% 100%;
 }
 
-.variant-ghost {
-  background-color: transparent;
+/* Ensure all text elements have proper contrast */
+h1, h2, h3, h4, h5, h6, p, span, div {
   color: hsl(var(--foreground));
 }
 
-.variant-ghost:hover {
-  background-color: hsl(var(--accent));
-  color: hsl(var(--accent-foreground));
+/* Profile page specific fixes */
+.profile-text {
+  color: hsl(var(--text-strong-contrast)) !important;
+}
+
+.profile-bio {
+  color: hsl(var(--text-strong-contrast) / 0.8) !important;
+}
+
+.profile-stats {
+  color: hsl(var(--text-strong-contrast)) !important;
+}
+
+/* Card content text visibility */
+.card-text {
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Tab content visibility */
+.tab-content {
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Button text fixes */
+button {
+  color: hsl(var(--foreground));
 }
