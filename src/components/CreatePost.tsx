@@ -19,22 +19,28 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
   const { toast } = useToast();
   const [content, setContent] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       try {
-        // Generate video thumbnail for better previews
+        setSelectedFile(file);
+        
+        // Generate preview URL
         if (file.type && file.type.startsWith('video/')) {
+          // Generate video thumbnail for better previews
           const thumbnail = await MediaService.generateVideoThumbnail(file);
-          setSelectedFile({ ...file, thumbnailUrl: thumbnail } as any);
+          setPreviewUrl(thumbnail);
         } else {
-          setSelectedFile(file);
+          // Use file blob URL for images
+          setPreviewUrl(URL.createObjectURL(file));
         }
       } catch (error) {
         console.error('Error processing file:', error);
         setSelectedFile(file);
+        setPreviewUrl(URL.createObjectURL(file));
       }
     }
   };
@@ -86,6 +92,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
       // Reset form
       setContent('');
       setSelectedFile(null);
+      setPreviewUrl('');
       
       // Reset file input
       const fileInput = document.getElementById('file-input') as HTMLInputElement;
@@ -134,13 +141,13 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
             </div>
           </div>
           
-          {selectedFile && (
+          {selectedFile && previewUrl && (
             <div className="mt-3 p-3 border border-border rounded-lg">
               <div className="flex items-center space-x-2">
                 {selectedFile.type && selectedFile.type.startsWith('image/') ? (
                   <div className="flex items-center space-x-2">
                     <img 
-                      src={URL.createObjectURL(selectedFile)} 
+                      src={previewUrl} 
                       alt="Preview" 
                       className="w-16 h-16 object-cover rounded"
                     />
@@ -151,11 +158,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
                   </div>
                 ) : (
                   <div className="flex items-center space-x-2">
-                    <video 
-                      src={URL.createObjectURL(selectedFile)} 
+                    <img 
+                      src={previewUrl} 
+                      alt="Video thumbnail"
                       className="w-16 h-16 object-cover rounded"
-                      muted
-                      preload="metadata"
                     />
                     <div>
                       <p className="text-sm font-medium">Video selected</p>
@@ -167,7 +173,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={() => setSelectedFile(null)}
+                  onClick={() => {
+                    setSelectedFile(null);
+                    setPreviewUrl('');
+                  }}
                   className="text-muted-foreground hover:text-foreground ml-auto"
                 >
                   Remove
