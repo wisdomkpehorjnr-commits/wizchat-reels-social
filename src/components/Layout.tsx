@@ -145,7 +145,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="cursor-pointer text-foreground p-0">
+                <DropdownMenuItem 
+                  className="cursor-pointer text-foreground p-0"
+                  onSelect={(e) => e.preventDefault()}
+                >
                   <LogoutButton 
                     variant="ghost" 
                     size="sm" 
