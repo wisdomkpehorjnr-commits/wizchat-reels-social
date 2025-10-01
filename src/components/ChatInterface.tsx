@@ -17,6 +17,7 @@ import { MediaService } from '@/services/mediaService';
 import VoiceRecorder from './VoiceRecorder';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 
 interface ChatInterfaceProps {
   chat: Chat;
@@ -45,6 +46,8 @@ const ChatInterface = ({ chat, onClose }: ChatInterfaceProps) => {
   const [availableUsers, setAvailableUsers] = useState<User[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isOnline = useOnlineStatus(chat.isGroup ? '' : chat.participants[0]?.id || '');
+
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -330,7 +333,7 @@ const ChatInterface = ({ chat, onClose }: ChatInterfaceProps) => {
               {chat.isGroup ? chat.name : chat.participants[0]?.name}
             </h3>
             <p className="text-sm text-muted-foreground">
-              {chat.isGroup ? `${chat.participants.length} members` : 'Active now'}
+              {chat.isGroup ? `${chat.participants.length} members` : (isOnline ? 'Active now' : '')}
             </p>
           </div>
         </div>

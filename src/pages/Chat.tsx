@@ -136,7 +136,7 @@ const Chat = () => {
                             <OnlineStatusIndicator userId={friend.id} />
                           </div>
                           <p className="text-sm text-muted-foreground">
-                            {friend.username ? `@${friend.username}` : 'Active now'}
+                            {friend.username ? `@${friend.username}` : ''}
                           </p>
                         </div>
                         

@@ -15,6 +15,7 @@ import MessageItem from './MessageItem';
 import OnlineStatusIndicator from './OnlineStatusIndicator';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 
 interface ChatPopupProps {
   user: User;
@@ -30,6 +31,8 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
   const [loading, setLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isOnline = useOnlineStatus(chatUser.id);
+
 
   useEffect(() => {
     initializeChat();
@@ -265,10 +268,12 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
           </Avatar>
           <div>
             <h3 className="font-semibold text-foreground">{chatUser.name}</h3>
-            <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <p className="text-sm text-muted-foreground">Active now</p>
-            </div>
+            {isOnline && (
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <p className="text-sm text-muted-foreground">Active now</p>
+              </div>
+            )}
           </div>
         </div>
         <Button variant="ghost" size="sm" onClick={onClose}>

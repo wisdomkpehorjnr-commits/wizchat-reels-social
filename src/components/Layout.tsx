@@ -30,7 +30,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { badges, clearBadge } = useNotificationBadges();
 
   const navItems = [
-    { icon: Home, label: 'Home', path: '/', badge: badges.home },
+    { icon: Home, label: 'Home', path: '/', badge: 0 }, // No badge for Home
     { icon: PlayCircle, label: 'Reels', path: '/reels', badge: badges.reels },
     { icon: MessageCircle, label: 'Chat', path: '/chat', badge: badges.chat },
     { icon: Users, label: 'Friends', path: '/friends', badge: badges.friends },
