@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Play, Video } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import reelsPreview from '@/assets/reels-preview.jpg';
 
 interface WatchReelsCardProps {
   reelPosts: any[];
@@ -39,28 +40,15 @@ const WatchReelsCard = ({ reelPosts }: WatchReelsCardProps) => {
       
       <CardContent className="pt-0 p-0">
         <div className="relative aspect-video rounded-lg overflow-hidden bg-muted">
-          {reelPosts.length > 0 && reelPosts[0].imageUrl ? (
-            <img 
-              src={reelPosts[0].imageUrl} 
-              alt="Featured reel"
-              className="w-full h-full object-cover"
-            />
-          ) : reelPosts.length > 0 && reelPosts[0].videoUrl ? (
-            <video 
-              src={reelPosts[0].videoUrl} 
-              className="w-full h-full object-cover"
-              muted
-              preload="metadata"
-            />
-          ) : (
-            <div className="w-full h-full bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center">
-              <Video className="w-8 h-8 text-primary" />
-            </div>
-          )}
-          <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-            <div className="text-center text-white">
-              <Play className="w-12 h-12 mx-auto mb-2" />
-              <p className="text-sm font-medium">Watch {reelPosts.length} Reel{reelPosts.length !== 1 ? 's' : ''}</p>
+          <img 
+            src={reelsPreview} 
+            alt="Watch exciting reels on WizChat"
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+            <div className="text-center text-white drop-shadow-lg">
+              <Play className="w-16 h-16 mx-auto mb-2" />
+              <p className="text-lg font-bold">Watch {reelPosts.length} Reel{reelPosts.length !== 1 ? 's' : ''}</p>
             </div>
           </div>
         </div>

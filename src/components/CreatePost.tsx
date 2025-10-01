@@ -58,9 +58,17 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
       let mediaType: 'text' | 'image' | 'video' = 'text';
       
       if (selectedFile) {
-        const uploadResult = await MediaService.uploadPostMedia(selectedFile);
-        mediaUrl = uploadResult;
-        mediaType = selectedFile.type && selectedFile.type.startsWith('image/') ? 'image' : 'video';
+        // Use proper upload methods based on file type
+        if (selectedFile.type && selectedFile.type.startsWith('video/')) {
+          mediaUrl = await MediaService.uploadPostVideo(selectedFile);
+          mediaType = 'video';
+        } else if (selectedFile.type && selectedFile.type.startsWith('image/')) {
+          mediaUrl = await MediaService.uploadPostImage(selectedFile);
+          mediaType = 'image';
+        } else {
+          mediaUrl = await MediaService.uploadPostMedia(selectedFile);
+          mediaType = selectedFile.type && selectedFile.type.startsWith('image/') ? 'image' : 'video';
+        }
       }
 
       const postData = {
@@ -68,6 +76,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
         imageUrl: mediaType === 'image' ? mediaUrl : undefined,
         videoUrl: mediaType === 'video' ? mediaUrl : undefined,
         mediaType,
+        isReel: mediaType === 'video', // Automatically mark videos as reels
       };
 
       if (onPostCreated) {
