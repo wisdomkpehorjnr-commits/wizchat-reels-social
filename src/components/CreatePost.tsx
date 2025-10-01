@@ -26,7 +26,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
     if (file) {
       try {
         // Generate video thumbnail for better previews
-        if (file.type.startsWith('video/')) {
+        if (file.type && file.type.startsWith('video/')) {
           const thumbnail = await MediaService.generateVideoThumbnail(file);
           setSelectedFile({ ...file, thumbnailUrl: thumbnail } as any);
         } else {
@@ -60,7 +60,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
       if (selectedFile) {
         const uploadResult = await MediaService.uploadPostMedia(selectedFile);
         mediaUrl = uploadResult;
-        mediaType = selectedFile.type.startsWith('image/') ? 'image' : 'video';
+        mediaType = selectedFile.type && selectedFile.type.startsWith('image/') ? 'image' : 'video';
       }
 
       const postData = {
@@ -128,7 +128,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
           {selectedFile && (
             <div className="mt-3 p-3 border border-border rounded-lg">
               <div className="flex items-center space-x-2">
-                {selectedFile.type.startsWith('image/') ? (
+                {selectedFile.type && selectedFile.type.startsWith('image/') ? (
                   <div className="flex items-center space-x-2">
                     <img 
                       src={URL.createObjectURL(selectedFile)} 

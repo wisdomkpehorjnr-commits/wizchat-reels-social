@@ -87,6 +87,7 @@ export class MediaService {
   }
 
   static getMediaType(file: File): 'image' | 'video' | 'audio' {
+    if (!file?.type) return 'image';
     if (file.type.startsWith('video/')) return 'video';
     if (file.type.startsWith('audio/')) return 'audio';
     return 'image';
