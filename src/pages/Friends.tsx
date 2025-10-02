@@ -15,12 +15,15 @@ import {
   Users, 
   Clock,
   Check,
-  X
+  X,
+  Heart
 } from 'lucide-react';
 import { Friend, User } from '@/types';
 import { dataService } from '@/services/dataService';
+import { ProfileService } from '@/services/profileService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import ConfirmationDialog from '@/components/ui/confirmation-dialog';
 
 
 const Friends = () => {
@@ -31,6 +34,8 @@ const Friends = () => {
   const [searchResults, setSearchResults] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [confirmUnfriend, setConfirmUnfriend] = useState<string | null>(null);
+  const [followingStates, setFollowingStates] = useState<Record<string, boolean>>({});
   
 
   useEffect(() => {
@@ -58,6 +63,15 @@ const Friends = () => {
       setLoading(true);
       const userFriends = await dataService.getFriends();
       setFriends(userFriends);
+      
+      // Load following states for all friends
+      const states: Record<string, boolean> = {};
+      for (const friend of userFriends) {
+        const friendUser = friend.requester.id === user.id ? friend.addressee : friend.requester;
+        const isFollowing = await dataService.checkIfFollowing(friendUser.id);
+        states[friendUser.id] = isFollowing;
+      }
+      setFollowingStates(states);
     } catch (error) {
       console.error('Error loading friends:', error);
       toast({
@@ -133,8 +147,7 @@ const Friends = () => {
 
   const unfriendUser = async (friendId: string) => {
     try {
-      // This would need to be implemented in dataService
-      // await dataService.unfriend(friendId);
+      await dataService.unfriend(friendId);
       toast({
         title: "Success",
         description: "User unfriended"
@@ -145,6 +158,33 @@ const Friends = () => {
       toast({
         title: "Error",
         description: "Failed to unfriend user",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleFollowToggle = async (userId: string, currentlyFollowing: boolean) => {
+    try {
+      if (currentlyFollowing) {
+        await ProfileService.unfollowUser(userId);
+        setFollowingStates(prev => ({ ...prev, [userId]: false }));
+        toast({
+          title: "Unfollowed",
+          description: "You are no longer following this user"
+        });
+      } else {
+        await ProfileService.followUser(userId);
+        setFollowingStates(prev => ({ ...prev, [userId]: true }));
+        toast({
+          title: "Following",
+          description: "You are now following this user!"
+        });
+      }
+    } catch (error) {
+      console.error('Error toggling follow:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update follow status",
         variant: "destructive"
       });
     }
@@ -277,15 +317,26 @@ const Friends = () => {
                           </Link>
                           <p className="text-xs text-muted-foreground mb-2 truncate">@{friendUser.username}</p>
                           
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => unfriendUser(friend.id)}
-                            className="w-full h-7 text-xs text-destructive hover:text-destructive-foreground hover:bg-destructive"
-                          >
-                            <UserMinus className="w-3 h-3 mr-1" />
-                            Remove
-                          </Button>
+                          <div className="space-y-1.5">
+                            <Button
+                              variant={followingStates[friendUser.id] ? "secondary" : "default"}
+                              size="sm"
+                              onClick={() => handleFollowToggle(friendUser.id, followingStates[friendUser.id])}
+                              className="w-full h-7 text-xs"
+                            >
+                              <Heart className={`w-3 h-3 mr-1 ${followingStates[friendUser.id] ? 'fill-current' : ''}`} />
+                              {followingStates[friendUser.id] ? 'Following' : 'Follow'}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setConfirmUnfriend(friend.id)}
+                              className="w-full h-7 text-xs text-destructive hover:text-destructive-foreground hover:bg-destructive"
+                            >
+                              <UserMinus className="w-3 h-3 mr-1" />
+                              Remove
+                            </Button>
+                          </div>
                         </CardContent>
                       </Card>
                     );
@@ -410,6 +461,21 @@ const Friends = () => {
         </div>
       </div>
 
+      <ConfirmationDialog
+        open={!!confirmUnfriend}
+        onOpenChange={(open) => !open && setConfirmUnfriend(null)}
+        title="Unfriend User"
+        description="Are you sure you want to remove this friend? This action cannot be undone."
+        confirmText="Yes, unfriend"
+        cancelText="No, cancel"
+        variant="destructive"
+        onConfirm={() => {
+          if (confirmUnfriend) {
+            unfriendUser(confirmUnfriend);
+            setConfirmUnfriend(null);
+          }
+        }}
+      />
     </Layout>
   );
 };

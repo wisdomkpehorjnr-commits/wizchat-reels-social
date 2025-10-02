@@ -54,6 +54,13 @@ export class ProfileService {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
+    // Get follower's profile for notification
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('name')
+      .eq('id', user.id)
+      .single();
+
     const { error } = await supabase
       .from('friends')
       .insert({
@@ -63,6 +70,17 @@ export class ProfileService {
       });
 
     if (error) throw error;
+
+    // Send notification
+    await supabase
+      .from('notifications')
+      .insert({
+        user_id: userId,
+        type: 'follow',
+        title: 'New Follower',
+        message: `${profile?.name || 'Someone'} is now following you!`,
+        is_read: false
+      });
   }
 
   static async unfollowUser(userId: string): Promise<void> {

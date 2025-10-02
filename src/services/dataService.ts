@@ -434,6 +434,54 @@ export const dataService = {
     }
   },
 
+  async unfriend(friendId: string): Promise<void> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+  
+    const { error } = await supabase
+      .from('friends')
+      .delete()
+      .eq('id', friendId);
+  
+    if (error) {
+      console.error('Error unfriending user:', error);
+      throw error;
+    }
+  },
+
+  async createNotification(userId: string, type: string, title: string, message: string, data?: any): Promise<void> {
+    const { error } = await supabase
+      .from('notifications')
+      .insert({
+        user_id: userId,
+        type,
+        title,
+        message,
+        data,
+        is_read: false
+      });
+
+    if (error) {
+      console.error('Error creating notification:', error);
+      throw error;
+    }
+  },
+
+  async checkIfFollowing(userId: string): Promise<boolean> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
+
+    const { data } = await supabase
+      .from('friends')
+      .select('id')
+      .eq('requester_id', user.id)
+      .eq('addressee_id', userId)
+      .eq('status', 'accepted')
+      .maybeSingle();
+
+    return !!data;
+  },
+
   async getNotifications(): Promise<any[]> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
