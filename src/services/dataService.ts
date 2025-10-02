@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { Post, User, Comment, Reaction, Chat, Message } from '@/types';
+import { Post, User, Comment, Reaction, Chat, Message, MessageReaction } from '@/types';
 
 export const dataService = {
   async getPosts(): Promise<Post[]> {
@@ -917,6 +917,175 @@ export const dataService = {
       throw error;
     }
   },
+
+  async addMessageReaction(messageId: string, emoji: string): Promise<MessageReaction> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    // Check if user already reacted with this emoji
+    const { data: existing } = await supabase
+      .from('message_reactions')
+      .select('id')
+      .eq('message_id', messageId)
+      .eq('user_id', user.id)
+      .eq('emoji', emoji)
+      .maybeSingle();
+
+    if (existing) {
+      // Remove existing reaction (toggle off)
+      await supabase
+        .from('message_reactions')
+        .delete()
+        .eq('id', existing.id);
+      
+      throw new Error('Reaction removed');
+    }
+
+    const { data, error } = await supabase
+      .from('message_reactions')
+      .insert({
+        message_id: messageId,
+        user_id: user.id,
+        emoji: emoji
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error adding reaction:', error);
+      throw error;
+    }
+
+    return {
+      id: data.id,
+      messageId: data.message_id,
+      userId: data.user_id,
+      emoji: data.emoji,
+      createdAt: new Date(data.created_at)
+    };
+  },
+
+  async getMessageReactions(messageId: string): Promise<MessageReaction[]> {
+    const { data, error } = await supabase
+      .from('message_reactions')
+      .select('*')
+      .eq('message_id', messageId);
+
+    if (error) {
+      console.error('Error fetching reactions:', error);
+      throw error;
+    }
+
+    // Fetch user data separately if needed
+    const reactionsWithUsers = await Promise.all(
+      data.map(async (reaction) => {
+        const { data: userData } = await supabase
+          .from('profiles')
+          .select('id, name, username, avatar')
+          .eq('id', reaction.user_id)
+          .single();
+
+        return {
+          id: reaction.id,
+          messageId: reaction.message_id,
+          userId: reaction.user_id,
+          user: userData as User | undefined,
+          emoji: reaction.emoji,
+          createdAt: new Date(reaction.created_at)
+        };
+      })
+    );
+
+    return reactionsWithUsers;
+  },
+
+  async removeMessageReaction(reactionId: string): Promise<void> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { error } = await supabase
+      .from('message_reactions')
+      .delete()
+      .eq('id', reactionId)
+      .eq('user_id', user.id);
+
+    if (error) {
+      console.error('Error removing reaction:', error);
+      throw error;
+    }
+  },
+
+  async pinMessage(chatId: string, messageId: string): Promise<void> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { error } = await supabase
+      .from('pinned_messages')
+      .insert({
+        chat_id: chatId,
+        message_id: messageId,
+        pinned_by: user.id
+      });
+
+    if (error) {
+      console.error('Error pinning message:', error);
+      throw error;
+    }
+  },
+
+  async unpinMessage(chatId: string, messageId: string): Promise<void> {
+    const { error } = await supabase
+      .from('pinned_messages')
+      .delete()
+      .eq('chat_id', chatId)
+      .eq('message_id', messageId);
+
+    if (error) {
+      console.error('Error unpinning message:', error);
+      throw error;
+    }
+  },
+
+  async getPinnedMessages(chatId: string): Promise<Message[]> {
+    const { data, error } = await supabase
+      .from('pinned_messages')
+      .select(`
+        message_id,
+        messages (
+          *,
+          user:profiles!messages_user_id_fkey (
+            id,
+            name,
+            username,
+            avatar
+          )
+        )
+      `)
+      .eq('chat_id', chatId);
+
+    if (error) {
+      console.error('Error fetching pinned messages:', error);
+      throw error;
+    }
+
+    return data.map((item: any) => {
+      const msg = item.messages;
+      return {
+        id: msg.id,
+        chatId: msg.chat_id,
+        userId: msg.user_id,
+        user: msg.user as User,
+        content: msg.content,
+        type: msg.type as 'text' | 'voice' | 'image' | 'video',
+        mediaUrl: msg.media_url,
+        duration: msg.duration,
+        seen: msg.seen,
+        timestamp: new Date(msg.created_at),
+        isPinned: true
+      };
+    });
+  },
+
 
 
   async createGroup(groupData: { name: string; description: string; isPublic: boolean; members: string[] }): Promise<any> {

@@ -103,6 +103,15 @@ export interface Chat {
   unreadCount?: number; // Add unreadCount property
 }
 
+export interface MessageReaction {
+  id: string;
+  messageId: string;
+  userId: string;
+  user?: User;
+  emoji: string;
+  createdAt: Date;
+}
+
 export interface Message {
   id: string;
   chatId: string;
@@ -114,6 +123,8 @@ export interface Message {
   duration?: number;
   timestamp: Date;
   seen: boolean;
+  reactions?: MessageReaction[];
+  isPinned?: boolean;
 }
 
 export interface VoiceCall {
