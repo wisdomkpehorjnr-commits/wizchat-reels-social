@@ -472,11 +472,10 @@ export const dataService = {
     if (!user) return false;
 
     const { data } = await supabase
-      .from('friends')
+      .from('follows')
       .select('id')
-      .eq('requester_id', user.id)
-      .eq('addressee_id', userId)
-      .eq('status', 'accepted')
+      .eq('follower_id', user.id)
+      .eq('following_id', userId)
       .maybeSingle();
 
     return !!data;

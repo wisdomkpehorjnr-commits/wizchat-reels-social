@@ -60,12 +60,12 @@ const Profile = () => {
             const { data: profiles, error } = await supabase
               .from('profiles')
               .select('*')
-              .or(`username.ilike.${userIdentifier},id.eq.${userIdentifier}`)
+              .or(`username.eq.${userIdentifier},id.eq.${userIdentifier}`)
               .limit(1);
 
             if (error) {
               console.error('Database error fetching user:', error);
-              setError("Check your connection and try again");
+              setError("Failed to load profile. Please try again.");
               return;
             }
 
@@ -107,11 +107,6 @@ const Profile = () => {
             currentUserId = foundUser.id;
             currentUser = foundUser;
             
-            toast({
-              title: "Profile Loaded",
-              description: `Viewing ${foundUser.name}'s profile`,
-            });
-            
           } catch (error) {
             console.error('Error fetching user:', error);
             setError("Failed to load user profile. Please try again.");
@@ -145,6 +140,12 @@ const Profile = () => {
             ]);
             setFollowers(followersList);
             setFollowing(followingList);
+            
+            // Check if current user is following this profile (only if viewing someone else's profile)
+            if (!isOwnProfile && currentUserId !== user?.id) {
+              const following = await ProfileService.isFollowing(currentUserId);
+              setIsFollowing(following);
+            }
           } catch (error) {
             console.log('Error fetching social data:', error);
           }
@@ -161,22 +162,36 @@ const Profile = () => {
   }, [user, userIdentifier, isOwnProfile]);
 
   const handleFollow = async () => {
-    if (!user?.id) return;
+    if (!user?.id || !targetUser?.id || isOwnProfile) return;
     
     try {
       if (isFollowing) {
-        await ProfileService.unfollowUser(user.id);
+        await ProfileService.unfollowUser(targetUser.id);
         setIsFollowing(false);
+        // Update counts optimistically
+        if (profileUser) {
+          setProfileUser({
+            ...profileUser,
+            followerCount: Math.max(0, (profileUser.followerCount || 0) - 1)
+          });
+        }
         toast({
           title: "Unfollowed",
-          description: `You unfollowed ${user.name}`,
+          description: `You unfollowed ${targetUser.name}`,
         });
       } else {
-        await ProfileService.followUser(user.id);
+        await ProfileService.followUser(targetUser.id);
         setIsFollowing(true);
+        // Update counts optimistically
+        if (profileUser) {
+          setProfileUser({
+            ...profileUser,
+            followerCount: (profileUser.followerCount || 0) + 1
+          });
+        }
         toast({
           title: "Following",
-          description: `You are now following ${user.name}`,
+          description: `You are now following ${targetUser.name}`,
         });
       }
     } catch (error) {
