@@ -7,11 +7,13 @@ import { MessageSquare, Users, Flame } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { TopicRoom } from '@/types';
+import { useToast } from '@/hooks/use-toast';
 
 const TopicRooms: React.FC = () => {
   const [rooms, setRooms] = useState<TopicRoom[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   useEffect(() => {
     loadRooms();
@@ -99,9 +101,24 @@ const TopicRooms: React.FC = () => {
       }
 
       console.log('Successfully joined room, navigating...');
-      navigate(`/topic-room/${roomId}`);
+      
+      toast({
+        title: "Topic Successfully Joined 🫵🏻😁",
+        description: `You've joined ${rooms.find(r => r.id === roomId)?.name || 'the topic'}!`,
+        duration: 3000,
+      });
+      
+      // Small delay for animation before navigation
+      setTimeout(() => {
+        navigate(`/topic-room/${roomId}`);
+      }, 800);
     } catch (error) {
       console.error('Error joining room:', error);
+      toast({
+        title: "Error",
+        description: "Failed to join topic. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
