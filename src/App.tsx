@@ -15,6 +15,7 @@ import Topics from "./pages/Topics";
 import Profile from "./pages/Profile";
 import Friends from "./pages/Friends";
 import Admin from "./pages/Admin";
+import Settings from "./pages/Settings";
 import TopicRoom from "./pages/TopicRoom";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -41,6 +42,7 @@ const App = () => (
               <Route path="/profile/:userIdentifier" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
               <Route path="/friends" element={<ProtectedRoute><Friends /></ProtectedRoute>} />
               <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+              <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Skeleton } from '@/components/ui/skeleton';
 import { 
   Search, 
   UserPlus, 
@@ -23,16 +24,22 @@ import { dataService } from '@/services/dataService';
 import { ProfileService } from '@/services/profileService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useCache } from '@/hooks/useCache';
 import ConfirmationDialog from '@/components/ui/confirmation-dialog';
 
 
 const Friends = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [friends, setFriends] = useState<Friend[]>([]);
+  const { cachedData: cachedFriends, setCache: setCachedFriends, isStale } = useCache<Friend[]>({ 
+    key: 'friends-list',
+    ttl: 2 * 60 * 1000 // 2 minutes cache
+  });
+  
+  const [friends, setFriends] = useState<Friend[]>(cachedFriends || []);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!cachedFriends);
   const [searchLoading, setSearchLoading] = useState(false);
   const [confirmUnfriend, setConfirmUnfriend] = useState<string | null>(null);
   const [followingStates, setFollowingStates] = useState<Record<string, boolean>>({});
@@ -60,9 +67,17 @@ const Friends = () => {
     if (!user) return;
     
     try {
-      setLoading(true);
+      // Show cached data immediately if available
+      if (!isStale && cachedFriends) {
+        setFriends(cachedFriends);
+        setLoading(false);
+      } else {
+        setLoading(true);
+      }
+      
       const userFriends = await dataService.getFriends();
       setFriends(userFriends);
+      setCachedFriends(userFriends); // Update cache
       
       // Load following states for all friends
       const states: Record<string, boolean> = {};
@@ -285,12 +300,13 @@ const Friends = () => {
               {loading ? (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                   {[...Array(10)].map((_, i) => (
-                    <Card key={i} className="border green-border animate-pulse">
+                    <Card key={i} className="border green-border">
                       <CardContent className="p-3">
-                        <div className="w-12 h-12 bg-muted rounded-full mx-auto mb-2" />
-                        <div className="w-20 h-3 bg-muted rounded mx-auto mb-1" />
-                        <div className="w-16 h-2 bg-muted rounded mx-auto mb-2" />
-                        <div className="w-full h-6 bg-muted rounded" />
+                        <Skeleton className="w-12 h-12 rounded-full mx-auto mb-2" />
+                        <Skeleton className="w-20 h-3 mx-auto mb-1" />
+                        <Skeleton className="w-16 h-2 mx-auto mb-2" />
+                        <Skeleton className="w-full h-6 mb-1" />
+                        <Skeleton className="w-full h-6" />
                       </CardContent>
                     </Card>
                   ))}

@@ -11,11 +11,12 @@ import { dataService } from '@/services/dataService';
 import { ProfileService } from '@/services/profileService';
 import { Post, SavedPost, Follow } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
-import { Calendar, MapPin, Link as LinkIcon, Edit, MessageCircle, UserPlus, UserMinus, Bookmark, Users, Settings } from 'lucide-react';
+import { Calendar, MapPin, Link as LinkIcon, Edit, MessageCircle, UserPlus, UserMinus, Bookmark, Users, UserCircle } from 'lucide-react';
 import EditProfileDialog from '@/components/EditProfileDialog';
 import PostCard from '@/components/PostCard';
 import ReelCard from '@/components/ReelCard';
 import ImageModal from '@/components/ImageModal';
+import AvatarStudio from '@/components/AvatarStudio';
 import { useToast } from '@/components/ui/use-toast';
 import { useNavigate, useParams } from 'react-router-dom';
 
@@ -37,6 +38,7 @@ const Profile = () => {
   const [profileUser, setProfileUser] = useState(null);
   const [error, setError] = useState<string | null>(null);
   const [showImageModal, setShowImageModal] = useState<string | null>(null);
+  const [showAvatarStudio, setShowAvatarStudio] = useState(false);
   
   // Determine if this is the current user's profile or someone else's
   const isOwnProfile = !userIdentifier;
@@ -391,8 +393,9 @@ const Profile = () => {
                     <Button 
                       variant="outline"
                       className="backdrop-blur-sm bg-white/10 border-white/20 text-strong-contrast hover:bg-white/20"
+                      onClick={() => setShowAvatarStudio(true)}
                     >
-                      <Settings className="w-4 h-4" />
+                      <UserCircle className="w-4 h-4" />
                     </Button>
                   </>
                 ) : (
@@ -543,6 +546,16 @@ const Profile = () => {
           onClose={() => setShowImageModal(null)}
         />
       )}
+
+      {/* Avatar Studio */}
+      <AvatarStudio
+        open={showAvatarStudio}
+        onOpenChange={setShowAvatarStudio}
+        onSave={(avatarData) => {
+          console.log('Avatar saved:', avatarData);
+          // In a real app, this would upload the avatar
+        }}
+      />
     </Layout>
   );
 };

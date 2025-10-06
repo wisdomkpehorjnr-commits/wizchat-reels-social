@@ -139,7 +139,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link to="/admin" className="cursor-pointer text-foreground">
+                  <Link to="/settings" className="cursor-pointer text-foreground">
                     <Settings className="mr-2 h-4 w-4" />
                     <span>Settings</span>
                   </Link>

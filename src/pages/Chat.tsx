@@ -4,20 +4,27 @@ import ChatPopup from '@/components/ChatPopup';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Search, MessageCircle } from 'lucide-react';
 import { Friend, User } from '@/types';
 import { dataService } from '@/services/dataService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useCache } from '@/hooks/useCache';
 import OnlineStatusIndicator from '@/components/OnlineStatusIndicator';
 
 const Chat = () => {
   const { user } = useAuth();
-  const [friends, setFriends] = useState<Friend[]>([]);
+  const { toast } = useToast();
+  const { cachedData: cachedFriends, setCache: setCachedFriends, isStale } = useCache<Friend[]>({ 
+    key: 'chat-friends-list',
+    ttl: 2 * 60 * 1000 // 2 minutes cache
+  });
+  
+  const [friends, setFriends] = useState<Friend[]>(cachedFriends || []);
   const [selectedFriend, setSelectedFriend] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
+  const [loading, setLoading] = useState(!cachedFriends);
 
   useEffect(() => {
     if (user) {
@@ -29,9 +36,17 @@ const Chat = () => {
     if (!user) return;
     
     try {
-      setLoading(true);
+      // Show cached data immediately if available
+      if (!isStale && cachedFriends) {
+        setFriends(cachedFriends);
+        setLoading(false);
+      } else {
+        setLoading(true);
+      }
+      
       const userFriends = await dataService.getFriends();
       setFriends(userFriends);
+      setCachedFriends(userFriends); // Update cache
     } catch (error) {
       console.error('Error loading friends:', error);
       toast({
@@ -98,11 +113,11 @@ const Chat = () => {
               <CardContent className="p-4">
                 <div className="space-y-4">
                   {[...Array(5)].map((_, i) => (
-                    <div key={i} className="flex items-center space-x-3 animate-pulse">
-                      <div className="w-12 h-12 bg-muted rounded-full" />
+                    <div key={i} className="flex items-center space-x-3">
+                      <Skeleton className="w-12 h-12 rounded-full" />
                       <div className="flex-1 space-y-2">
-                        <div className="w-32 h-4 bg-muted rounded" />
-                        <div className="w-48 h-3 bg-muted rounded" />
+                        <Skeleton className="w-32 h-4" />
+                        <Skeleton className="w-48 h-3" />
                       </div>
                     </div>
                   ))}
