@@ -160,12 +160,12 @@ const Settings = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-3">
-                  <Button variant="outline" className="w-full justify-start">
-                    <MessageCircle className="w-4 h-4 mr-2" />
+                  <Button variant="outline" className="w-full justify-start h-14 text-base px-5">
+                    <MessageCircle className="w-5 h-5 mr-3" />
                     Contact Support
                   </Button>
-                  <Button variant="outline" className="w-full justify-start">
-                    <HelpCircle className="w-4 h-4 mr-2" />
+                  <Button variant="outline" className="w-full justify-start h-14 text-base px-5">
+                    <HelpCircle className="w-5 h-5 mr-3" />
                     View FAQs
                   </Button>
                 </div>
@@ -186,7 +186,7 @@ const Settings = () => {
                     value={reportDetails}
                     onChange={(e) => setReportDetails(e.target.value)}
                   />
-                  <Button onClick={handleReportProblem} className="w-full">
+                  <Button onClick={handleReportProblem} className="w-full h-12 text-base">
                     Submit Report
                   </Button>
                 </div>
@@ -206,12 +206,12 @@ const Settings = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-3">
-                  <Button variant="outline" className="w-full justify-start text-destructive hover:bg-destructive hover:text-destructive-foreground">
-                    <AlertTriangle className="w-4 h-4 mr-2" />
+                  <Button variant="outline" className="w-full justify-start h-14 text-base px-5 text-destructive hover:bg-destructive hover:text-destructive-foreground">
+                    <AlertTriangle className="w-5 h-5 mr-3" />
                     Report a User
                   </Button>
-                  <Button variant="outline" className="w-full justify-start">
-                    <Shield className="w-4 h-4 mr-2" />
+                  <Button variant="outline" className="w-full justify-start h-14 text-base px-5">
+                    <Shield className="w-5 h-5 mr-3" />
                     Blocked Users
                   </Button>
                 </div>
@@ -284,7 +284,7 @@ const Settings = () => {
                   />
                 </div>
 
-                <Button onClick={handleSaveSettings} className="w-full">
+                <Button onClick={handleSaveSettings} className="w-full h-12 text-base">
                   Save Changes
                 </Button>
               </CardContent>
@@ -350,7 +350,7 @@ const Settings = () => {
                   </div>
                 </div>
 
-                <Button onClick={handleSaveSettings} className="w-full">
+                <Button onClick={handleSaveSettings} className="w-full h-12 text-base">
                   Save Changes
                 </Button>
               </CardContent>
@@ -401,17 +401,17 @@ const Settings = () => {
                 <Separator />
 
                 <div className="space-y-3">
-                  <Button variant="outline" className="w-full justify-start" onClick={handleClearCache}>
-                    <Trash2 className="w-4 h-4 mr-2" />
+                  <Button variant="outline" className="w-full justify-start h-12 text-base px-5" onClick={handleClearCache}>
+                    <Trash2 className="w-5 h-5 mr-3" />
                     Clear Search History
                   </Button>
-                  <Button variant="outline" className="w-full justify-start" onClick={handleClearCache}>
-                    <Trash2 className="w-4 h-4 mr-2" />
+                  <Button variant="outline" className="w-full justify-start h-12 text-base px-5" onClick={handleClearCache}>
+                    <Trash2 className="w-5 h-5 mr-3" />
                     Clear Cache
                   </Button>
                 </div>
 
-                <Button onClick={handleSaveSettings} className="w-full">
+                <Button onClick={handleSaveSettings} className="w-full h-12 text-base">
                   Save Changes
                 </Button>
               </CardContent>

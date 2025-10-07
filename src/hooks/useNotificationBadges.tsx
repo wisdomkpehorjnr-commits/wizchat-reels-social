@@ -25,16 +25,23 @@ export const useNotificationBadges = () => {
 
     const loadBadges = async () => {
       try {
-        // Get unread message counts for chat badge
+        // Get user's chat IDs first
+        const { data: userChats } = await supabase
+          .from('chat_participants')
+          .select('chat_id')
+          .eq('user_id', user.id);
+
+        const chatIds = userChats?.map(c => c.chat_id) || [];
+
+        // Get unread message counts for chat badge - only in user's chats
         const { data: unreadMessages } = await supabase
           .from('messages')
-          .select('chat_id, seen')
+          .select('id')
+          .in('chat_id', chatIds)
           .eq('seen', false)
           .neq('user_id', user.id);
 
-        // Count unique chats with unread messages
-        const uniqueChats = new Set(unreadMessages?.map(msg => msg.chat_id) || []);
-        const chatCount = uniqueChats.size;
+        const chatCount = unreadMessages?.length || 0;
 
         // Get pending friend requests count
         const { data: friendRequests } = await supabase
@@ -74,10 +81,20 @@ export const useNotificationBadges = () => {
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages' },
-        (payload) => {
-          // If message is not from current user, increment chat badge
-          if (payload.new.user_id !== user.id) {
-            setBadges(prev => ({ ...prev, chat: prev.chat + 1 }));
+        async (payload) => {
+          // If message is not from current user, check if it's in user's chat and unseen
+          if (payload.new.user_id !== user.id && !payload.new.seen) {
+            // Verify this message is in one of the user's chats
+            const { data: isParticipant } = await supabase
+              .from('chat_participants')
+              .select('id')
+              .eq('user_id', user.id)
+              .eq('chat_id', payload.new.chat_id)
+              .single();
+            
+            if (isParticipant) {
+              setBadges(prev => ({ ...prev, chat: prev.chat + 1 }));
+            }
           }
         }
       )

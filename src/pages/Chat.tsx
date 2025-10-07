@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import ChatPopup from '@/components/ChatPopup';
+import ChatListItem from '@/components/ChatListItem';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Search, MessageCircle } from 'lucide-react';
 import { Friend, User } from '@/types';
@@ -11,7 +11,6 @@ import { dataService } from '@/services/dataService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useCache } from '@/hooks/useCache';
-import OnlineStatusIndicator from '@/components/OnlineStatusIndicator';
 
 const Chat = () => {
   const { user } = useAuth();
@@ -130,34 +129,12 @@ const Chat = () => {
                 <div className="divide-y">
                   {/* Friends list for chatting */}
                   {filteredFriends.map((friend) => (
-                    <div
+                    <ChatListItem
                       key={friend.id}
-                      className="p-4 hover:bg-muted/50 cursor-pointer transition-colors"
+                      friend={friend}
+                      lastMessage="Tap to start chatting"
                       onClick={() => openChat(friend)}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <Avatar className="w-12 h-12">
-                          <AvatarImage src={friend.avatar} />
-                          <AvatarFallback className="text-foreground bg-muted">
-                            {friend.name?.charAt(0)}
-                          </AvatarFallback>
-                        </Avatar>
-                        
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-2">
-                            <h3 className="font-medium truncate text-foreground">
-                              {friend.name}
-                            </h3>
-                            <OnlineStatusIndicator userId={friend.id} />
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            {friend.username ? `@${friend.username}` : ''}
-                          </p>
-                        </div>
-                        
-                        <MessageCircle className="w-5 h-5 text-muted-foreground" />
-                      </div>
-                    </div>
+                    />
                   ))}
                   
                   {filteredFriends.length === 0 && (
