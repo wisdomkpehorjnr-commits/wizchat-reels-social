@@ -132,7 +132,6 @@ const Chat = () => {
                     <ChatListItem
                       key={friend.id}
                       friend={friend}
-                      lastMessage="Tap to start chatting"
                       onClick={() => openChat(friend)}
                     />
                   ))}

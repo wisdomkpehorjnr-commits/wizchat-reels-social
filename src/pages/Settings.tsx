@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -53,7 +53,36 @@ const Settings = () => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
+  useEffect(() => {
+    const raw = localStorage.getItem('app_settings');
+    if (!raw) return;
+    try {
+      const s = JSON.parse(raw);
+      if (s.fontSize) setFontSize([s.fontSize]);
+      if (typeof s.notifications === 'boolean') setNotifications(s.notifications);
+      if (typeof s.soundEnabled === 'boolean') setSoundEnabled(s.soundEnabled);
+      if (typeof s.vibrationEnabled === 'boolean') setVibrationEnabled(s.vibrationEnabled);
+      if (typeof s.hideOnlineStatus === 'boolean') setHideOnlineStatus(s.hideOnlineStatus);
+      if (s.messagePermission) setMessagePermission(s.messagePermission);
+      if (s.language) setLanguage(s.language);
+      if (typeof s.highContrast === 'boolean') setHighContrast(s.highContrast);
+      if (s.darkMode) setDarkMode(s.darkMode);
+    } catch {}
+  }, []);
+
   const handleSaveSettings = () => {
+    const settings = {
+      fontSize: fontSize[0],
+      notifications,
+      soundEnabled,
+      vibrationEnabled,
+      hideOnlineStatus,
+      messagePermission,
+      language,
+      highContrast,
+      darkMode,
+    };
+    localStorage.setItem('app_settings', JSON.stringify(settings));
     toast({
       title: "Settings saved",
       description: "Your preferences have been updated successfully.",
@@ -137,15 +166,31 @@ const Settings = () => {
         </div>
 
         <Tabs defaultValue="help" className="w-full">
-          <TabsList className="grid grid-cols-4 lg:grid-cols-8 w-full mb-6">
-            <TabsTrigger value="help"><HelpCircle className="w-4 h-4" /></TabsTrigger>
-            <TabsTrigger value="safety"><Shield className="w-4 h-4" /></TabsTrigger>
-            <TabsTrigger value="language"><Globe className="w-4 h-4" /></TabsTrigger>
-            <TabsTrigger value="notifications"><Bell className="w-4 h-4" /></TabsTrigger>
-            <TabsTrigger value="privacy"><Lock className="w-4 h-4" /></TabsTrigger>
-            <TabsTrigger value="account"><UserCog className="w-4 h-4" /></TabsTrigger>
-            <TabsTrigger value="appearance"><Moon className="w-4 h-4" /></TabsTrigger>
-            <TabsTrigger value="about"><Info className="w-4 h-4" /></TabsTrigger>
+          <TabsList className="flex flex-col gap-3 w-full mb-6">
+            <TabsTrigger value="help" className="h-14 justify-start text-base">
+              <HelpCircle className="w-5 h-5 mr-3" /> Help & Support
+            </TabsTrigger>
+            <TabsTrigger value="safety" className="h-14 justify-start text-base">
+              <Shield className="w-5 h-5 mr-3" /> Safety & Reporting
+            </TabsTrigger>
+            <TabsTrigger value="language" className="h-14 justify-start text-base">
+              <Globe className="w-5 h-5 mr-3" /> Language & Accessibility
+            </TabsTrigger>
+            <TabsTrigger value="notifications" className="h-14 justify-start text-base">
+              <Bell className="w-5 h-5 mr-3" /> Notifications
+            </TabsTrigger>
+            <TabsTrigger value="privacy" className="h-14 justify-start text-base">
+              <Lock className="w-5 h-5 mr-3" /> Privacy
+            </TabsTrigger>
+            <TabsTrigger value="account" className="h-14 justify-start text-base">
+              <UserCog className="w-5 h-5 mr-3" /> Account
+            </TabsTrigger>
+            <TabsTrigger value="appearance" className="h-14 justify-start text-base">
+              <Moon className="w-5 h-5 mr-3" /> Appearance
+            </TabsTrigger>
+            <TabsTrigger value="about" className="h-14 justify-start text-base">
+              <Info className="w-5 h-5 mr-3" /> App Info
+            </TabsTrigger>
           </TabsList>
 
           {/* Help & Support */}

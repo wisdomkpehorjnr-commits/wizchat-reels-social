@@ -34,14 +34,16 @@ export const useNotificationBadges = () => {
         const chatIds = userChats?.map(c => c.chat_id) || [];
 
         // Get unread message counts for chat badge - only in user's chats
-        const { data: unreadMessages } = await supabase
-          .from('messages')
-          .select('id')
-          .in('chat_id', chatIds)
-          .eq('seen', false)
-          .neq('user_id', user.id);
-
-        const chatCount = unreadMessages?.length || 0;
+        let chatCount = 0;
+        if (chatIds.length > 0) {
+          const { data: unreadMessages } = await supabase
+            .from('messages')
+            .select('id')
+            .in('chat_id', chatIds)
+            .eq('seen', false)
+            .neq('user_id', user.id);
+          chatCount = unreadMessages?.length || 0;
+        }
 
         // Get pending friend requests count
         const { data: friendRequests } = await supabase

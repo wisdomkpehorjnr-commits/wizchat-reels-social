@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Undo2, Redo2, Save, Check, Sparkles, Shuffle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import AvatarPreview3D from './AvatarPreview3D';
 
 interface AvatarStudioProps {
   open: boolean;
@@ -188,13 +189,11 @@ const AvatarStudio = ({ open, onOpenChange, onSave }: AvatarStudioProps) => {
 
         <div className="flex flex-1 overflow-hidden">
           {/* 3D Preview */}
-          <div className="w-1/3 bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center p-8">
-            <div className="relative w-full h-full flex items-center justify-center">
-              <div className="w-64 h-64 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center animate-pulse">
-                <Sparkles className="w-32 h-32 text-primary" />
-              </div>
-              <div className="absolute bottom-4 text-center text-sm text-muted-foreground">
-                3D Avatar Preview
+          <div className="w-1/3 bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center p-0">
+            <div className="relative w-full h-full">
+              <AvatarPreview3D avatar={avatar} />
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 text-center text-xs text-muted-foreground">
+                Live 3D Preview
               </div>
             </div>
           </div>

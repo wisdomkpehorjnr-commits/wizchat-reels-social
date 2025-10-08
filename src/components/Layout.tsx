@@ -96,14 +96,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 >
                   <item.icon className="w-4 h-4" />
                   <span className="hidden lg:inline text-foreground">{item.label}</span>
-                  {item.badge > 0 && (
+                  {item.badge && item.badge > 0 ? (
                     <Badge 
                       variant="destructive" 
                       className="absolute -top-2 -right-2 h-5 w-5 p-0 text-xs flex items-center justify-center"
                     >
                       {item.badge > 99 ? '99+' : item.badge}
                     </Badge>
-                  )}
+                  ) : null }
                 </Link>
               </Button>
             ))}
@@ -183,14 +183,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               >
                 <item.icon className="w-4 h-4" />
                 <span className="text-xs mt-1 text-foreground">{item.label}</span>
-                {item.badge > 0 && (
+                {item.badge && item.badge > 0 ? (
                   <Badge 
                     variant="destructive" 
                     className="absolute -top-1 -right-1 h-4 w-4 p-0 text-xs flex items-center justify-center"
                   >
                     {item.badge > 9 ? '9+' : item.badge}
                   </Badge>
-                )}
+                ) : null }
               </Link>
             </Button>
           ))}
