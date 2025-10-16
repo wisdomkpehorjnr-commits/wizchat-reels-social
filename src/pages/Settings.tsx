@@ -203,35 +203,37 @@ const Settings = () => {
                 </CardTitle>
                 <CardDescription>Get help and contact support</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <Button variant="outline" className="w-full justify-start h-14 text-base px-5">
-                    <MessageCircle className="w-5 h-5 mr-3" />
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <Button variant="outline" className="w-full justify-start h-16 text-base px-6 hover:bg-accent/50 transition-colors">
+                    <MessageCircle className="w-6 h-6 mr-4" />
                     Contact Support
                   </Button>
-                  <Button variant="outline" className="w-full justify-start h-14 text-base px-5">
-                    <HelpCircle className="w-5 h-5 mr-3" />
+                  <Button variant="outline" className="w-full justify-start h-16 text-base px-6 hover:bg-accent/50 transition-colors">
+                    <HelpCircle className="w-6 h-6 mr-4" />
                     View FAQs
                   </Button>
                 </div>
 
-                <Separator />
+                <Separator className="my-8" />
 
-                <div className="space-y-3">
-                  <Label htmlFor="problem">Report a Problem</Label>
+                <div className="space-y-5">
+                  <Label htmlFor="problem" className="text-lg font-semibold">Report a Problem</Label>
                   <Textarea
                     id="problem"
                     placeholder="Describe the issue you're experiencing..."
                     value={reportReason}
                     onChange={(e) => setReportReason(e.target.value)}
-                    className="min-h-[100px]"
+                    className="min-h-[140px] text-base resize-none"
                   />
                   <Input
                     placeholder="Additional details (optional)"
                     value={reportDetails}
                     onChange={(e) => setReportDetails(e.target.value)}
+                    className="h-12 text-base"
                   />
-                  <Button onClick={handleReportProblem} className="w-full h-12 text-base">
+                  <Button onClick={handleReportProblem} className="w-full h-16 text-base font-bold shadow-lg hover:shadow-xl transition-all">
+                    <AlertTriangle className="w-6 h-6 mr-3" />
                     Submit Report
                   </Button>
                 </div>
@@ -249,28 +251,43 @@ const Settings = () => {
                 </CardTitle>
                 <CardDescription>Manage your safety preferences</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <Button variant="outline" className="w-full justify-start h-14 text-base px-5 text-destructive hover:bg-destructive hover:text-destructive-foreground">
-                    <AlertTriangle className="w-5 h-5 mr-3" />
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <Button variant="outline" className="w-full justify-start h-16 text-base px-6 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-all">
+                    <AlertTriangle className="w-6 h-6 mr-4" />
                     Report a User
                   </Button>
-                  <Button variant="outline" className="w-full justify-start h-14 text-base px-5">
-                    <Shield className="w-5 h-5 mr-3" />
+                  <Button variant="outline" className="w-full justify-start h-16 text-base px-6 hover:bg-accent/50 transition-colors">
+                    <Shield className="w-6 h-6 mr-4" />
                     Blocked Users
                   </Button>
                 </div>
 
-                <Separator />
+                <Separator className="my-8" />
 
-                <div className="space-y-3">
-                  <h4 className="font-medium">Safety Guide</h4>
-                  <div className="text-sm text-muted-foreground space-y-2">
-                    <p>• Never share personal information with strangers</p>
-                    <p>• Report suspicious behavior immediately</p>
-                    <p>• Use strong, unique passwords</p>
-                    <p>• Enable two-factor authentication</p>
-                    <p>• Be cautious of phishing attempts</p>
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold">Safety Guide</h4>
+                  <div className="p-6 bg-accent/30 rounded-lg space-y-3">
+                    <p className="flex items-start gap-3 text-base text-foreground/90">
+                      <Shield className="w-5 h-5 mt-0.5 text-primary flex-shrink-0" />
+                      Never share personal information with strangers
+                    </p>
+                    <p className="flex items-start gap-3 text-base text-foreground/90">
+                      <Shield className="w-5 h-5 mt-0.5 text-primary flex-shrink-0" />
+                      Report suspicious behavior immediately
+                    </p>
+                    <p className="flex items-start gap-3 text-base text-foreground/90">
+                      <Shield className="w-5 h-5 mt-0.5 text-primary flex-shrink-0" />
+                      Use strong, unique passwords
+                    </p>
+                    <p className="flex items-start gap-3 text-base text-foreground/90">
+                      <Shield className="w-5 h-5 mt-0.5 text-primary flex-shrink-0" />
+                      Enable two-factor authentication
+                    </p>
+                    <p className="flex items-start gap-3 text-base text-foreground/90">
+                      <Shield className="w-5 h-5 mt-0.5 text-primary flex-shrink-0" />
+                      Be cautious of phishing attempts
+                    </p>
                   </div>
                 </div>
               </CardContent>

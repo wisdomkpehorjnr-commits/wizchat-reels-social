@@ -68,7 +68,7 @@ const ChatListItem = ({ friend, lastMessage, unreadCount, isPinned, onClick }: C
       <ContextMenuTrigger>
         <div
           onClick={onClick}
-          className="flex items-center gap-3 p-4 hover:bg-accent rounded-lg cursor-pointer transition-colors active:scale-98"
+          className="flex items-center gap-3 p-4 mb-3 hover:bg-accent rounded-lg cursor-pointer transition-colors active:scale-98"
         >
           <div className="relative">
             <Avatar>
