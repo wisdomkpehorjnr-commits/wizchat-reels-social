@@ -18,37 +18,24 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
   const { user } = useAuth();
   const { toast } = useToast();
   const [content, setContent] = useState('');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string>('');
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      try {
-        setSelectedFile(file);
-        
-        // Generate preview URL
-        if (file.type && file.type.startsWith('video/')) {
-          // Generate video thumbnail for better previews
-          const thumbnail = await MediaService.generateVideoThumbnail(file);
-          setPreviewUrl(thumbnail);
-        } else {
-          // Use file blob URL for images
-          setPreviewUrl(URL.createObjectURL(file));
-        }
-      } catch (error) {
-        console.error('Error processing file:', error);
-        setSelectedFile(file);
-        setPreviewUrl(URL.createObjectURL(file));
-      }
+    const files = Array.from(event.target.files || []);
+    if (files.length) {
+      // Append instead of replace. Prevent duplicates by name + size.
+      const newFiles = files.filter(f => !selectedFiles.some(sel => sel.name === f.name && sel.size === f.size));
+      const allFiles = [...selectedFiles, ...newFiles];
+      setSelectedFiles(allFiles);
+      setPreviewUrls(allFiles.map(f => URL.createObjectURL(f)));
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!content.trim() && !selectedFile) {
+    if (!content.trim() && selectedFiles.length === 0) {
       toast({
         title: "Error",
         description: "Please add some content or select a file",
@@ -56,62 +43,49 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
       });
       return;
     }
-
     setIsSubmitting(true);
-    
     try {
-      let mediaUrl = '';
+      let imageUrls: string[] = [];
+      let videoUrl = '';
       let mediaType: 'text' | 'image' | 'video' = 'text';
-      
-      if (selectedFile) {
-        // Use proper upload methods based on file type
-        if (selectedFile.type && selectedFile.type.startsWith('video/')) {
-          mediaUrl = await MediaService.uploadPostVideo(selectedFile);
+      // Only handle images as multiple. Videos remain single upload.
+      for (const file of selectedFiles) {
+        if (file.type && file.type.startsWith('video/')) {
+          videoUrl = await MediaService.uploadPostVideo(file);
           mediaType = 'video';
-        } else if (selectedFile.type && selectedFile.type.startsWith('image/')) {
-          mediaUrl = await MediaService.uploadPostImage(selectedFile);
+        } else if (file.type && file.type.startsWith('image/')) {
+          const url = await MediaService.uploadPostImage(file);
+          imageUrls.push(url);
           mediaType = 'image';
         } else {
-          mediaUrl = await MediaService.uploadPostMedia(selectedFile);
-          mediaType = selectedFile.type && selectedFile.type.startsWith('image/') ? 'image' : 'video';
+          // fallback for any other (should normally not happen)
+          const url = await MediaService.uploadPostMedia(file);
+          if (file.type.startsWith('image/')) imageUrls.push(url);
+          if (file.type.startsWith('video/')) videoUrl = url;
         }
       }
-
       const postData = {
         content: content.trim(),
-        imageUrl: mediaType === 'image' ? mediaUrl : undefined,
-        videoUrl: mediaType === 'video' ? mediaUrl : undefined,
+        imageUrls: mediaType === 'image' ? imageUrls : undefined,
+        videoUrl: mediaType === 'video' ? videoUrl : undefined,
         mediaType,
-        isReel: mediaType === 'video', // Automatically mark videos as reels
+        isReel: mediaType === 'video',
       };
-
+      console.log('Creating post with data:', postData);
+      console.log('Selected files:', selectedFiles);
+      console.log('Image URLs:', imageUrls);
       if (onPostCreated) {
         await onPostCreated(postData);
       }
-
-      // Reset form
       setContent('');
-      setSelectedFile(null);
-      setPreviewUrl('');
-      
-      // Reset file input
+      setSelectedFiles([]);
+      setPreviewUrls([]);
       const fileInput = document.getElementById('file-input') as HTMLInputElement;
-      if (fileInput) {
-        fileInput.value = '';
-      }
-
-      toast({
-        title: "Success",
-        description: "Post created successfully!",
-      });
-      
+      if (fileInput) fileInput.value = '';
+      toast({ title: "Success", description: "Post created successfully!" });
     } catch (error) {
       console.error('Error creating post:', error);
-      toast({
-        title: "Error",
-        description: "Failed to create post",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to create post", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -141,47 +115,30 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
             </div>
           </div>
           
-          {selectedFile && previewUrl && (
-            <div className="mt-3 p-3 border border-border rounded-lg">
-              <div className="flex items-center space-x-2">
-                {selectedFile.type && selectedFile.type.startsWith('image/') ? (
-                  <div className="flex items-center space-x-2">
-                    <img 
-                      src={previewUrl} 
-                      alt="Preview" 
-                      className="w-16 h-16 object-cover rounded"
-                    />
-                    <div>
-                      <p className="text-sm font-medium">Image selected</p>
-                      <p className="text-xs text-muted-foreground">{selectedFile.name}</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center space-x-2">
-                    <img 
-                      src={previewUrl} 
-                      alt="Video thumbnail"
-                      className="w-16 h-16 object-cover rounded"
-                    />
-                    <div>
-                      <p className="text-sm font-medium">Video selected</p>
-                      <p className="text-xs text-muted-foreground">{selectedFile.name}</p>
-                    </div>
-                  </div>
-                )}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setSelectedFile(null);
-                    setPreviewUrl('');
-                  }}
-                  className="text-muted-foreground hover:text-foreground ml-auto"
-                >
-                  Remove
-                </Button>
-              </div>
+          {/* Preview images grid */}
+          {selectedFiles.length > 0 && previewUrls.length > 0 && (
+            <div className="mt-3 p-3 border border-border rounded-lg grid grid-cols-2 md:grid-cols-3 gap-2">
+              {previewUrls.map((url, idx) => (
+                <div key={idx} className="relative">
+                  <img 
+                    src={url} 
+                    alt={`Preview ${idx+1}`}
+                    className="object-cover w-full md:w-32 md:h-32 h-24 rounded"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      const newFiles = selectedFiles.filter((_, i) => i !== idx);
+                      const newUrls = previewUrls.filter((_, i) => i !== idx);
+                      setSelectedFiles(newFiles);
+                      setPreviewUrls(newUrls);
+                    }}
+                    className="absolute top-1 right-1 text-xs bg-white/80"
+                  >Remove</Button>
+                </div>
+              ))}
             </div>
           )}
           
@@ -191,6 +148,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
                 id="file-input"
                 type="file"
                 accept="image/*,video/*"
+                multiple
                 onChange={handleFileSelect}
                 className="hidden"
                 disabled={isSubmitting}
@@ -236,7 +194,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
             </div>
             <Button
               type="submit"
-              disabled={(!content.trim() && !selectedFile) || isSubmitting}
+              disabled={(!content.trim() && selectedFiles.length === 0) || isSubmitting}
               className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
               {isSubmitting ? 'Posting...' : 'Post'}

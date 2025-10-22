@@ -35,6 +35,8 @@ const Home = () => {
     try {
       setLoading(true);
       const posts = await dataService.getPosts();
+      console.log('Loaded posts:', posts);
+      console.log('Posts with imageUrls:', posts.filter(p => p.imageUrls));
       setPosts(posts);
     } catch (error) {
       console.error('Error fetching posts:', error);
@@ -176,17 +178,20 @@ const Home = () => {
             </div>
           )}
 
-          {/* Posts Feed - Only non-video posts */}
+          {/* Posts Feed - Show all posts except reels */}
           <div className="space-y-6">
             {posts
-              .filter(post => !post.isReel && !post.videoUrl)
-              .map((post) => (
-                <PostCard
-                  key={post.id}
-                  post={post}
-                  onPostUpdate={loadPosts}
-                />
-              ))
+              .filter(post => !post.isReel)
+              .map((post) => {
+                console.log('Rendering post:', post.id, 'imageUrls:', post.imageUrls, 'imageUrl:', post.imageUrl);
+                return (
+                  <PostCard
+                    key={post.id}
+                    post={post}
+                    onPostUpdate={loadPosts}
+                  />
+                );
+              })
             }
           </div>
 

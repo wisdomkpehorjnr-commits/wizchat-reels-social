@@ -33,16 +33,18 @@ export const useNotificationBadges = () => {
 
         const chatIds = userChats?.map(c => c.chat_id) || [];
 
-        // Get unread message counts for chat badge - only in user's chats
+        // Get unread message counts for chat badge - only messages from OTHER users
         let chatCount = 0;
         if (chatIds.length > 0) {
           const { data: unreadMessages } = await supabase
             .from('messages')
-            .select('id')
+            .select('id, user_id, seen')
             .in('chat_id', chatIds)
             .eq('seen', false)
             .neq('user_id', user.id);
-          chatCount = unreadMessages?.length || 0;
+          
+          // Double-check: only count messages from other users that are truly unread
+          chatCount = unreadMessages?.filter(msg => msg.user_id !== user.id && !msg.seen)?.length || 0;
         }
 
         // Get pending friend requests count
@@ -62,6 +64,13 @@ export const useNotificationBadges = () => {
           .eq('is_read', false);
 
         const homeCount = notifications?.length || 0;
+
+        console.log('Badge counts:', {
+          home: homeCount,
+          chat: chatCount,
+          friends: friendsCount,
+          unreadMessages: unreadMessages?.length || 0
+        });
 
         setBadges({
           home: homeCount,
@@ -84,7 +93,7 @@ export const useNotificationBadges = () => {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages' },
         async (payload) => {
-          // If message is not from current user, check if it's in user's chat and unseen
+          // Only count messages from OTHER users that are unread
           if (payload.new.user_id !== user.id && !payload.new.seen) {
             // Verify this message is in one of the user's chats
             const { data: isParticipant } = await supabase
@@ -164,11 +173,6 @@ export const useNotificationBadges = () => {
   }, [user]);
 
   const clearBadge = async (tab: string) => {
-    setBadges(prev => ({
-      ...prev,
-      [tab]: 0
-    }));
-
     // Mark messages as seen when chat tab is opened
     if (tab === 'chat' && user) {
       try {
@@ -189,6 +193,12 @@ export const useNotificationBadges = () => {
         console.error('Error marking messages as seen:', error);
       }
     }
+
+    // Clear the badge count
+    setBadges(prev => ({
+      ...prev,
+      [tab]: 0
+    }));
   };
 
   return { badges, clearBadge };

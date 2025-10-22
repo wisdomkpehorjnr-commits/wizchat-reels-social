@@ -166,30 +166,38 @@ const Settings = () => {
         </div>
 
         <Tabs defaultValue="help" className="w-full">
-          <TabsList className="flex flex-col gap-3 w-full mb-6">
-            <TabsTrigger value="help" className="h-14 justify-start text-base">
-              <HelpCircle className="w-5 h-5 mr-3" /> Help & Support
+          <TabsList className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 w-full mb-6 h-auto p-1 bg-muted/50">
+            <TabsTrigger value="help" className="flex flex-col items-center justify-center p-4 h-auto text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <HelpCircle className="w-5 h-5 mb-2" />
+              <span className="text-xs text-center leading-tight">Help & Support</span>
             </TabsTrigger>
-            <TabsTrigger value="safety" className="h-14 justify-start text-base">
-              <Shield className="w-5 h-5 mr-3" /> Safety & Reporting
+            <TabsTrigger value="safety" className="flex flex-col items-center justify-center p-4 h-auto text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <Shield className="w-5 h-5 mb-2" />
+              <span className="text-xs text-center leading-tight">Safety & Reporting</span>
             </TabsTrigger>
-            <TabsTrigger value="language" className="h-14 justify-start text-base">
-              <Globe className="w-5 h-5 mr-3" /> Language & Accessibility
+            <TabsTrigger value="language" className="flex flex-col items-center justify-center p-4 h-auto text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <Globe className="w-5 h-5 mb-2" />
+              <span className="text-xs text-center leading-tight">Language & Accessibility</span>
             </TabsTrigger>
-            <TabsTrigger value="notifications" className="h-14 justify-start text-base">
-              <Bell className="w-5 h-5 mr-3" /> Notifications
+            <TabsTrigger value="notifications" className="flex flex-col items-center justify-center p-4 h-auto text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <Bell className="w-5 h-5 mb-2" />
+              <span className="text-xs text-center leading-tight">Notifications</span>
             </TabsTrigger>
-            <TabsTrigger value="privacy" className="h-14 justify-start text-base">
-              <Lock className="w-5 h-5 mr-3" /> Privacy
+            <TabsTrigger value="privacy" className="flex flex-col items-center justify-center p-4 h-auto text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <Lock className="w-5 h-5 mb-2" />
+              <span className="text-xs text-center leading-tight">Privacy</span>
             </TabsTrigger>
-            <TabsTrigger value="account" className="h-14 justify-start text-base">
-              <UserCog className="w-5 h-5 mr-3" /> Account
+            <TabsTrigger value="account" className="flex flex-col items-center justify-center p-4 h-auto text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <UserCog className="w-5 h-5 mb-2" />
+              <span className="text-xs text-center leading-tight">Account</span>
             </TabsTrigger>
-            <TabsTrigger value="appearance" className="h-14 justify-start text-base">
-              <Moon className="w-5 h-5 mr-3" /> Appearance
+            <TabsTrigger value="appearance" className="flex flex-col items-center justify-center p-4 h-auto text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <Moon className="w-5 h-5 mb-2" />
+              <span className="text-xs text-center leading-tight">Appearance</span>
             </TabsTrigger>
-            <TabsTrigger value="about" className="h-14 justify-start text-base">
-              <Info className="w-5 h-5 mr-3" /> App Info
+            <TabsTrigger value="about" className="flex flex-col items-center justify-center p-4 h-auto text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <Info className="w-5 h-5 mb-2" />
+              <span className="text-xs text-center leading-tight">App Info</span>
             </TabsTrigger>
           </TabsList>
 
@@ -205,13 +213,19 @@ const Settings = () => {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-4">
-                  <Button variant="outline" className="w-full justify-start h-16 text-base px-6 hover:bg-accent/50 transition-colors">
+                  <Button variant="outline" className="w-full justify-start h-16 text-base px-6 hover:bg-accent/50 transition-colors min-h-[64px]">
                     <MessageCircle className="w-6 h-6 mr-4" />
-                    Contact Support
+                    <div className="text-left">
+                      <div className="font-medium">Contact Support</div>
+                      <div className="text-sm text-muted-foreground">Get help from our team</div>
+                    </div>
                   </Button>
-                  <Button variant="outline" className="w-full justify-start h-16 text-base px-6 hover:bg-accent/50 transition-colors">
+                  <Button variant="outline" className="w-full justify-start h-16 text-base px-6 hover:bg-accent/50 transition-colors min-h-[64px]">
                     <HelpCircle className="w-6 h-6 mr-4" />
-                    View FAQs
+                    <div className="text-left">
+                      <div className="font-medium">View FAQs</div>
+                      <div className="text-sm text-muted-foreground">Find answers to common questions</div>
+                    </div>
                   </Button>
                 </div>
 
@@ -253,13 +267,19 @@ const Settings = () => {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-4">
-                  <Button variant="outline" className="w-full justify-start h-16 text-base px-6 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-all">
+                  <Button variant="outline" className="w-full justify-start h-16 text-base px-6 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-all min-h-[64px]">
                     <AlertTriangle className="w-6 h-6 mr-4" />
-                    Report a User
+                    <div className="text-left">
+                      <div className="font-medium">Report a User</div>
+                      <div className="text-sm text-muted-foreground">Report inappropriate behavior</div>
+                    </div>
                   </Button>
-                  <Button variant="outline" className="w-full justify-start h-16 text-base px-6 hover:bg-accent/50 transition-colors">
+                  <Button variant="outline" className="w-full justify-start h-16 text-base px-6 hover:bg-accent/50 transition-colors min-h-[64px]">
                     <Shield className="w-6 h-6 mr-4" />
-                    Blocked Users
+                    <div className="text-left">
+                      <div className="font-medium">Blocked Users</div>
+                      <div className="text-sm text-muted-foreground">Manage your blocked list</div>
+                    </div>
                   </Button>
                 </div>
 
@@ -463,13 +483,19 @@ const Settings = () => {
                 <Separator />
 
                 <div className="space-y-3">
-                  <Button variant="outline" className="w-full justify-start h-12 text-base px-5" onClick={handleClearCache}>
-                    <Trash2 className="w-5 h-5 mr-3" />
-                    Clear Search History
+                  <Button variant="outline" className="w-full justify-start h-16 text-base px-6 min-h-[64px]" onClick={handleClearCache}>
+                    <Trash2 className="w-6 h-6 mr-4" />
+                    <div className="text-left">
+                      <div className="font-medium">Clear Search History</div>
+                      <div className="text-sm text-muted-foreground">Remove all search data</div>
+                    </div>
                   </Button>
-                  <Button variant="outline" className="w-full justify-start h-12 text-base px-5" onClick={handleClearCache}>
-                    <Trash2 className="w-5 h-5 mr-3" />
-                    Clear Cache
+                  <Button variant="outline" className="w-full justify-start h-16 text-base px-6 min-h-[64px]" onClick={handleClearCache}>
+                    <Trash2 className="w-6 h-6 mr-4" />
+                    <div className="text-left">
+                      <div className="font-medium">Clear Cache</div>
+                      <div className="text-sm text-muted-foreground">Free up storage space</div>
+                    </div>
                   </Button>
                 </div>
 
@@ -518,20 +544,26 @@ const Settings = () => {
                 <div className="space-y-3">
                   <Button 
                     variant="outline" 
-                    className="w-full justify-start"
+                    className="w-full justify-start h-16 min-h-[64px]"
                     onClick={() => setShowLogoutDialog(true)}
                   >
-                    <LogOut className="w-4 h-4 mr-2" />
-                    Log Out of All Devices
+                    <LogOut className="w-6 h-6 mr-4" />
+                    <div className="text-left">
+                      <div className="font-medium">Log Out of All Devices</div>
+                      <div className="text-sm text-muted-foreground">Sign out from all active sessions</div>
+                    </div>
                   </Button>
 
                   <Button 
                     variant="destructive" 
-                    className="w-full justify-start"
+                    className="w-full justify-start h-16 min-h-[64px]"
                     onClick={() => setShowDeleteDialog(true)}
                   >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Delete My Account
+                    <Trash2 className="w-6 h-6 mr-4" />
+                    <div className="text-left">
+                      <div className="font-medium">Delete My Account</div>
+                      <div className="text-sm text-muted-foreground">Permanently delete your account</div>
+                    </div>
                   </Button>
                   <p className="text-xs text-muted-foreground">
                     You have 7 days to cancel account deletion
@@ -598,13 +630,19 @@ const Settings = () => {
                 <Separator />
 
                 <div className="space-y-3">
-                  <Button variant="outline" className="w-full justify-start">
-                    <Star className="w-4 h-4 mr-2" />
-                    Rate Us on App Store
+                  <Button variant="outline" className="w-full justify-start h-16 min-h-[64px]">
+                    <Star className="w-6 h-6 mr-4" />
+                    <div className="text-left">
+                      <div className="font-medium">Rate Us on App Store</div>
+                      <div className="text-sm text-muted-foreground">Help us improve with your feedback</div>
+                    </div>
                   </Button>
-                  <Button variant="outline" className="w-full justify-start">
-                    <Share2 className="w-4 h-4 mr-2" />
-                    Share with Friends
+                  <Button variant="outline" className="w-full justify-start h-16 min-h-[64px]">
+                    <Share2 className="w-6 h-6 mr-4" />
+                    <div className="text-left">
+                      <div className="font-medium">Share with Friends</div>
+                      <div className="text-sm text-muted-foreground">Invite others to join WizchatPro</div>
+                    </div>
                   </Button>
                 </div>
 

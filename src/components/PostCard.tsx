@@ -253,7 +253,24 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
             {post.content && <p className="text-foreground mb-4">{post.content}</p>}
             
             {/* Media content */}
-            {post.imageUrl && (
+            {Array.isArray(post.imageUrls) && post.imageUrls.length > 0 ? (
+              <div className="mt-2 space-y-2">
+                {post.imageUrls.map((img, idx) => (
+                  <div key={idx} className="rounded-lg overflow-hidden">
+                    <img
+                      src={img}
+                      alt={`Post image ${idx + 1}`}
+                      className="w-full object-cover max-h-96 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                      onClick={() => {
+                        setImageModalSrc(img);
+                        setImageModalOpen(true);
+                      }}
+                      onError={() => console.error('Failed to load image:', img)}
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : post.imageUrl && (
               <div className="mt-2 rounded-lg overflow-hidden">
                 <img 
                   src={post.imageUrl} 

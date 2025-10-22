@@ -46,12 +46,26 @@ export const dataService = {
       const likes = (post.likes as any[]) || [];
       const isLiked = currentUser ? likes.some(like => like.user_id === currentUser.id) : false;
       
+      // Handle imageUrls - check if column exists and parse if needed
+      let imageUrls = undefined;
+      if (post.image_urls) {
+        try {
+          imageUrls = typeof post.image_urls === 'string' ? JSON.parse(post.image_urls) : post.image_urls;
+        } catch (e) {
+          console.warn('Failed to parse image_urls:', post.image_urls);
+        }
+      } else if (post.image_url && !imageUrls) {
+        // Fallback: if no image_urls but we have image_url, create array with single image
+        imageUrls = [post.image_url];
+      }
+      
       return {
         id: post.id,
         userId: post.user_id,
         user: post.user as User,
         content: post.content,
         imageUrl: post.image_url,
+        imageUrls: imageUrls,
         videoUrl: post.video_url,
         mediaType: post.media_type as 'text' | 'image' | 'video',
         isReel: post.is_reel,
@@ -77,16 +91,32 @@ export const dataService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
+    // Prepare insert data - handle both single and multiple images
+    const insertData: any = {
+      user_id: user.id,
+      content: postData.content,
+      video_url: postData.videoUrl,
+      media_type: postData.mediaType || 'text',
+      is_reel: postData.isReel || false
+    };
+
+    // Handle images - try new column first, fallback to old column
+    if (postData.imageUrls && Array.isArray(postData.imageUrls) && postData.imageUrls.length > 0) {
+      try {
+        // Try to insert with new image_urls column
+        insertData.image_urls = JSON.stringify(postData.imageUrls);
+        insertData.image_url = postData.imageUrls[0]; // Also set first image in old column for compatibility
+      } catch (e) {
+        console.warn('Failed to set image_urls, falling back to image_url');
+        insertData.image_url = postData.imageUrls[0];
+      }
+    } else if (postData.imageUrl) {
+      insertData.image_url = postData.imageUrl;
+    }
+
     const { data, error } = await supabase
       .from('posts')
-      .insert({
-        user_id: user.id,
-        content: postData.content,
-        image_url: postData.imageUrl,
-        video_url: postData.videoUrl,
-        media_type: postData.mediaType || 'text',
-        is_reel: postData.isReel || false
-      })
+      .insert(insertData)
       .select(`
         *,
         user:user_id (
@@ -110,6 +140,7 @@ export const dataService = {
       user: data.user as User,
       content: data.content,
       imageUrl: data.image_url,
+      imageUrls: data.image_urls ? (typeof data.image_urls === 'string' ? JSON.parse(data.image_urls) : data.image_urls) : undefined,
       videoUrl: data.video_url,
       mediaType: data.media_type as 'text' | 'image' | 'video',
       isReel: data.is_reel,
