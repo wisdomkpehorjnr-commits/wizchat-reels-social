@@ -26,7 +26,10 @@ const Home = () => {
     };
     
     window.addEventListener('refreshHome', handleRefreshHome);
-    return () => window.removeEventListener('refreshHome', handleRefreshHome);
+    
+    return () => {
+      window.removeEventListener('refreshHome', handleRefreshHome);
+    };
   }, []);
 
   const loadPosts = async () => {
@@ -37,6 +40,7 @@ const Home = () => {
       const posts = await dataService.getPosts();
       console.log('Loaded posts:', posts);
       console.log('Posts with imageUrls:', posts.filter(p => p.imageUrls));
+      
       setPosts(posts);
     } catch (error) {
       console.error('Error fetching posts:', error);
@@ -158,13 +162,30 @@ const Home = () => {
           <div className="mb-6">
             <CreatePost onPostCreated={async (postData) => {
               try {
-                await dataService.createPost(postData);
-                await loadPosts();
+                console.log('Creating post:', postData);
+                
+                // Create the post in database
+                const createdPost = await dataService.createPost(postData);
+                console.log('Post created successfully:', createdPost.id);
+                
+                // Add the real post to the top of the feed
+                setPosts(prevPosts => [createdPost, ...prevPosts]);
+                
+                // Scroll to top to show the new post
+                setTimeout(() => {
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }, 100);
+                
+                toast({
+                  title: "Success",
+                  description: "Post created successfully!",
+                  duration: 2000
+                });
               } catch (error) {
                 console.error('Error creating post:', error);
                 toast({
                   title: "Error",
-                  description: "Failed to create post",
+                  description: "Failed to create post. Please try again.",
                   variant: "destructive"
                 });
               }
@@ -183,7 +204,14 @@ const Home = () => {
             {posts
               .filter(post => !post.isReel)
               .map((post) => {
-                console.log('Rendering post:', post.id, 'imageUrls:', post.imageUrls, 'imageUrl:', post.imageUrl);
+                console.log('Rendering post:', {
+                  id: post.id,
+                  content: post.content,
+                  imageUrls: post.imageUrls,
+                  imageUrl: post.imageUrl,
+                  mediaType: post.mediaType,
+                  hasImages: !!(post.imageUrls?.length || post.imageUrl)
+                });
                 return (
                   <PostCard
                     key={post.id}

@@ -190,8 +190,11 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
     return formatDistanceToNow(date, { addSuffix: true });
   };
 
+  // Check if this is an optimistic post (temporary ID)
+  const isOptimistic = post.id.startsWith('temp-');
+
   return (
-    <Card className="w-full border-2 green-border">
+    <Card className={`w-full border-2 green-border ${isOptimistic ? 'opacity-75 animate-pulse' : ''}`}>
       <CardContent className="p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
@@ -203,6 +206,12 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
           />
           
           <div className="flex items-center space-x-2">
+            {isOptimistic && (
+              <div className="flex items-center space-x-1 text-xs text-muted-foreground">
+                <div className="animate-spin rounded-full h-3 w-3 border-b border-primary"></div>
+                <span>Posting...</span>
+              </div>
+            )}
             <span className="text-sm text-muted-foreground">
               {formatDistanceToNow(post.createdAt, { addSuffix: true })}
             </span>
@@ -265,7 +274,16 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
                         setImageModalSrc(img);
                         setImageModalOpen(true);
                       }}
-                      onError={() => console.error('Failed to load image:', img)}
+                      onLoad={() => console.log('Image loaded successfully:', img)}
+                      onError={(e) => {
+                        console.error('Failed to load image:', img);
+                        console.error('Image error details:', e);
+                      }}
+                      onTouchStart={() => handleLongPressStart(img, false)}
+                      onTouchEnd={handleLongPressEnd}
+                      onMouseDown={() => handleLongPressStart(img, false)}
+                      onMouseUp={handleLongPressEnd}
+                      onMouseLeave={handleLongPressEnd}
                     />
                   </div>
                 ))}
@@ -279,6 +297,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
                   onLoad={() => console.log('Image loaded successfully:', post.imageUrl)}
                   onError={(e) => {
                     console.error('Failed to load image:', post.imageUrl);
+                    console.error('Image error details:', e);
                   }}
                   onClick={() => {
                     setImageModalSrc(post.imageUrl!);
@@ -333,7 +352,13 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
 
         {/* Actions */}
         <div className="flex justify-between items-center text-muted-foreground">
-          <Button variant="ghost" size="sm" onClick={handleLikePost} className="hover:text-red-500">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={handleLikePost} 
+            className="hover:text-red-500"
+            disabled={isOptimistic}
+          >
             <Heart 
               className={`mr-2 h-4 w-4 ${isLiked ? 'fill-red-500 text-red-500' : ''}`} 
             />
@@ -341,11 +366,20 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
               Like {likeCount > 0 && <span className="ml-1">({likeCount})</span>}
             </span>
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => setShowAllComments(true)}>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setShowAllComments(true)}
+            disabled={isOptimistic}
+          >
             <MessageSquare className="mr-2 h-4 w-4" />
             Comment
           </Button>
-          <Button variant="ghost" size="sm">
+          <Button 
+            variant="ghost" 
+            size="sm"
+            disabled={isOptimistic}
+          >
             <Share className="mr-2 h-4 w-4" />
             Share
           </Button>
@@ -384,18 +418,20 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
         </div>
 
         {/* Add Comment */}
-        <div className="mt-4 flex space-x-2">
-          <Input
-            type="text"
-            placeholder="Add a comment..."
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            className="border-2 green-border"
-          />
-          <Button onClick={handleAddComment} size="sm">
-            Post
-          </Button>
-        </div>
+        {!isOptimistic && (
+          <div className="mt-4 flex space-x-2">
+            <Input
+              type="text"
+              placeholder="Add a comment..."
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              className="border-2 green-border"
+            />
+            <Button onClick={handleAddComment} size="sm">
+              Post
+            </Button>
+          </div>
+        )}
       </CardContent>
       
       <ConfirmationDialog

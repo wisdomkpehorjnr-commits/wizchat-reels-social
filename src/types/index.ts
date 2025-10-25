@@ -26,6 +26,7 @@ export interface Post {
   user: User;
   content: string;
   imageUrl?: string;
+  imageUrls?: string[];
   videoUrl?: string;
   mediaType?: 'text' | 'image' | 'video';
   isReel?: boolean;

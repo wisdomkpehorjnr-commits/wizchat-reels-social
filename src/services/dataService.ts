@@ -42,29 +42,47 @@ export const dataService = {
       throw error;
     }
 
-    return data.map(post => {
+    return data.map((post: any) => {
       const likes = (post.likes as any[]) || [];
       const isLiked = currentUser ? likes.some(like => like.user_id === currentUser.id) : false;
       
-      // Handle imageUrls - check if column exists and parse if needed
+      // Handle imageUrls - prioritize image_urls column, fallback to image_url
       let imageUrls = undefined;
+      let imageUrl = post.image_url;
+      
       if (post.image_urls) {
         try {
           imageUrls = typeof post.image_urls === 'string' ? JSON.parse(post.image_urls) : post.image_urls;
+          // If we have imageUrls array, use the first one as imageUrl for backward compatibility
+          if (Array.isArray(imageUrls) && imageUrls.length > 0) {
+            imageUrl = imageUrls[0];
+          }
         } catch (e) {
           console.warn('Failed to parse image_urls:', post.image_urls);
+          // If parsing fails, fallback to image_url
+          if (post.image_url) {
+            imageUrls = [post.image_url];
+          }
         }
-      } else if (post.image_url && !imageUrls) {
+      } else if (post.image_url) {
         // Fallback: if no image_urls but we have image_url, create array with single image
         imageUrls = [post.image_url];
       }
+      
+      console.log('Post data:', {
+        id: post.id,
+        image_url: post.image_url,
+        image_urls: post.image_urls,
+        parsed_imageUrls: imageUrls,
+        media_type: post.media_type
+      });
       
       return {
         id: post.id,
         userId: post.user_id,
         user: post.user as User,
         content: post.content,
-        imageUrl: post.image_url,
+        imageUrl: imageUrl,
         imageUrls: imageUrls,
         videoUrl: post.video_url,
         mediaType: post.media_type as 'text' | 'image' | 'video',
@@ -91,28 +109,34 @@ export const dataService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
-    // Prepare insert data - handle both single and multiple images
+    console.log('Creating post with data:', postData);
+
+    // Simple, reliable insert data
     const insertData: any = {
       user_id: user.id,
-      content: postData.content,
-      video_url: postData.videoUrl,
+      content: postData.content || '',
       media_type: postData.mediaType || 'text',
       is_reel: postData.isReel || false
     };
 
-    // Handle images - try new column first, fallback to old column
+    // Handle images - use both columns for maximum compatibility
     if (postData.imageUrls && Array.isArray(postData.imageUrls) && postData.imageUrls.length > 0) {
-      try {
-        // Try to insert with new image_urls column
-        insertData.image_urls = JSON.stringify(postData.imageUrls);
-        insertData.image_url = postData.imageUrls[0]; // Also set first image in old column for compatibility
-      } catch (e) {
-        console.warn('Failed to set image_urls, falling back to image_url');
-        insertData.image_url = postData.imageUrls[0];
-      }
+      insertData.image_urls = JSON.stringify(postData.imageUrls);
+      insertData.image_url = postData.imageUrls[0];
+      insertData.media_type = 'image';
     } else if (postData.imageUrl) {
       insertData.image_url = postData.imageUrl;
+      insertData.image_urls = JSON.stringify([postData.imageUrl]);
+      insertData.media_type = 'image';
     }
+
+    // Handle video
+    if (postData.videoUrl) {
+      insertData.video_url = postData.videoUrl;
+      insertData.media_type = 'video';
+    }
+
+    console.log('Insert data:', insertData);
 
     const { data, error } = await supabase
       .from('posts')
@@ -134,13 +158,29 @@ export const dataService = {
       throw error;
     }
 
+    console.log('Post created successfully:', data.id);
+
+    // Parse imageUrls properly
+    let imageUrls = undefined;
+    const dataWithImageUrls = data as any;
+    if (dataWithImageUrls.image_urls) {
+      try {
+        imageUrls = typeof dataWithImageUrls.image_urls === 'string' ? JSON.parse(dataWithImageUrls.image_urls) : dataWithImageUrls.image_urls;
+      } catch (e) {
+        console.warn('Failed to parse image_urls:', dataWithImageUrls.image_urls);
+        imageUrls = dataWithImageUrls.image_url ? [dataWithImageUrls.image_url] : undefined;
+      }
+    } else if (dataWithImageUrls.image_url) {
+      imageUrls = [dataWithImageUrls.image_url];
+    }
+
     return {
       id: data.id,
       userId: data.user_id,
       user: data.user as User,
       content: data.content,
       imageUrl: data.image_url,
-      imageUrls: data.image_urls ? (typeof data.image_urls === 'string' ? JSON.parse(data.image_urls) : data.image_urls) : undefined,
+      imageUrls: imageUrls,
       videoUrl: data.video_url,
       mediaType: data.media_type as 'text' | 'image' | 'video',
       isReel: data.is_reel,
@@ -1211,27 +1251,33 @@ export const dataService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
-    const { data: existingParticipant } = await supabase
-      .from('room_participants')
-      .select('id')
-      .eq('room_id', roomId)
-      .eq('user_id', user.id)
-      .single();
-
-    if (existingParticipant) {
-      return;
-    }
-
+    // Upsert (insert if not exists; don't fail if exists)
     const { error } = await supabase
       .from('room_participants')
-      .insert({
-        room_id: roomId,
-        user_id: user.id
-      });
-
+      .upsert([
+        { room_id: roomId, user_id: user.id }
+      ], { onConflict: 'room_id,user_id' });
     if (error) {
-      console.error('Error joining room:', error);
-      throw error;
+      console.error('Failed to insert/join room:', error);
+      throw new Error(error.message || 'Failed to join topic (insert)');
+    }
+    // Confirm join exists (retry if needed, since RLS policies may delay insert visibility)
+    let joined = false;
+    let details = null;
+    for (let i = 0; i < 3; i++) {
+      await new Promise(res => setTimeout(res, 250));
+      const { data, error } = await supabase
+        .from('room_participants')
+        .select('id')
+        .eq('room_id', roomId)
+        .eq('user_id', user.id)
+        .single();
+      if (data) { joined = true; break; }
+      details = error;
+    }
+    if (!joined) {
+      console.error('Join confirmation failed!', details);
+      throw new Error('Failed to confirm join. Please try again or relogin.');
     }
   },
 

@@ -21,6 +21,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
@@ -44,26 +45,63 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
       return;
     }
     setIsSubmitting(true);
+    setUploadProgress(0);
+    
     try {
       let imageUrls: string[] = [];
       let videoUrl = '';
       let mediaType: 'text' | 'image' | 'video' = 'text';
-      // Only handle images as multiple. Videos remain single upload.
-      for (const file of selectedFiles) {
-        if (file.type && file.type.startsWith('video/')) {
-          videoUrl = await MediaService.uploadPostVideo(file);
-          mediaType = 'video';
-        } else if (file.type && file.type.startsWith('image/')) {
-          const url = await MediaService.uploadPostImage(file);
-          imageUrls.push(url);
-          mediaType = 'image';
-        } else {
-          // fallback for any other (should normally not happen)
-          const url = await MediaService.uploadPostMedia(file);
-          if (file.type.startsWith('image/')) imageUrls.push(url);
-          if (file.type.startsWith('video/')) videoUrl = url;
+      
+      // Upload files in parallel for faster processing
+      if (selectedFiles.length > 0) {
+        setUploadProgress(10);
+        
+        const uploadPromises = selectedFiles.map(async (file, index) => {
+          try {
+            let url: string;
+            if (file.type && file.type.startsWith('video/')) {
+              url = await MediaService.uploadPostVideo(file);
+              return { type: 'video', url };
+            } else if (file.type && file.type.startsWith('image/')) {
+              url = await MediaService.uploadPostImage(file);
+              return { type: 'image', url };
+            } else {
+              // fallback for any other
+              url = await MediaService.uploadPostMedia(file);
+              return { type: file.type.startsWith('image/') ? 'image' : 'video', url };
+            }
+          } catch (error) {
+            console.error(`Failed to upload file ${index + 1}:`, error);
+            throw new Error(`Failed to upload ${file.name}`);
+          }
+        });
+
+        // Add timeout to prevent hanging
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Upload timeout')), 30000) // 30 second timeout
+        );
+
+        setUploadProgress(30);
+        const uploadResults = await Promise.race([
+          Promise.all(uploadPromises),
+          timeoutPromise
+        ]) as any[];
+        
+        setUploadProgress(70);
+        
+        // Process results
+        for (const result of uploadResults) {
+          if (result.type === 'video') {
+            videoUrl = result.url;
+            mediaType = 'video';
+          } else if (result.type === 'image') {
+            imageUrls.push(result.url);
+            mediaType = 'image';
+          }
         }
       }
+      
+      setUploadProgress(90);
       const postData = {
         content: content.trim(),
         imageUrls: mediaType === 'image' ? imageUrls : undefined,
@@ -74,20 +112,39 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
       console.log('Creating post with data:', postData);
       console.log('Selected files:', selectedFiles);
       console.log('Image URLs:', imageUrls);
+      setUploadProgress(95);
+      
       if (onPostCreated) {
         await onPostCreated(postData);
       }
+      
+      setUploadProgress(100);
       setContent('');
       setSelectedFiles([]);
       setPreviewUrls([]);
       const fileInput = document.getElementById('file-input') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
-      toast({ title: "Success", description: "Post created successfully!" });
+      
+      // Success feedback
+      toast({ 
+        title: "Success", 
+        description: "Post created successfully!",
+        duration: 2000
+      });
     } catch (error) {
       console.error('Error creating post:', error);
-      toast({ title: "Error", description: "Failed to create post", variant: "destructive" });
+      setUploadProgress(0);
+      
+      const errorMessage = error instanceof Error ? error.message : "Failed to create post";
+      toast({ 
+        title: "Error", 
+        description: errorMessage, 
+        variant: "destructive",
+        duration: 5000
+      });
     } finally {
       setIsSubmitting(false);
+      setTimeout(() => setUploadProgress(0), 1000);
     }
   };
 
@@ -197,7 +254,12 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
               disabled={(!content.trim() && selectedFiles.length === 0) || isSubmitting}
               className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
-              {isSubmitting ? 'Posting...' : 'Post'}
+              {isSubmitting ? (
+                <div className="flex items-center space-x-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span>Posting... {uploadProgress > 0 && `${uploadProgress}%`}</span>
+                </div>
+              ) : 'Post'}
             </Button>
           </div>
         </form>

@@ -94,7 +94,6 @@ const AvatarStudio = ({ open, onOpenChange, onSave }: AvatarStudioProps) => {
   const handleOptionSelect = (category: string, value: string) => {
     const newAvatar = { ...avatar, [category]: value };
     setAvatar(newAvatar);
-    
     const newHistory = [...history.slice(0, historyIndex + 1), JSON.stringify(newAvatar)];
     setHistory(newHistory);
     setHistoryIndex(newHistory.length - 1);
@@ -188,7 +187,6 @@ const AvatarStudio = ({ open, onOpenChange, onSave }: AvatarStudioProps) => {
         </DialogHeader>
 
         <div className="flex flex-1 overflow-hidden">
-          {/* 3D Preview */}
           <div className="w-1/3 bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center p-0">
             <div className="relative w-full h-full">
               <AvatarPreview3D avatar={avatar} />
@@ -198,7 +196,6 @@ const AvatarStudio = ({ open, onOpenChange, onSave }: AvatarStudioProps) => {
             </div>
           </div>
 
-          {/* Customization Panel */}
           <div className="flex-1 p-6">
             <Tabs value={selectedTab} onValueChange={setSelectedTab} className="h-full flex flex-col">
               <TabsList className="grid w-full grid-cols-3 mb-4">
@@ -209,7 +206,6 @@ const AvatarStudio = ({ open, onOpenChange, onSave }: AvatarStudioProps) => {
 
               <ScrollArea className="flex-1">
                 <TabsContent value="features" className="space-y-6 mt-0">
-                  {/* Skin Tone */}
                   <div>
                     <h3 className="text-lg font-semibold mb-3">Skin Tone</h3>
                     <div className="grid grid-cols-6 gap-3">
@@ -232,7 +228,6 @@ const AvatarStudio = ({ open, onOpenChange, onSave }: AvatarStudioProps) => {
                     </div>
                   </div>
 
-                  {/* Hair Style */}
                   <div>
                     <h3 className="text-lg font-semibold mb-3">Hair Style</h3>
                     <div className="grid grid-cols-5 gap-3">
@@ -254,7 +249,6 @@ const AvatarStudio = ({ open, onOpenChange, onSave }: AvatarStudioProps) => {
                     </div>
                   </div>
 
-                  {/* Hair Color */}
                   <div>
                     <h3 className="text-lg font-semibold mb-3">Hair Color</h3>
                     <div className="grid grid-cols-8 gap-3">
@@ -277,7 +271,6 @@ const AvatarStudio = ({ open, onOpenChange, onSave }: AvatarStudioProps) => {
                     </div>
                   </div>
 
-                  {/* Eye Shape */}
                   <div>
                     <h3 className="text-lg font-semibold mb-3">Eye Shape</h3>
                     <div className="grid grid-cols-3 gap-3">
@@ -299,7 +292,6 @@ const AvatarStudio = ({ open, onOpenChange, onSave }: AvatarStudioProps) => {
                     </div>
                   </div>
 
-                  {/* Eye Color */}
                   <div>
                     <h3 className="text-lg font-semibold mb-3">Eye Color</h3>
                     <div className="grid grid-cols-5 gap-3">
