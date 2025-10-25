@@ -1,189 +1,125 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { MessageSquare, Users, Flame } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { TopicRoom } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 
-const TopicRooms: React.FC = () => {
-  const [rooms, setRooms] = useState<TopicRoom[]>([]);
-  const [loading, setLoading] = useState(true);
+const TopicRoom = () => {
+  const { roomId } = useParams<{ roomId: string }>();
+  const [posts, setPosts] = useState<any[]>([]);
+  const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [content, setContent] = useState('');
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    loadRooms();
-    
-    // Subscribe to real-time updates
-    const channel = supabase
-      .channel('topic-rooms-updates')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'topic_rooms'
-      }, () => {
-        loadRooms();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
+    const init = async () => {
+      const {  { user } } = await supabase.auth.getUser();
+      if (!user) return navigate('/login');
+      loadPosts();
     };
-  }, []);
+    init();
+  }, [roomId]);
 
-  const loadRooms = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('topic_rooms')
-        .select('*')
-        .eq('is_active', true)
-        .order('participant_count', { ascending: false })
-        .limit(6);
-
-      if (error) throw error;
-
-      setRooms(data?.map(room => ({
-        id: room.id,
-        name: room.name,
-        description: room.description,
-        isActive: room.is_active,
-        participantCount: room.participant_count,
-        createdAt: new Date(room.created_at),
-        updatedAt: new Date(room.updated_at)
-      })) || []);
-    } catch (error) {
-      console.error('Error loading topic rooms:', error);
-    } finally {
-      setLoading(false);
-    }
+  const loadPosts = async () => {
+    const {  data } = await supabase
+      .from('room_posts')
+      .select('*')
+      .eq('room_id', roomId)
+      .order('created_at', { ascending: false });
+    setPosts(data || []);
   };
 
-  const joinRoom = async (roomId: string) => {
+  const handlePost = async () => {
+    if (!mediaFile) {
+      toast({ title: "Select image/video", variant: "destructive" });
+      return;
+    }
+
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast({
-          title: "Authentication Required",
-          description: "Please log in to join topic rooms",
-          variant: "destructive",
+      const filePath = `${Date.now()}_${mediaFile.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from('room-media')
+        .upload(filePath, mediaFile);
+      if (uploadError) throw uploadError;
+
+      const {  { publicUrl } } = supabase.storage
+        .from('room-media')
+        .getPublicUrl(filePath);
+
+      const {  { user } } = await supabase.auth.getUser();
+      const { error: insertError } = await supabase
+        .from('room_posts')
+        .insert({
+          room_id: roomId,
+          user_id: user!.id,
+          content: content || null,
+          media_url: publicUrl,
         });
-        return;
-      }
+      if (insertError) throw insertError;
 
-      // Check if already a participant
-      const { data: existing, error: checkError } = await supabase
-        .from('room_participants')
-        .select('id')
-        .eq('room_id', roomId)
-        .eq('user_id', user.id)
-        .single();
-
-      if (checkError && checkError.code !== 'PGRST116') {
-        throw new Error('Failed to check room participation');
-      }
-
-      if (existing) {
-        toast({
-          title: "Already Joined",
-          description: "You're already a participant in this room.",
-          duration: 3000,
-        });
-        navigate(`/topic-room/${roomId}`);
-        return;
-      }
-
-      // Insert into room_participants
-      const { error: joinError } = await supabase
-        .from('room_participants')
-        .insert({ room_id: roomId, user_id: user.id });
-
-      if (joinError) {
-        console.error('Join error:', joinError);
-        throw new Error('Failed to join room. Please try again.');
-      }
-
-      toast({
-        title: "✅ Topic Successfully Joined!",
-        description: `Welcome to ${rooms.find(r => r.id === roomId)?.name || 'the topic'}!`,
-        duration: 3000,
-      });
-
-      navigate(`/topic-room/${roomId}`);
-    } catch (error) {
-      console.error('Error joining room:', error);
-      toast({
-        title: "Error",
-        description: (error instanceof Error) ? error.message : "An unknown error occurred.",
-        variant: "destructive",
-      });
+      toast({ title: "Posted!" });
+      setContent('');
+      setMediaFile(null);
+      (document.getElementById('file') as HTMLInputElement).value = '';
+      loadPosts();
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Post failed", variant: "destructive" });
     }
   };
-
-  if (loading) {
-    return (
-      <Card className="border-2 green-border">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-foreground">
-            <Flame className="w-5 h-5" />
-            Hot Topic Rooms
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">Loading...</p>
-        </CardContent>
-      </Card>
-    );
-  }
 
   return (
-    <Card className="border-2 green-border">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-foreground">
-          <Flame className="w-5 h-5" />
-          Hot Topic Rooms
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {rooms.map((room) => (
-          <div
-            key={room.id}
-            className="flex items-center justify-between p-3 rounded-lg border border-green-500/50 hover:bg-muted/50 transition-colors"
-          >
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <MessageSquare className="w-4 h-4 text-primary" />
-                <h4 className="font-medium text-foreground">{room.name}</h4>
-                <Badge variant="secondary" className="text-xs">
-                  <Users className="w-3 h-3 mr-1" />
-                  <span className="text-foreground">{room.participantCount}</span>
-                </Badge>
-              </div>
-              {room.description && (
-                <p className="text-sm text-muted-foreground truncate">
-                  {room.description}
-                </p>
-              )}
-            </div>
-            <Button
-              size="sm"
-              onClick={() => joinRoom(room.id)}
-              className="text-foreground"
-            >
-              Join
+    <div className="p-4 max-w-2xl mx-auto">
+      <Button onClick={() => navigate('/topics')} className="mb-4">← Back</Button>
+
+      {/* Facebook-style composer */}
+      <Card className="mb-4">
+        <CardContent className="p-3">
+          <Textarea
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            placeholder="What's on your mind?"
+            className="border-none focus:ring-0 p-0 min-h-[40px]"
+          />
+          {mediaFile && <p className="text-sm mt-1">📎 {mediaFile.name}</p>}
+          <div className="flex justify-between items-center mt-2">
+            <label className="text-sm cursor-pointer">
+              📎 Photo/Video
+              <Input
+                id="file"
+                type="file"
+                accept="image/*,video/*"
+                onChange={(e) => e.target.files?.[0] && setMediaFile(e.target.files[0])}
+                className="hidden"
+              />
+            </label>
+            <Button onClick={handlePost} disabled={!mediaFile}>
+              Post
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Posts */}
+      <div className="space-y-4">
+        {posts.map((post) => (
+          <Card key={post.id}>
+            <CardContent className="p-4">
+              <p className="font-medium">User</p>
+              {post.content && <p className="my-2">{post.content}</p>}
+              {post.media_url && (
+                <img src={post.media_url} alt="Post" className="w-full mt-2 rounded" />
+              )}
+            </CardContent>
+          </Card>
         ))}
-        {rooms.length === 0 && (
-          <p className="text-muted-foreground text-center py-4">
-            No active topic rooms. Create one to get started!
-          </p>
-        )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };
 
-export default TopicRooms;
+export default TopicRoom;
