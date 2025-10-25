@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -66,11 +65,13 @@ const TopicRooms: React.FC = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        console.error('User not authenticated');
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to join topic rooms",
+          variant: "destructive",
+        });
         return;
       }
-
-      console.log('Joining room:', roomId, 'for user:', user.id);
 
       // Check if already a participant
       const { data: existing, error: checkError } = await supabase
@@ -81,42 +82,41 @@ const TopicRooms: React.FC = () => {
         .single();
 
       if (checkError && checkError.code !== 'PGRST116') {
-        console.error('Error checking participant:', checkError);
-        throw checkError;
+        throw new Error('Failed to check room participation');
       }
 
-      if (!existing) {
-        console.log('Adding user as participant');
-        const { error } = await supabase
-          .from('room_participants')
-          .insert({
-            room_id: roomId,
-            user_id: user.id
-          });
-
-        if (error) {
-          console.error('Error inserting participant:', error);
-          throw error;
-        }
+      if (existing) {
+        toast({
+          title: "Already Joined",
+          description: "You're already a participant in this room.",
+          duration: 3000,
+        });
+        navigate(`/topic-room/${roomId}`);
+        return;
       }
 
-      console.log('Successfully joined room, navigating...');
-      
+      // Insert into room_participants
+      const { error: joinError } = await supabase
+        .from('room_participants')
+        .insert({ room_id: roomId, user_id: user.id });
+
+      if (joinError) {
+        console.error('Join error:', joinError);
+        throw new Error('Failed to join room. Please try again.');
+      }
+
       toast({
-        title: "Topic Successfully Joined 🫵🏻😁",
-        description: `You've joined ${rooms.find(r => r.id === roomId)?.name || 'the topic'}!`,
+        title: "✅ Topic Successfully Joined!",
+        description: `Welcome to ${rooms.find(r => r.id === roomId)?.name || 'the topic'}!`,
         duration: 3000,
       });
-      
-      // Small delay for animation before navigation
-      setTimeout(() => {
-        navigate(`/topic-room/${roomId}`);
-      }, 800);
+
+      navigate(`/topic-room/${roomId}`);
     } catch (error) {
       console.error('Error joining room:', error);
       toast({
         title: "Error",
-        description: "Failed to join topic. Please try again.",
+        description: (error instanceof Error) ? error.message : "An unknown error occurred.",
         variant: "destructive",
       });
     }
@@ -176,7 +176,6 @@ const TopicRooms: React.FC = () => {
             </Button>
           </div>
         ))}
-
         {rooms.length === 0 && (
           <p className="text-muted-foreground text-center py-4">
             No active topic rooms. Create one to get started!
