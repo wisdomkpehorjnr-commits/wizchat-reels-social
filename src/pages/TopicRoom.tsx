@@ -1,357 +1,212 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import Layout from '@/components/Layout';
-import CreatePost from '@/components/CreatePost';
-import PostCard from '@/components/PostCard';
-import { Button } from '@/components/ui/button';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Users, MessageSquare, Settings } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { dataService } from '@/services/dataService';
-import { Post, TopicRoom as TopicRoomType } from '@/types';
+import { useToast } from '@/hooks/use-toast';
+import { Upload, Trash2 } from 'lucide-react';
 
-const TopicRoom = () => {
+const TopicRoom: React.FC = () => {
   const { roomId } = useParams<{ roomId: string }>();
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const [room, setRoom] = useState<TopicRoomType | null>(null);
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [participants, setParticipants] = useState<any[]>([]);
+  const [room, setRoom] = useState<any>(null);
+  const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isParticipant, setIsParticipant] = useState(false);
+  const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [postText, setPostText] = useState('');
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   useEffect(() => {
-    if (roomId) {
-      loadRoomData();
-      subscribeToUpdates();
-    }
+    init();
   }, [roomId]);
 
-  const loadRoomData = async () => {
-    if (!roomId || !user) return;
-    
-    try {
-      setLoading(true);
-      console.log('Loading room data for:', roomId);
-      
-      // Load room details
-      const { data: roomData, error: roomError } = await supabase
-        .from('topic_rooms')
-        .select('*')
-        .eq('id', roomId)
-        .single();
-
-      if (roomError) throw roomError;
-
-      setRoom({
-        id: roomData.id,
-        name: roomData.name,
-        description: roomData.description,
-        isActive: roomData.is_active,
-        participantCount: roomData.participant_count,
-        createdAt: new Date(roomData.created_at),
-        updatedAt: new Date(roomData.updated_at)
-      });
-
-      // Load participants
-      const { data: participantsData, error: participantsError } = await supabase
-        .from('room_participants')
-        .select(`
-          *,
-          profiles (
-            id,
-            name,
-            username,
-            avatar
-          )
-        `)
-        .eq('room_id', roomId);
-
-      if (participantsError) throw participantsError;
-
-      setParticipants(participantsData || []);
-      setIsParticipant(participantsData?.some(p => p.user_id === user.id) || false);
-
-      // Load room posts - first get the posts, then get profiles separately
-      const { data: postsData, error: postsError } = await supabase
-        .from('room_posts')
-        .select('*')
-        .eq('room_id', roomId)
-        .order('created_at', { ascending: false });
-
-      if (postsError) {
-        console.error('Error loading room posts:', postsError);
-        setPosts([]);
-      } else if (postsData) {
-        // Get unique user IDs from posts
-        const userIds = [...new Set(postsData.map(post => post.user_id))];
-        
-        // Fetch profiles for these users
-        const { data: profilesData, error: profilesError } = await supabase
-          .from('profiles')
-          .select('*')
-          .in('id', userIds);
-
-        if (profilesError) {
-          console.error('Error loading profiles:', profilesError);
-          setPosts([]);
-        } else {
-          // Create a map of user profiles for quick lookup
-          const profilesMap = new Map(profilesData?.map(profile => [profile.id, profile]) || []);
-          
-          // Format posts with profile data
-          const formattedPosts = postsData.map(post => {
-            const profile = profilesMap.get(post.user_id);
-            return {
-              id: post.id,
-              userId: post.user_id,
-              user: {
-                id: profile?.id || post.user_id,
-                name: profile?.name || 'Unknown User',
-                username: profile?.username || 'unknown',
-                email: profile?.email || '',
-                photoURL: profile?.avatar || '',
-                avatar: profile?.avatar || '',
-                bio: profile?.bio || '',
-                followerCount: profile?.follower_count || 0,
-                followingCount: profile?.following_count || 0,
-                profileViews: profile?.profile_views || 0,
-                createdAt: new Date(profile?.created_at || post.created_at)
-              },
-              content: post.content,
-              imageUrl: post.image_url,
-              videoUrl: post.video_url,
-              mediaType: post.media_type as 'text' | 'image' | 'video',
-              likes: [],
-              comments: [],
-              reactions: [],
-              hashtags: [],
-              createdAt: new Date(post.created_at)
-            };
-          });
-          
-          setPosts(formattedPosts);
-        }
-      }
-    } catch (error) {
-      console.error('Error loading room data:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load room data",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
+  const init = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    setCurrentUser(user);
+    if (!user) {
+      toast({ title: "Please log in", variant: "destructive" });
+      navigate('/login');
+      return;
     }
+    await loadRoom();
+    await loadPosts();
+    setLoading(false);
   };
 
-  const subscribeToUpdates = () => {
-    const channel = supabase
-      .channel(`room-${roomId}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'room_posts',
-        filter: `room_id=eq.${roomId}`
-      }, () => {
-        loadRoomData();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  };
-
-  const joinRoom = async () => {
-    if (!user || !roomId) return;
-    
-    try {
-      await dataService.joinTopicRoom(roomId);
-      
-      setIsParticipant(true);
-      loadRoomData();
-      
-      toast({
-        title: "Success",
-        description: "You've joined the room!",
-      });
-    } catch (error) {
-      console.error('Error joining room:', error);
-      toast({
-        title: "Error",
-        description: "Failed to join room",
-        variant: "destructive"
-      });
+  const loadRoom = async () => {
+    const { data, error } = await supabase
+      .from('topic_rooms')
+      .select('*')
+      .eq('id', roomId)
+      .single();
+    if (error || !data) {
+      toast({ title: "Room not found", variant: "destructive" });
+      navigate('/topics');
+      return;
     }
+    setRoom(data);
   };
 
-  const handlePostCreated = async (postData: any) => {
-    if (!user || !roomId) return;
-    
+  const loadPosts = async () => {
+    const { data, error } = await supabase
+      .from('room_posts')
+      .select(`
+        *,
+        profiles!inner(username)
+      `)
+      .eq('room_id', roomId)
+      .order('created_at', { ascending: false });
+
+    if (!error) setPosts(data || []);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.[0]) setMediaFile(e.target.files[0]);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mediaFile) {
+      toast({ title: "Please select an image or video", variant: "destructive" });
+      return;
+    }
+
     try {
-      // Create post in room_posts table
-      const { error } = await supabase
+      // Upload to Supabase Storage
+      const fileExt = mediaFile.name.split('.').pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `${currentUser.id}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('room-media')
+        .upload(filePath, mediaFile);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('room-media')
+        .getPublicUrl(filePath);
+
+      // Insert post
+      const { error: postError } = await supabase
         .from('room_posts')
         .insert({
           room_id: roomId,
-          user_id: user.id,
-          content: postData.content,
-          image_url: postData.imageUrl,
-          video_url: postData.videoUrl,
-          media_type: postData.mediaType
+          user_id: currentUser.id,
+          content: postText,
+          media_url: publicUrl,
         });
 
-      if (error) throw error;
+      if (postError) throw postError;
 
-      toast({
-        title: "Success",
-        description: "Post shared in room!",
-      });
-      
-      loadRoomData();
+      toast({ title: "Post created!", duration: 2000 });
+      setMediaFile(null);
+      setPostText('');
+      (document.getElementById('media-input') as HTMLInputElement).value = '';
+      await loadPosts(); // refresh feed
     } catch (error) {
-      console.error('Error creating room post:', error);
-      toast({
-        title: "Error",
-        description: "Failed to create post",
-        variant: "destructive"
-      });
+      console.error('Post error:', error);
+      toast({ title: "Failed to create post", variant: "destructive" });
     }
   };
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="container mx-auto px-4 py-6">
-          <div className="animate-pulse">
-            <div className="h-8 bg-muted rounded w-1/3 mb-4" />
-            <div className="h-20 bg-muted rounded mb-6" />
-            <div className="space-y-4">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="h-32 bg-muted rounded" />
-              ))}
-            </div>
-          </div>
-        </div>
-      </Layout>
-    );
-  }
+  const handleDeletePost = async (postId: number) => {
+    if (!confirm("Delete this post?")) return;
+    const { error } = await supabase
+      .from('room_posts')
+      .delete()
+      .eq('id', postId)
+      .eq('user_id', currentUser.id);
+    if (!error) {
+      setPosts(posts.filter(p => p.id !== postId));
+      toast({ title: "Deleted", duration: 2000 });
+    }
+  };
 
-  if (!room) {
-    return (
-      <Layout>
-        <div className="container mx-auto px-4 py-6">
-          <div className="text-center">
-            <h2 className="text-2xl font-bold mb-4">Room not found</h2>
-            <Button onClick={() => navigate('/topics')}>
-              Back to Topics
-            </Button>
-          </div>
-        </div>
-      </Layout>
-    );
-  }
+  if (loading) return <div className="p-4">Loading room...</div>;
+  if (!room) return null;
 
   return (
-    <Layout>
-      <div className="container mx-auto px-4 py-6">
-        <div className="max-w-4xl mx-auto">
-          {/* Header */}
-          <div className="flex items-center gap-4 mb-6">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate('/topics')}
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Topics
+    <div className="container mx-auto p-4 max-w-2xl">
+      <Button variant="ghost" onClick={() => navigate('/topics')} className="mb-4">
+        ← Back to Topics
+      </Button>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>{room.name}</CardTitle>
+          <p className="text-muted-foreground">{room.description}</p>
+        </CardHeader>
+      </Card>
+
+      {/* Post Form */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Share Media</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <Textarea
+              value={postText}
+              onChange={(e) => setPostText(e.target.value)}
+              placeholder="Add a caption..."
+            />
+            <Input
+              id="media-input"
+              type="file"
+              accept="image/*,video/*"
+              onChange={handleFileChange}
+            />
+            <Button type="submit" className="w-full">
+              <Upload className="w-4 h-4 mr-2" /> Post
             </Button>
-          </div>
+          </form>
+        </CardContent>
+      </Card>
 
-          {/* Room Info */}
-          <Card className="border-2 green-border mb-6">
-            <CardHeader>
-              <div className="flex items-center justify-between">
+      {/* Posts Feed */}
+      <div className="space-y-4">
+        {posts.map((post) => (
+          <Card key={post.id}>
+            <CardContent className="p-4">
+              <div className="flex justify-between items-start">
                 <div>
-                  <CardTitle className="text-2xl font-bold text-foreground flex items-center gap-2">
-                    <MessageSquare className="w-6 h-6" />
-                    {room.name}
-                  </CardTitle>
-                  {room.description && (
-                    <p className="text-muted-foreground mt-2">{room.description}</p>
-                  )}
-                </div>
-                <div className="flex items-center gap-4">
-                  <Badge variant="secondary" className="text-foreground">
-                    <Users className="w-3 h-3 mr-1" />
-                    {room.participantCount} participants
-                  </Badge>
-                  {!isParticipant && (
-                    <Button onClick={joinRoom} className="text-foreground">
-                      Join Room
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </CardHeader>
-          </Card>
-
-          {/* Post Creation */}
-          {isParticipant && (
-            <Card className="border-2 green-border mb-6">
-              <CardContent className="p-6">
-                <CreatePost 
-                  onPostCreated={handlePostCreated}
-                  placeholder="Share something with the room..."
-                />
-              </CardContent>
-            </Card>
-          )}
-
-          {!isParticipant && (
-            <Card className="border-2 green-border mb-6">
-              <CardContent className="p-6 text-center">
-                <MessageSquare className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Join the conversation</h3>
-                <p className="text-muted-foreground mb-4">
-                  Join this room to start posting and interacting with other members.
-                </p>
-                <Button onClick={joinRoom} className="text-foreground">
-                  Join Room
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Posts */}
-          <div className="space-y-6">
-            {posts.length > 0 ? (
-              posts.map((post) => (
-                <PostCard 
-                  key={post.id} 
-                  post={post}
-                  onPostUpdate={loadRoomData}
-                />
-              ))
-            ) : (
-              <Card className="border-2 green-border">
-                <CardContent className="p-8 text-center">
-                  <MessageSquare className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">
-                    No posts yet. Be the first to share something!
+                  <p className="font-medium">{post.profiles?.username || 'User'}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {new Date(post.created_at).toLocaleString()}
                   </p>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        </div>
+                </div>
+                {post.user_id === currentUser.id && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDeletePost(post.id)}
+                  >
+                    <Trash2 className="w-4 h-4 text-destructive" />
+                  </Button>
+                )}
+              </div>
+              {post.content && <p className="my-2">{post.content}</p>}
+              {post.media_url && (
+                <div className="mt-2">
+                  {post.media_url.includes('video') ? (
+                    <video src={post.media_url} controls className="w-full rounded" />
+                  ) : (
+                    <img src={post.media_url} alt="Post media" className="w-full rounded" />
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+        {posts.length === 0 && (
+          <p className="text-center text-muted-foreground py-8">No posts yet. Be the first!</p>
+        )}
       </div>
-    </Layout>
+    </div>
   );
 };
 
