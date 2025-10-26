@@ -18,43 +18,42 @@ export default function TopicRoom() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // ✅ Load user and posts on mount
   useEffect(() => {
     const init = async () => {
-      const { data, error } = await supabase.auth.getUser();
-      if (error || !data?.user) {
-        navigate("/login");
-        return;
+      try {
+        const { data, error } = await supabase.auth.getUser();
+        if (error || !data?.user) {
+          navigate("/login");
+          return;
+        }
+        setCurrentUser(data.user);
+        await loadPosts();
+      } catch (err) {
+        console.error("Error loading user:", err);
       }
-      setCurrentUser(data.user);
-      await loadPosts();
     };
     init();
   }, [roomId]);
 
-  // ✅ Load posts for the topic room
   const loadPosts = async () => {
-    const { data, error } = await supabase
-      .from("room_posts")
-      .select(
-        `
-        *,
-        profiles!inner(username)
-      `
-      )
-      .eq("room_id", roomId)
-      .order("created_at", { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from("room_posts")
+        .select(`
+          *,
+          profiles!inner(username)
+        `)
+        .eq("room_id", roomId)
+        .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error(error);
+      if (error) throw error;
+      setPosts(data || []);
+    } catch (err) {
+      console.error("Error loading posts:", err);
       toast({ title: "Failed to load posts", variant: "destructive" });
-      return;
     }
-
-    setPosts(data || []);
   };
 
-  // ✅ Handle new post creation
   const handlePost = async () => {
     if (!mediaFile) {
       toast({ title: "Select an image or video", variant: "destructive" });
@@ -86,34 +85,33 @@ export default function TopicRoom() {
       toast({ title: "Posted successfully!" });
       setContent("");
       setMediaFile(null);
-
       const fileInput = document.getElementById("file") as HTMLInputElement;
       if (fileInput) fileInput.value = "";
-
       await loadPosts();
     } catch (err) {
-      console.error(err);
+      console.error("Post creation failed:", err);
       toast({ title: "Post failed", variant: "destructive" });
     }
   };
 
-  // ✅ Delete post (only user’s own)
   const handleDelete = async (postId: number) => {
     if (!confirm("Delete this post?")) return;
 
-    const { error } = await supabase
-      .from("room_posts")
-      .delete()
-      .eq("id", postId)
-      .eq("user_id", currentUser.id);
+    try {
+      const { error } = await supabase
+        .from("room_posts")
+        .delete()
+        .eq("id", postId)
+        .eq("user_id", currentUser.id);
 
-    if (error) {
+      if (error) throw error;
+
+      setPosts((prev) => prev.filter((p) => p.id !== postId));
+      toast({ title: "Deleted", duration: 2000 });
+    } catch (err) {
+      console.error("Delete failed:", err);
       toast({ title: "Failed to delete post", variant: "destructive" });
-      return;
     }
-
-    setPosts((prev) => prev.filter((p) => p.id !== postId));
-    toast({ title: "Deleted", duration: 2000 });
   };
 
   return (

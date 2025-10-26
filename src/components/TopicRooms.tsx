@@ -1,79 +1,88 @@
-// src/pages/TopicRoom.tsx
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
-import { useToast } from '@/hooks/use-toast';
+// src/components/TopicRooms.tsx
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
 
-export default function TopicRoom() {
-  const { roomId } = useParams<{ roomId: string }>();
-  const [mediaFile, setMediaFile] = useState<File | null>(null);
-  const [content, setContent] = useState('');
+export default function TopicRooms() {
+  const [rooms, setRooms] = useState<any[]>([]);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handlePost = async () => {
-    if (!mediaFile) {
-      toast({ title: "Please select an image or video", variant: "destructive" });
-      return;
-    }
+  useEffect(() => {
+    const init = async () => {
+      try {
+        // ✅ FIXED: proper destructuring
+        const { data } = await supabase.auth.getUser();
+        const user = data?.user;
 
+        if (!user) {
+          navigate("/login");
+          return;
+        }
+
+        setCurrentUser(user);
+        await loadRooms();
+      } catch (err) {
+        console.error("Error loading user:", err);
+      }
+    };
+
+    init();
+  }, []);
+
+  const loadRooms = async () => {
     try {
-      const {  { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not logged in");
+      const { data, error } = await supabase
+        .from("topic_rooms")
+        .select("*")
+        .order("created_at", { ascending: false });
 
-      // Upload to Supabase Storage
-      const filePath = `${user.id}/${Date.now()}_${mediaFile.name}`;
-      const { error: uploadErr } = await supabase.storage
-        .from('room-media')
-        .upload(filePath, mediaFile);
-      if (uploadErr) throw uploadErr;
-
-      const {  { publicUrl } } = supabase.storage
-        .from('room-media')
-        .getPublicUrl(filePath);
-
-      // Save to DB
-      const { error: dbErr } = await supabase
-        .from('room_posts')
-        .insert({ room_id: roomId, user_id: user.id, content: content || null, media_url: publicUrl });
-      if (dbErr) throw dbErr;
-
-      toast({ title: "Posted!" });
-      setContent('');
-      setMediaFile(null);
-      (document.getElementById('file') as HTMLInputElement).value = '';
+      if (error) throw error;
+      setRooms(data || []);
     } catch (err) {
-      console.error(err);
-      toast({ title: "Failed to post", variant: "destructive" });
+      console.error("Error loading rooms:", err);
+      toast({ title: "Failed to load rooms", variant: "destructive" });
     }
+  };
+
+  const handleEnterRoom = (roomId: string) => {
+    navigate(`/topic/${roomId}`);
   };
 
   return (
     <div className="p-4 max-w-2xl mx-auto">
-      <Button onClick={() => navigate('/topics')} className="mb-4">← Back to Topics</Button>
+      <h1 className="text-2xl font-bold mb-4">Topic Rooms</h1>
 
-      <Card>
-        <CardContent className="p-4">
-          <Textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="What's on your mind?"
-            className="mb-3"
-          />
-          <Input
-            id="file"
-            type="file"
-            accept="image/*,video/*"
-            onChange={(e) => e.target.files?.[0] && setMediaFile(e.target.files[0])}
-            className="mb-3"
-          />
-          <Button onClick={handlePost} disabled={!mediaFile}>Post</Button>
-        </CardContent>
-      </Card>
+      {rooms.length === 0 ? (
+        <p className="text-center text-muted-foreground py-8">
+          No topic rooms available.
+        </p>
+      ) : (
+        <div className="space-y-4">
+          {rooms.map((room) => (
+            <Card key={room.id}>
+              <CardContent className="p-4 flex justify-between items-center">
+                <div>
+                  <p className="font-semibold">{room.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Created on {new Date(room.created_at).toLocaleString()}
+                  </p>
+                </div>
+                <Button
+                  onClick={() => handleEnterRoom(room.id)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  Enter
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
