@@ -31,22 +31,23 @@ const Topics = () => {
     <Layout>
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
-          {/* Heading Card */}
-          <Card className="bg-green-600 mb-6">
+
+          {/* Main Heading Card */}
+          <Card className="border-2 border-green-500 mb-6 bg-green-700 dark:bg-green-900">
             <CardHeader>
-              <CardTitle className="text-3xl font-bold text-white">
+              <CardTitle className="text-3xl font-extrabold text-white">
                 Topic Rooms
               </CardTitle>
-              <p className="text-white font-semibold mt-2">
+              <p className="text-white mt-1">
                 Join discussions on topics you're interested in
               </p>
             </CardHeader>
           </Card>
 
           {/* Topic Room Cards */}
-          <div className="grid gap-3">
+          <div className="grid gap-4">
             {rooms.length === 0 && (
-              <p className="text-center text-white py-8">
+              <p className="text-center text-white dark:text-gray-300 py-8">
                 No topic rooms yet.
               </p>
             )}
@@ -54,14 +55,18 @@ const Topics = () => {
             {rooms.map((room) => (
               <Card
                 key={room.id}
-                className="bg-green-700 hover:bg-green-800 cursor-pointer p-3"
+                className="border-2 border-green-500 hover:border-green-700 cursor-pointer bg-white dark:bg-gray-800"
                 onClick={() => navigate(`/topic-room/${room.id}`)}
               >
-                <CardContent className="p-2">
-                  <h3 className="text-white font-bold text-lg">{room.name}</h3>
-                  <p className="text-white text-sm mt-1">{room.description}</p>
+                <CardContent className="py-3 px-4">
+                  <h3 className="text-green-800 dark:text-white font-semibold text-lg">
+                    {room.name}
+                  </h3>
+                  <p className="text-green-700 dark:text-gray-300 text-sm mt-1">
+                    {room.description}
+                  </p>
                   <Button
-                    className="mt-2 bg-white text-green-700 hover:bg-green-100"
+                    className="mt-2 bg-green-600 hover:bg-green-700 text-white dark:text-white"
                   >
                     Enter Room
                   </Button>
@@ -69,6 +74,7 @@ const Topics = () => {
               </Card>
             ))}
           </div>
+
         </div>
       </div>
     </Layout>
