@@ -31,32 +31,38 @@ const Topics = () => {
     <Layout>
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
-          <Card className="border-2 border-green-500 mb-6">
+          {/* Heading Card */}
+          <Card className="bg-green-600 mb-6">
             <CardHeader>
-              <CardTitle className="text-2xl font-bold text-green-800">
+              <CardTitle className="text-3xl font-bold text-white">
                 Topic Rooms
               </CardTitle>
-              <p className="text-green-700">
+              <p className="text-white font-semibold mt-2">
                 Join discussions on topics you're interested in
               </p>
             </CardHeader>
           </Card>
 
-          <div className="grid gap-4">
+          {/* Topic Room Cards */}
+          <div className="grid gap-3">
             {rooms.length === 0 && (
-              <p className="text-center text-green-700 py-8">No topic rooms yet.</p>
+              <p className="text-center text-white py-8">
+                No topic rooms yet.
+              </p>
             )}
 
             {rooms.map((room) => (
               <Card
                 key={room.id}
-                className="border-2 border-green-500 hover:border-green-700 cursor-pointer"
+                className="bg-green-700 hover:bg-green-800 cursor-pointer p-3"
                 onClick={() => navigate(`/topic-room/${room.id}`)}
               >
-                <CardContent>
-                  <h3 className="text-green-800 font-semibold text-lg">{room.name}</h3>
-                  <p className="text-green-700">{room.description}</p>
-                  <Button className="mt-2 bg-green-600 text-white hover:bg-green-700">
+                <CardContent className="p-2">
+                  <h3 className="text-white font-bold text-lg">{room.name}</h3>
+                  <p className="text-white text-sm mt-1">{room.description}</p>
+                  <Button
+                    className="mt-2 bg-white text-green-700 hover:bg-green-100"
+                  >
                     Enter Room
                   </Button>
                 </CardContent>
