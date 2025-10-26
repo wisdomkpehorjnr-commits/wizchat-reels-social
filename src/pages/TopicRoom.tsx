@@ -1,214 +1,102 @@
-// src/pages/TopicRoom.tsx
-import React, { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import React, { useEffect, useState } from "react";
+import Layout from "@/components/Layout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { useToast } from "@/hooks/use-toast";
-import { Trash2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useParams } from "react-router-dom";
 
-export default function TopicRoom() {
-  const { roomId } = useParams<{ roomId: string }>();
-  const [posts, setPosts] = useState<any[]>([]);
-  const [mediaFile, setMediaFile] = useState<File | null>(null);
-  const [content, setContent] = useState("");
-  const [currentUser, setCurrentUser] = useState<any>(null);
-  const navigate = useNavigate();
-  const { toast } = useToast();
+interface PostType {
+  id: string;
+  content: string;
+  created_at: string;
+}
 
-  // Load current user and posts
+const TopicRoom = () => {
+  const { roomId } = useParams();
+  const [posts, setPosts] = useState<PostType[]>([]);
+  const [newPost, setNewPost] = useState("");
+
+  // Fetch posts from Supabase
   useEffect(() => {
-    const init = async () => {
-      try {
-        const { data, error } = await supabase.auth.getUser();
-        if (error || !data?.user) {
-          navigate("/login");
-          return;
-        }
-        setCurrentUser(data.user);
-        await loadPosts();
-      } catch (err) {
-        console.error("Error loading user:", err);
-      }
-    };
-    init();
-  }, [roomId]);
-
-  // Load posts for this room
-  const loadPosts = async () => {
-    try {
+    const loadPosts = async () => {
       const { data, error } = await supabase
-        .from("room_posts")
-        .select("*, profiles!inner(username)")
+        .from("topic_posts")
+        .select("*")
         .eq("room_id", roomId)
         .order("created_at", { ascending: false });
+      if (error) console.error("Error fetching posts:", error);
+      else setPosts(data || []);
+    };
+    loadPosts();
+  }, [roomId]);
 
-      if (error) throw error;
-      setPosts(data || []);
-    } catch (err) {
-      console.error("Error loading posts:", err);
-      toast({ title: "Failed to load posts", variant: "destructive" });
-    }
-  };
-
-  // Handle new post creation
+  // Handle new post submission
   const handlePost = async () => {
-    if (!mediaFile && !content.trim()) {
-      toast({ title: "Enter text or select media", variant: "destructive" });
-      return;
-    }
-
-    try {
-      let publicUrl = null;
-
-      if (mediaFile) {
-        const filePath = `${currentUser.id}/${Date.now()}_${mediaFile.name}`;
-        const { error: uploadErr } = await supabase.storage
-          .from("room-media")
-          .upload(filePath, mediaFile);
-
-        if (uploadErr) throw uploadErr;
-
-        const { data: publicData } = supabase.storage
-          .from("room-media")
-          .getPublicUrl(filePath);
-
-        publicUrl = publicData?.publicUrl;
-      }
-
-      const { error: dbErr } = await supabase.from("room_posts").insert({
-        room_id: roomId,
-        user_id: currentUser.id,
-        content: content.trim() || null,
-        media_url: publicUrl,
-      });
-
-      if (dbErr) throw dbErr;
-
-      toast({ title: "Posted successfully!" });
-      setContent("");
-      setMediaFile(null);
-
-      const fileInput = document.getElementById("file") as HTMLInputElement;
-      if (fileInput) fileInput.value = "";
-
-      await loadPosts();
-    } catch (err) {
-      console.error("Post creation failed:", err);
-      toast({ title: "Post failed", variant: "destructive" });
-    }
-  };
-
-  // Delete post
-  const handleDelete = async (postId: number) => {
-    if (!confirm("Delete this post?")) return;
-
-    try {
-      const { error } = await supabase
-        .from("room_posts")
-        .delete()
-        .eq("id", postId)
-        .eq("user_id", currentUser.id);
-
-      if (error) throw error;
-
-      setPosts((prev) => prev.filter((p) => p.id !== postId));
-      toast({ title: "Deleted", duration: 2000 });
-    } catch (err) {
-      console.error("Delete failed:", err);
-      toast({ title: "Failed to delete post", variant: "destructive" });
+    if (!newPost.trim()) return;
+    const { data, error } = await supabase
+      .from("topic_posts")
+      .insert([{ room_id: roomId, content: newPost }])
+      .select();
+    if (error) console.error("Error posting:", error);
+    else {
+      setPosts([data[0], ...posts]);
+      setNewPost("");
     }
   };
 
   return (
-    <div className="p-4 max-w-2xl mx-auto">
-      <Button
-        onClick={() => navigate("/topics")}
-        className="mb-4 bg-green-600 text-white hover:bg-green-700"
-      >
-        ← Back to Topics
-      </Button>
+    <Layout>
+      <div className="container mx-auto px-4 py-6">
+        {/* Topic Room Heading */}
+        <h1 className="text-3xl font-extrabold text-white mb-6">Topic Room</h1>
 
-      {/* Post form */}
-      <Card className="mb-6 border-green-600">
-        <CardContent className="p-4 bg-white text-green-800">
-          <Textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="Write something..."
-            className="mb-3 min-h-[60px] border-none focus:ring-0 p-0"
-          />
-          <Input
-            id="file"
-            type="file"
-            accept="image/*,video/*"
-            onChange={(e) => {
-              if (e.target.files && e.target.files[0]) {
-                setMediaFile(e.target.files[0]);
-              }
-            }}
-            className="mb-3"
-          />
-          <Button
-            onClick={handlePost}
-            className="w-full bg-green-600 text-white hover:bg-green-700"
-          >
-            Post
-          </Button>
-        </CardContent>
-      </Card>
+        {/* Facebook-style Posting Card */}
+        <Card className="mb-6 border-2 border-green-500 bg-white dark:bg-gray-800">
+          <CardHeader>
+            <CardTitle className="text-lg font-bold text-green-700 dark:text-white">
+              Create a Post
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Input
+              placeholder="What's on your mind?"
+              className="mb-3 text-black dark:text-white"
+              value={newPost}
+              onChange={(e) => setNewPost(e.target.value)}
+            />
+            <Button
+              className="bg-green-600 text-white hover:bg-green-700 w-full"
+              onClick={handlePost}
+            >
+              Post
+            </Button>
+          </CardContent>
+        </Card>
 
-      {/* Posts list */}
-      <div className="space-y-4">
-        {posts.map((post) => (
-          <Card key={post.id} className="border-green-600">
-            <CardContent className="p-4 bg-white text-green-800">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="font-semibold">{post.profiles?.username || "User"}</p>
-                  <p className="text-xs">{new Date(post.created_at).toLocaleString()}</p>
-                </div>
-                {post.user_id === currentUser?.id && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDelete(post.id)}
-                  >
-                    <Trash2 className="w-4 h-4 text-green-600" />
-                  </Button>
-                )}
-              </div>
-
-              {post.content && <p className="my-2 text-sm">{post.content}</p>}
-
-              {post.media_url && (
-                <div className="mt-2 rounded">
-                  {post.media_url.endsWith(".mp4") ||
-                  post.media_url.includes("video") ? (
-                    <video
-                      src={post.media_url}
-                      controls
-                      className="w-full max-h-96 object-contain rounded"
-                    />
-                  ) : (
-                    <img
-                      src={post.media_url}
-                      alt="Post media"
-                      className="w-full max-h-96 object-contain rounded"
-                    />
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
-
-        {posts.length === 0 && (
-          <p className="text-center py-8">No posts yet. Be the first!</p>
-        )}
+        {/* Posts List */}
+        <div className="space-y-4">
+          {posts.length === 0 ? (
+            <p className="text-white dark:text-gray-300">No posts yet. Be the first!</p>
+          ) : (
+            posts.map((post) => (
+              <Card
+                key={post.id}
+                className="border-2 border-green-500 bg-white dark:bg-gray-800"
+              >
+                <CardContent>
+                  <p className="text-black dark:text-white">{post.content}</p>
+                  <p className="text-gray-500 text-sm mt-1">
+                    {new Date(post.created_at).toLocaleString()}
+                  </p>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
       </div>
-    </div>
+    </Layout>
   );
-}
+};
+
+export default TopicRoom;
