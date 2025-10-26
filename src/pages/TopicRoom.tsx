@@ -20,7 +20,9 @@ export default function TopicRoom() {
 
   useEffect(() => {
     const init = async () => {
-      const {  { user } } = await supabase.auth.getUser();
+      // ✅ CORRECT SYNTAX: single destructuring
+      const { data } = await supabase.auth.getUser();
+      const user = data?.user;
       if (!user) return navigate('/login');
       setCurrentUser(user);
       loadPosts();
@@ -29,7 +31,7 @@ export default function TopicRoom() {
   }, [roomId]);
 
   const loadPosts = async () => {
-    const {  posts } = await supabase
+    const { data: posts } = await supabase
       .from('room_posts')
       .select(`
         *,
@@ -53,9 +55,10 @@ export default function TopicRoom() {
         .upload(filePath, mediaFile);
       if (uploadErr) throw uploadErr;
 
-      const {  { publicUrl } } = supabase.storage
+      const { data } = supabase.storage
         .from('room-media')
         .getPublicUrl(filePath);
+      const publicUrl = data?.publicUrl;
 
       const { error: dbErr } = await supabase
         .from('room_posts')
@@ -70,8 +73,9 @@ export default function TopicRoom() {
       toast({ title: "Posted!" });
       setContent('');
       setMediaFile(null);
-      (document.getElementById('file') as HTMLInputElement).value = '';
-      loadPosts(); // refresh
+      const fileInput = document.getElementById('file') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
+      loadPosts();
     } catch (err) {
       console.error(err);
       toast({ title: "Post failed", variant: "destructive" });
@@ -95,7 +99,6 @@ export default function TopicRoom() {
     <div className="p-4 max-w-2xl mx-auto">
       <Button onClick={() => navigate('/topics')} className="mb-4">← Back to Topics</Button>
 
-      {/* Post Composer */}
       <Card className="mb-6">
         <CardContent className="p-4">
           <Textarea
@@ -117,7 +120,6 @@ export default function TopicRoom() {
         </CardContent>
       </Card>
 
-      {/* Posts Feed */}
       <div className="space-y-4">
         {posts.map((post) => (
           <Card key={post.id} className="overflow-hidden">
