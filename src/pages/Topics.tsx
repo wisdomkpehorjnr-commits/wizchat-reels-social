@@ -32,13 +32,13 @@ const Topics = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
 
-          {/* Main Heading Card */}
-          <Card className="border-2 border-green-500 mb-6 bg-green-700 dark:bg-green-900">
-            <CardHeader>
-              <CardTitle className="text-3xl font-extrabold text-white">
+          {/* Main Heading Card - Bigger and Highlighted */}
+          <Card className="border-2 border-green-500 mb-6 bg-green-600 dark:bg-green-900">
+            <CardHeader className="p-6">
+              <CardTitle className="text-4xl font-extrabold text-white">
                 Topic Rooms
               </CardTitle>
-              <p className="text-white mt-1">
+              <p className="text-white mt-2 text-lg">
                 Join discussions on topics you're interested in
               </p>
             </CardHeader>
@@ -47,7 +47,7 @@ const Topics = () => {
           {/* Topic Room Cards */}
           <div className="grid gap-4">
             {rooms.length === 0 && (
-              <p className="text-center text-white dark:text-gray-300 py-8">
+              <p className="text-center text-gray-800 dark:text-gray-300 py-8">
                 No topic rooms yet.
               </p>
             )}
@@ -59,10 +59,10 @@ const Topics = () => {
                 onClick={() => navigate(`/topic-room/${room.id}`)}
               >
                 <CardContent className="py-3 px-4">
-                  <h3 className="text-green-800 dark:text-white font-semibold text-lg">
+                  <h3 className="text-black dark:text-white font-semibold text-lg">
                     {room.name}
                   </h3>
-                  <p className="text-green-700 dark:text-gray-300 text-sm mt-1">
+                  <p className="text-gray-700 dark:text-gray-300 text-sm mt-1">
                     {room.description}
                   </p>
                   <Button
