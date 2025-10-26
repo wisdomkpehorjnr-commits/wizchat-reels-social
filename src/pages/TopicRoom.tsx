@@ -1,210 +1,109 @@
-// src/pages/TopicRoom.tsx
-import React, { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
-import { useToast } from "@/hooks/use-toast";
-import { Trash2 } from "lucide-react";
+import React, { useState } from 'react';
+import { useParams } from 'react-router-dom';
 
-export default function TopicRoom() {
+const TopicRoom: React.FC = () => {
   const { roomId } = useParams<{ roomId: string }>();
-  const [posts, setPosts] = useState<any[]>([]);
-  const [mediaFile, setMediaFile] = useState<File | null>(null);
-  const [content, setContent] = useState("");
-  const [currentUser, setCurrentUser] = useState<any>(null);
-  const navigate = useNavigate();
-  const { toast } = useToast();
+  const [postContent, setPostContent] = useState('');
+  const [posts, setPosts] = useState<string[]>([]);
 
-  useEffect(() => {
-    const init = async () => {
-      try {
-        const { data, error } = await supabase.auth.getUser();
-        if (error || !data?.user) {
-          navigate("/login");
-          return;
-        }
-        setCurrentUser(data.user);
-        await loadPosts();
-      } catch (err) {
-        console.error("Error loading user:", err);
-      }
-    };
-    init();
-  }, [roomId]);
-
-  const loadPosts = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("room_posts")
-        .select(`
-          *,
-          profiles!inner(username)
-        `)
-        .eq("room_id", roomId)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      setPosts(data || []);
-    } catch (err) {
-      console.error("Error loading posts:", err);
-      toast({ title: "Failed to load posts", variant: "destructive" });
-    }
-  };
-
-  const handlePost = async () => {
-    if (!mediaFile) {
-      toast({ title: "Select an image or video", variant: "destructive" });
-      return;
-    }
-
-    try {
-      const filePath = `${currentUser.id}/${Date.now()}_${mediaFile.name}`;
-      const { error: uploadErr } = await supabase.storage
-        .from("room-media")
-        .upload(filePath, mediaFile);
-
-      if (uploadErr) throw uploadErr;
-
-      const { data: publicData } = supabase.storage
-        .from("room-media")
-        .getPublicUrl(filePath);
-      const publicUrl = publicData?.publicUrl;
-
-      const { error: dbErr } = await supabase.from("room_posts").insert({
-        room_id: roomId,
-        user_id: currentUser.id,
-        content: content.trim() || null,
-        media_url: publicUrl,
-      });
-
-      if (dbErr) throw dbErr;
-
-      toast({ title: "Posted successfully!" });
-      setContent("");
-      setMediaFile(null);
-      const fileInput = document.getElementById("file") as HTMLInputElement;
-      if (fileInput) fileInput.value = "";
-      await loadPosts();
-    } catch (err) {
-      console.error("Post creation failed:", err);
-      toast({ title: "Post failed", variant: "destructive" });
-    }
-  };
-
-  const handleDelete = async (postId: number) => {
-    if (!confirm("Delete this post?")) return;
-
-    try {
-      const { error } = await supabase
-        .from("room_posts")
-        .delete()
-        .eq("id", postId)
-        .eq("user_id", currentUser.id);
-
-      if (error) throw error;
-
-      setPosts((prev) => prev.filter((p) => p.id !== postId));
-      toast({ title: "Deleted", duration: 2000 });
-    } catch (err) {
-      console.error("Delete failed:", err);
-      toast({ title: "Failed to delete post", variant: "destructive" });
-    }
+  const handlePostSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!postContent.trim()) return;
+    setPosts(prev => [...prev, postContent.trim()]);
+    setPostContent('');
   };
 
   return (
-    <div className="p-4 max-w-2xl mx-auto">
-      <Button onClick={() => navigate("/topics")} className="mb-4">
-        ← Back to Topics
-      </Button>
+    <div style={styles.page}>
+      <h1 style={styles.title}>Topic Room: {roomId}</h1>
 
-      {/* Post form */}
-      <Card className="mb-6">
-        <CardContent className="p-4">
-          <Textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="What's on your mind?"
-            className="mb-3 min-h-[60px] border-none focus:ring-0 p-0"
-          />
-          <Input
-            id="file"
-            type="file"
-            accept="image/*,video/*"
-            onChange={(e) => {
-              if (e.target.files && e.target.files[0]) {
-                setMediaFile(e.target.files[0]);
-              }
-            }}
-            className="mb-3"
-          />
-          <Button
-            onClick={handlePost}
-            disabled={!mediaFile}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            Post
-          </Button>
-        </CardContent>
-      </Card>
+      <form onSubmit={handlePostSubmit} style={styles.form}>
+        <textarea
+          style={styles.textarea}
+          placeholder="Write your post here..."
+          value={postContent}
+          onChange={e => setPostContent(e.target.value)}
+          rows={4}
+        />
+        <button type="submit" style={styles.button}>
+          Post
+        </button>
+      </form>
 
-      {/* Posts list */}
-      <div className="space-y-4">
-        {posts.map((post) => (
-          <Card key={post.id} className="overflow-hidden">
-            <CardContent className="p-4">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="font-semibold">
-                    {post.profiles?.username || "User"}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(post.created_at).toLocaleString()}
-                  </p>
-                </div>
-                {post.user_id === currentUser?.id && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDelete(post.id)}
-                  >
-                    <Trash2 className="w-4 h-4 text-red-500" />
-                  </Button>
-                )}
-              </div>
-
-              {post.content && <p className="my-2 text-sm">{post.content}</p>}
-
-              {post.media_url && (
-                <div className="mt-2 rounded">
-                  {post.media_url.endsWith(".mp4") ||
-                  post.media_url.includes("video") ? (
-                    <video
-                      src={post.media_url}
-                      controls
-                      className="w-full max-h-96 object-contain rounded"
-                    />
-                  ) : (
-                    <img
-                      src={post.media_url}
-                      alt="Post media"
-                      className="w-full max-h-96 object-contain rounded"
-                    />
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+      <div style={styles.postsContainer}>
+        <h2 style={styles.postsTitle}>Posts</h2>
+        {posts.length === 0 && <p style={styles.noPosts}>No posts yet. Be the first!</p>}
+        {posts.map((post, idx) => (
+          <div key={idx} style={styles.post}>
+            {post}
+          </div>
         ))}
-
-        {posts.length === 0 && (
-          <p className="text-center text-muted-foreground py-8">
-            No posts yet. Be the first!
-          </p>
-        )}
       </div>
     </div>
   );
-}
+};
+
+const styles: Record<string, React.CSSProperties> = {
+  page: {
+    maxWidth: 600,
+    margin: '20px auto',
+    padding: 20,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    color: '#0b6623', // dark green text
+    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+    boxShadow: '0 0 10px rgba(0,128,0,0.2)', // subtle green shadow
+  },
+  title: {
+    marginBottom: 20,
+    borderBottom: '2px solid #0b6623',
+    paddingBottom: 10,
+  },
+  form: {
+    display: 'flex',
+    flexDirection: 'column',
+    marginBottom: 30,
+  },
+  textarea: {
+    resize: 'vertical',
+    padding: 10,
+    fontSize: 16,
+    borderRadius: 5,
+    border: '2px solid #0b6623',
+    color: '#0b6623',
+    backgroundColor: '#e6f2e6', // very light green background
+    marginBottom: 10,
+    fontFamily: 'inherit',
+  },
+  button: {
+    backgroundColor: '#0b6623', // dark green
+    color: '#fff',
+    padding: '10px 20px',
+    fontSize: 16,
+    fontWeight: 'bold',
+    border: 'none',
+    borderRadius: 5,
+    cursor: 'pointer',
+    alignSelf: 'flex-start',
+  },
+  postsContainer: {
+    borderTop: '1px solid #0b6623',
+    paddingTop: 10,
+  },
+  postsTitle: {
+    marginBottom: 10,
+  },
+  noPosts: {
+    fontStyle: 'italic',
+    color: '#4a8c4a',
+  },
+  post: {
+    backgroundColor: '#d9f0d9',
+    padding: 10,
+    borderRadius: 5,
+    marginBottom: 8,
+    color: '#0b6623',
+  },
+};
+
+export default TopicRoom;
