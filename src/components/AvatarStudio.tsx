@@ -1,196 +1,122 @@
 import React, { useState } from "react";
-import AvatarPreview3D from "./AvatarPreview3D";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Canvas } from "@react-three/fiber";
+import { OrbitControls } from "@react-three/drei";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
 import { motion } from "framer-motion";
-import { Save, RefreshCcw } from "lucide-react";
 
 export default function AvatarStudio() {
+  const [selectedPart, setSelectedPart] = useState("face");
   const [avatar, setAvatar] = useState({
-    skin: "fair",
-    hair: "short",
-    hairColor: "brown",
-    eyes: "almond",
-    eyeColor: "hazel",
-    nose: "default",
-    mouth: "smile",
-    facialHair: "none",
-    outfit: "hoodie",
-    outfitColor: "green",
-    accessories: "none",
+    skin: "#f5cba7",
+    hair: "#2c1a0e",
+    outfit: "#4ade80",
   });
 
-  const updateAvatar = (key: string, value: string) => {
-    setAvatar((prev) => ({ ...prev, [key]: value }));
+  const handleChange = (part: string, value: string) => {
+    setAvatar((prev) => ({ ...prev, [part]: value }));
   };
 
-  const colorOptions = ["green", "blue", "pink", "purple", "black", "brown"];
-
   return (
-    <div className="min-h-screen bg-white text-green-900 flex flex-col items-center p-6">
-      <motion.h1
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="text-3xl font-semibold mb-6 text-green-600"
-      >
-        Avatar Studio
-      </motion.h1>
+    <div className="min-h-screen flex flex-col items-center justify-between bg-green-50 p-4">
+      {/* Header */}
+      <div className="flex justify-between items-center w-full max-w-4xl mb-2">
+        <h1 className="text-2xl font-semibold text-green-700">Customize Avatar</h1>
+        <div className="flex gap-2">
+          <Button
+            className="bg-gray-300 text-black hover:bg-gray-400"
+            onClick={() => window.history.back()}
+          >
+            Cancel
+          </Button>
+          <Button className="bg-green-600 text-white hover:bg-green-700">
+            Save
+          </Button>
+        </div>
+      </div>
 
-      <Card className="w-full max-w-6xl border-green-200 shadow-lg">
-        <CardContent className="flex flex-col md:flex-row gap-8 p-6">
-          {/* LEFT: Preview */}
-          <div className="w-full md:w-1/2 bg-green-50 rounded-2xl overflow-hidden flex flex-col items-center justify-center shadow-inner">
-            <div className="w-full h-[400px] flex items-center justify-center">
-              <AvatarPreview3D avatar={avatar} />
-            </div>
-            <div className="flex gap-3 mt-4">
-              <Button
-                variant="outline"
-                className="border-green-600 text-green-600 hover:bg-green-100"
-              >
-                <RefreshCcw size={16} className="mr-2" /> Randomize
-              </Button>
-              <Button className="bg-green-600 hover:bg-green-700 text-white">
-                <Save size={16} className="mr-2" /> Save
-              </Button>
-            </div>
-          </div>
+      {/* Avatar Preview */}
+      <Card className="relative w-full max-w-4xl flex flex-col items-center bg-white shadow-lg rounded-2xl p-4">
+        <div className="w-full h-[400px] flex items-center justify-center">
+          <Canvas camera={{ position: [0, 0, 5] }}>
+            <ambientLight intensity={1.2} />
+            <directionalLight position={[3, 3, 5]} />
+            <mesh>
+              <sphereGeometry args={[1.2, 32, 32]} />
+              <meshStandardMaterial color={avatar.skin} />
+            </mesh>
+            <mesh position={[0, 1.8, 0]}>
+              <coneGeometry args={[0.8, 1, 32]} />
+              <meshStandardMaterial color={avatar.hair} />
+            </mesh>
+            <mesh position={[0, -1.5, 0]}>
+              <boxGeometry args={[2, 1.2, 1]} />
+              <meshStandardMaterial color={avatar.outfit} />
+            </mesh>
+            <OrbitControls />
+          </Canvas>
+        </div>
 
-          {/* RIGHT: Customization Tabs */}
-          <div className="w-full md:w-1/2">
-            <Tabs defaultValue="features" className="w-full">
-              <TabsList className="grid grid-cols-3 bg-green-100 rounded-lg mb-4">
-                <TabsTrigger value="features">Features</TabsTrigger>
-                <TabsTrigger value="hair">Hair</TabsTrigger>
-                <TabsTrigger value="fashion">Fashion</TabsTrigger>
-              </TabsList>
+        {/* Customization Tabs */}
+        <div className="flex justify-center gap-6 mt-4 border-t border-green-200 pt-4">
+          {["face", "hair", "outfit"].map((part) => (
+            <motion.button
+              key={part}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setSelectedPart(part)}
+              className={`px-4 py-2 rounded-full text-sm font-medium ${
+                selectedPart === part
+                  ? "bg-green-600 text-white"
+                  : "bg-green-100 text-green-700 hover:bg-green-200"
+              }`}
+            >
+              {part.charAt(0).toUpperCase() + part.slice(1)}
+            </motion.button>
+          ))}
+        </div>
 
-              {/* FEATURES */}
-              <TabsContent value="features">
-                <h3 className="font-semibold mb-2 text-green-700">Skin Tone</h3>
-                <div className="flex gap-3 mb-4">
-                  {["light", "fair", "medium", "olive", "brown", "deep"].map((tone) => (
-                    <button
-                      key={tone}
-                      onClick={() => updateAvatar("skin", tone)}
-                      className={`w-10 h-10 rounded-full border-2 ${
-                        avatar.skin === tone
-                          ? "border-green-500"
-                          : "border-transparent"
-                      }`}
-                      style={{ backgroundColor: tone }}
-                    />
-                  ))}
-                </div>
+        {/* Options Grid */}
+        <div className="grid grid-cols-6 gap-3 mt-6">
+          {selectedPart === "face" &&
+            ["#f5cba7", "#e0ac69", "#8d5524", "#ffdbac"].map((color) => (
+              <div
+                key={color}
+                onClick={() => handleChange("skin", color)}
+                className={`w-10 h-10 rounded-full cursor-pointer border-2 ${
+                  avatar.skin === color ? "border-green-600" : "border-transparent"
+                }`}
+                style={{ backgroundColor: color }}
+              ></div>
+            ))}
 
-                <h3 className="font-semibold mb-2 text-green-700">Eye Color</h3>
-                <div className="flex gap-3">
-                  {["blue", "green", "hazel", "gray", "brown"].map((color) => (
-                    <button
-                      key={color}
-                      onClick={() => updateAvatar("eyeColor", color)}
-                      className={`w-10 h-10 rounded-full border-2 ${
-                        avatar.eyeColor === color
-                          ? "border-green-500"
-                          : "border-transparent"
-                      }`}
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
-                </div>
-              </TabsContent>
+          {selectedPart === "hair" &&
+            ["#2c1a0e", "#8b4513", "#000", "#d2b48c"].map((color) => (
+              <div
+                key={color}
+                onClick={() => handleChange("hair", color)}
+                className={`w-10 h-10 rounded-full cursor-pointer border-2 ${
+                  avatar.hair === color ? "border-green-600" : "border-transparent"
+                }`}
+                style={{ backgroundColor: color }}
+              ></div>
+            ))}
 
-              {/* HAIR */}
-              <TabsContent value="hair">
-                <h3 className="font-semibold mb-2 text-green-700">Hair Style</h3>
-                <div className="grid grid-cols-3 gap-2 mb-4">
-                  {["short", "buzz", "long", "afro"].map((style) => (
-                    <Button
-                      key={style}
-                      variant={avatar.hair === style ? "default" : "outline"}
-                      onClick={() => updateAvatar("hair", style)}
-                      className={`${
-                        avatar.hair === style
-                          ? "bg-green-600 text-white"
-                          : "border-green-500 text-green-600"
-                      }`}
-                    >
-                      {style.charAt(0).toUpperCase() + style.slice(1)}
-                    </Button>
-                  ))}
-                </div>
-
-                <h3 className="font-semibold mb-2 text-green-700">Hair Color</h3>
-                <div className="flex gap-3">
-                  {colorOptions.map((color) => (
-                    <button
-                      key={color}
-                      onClick={() => updateAvatar("hairColor", color)}
-                      className={`w-10 h-10 rounded-full border-2 ${
-                        avatar.hairColor === color
-                          ? "border-green-500"
-                          : "border-transparent"
-                      }`}
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
-                </div>
-              </TabsContent>
-
-              {/* FASHION */}
-              <TabsContent value="fashion">
-                <h3 className="font-semibold mb-2 text-green-700">Outfit</h3>
-                <Input
-                  placeholder="Type outfit (e.g., Hoodie)"
-                  className="border-green-300 focus:border-green-500 mb-4"
-                  value={avatar.outfit}
-                  onChange={(e) => updateAvatar("outfit", e.target.value)}
-                />
-
-                <h3 className="font-semibold mb-2 text-green-700">
-                  Outfit Color
-                </h3>
-                <div className="flex gap-3 mb-4">
-                  {colorOptions.map((color) => (
-                    <button
-                      key={color}
-                      onClick={() => updateAvatar("outfitColor", color)}
-                      className={`w-10 h-10 rounded-full border-2 ${
-                        avatar.outfitColor === color
-                          ? "border-green-500"
-                          : "border-transparent"
-                      }`}
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
-                </div>
-
-                <h3 className="font-semibold mb-2 text-green-700">
-                  Accessories
-                </h3>
-                <div className="grid grid-cols-3 gap-2">
-                  {["none", "cap", "headband", "glasses"].map((acc) => (
-                    <Button
-                      key={acc}
-                      variant={avatar.accessories === acc ? "default" : "outline"}
-                      onClick={() => updateAvatar("accessories", acc)}
-                      className={`${
-                        avatar.accessories === acc
-                          ? "bg-green-600 text-white"
-                          : "border-green-500 text-green-600"
-                      }`}
-                    >
-                      {acc.charAt(0).toUpperCase() + acc.slice(1)}
-                    </Button>
-                  ))}
-                </div>
-              </TabsContent>
-            </Tabs>
-          </div>
-        </CardContent>
+          {selectedPart === "outfit" &&
+            ["#4ade80", "#2563eb", "#f43f5e", "#facc15"].map((color) => (
+              <div
+                key={color}
+                onClick={() => handleChange("outfit", color)}
+                className={`w-10 h-10 rounded-full cursor-pointer border-2 ${
+                  avatar.outfit === color ? "border-green-600" : "border-transparent"
+                }`}
+                style={{ backgroundColor: color }}
+              ></div>
+            ))}
+        </div>
       </Card>
+
+      {/* Footer */}
+      <p className="text-gray-500 mt-6 mb-2 text-sm">Inspired by Snapchat’s avatar design 💚</p>
     </div>
   );
 }
