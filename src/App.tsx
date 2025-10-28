@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -22,6 +21,9 @@ const Admin = lazy(() => import("./pages/Admin"));
 const Settings = lazy(() => import("./pages/Settings"));
 const TopicRoom = lazy(() => import("./pages/TopicRoom"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+
+// ✅ Added this line for Avatar Studio page
+const AvatarStudioPage = lazy(() => import("./pages/AvatarStudioPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -63,6 +65,17 @@ const App = () => (
                 <Route path="/friends" element={<ProtectedRoute><Friends /></ProtectedRoute>} />
                 <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
                 <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+
+                {/* ✅ New route for Avatar customization */}
+                <Route
+                  path="/avatar"
+                  element={
+                    <ProtectedRoute>
+                      <AvatarStudioPage />
+                    </ProtectedRoute>
+                  }
+                />
+
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>

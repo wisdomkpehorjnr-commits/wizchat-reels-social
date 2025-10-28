@@ -390,13 +390,15 @@ const Profile = () => {
                       <Edit className="w-4 h-4 mr-2" />
                       Edit Profile
                     </Button>
-                    <Button 
-                      variant="outline"
-                      className="backdrop-blur-sm bg-white/10 border-white/20 text-strong-contrast hover:bg-white/20"
-                      onClick={() => setShowAvatarStudio(true)}
-                    >
-                      <UserCircle className="w-4 h-4" />
-                    </Button>
+                    <Button
+  variant="outline"
+  className="backdrop-blur-sm bg-green-600 text-white hover:bg-green-700 transition"
+  onClick={() => navigate("/avatar")}
+>
+  <UserCircle className="w-4 h-4 mr-2" />
+  Customize Avatar
+</Button>
+
                   </>
                 ) : (
                   <>
