@@ -23,7 +23,7 @@ const TopicRoom = lazy(() => import("./pages/TopicRoom"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // ✅ Added this line for Avatar Studio page
-const AvatarStudioPage = lazy(() => import("./pages/AvatarStudioPage"));
+const AvatarStudio = lazy(() => import("./components/AvatarStudio"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -67,14 +67,15 @@ const App = () => (
                 <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
 
                 {/* ✅ New route for Avatar customization */}
-                <Route
-                  path="/avatar"
-                  element={
-                    <ProtectedRoute>
-                      <AvatarStudioPage />
-                    </ProtectedRoute>
-                  }
-                />
+<Route
+  path="/avatar"
+  element={
+    <ProtectedRoute>
+      <AvatarStudio />
+    </ProtectedRoute>
+  }
+/>
+
 
                 <Route path="*" element={<NotFound />} />
               </Routes>
