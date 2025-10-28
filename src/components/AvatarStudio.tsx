@@ -1,29 +1,36 @@
 import React, { useState, Suspense } from "react";
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls, useGLTF } from "@react-three/drei";
+import { OrbitControls, useGLTF, Environment } from "@react-three/drei";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 
-function AvatarModel({ skin, hair, outfit }: any) {
-  // ✅ load your real human toon model here
-  const { scene } = useGLTF("/models/toon_male.glb");
+function AvatarModel({ skin, hair, outfit, eyes, lips }: any) {
+  // Load your custom full-body model
+  const { scene } = useGLTF("/models/Asian Boy.glb");
 
-  // optional tweak: apply basic color changes to submeshes
   scene.traverse((child: any) => {
     if (child.isMesh) {
-      if (child.name.toLowerCase().includes("hair")) {
+      child.castShadow = true;
+      child.receiveShadow = true;
+
+      const name = child.name.toLowerCase();
+      if (name.includes("hair")) {
         child.material.color.set(hair);
-      } else if (child.name.toLowerCase().includes("shirt") || child.name.toLowerCase().includes("cloth")) {
+      } else if (name.includes("shirt") || name.includes("cloth") || name.includes("outfit")) {
         child.material.color.set(outfit);
-      } else if (child.name.toLowerCase().includes("skin")) {
+      } else if (name.includes("skin") || name.includes("face")) {
         child.material.color.set(skin);
+      } else if (name.includes("eye")) {
+        child.material.color.set(eyes);
+      } else if (name.includes("lip") || name.includes("mouth")) {
+        child.material.color.set(lips);
       }
     }
   });
 
-  return <primitive object={scene} scale={2.2} position={[0, -1.2, 0]} />;
+  return <primitive object={scene} scale={2.4} position={[0, -1.5, 0]} />;
 }
 
 function Loader() {
@@ -54,7 +61,9 @@ export default function AvatarStudio() {
     <div className="min-h-screen flex flex-col items-center justify-between bg-gradient-to-b from-green-50 to-white p-4">
       {/* Header */}
       <div className="flex justify-between items-center w-full max-w-5xl mb-3">
-        <h1 className="text-2xl font-semibold text-green-700">Avatar Customization</h1>
+        <h1 className="text-2xl font-semibold text-green-700">
+          Avatar Customization
+        </h1>
         <div className="flex gap-2">
           <Button
             className="bg-green-500 hover:bg-green-600 text-white"
@@ -70,12 +79,13 @@ export default function AvatarStudio() {
 
       {/* Avatar 3D Preview */}
       <Card className="relative w-full max-w-5xl flex flex-col items-center bg-white shadow-xl rounded-2xl p-4">
-        <div className="w-full h-[450px] flex items-center justify-center">
-          <Canvas camera={{ position: [0, 1, 3], fov: 45 }}>
-            <ambientLight intensity={0.8} />
-            <directionalLight position={[5, 5, 5]} intensity={1.2} />
+        <div className="w-full h-[480px] flex items-center justify-center">
+          <Canvas camera={{ position: [0, 1.4, 3.6], fov: 45 }}>
+            <ambientLight intensity={1.2} />
+            <directionalLight position={[5, 5, 5]} intensity={1.4} castShadow />
             <Suspense fallback={<Loader />}>
               <AvatarModel {...avatar} />
+              <Environment preset="sunset" />
             </Suspense>
             <OrbitControls enableZoom={true} />
           </Canvas>
@@ -166,4 +176,4 @@ export default function AvatarStudio() {
   );
 }
 
-useGLTF.preload("/models/toon_male.glb");
+useGLTF.preload("/models/Asian Boy.glb");
