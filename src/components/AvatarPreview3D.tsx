@@ -1,217 +1,185 @@
-import React, { useRef, useMemo } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import * as THREE from 'three';
-import { OrbitControls } from '@react-three/drei';
+import React, { useState } from "react";
+import AvatarPreview3D from "./AvatarPreview3D";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
+import { Save, RefreshCcw } from "lucide-react";
+import { motion } from "framer-motion";
 
-interface AvatarState {
-  skin: string;
-  hair: string;
-  hairColor: string;
-  eyes: string;
-  eyeColor: string;
-  nose: string;
-  mouth: string;
-  facialHair: string;
-  outfit: string;
-  outfitColor: string;
-  accessories: string;
-}
-
-const colorMap: Record<string, string> = {
-  // Skin
-  light: '#FFE0BD',
-  fair: '#F1C27D',
-  medium: '#C68642',
-  olive: '#8D5524',
-  brown: '#6B4423',
-  deep: '#4A2C1A',
-  // Hair & generic
-  black: '#1a1a1a',
-  brown: '#4A2C1A',
-  blonde: '#E6C27A',
-  red: '#8B2C2C',
-  blue: '#3B82F6',
-  pink: '#EC4899',
-  purple: '#8B5CF6',
-  green: '#10B981',
-  // Eyes
-  hazel: '#8E7618',
-  gray: '#808080',
-};
-
-const getColor = (id: string, fallback: string) => colorMap[id] || fallback;
-
-const Head: React.FC<{ skinColor: THREE.Color; eyeColor: THREE.Color; mouthStyle: string; eyeStyle: string }> = ({
-  skinColor,
-  eyeColor,
-  mouthStyle,
-  eyeStyle,
-}) => {
-  const headRef = useRef<THREE.Mesh>(null);
-  const leftEyeRef = useRef<THREE.Mesh>(null);
-  const rightEyeRef = useRef<THREE.Mesh>(null);
-
-  useFrame(({ camera }) => {
-    if (headRef.current && leftEyeRef.current && rightEyeRef.current) {
-      const headPos = new THREE.Vector3();
-      headRef.current.getWorldPosition(headPos);
-      const direction = new THREE.Vector3().subVectors(camera.position, headPos).normalize();
-      const lookOffset = new THREE.Vector3(direction.x * 0.2, direction.y * 0.1, 0);
-      leftEyeRef.current.lookAt(headPos.clone().add(lookOffset));
-      rightEyeRef.current.lookAt(headPos.clone().add(lookOffset));
-    }
+export default function AvatarStudio() {
+  const [avatar, setAvatar] = useState({
+    skin: "fair",
+    hair: "short",
+    hairColor: "brown",
+    eyes: "almond",
+    eyeColor: "hazel",
+    nose: "default",
+    mouth: "smile",
+    facialHair: "none",
+    outfit: "hoodie",
+    outfitColor: "green",
+    accessories: "none",
   });
 
-  const mouthY = mouthStyle === 'smile' ? 0.02 : mouthStyle === 'frown' ? -0.02 : 0;
-  const eyeOpen = eyeStyle === 'sleepy' ? 0.02 : 0.04;
+  const updateAvatar = (key: string, value: string) => {
+    setAvatar((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const colorOptions = ["green", "blue", "pink", "purple", "black", "brown"];
 
   return (
-    <group position={[0, 1.7, 0]}>
-      <mesh ref={headRef} castShadow>
-        <sphereGeometry args={[0.32, 48, 48]} />
-        <meshStandardMaterial color={skinColor} roughness={0.7} metalness={0.2} />
-      </mesh>
-      <mesh ref={leftEyeRef} position={[-0.11, 1.73, 0.28]}>
-        <sphereGeometry args={[eyeOpen, 24, 24]} />
-        <meshStandardMaterial color="#ffffff" />
-      </mesh>
-      <mesh ref={rightEyeRef} position={[0.11, 1.73, 0.28]}>
-        <sphereGeometry args={[eyeOpen, 24, 24]} />
-        <meshStandardMaterial color="#ffffff" />
-      </mesh>
-      <mesh position={[-0.11, 1.73, 0.31]}>
-        <sphereGeometry args={[0.025, 16, 16]} />
-        <meshStandardMaterial color={eyeColor} />
-      </mesh>
-      <mesh position={[0.11, 1.73, 0.31]}>
-        <sphereGeometry args={[0.025, 16, 16]} />
-        <meshStandardMaterial color={eyeColor} />
-      </mesh>
-      <mesh position={[-0.12, 1.82, 0.28]} rotation={[0, 0, eyeStyle === 'sleepy' ? 0.3 : eyeStyle === 'almond' ? -0.2 : 0]}>
-        <boxGeometry args={[0.12, 0.015, 0.02]} />
-        <meshStandardMaterial color="#333" />
-      </mesh>
-      <mesh position={[0.12, 1.82, 0.28]} rotation={[0, 0, eyeStyle === 'sleepy' ? -0.3 : eyeStyle === 'almond' ? 0.2 : 0]}>
-        <boxGeometry args={[0.12, 0.015, 0.02]} />
-        <meshStandardMaterial color="#333" />
-      </mesh>
-      <mesh position={[0, 1.65, 0.3]}>
-        <coneGeometry args={[0.035, 0.1, 16]} />
-        <meshStandardMaterial color={skinColor} />
-      </mesh>
-      <mesh position={[0, 1.58 + mouthY, 0.31]}>
-        <boxGeometry args={[0.12, 0.015, 0.02]} />
-        <meshStandardMaterial color="#d15e5e" />
-      </mesh>
-    </group>
-  );
-};
+    <div className="min-h-screen bg-white text-green-900 flex flex-col items-center p-6">
+      <motion.h1
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="text-3xl font-semibold mb-6 text-green-600"
+      >
+        Avatar Studio
+      </motion.h1>
 
-const Hair: React.FC<{ style: string; color: THREE.Color }> = ({ style, color }) => {
-  if (style === 'none') return null;
-  const geometry = useMemo(() => {
-    switch (style) {
-      case 'buzz': return new THREE.SphereGeometry(0.33, 32, 16, 0, Math.PI * 2, 0, Math.PI / 3);
-      case 'long': return new THREE.CapsuleGeometry(0.35, 0.5, 4, 32);
-      case 'afro': return new THREE.SphereGeometry(0.42, 32, 32);
-      default: return new THREE.SphereGeometry(0.35, 32, 32, 0, Math.PI * 2, 0, Math.PI / 2);
-    }
-  }, [style]);
-  return (
-    <mesh castShadow position={[0, style === 'long' ? 1.6 : 1.82, 0]}>
-      <primitive object={geometry} />
-      <meshStandardMaterial color={color} roughness={0.9} metalness={0.1} />
-    </mesh>
-  );
-};
+      <Card className="w-full max-w-6xl border-green-200 shadow-lg">
+        <CardContent className="flex flex-col md:flex-row gap-8 p-6">
+          {/* --- Left: 3D Avatar Preview --- */}
+          <div className="w-full md:w-1/2 bg-green-50 rounded-2xl overflow-hidden flex flex-col items-center justify-center shadow-inner">
+            <div className="w-full h-[500px]">
+              <AvatarPreview3D avatar={avatar} />
+            </div>
+            <div className="flex gap-3 mt-4">
+              <Button
+                variant="outline"
+                className="border-green-600 text-green-600 hover:bg-green-100"
+              >
+                <RefreshCcw size={16} className="mr-2" /> Randomize
+              </Button>
+              <Button className="bg-green-600 hover:bg-green-700 text-white">
+                <Save size={16} className="mr-2" /> Save
+              </Button>
+            </div>
+          </div>
 
-const Body: React.FC<{ outfitColor: THREE.Color }> = ({ outfitColor }) => (
-  <group position={[0, 0.6, 0]}>
-    <mesh castShadow>
-      <capsuleGeometry args={[0.4, 0.8, 4, 32]} />
-      <meshStandardMaterial color={outfitColor} roughness={0.8} metalness={0.1} />
-    </mesh>
-    <mesh castShadow position={[0, 0.7, 0]}>
-      <cylinderGeometry args={[0.15, 0.15, 0.2, 16]} />
-      <meshStandardMaterial color="#C68642" />
-    </mesh>
-  </group>
-);
+          {/* --- Right: Customization Controls --- */}
+          <div className="w-full md:w-1/2">
+            <Tabs defaultValue="features" className="w-full">
+              <TabsList className="grid grid-cols-3 bg-green-100 rounded-lg mb-4">
+                <TabsTrigger value="features">Features</TabsTrigger>
+                <TabsTrigger value="hair">Hair</TabsTrigger>
+                <TabsTrigger value="fashion">Fashion</TabsTrigger>
+              </TabsList>
 
-const FacialHair: React.FC<{ style: string; hairColor: THREE.Color }> = ({ style, hairColor }) => {
-  if (style === 'none') return null;
-  return (
-    <mesh position={[0, 1.52, 0.29]}>
-      <torusGeometry args={[0.11, 0.025, 12, 32, Math.PI]} />
-      <meshStandardMaterial color={hairColor} />
-    </mesh>
-  );
-};
+              {/* === Features === */}
+              <TabsContent value="features">
+                <h3 className="font-semibold mb-2 text-green-700">Skin Tone</h3>
+                <div className="flex gap-3 mb-4">
+                  {["light", "fair", "medium", "olive", "brown", "deep"].map((tone) => (
+                    <button
+                      key={tone}
+                      onClick={() => updateAvatar("skin", tone)}
+                      className={`w-10 h-10 rounded-full border-2 ${
+                        avatar.skin === tone ? "border-green-500" : "border-transparent"
+                      }`}
+                      style={{ backgroundColor: `var(--${tone}-color, #ccc)` }}
+                    />
+                  ))}
+                </div>
 
-const Accessories: React.FC<{ type: string; hairColor: THREE.Color }> = ({ type, hairColor }) => {
-  if (type === 'none') return null;
-  return (
-    <mesh castShadow position={[0, 1.95, 0]}>
-      <capsuleGeometry args={[0.38, 0.1, 4, 32]} />
-      <meshStandardMaterial color={hairColor} roughness={0.7} />
-    </mesh>
-  );
-};
+                <h3 className="font-semibold mb-2 text-green-700">Eye Color</h3>
+                <div className="flex gap-3">
+                  {["blue", "green", "hazel", "gray", "brown"].map((color) => (
+                    <button
+                      key={color}
+                      onClick={() => updateAvatar("eyeColor", color)}
+                      className={`w-10 h-10 rounded-full border-2 ${
+                        avatar.eyeColor === color ? "border-green-500" : "border-transparent"
+                      }`}
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
+              </TabsContent>
 
-const AvatarModel: React.FC<{ avatar: AvatarState }> = ({ avatar }) => {
-  const skinColor = new THREE.Color(getColor(avatar.skin, '#F1C27D'));
-  const hairColor = new THREE.Color(getColor(avatar.hairColor, '#4A2C1A'));
-  const eyeColor = new THREE.Color(getColor(avatar.eyeColor, '#3B82F6'));
-  const outfitColor = new THREE.Color(getColor(avatar.outfitColor, '#3B82F6'));
+              {/* === Hair === */}
+              <TabsContent value="hair">
+                <h3 className="font-semibold mb-2 text-green-700">Hair Style</h3>
+                <div className="grid grid-cols-3 gap-2 mb-4">
+                  {["short", "buzz", "long", "afro"].map((style) => (
+                    <Button
+                      key={style}
+                      variant={avatar.hair === style ? "default" : "outline"}
+                      onClick={() => updateAvatar("hair", style)}
+                      className={`${
+                        avatar.hair === style
+                          ? "bg-green-600 text-white"
+                          : "border-green-500 text-green-600"
+                      }`}
+                    >
+                      {style.charAt(0).toUpperCase() + style.slice(1)}
+                    </Button>
+                  ))}
+                </div>
 
-  return (
-    <group position={[0, -0.6, 0]}>
-      <Body outfitColor={outfitColor} />
-      <Head skinColor={skinColor} eyeColor={eyeColor} mouthStyle={avatar.mouth} eyeStyle={avatar.eyes} />
-      <Hair style={avatar.hair} color={hairColor} />
-      <FacialHair style={avatar.facialHair} hairColor={hairColor} />
-      <Accessories type={avatar.accessories} hairColor={hairColor} />
-    </group>
-  );
-};
+                <h3 className="font-semibold mb-2 text-green-700">Hair Color</h3>
+                <div className="flex gap-3">
+                  {colorOptions.map((color) => (
+                    <button
+                      key={color}
+                      onClick={() => updateAvatar("hairColor", color)}
+                      className={`w-10 h-10 rounded-full border-2 ${
+                        avatar.hairColor === color ? "border-green-500" : "border-transparent"
+                      }`}
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
+              </TabsContent>
 
-const Scene: React.FC<{ avatar: AvatarState }> = ({ avatar }) => {
-  const { camera } = useThree();
-  camera.position.set(0, 1.6, 3);
-  camera.fov = 40;
-  camera.updateProjectionMatrix();
+              {/* === Fashion === */}
+              <TabsContent value="fashion">
+                <h3 className="font-semibold mb-2 text-green-700">Outfit</h3>
+                <Input
+                  placeholder="Type outfit (e.g., Hoodie, Jacket)"
+                  className="border-green-300 focus:border-green-500 mb-4"
+                  value={avatar.outfit}
+                  onChange={(e) => updateAvatar("outfit", e.target.value)}
+                />
 
-  return (
-    <>
-      <ambientLight intensity={0.6} />
-      <directionalLight position={[5, 8, 3]} intensity={1} castShadow shadow-mapSize={[1024, 1024]} />
-      <pointLight position={[-5, 5, 5]} intensity={0.4} />
-      <AvatarModel avatar={avatar} />
-      <OrbitControls
-        enablePan={false}
-        enableZoom={true}
-        enableRotate={true}
-        minPolarAngle={Math.PI / 4}
-        maxPolarAngle={Math.PI / 2}
-        autoRotate={true}
-        autoRotateSpeed={0.5}
-      />
-      <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]}>
-        <planeGeometry args={[10, 10]} />
-        <shadowMaterial opacity={0.2} />
-      </mesh>
-    </>
-  );
-};
+                <h3 className="font-semibold mb-2 text-green-700">Outfit Color</h3>
+                <div className="flex gap-3 mb-4">
+                  {colorOptions.map((color) => (
+                    <button
+                      key={color}
+                      onClick={() => updateAvatar("outfitColor", color)}
+                      className={`w-10 h-10 rounded-full border-2 ${
+                        avatar.outfitColor === color ? "border-green-500" : "border-transparent"
+                      }`}
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
 
-const AvatarPreview3D: React.FC<{ avatar: AvatarState }> = ({ avatar }) => {
-  return (
-    <div className="w-full h-full rounded-xl overflow-hidden bg-gradient-to-b from-gray-50 to-gray-100">
-      <Canvas shadows>
-        <Scene avatar={avatar} />
-      </Canvas>
+                <h3 className="font-semibold mb-2 text-green-700">Accessories</h3>
+                <div className="grid grid-cols-3 gap-2">
+                  {["none", "cap", "headband", "glasses"].map((acc) => (
+                    <Button
+                      key={acc}
+                      variant={avatar.accessories === acc ? "default" : "outline"}
+                      onClick={() => updateAvatar("accessories", acc)}
+                      className={`${
+                        avatar.accessories === acc
+                          ? "bg-green-600 text-white"
+                          : "border-green-500 text-green-600"
+                      }`}
+                    >
+                      {acc.charAt(0).toUpperCase() + acc.slice(1)}
+                    </Button>
+                  ))}
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
-};
-
-export default AvatarPreview3D;
+}
