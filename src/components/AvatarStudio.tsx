@@ -1,373 +1,196 @@
-import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Undo2, Redo2, Save, Check, Sparkles, Shuffle } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import AvatarPreview3D from './AvatarPreview3D';
+import React, { useState } from "react";
+import AvatarPreview3D from "./AvatarPreview3D";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { motion } from "framer-motion";
+import { Save, RefreshCcw } from "lucide-react";
 
-interface AvatarStudioProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSave: (avatarUrl: string) => void;
-}
-
-const AvatarStudio = ({ open, onOpenChange, onSave }: AvatarStudioProps) => {
-  const { toast } = useToast();
-  const [selectedTab, setSelectedTab] = useState('features');
-  const [history, setHistory] = useState<string[]>([]);
-  const [historyIndex, setHistoryIndex] = useState(-1);
-
+export default function AvatarStudio() {
   const [avatar, setAvatar] = useState({
-    skin: 'light',
-    hair: 'short',
-    hairColor: 'brown',
-    eyes: 'almond',
-    eyeColor: 'brown',
-    nose: 'medium',
-    mouth: 'smile',
-    facialHair: 'none',
-    outfit: 'casual',
-    outfitColor: 'blue',
-    accessories: 'none'
+    skin: "fair",
+    hair: "short",
+    hairColor: "brown",
+    eyes: "almond",
+    eyeColor: "hazel",
+    nose: "default",
+    mouth: "smile",
+    facialHair: "none",
+    outfit: "hoodie",
+    outfitColor: "green",
+    accessories: "none",
   });
 
-  const skinTones = [
-    { id: 'light', name: 'Light', color: '#FFE0BD' },
-    { id: 'fair', name: 'Fair', color: '#F1C27D' },
-    { id: 'medium', name: 'Medium', color: '#C68642' },
-    { id: 'olive', name: 'Olive', color: '#8D5524' },
-    { id: 'brown', name: 'Brown', color: '#6B4423' },
-    { id: 'deep', name: 'Deep', color: '#4A2C1A' }
-  ];
-
-  const hairStyles = [
-    { id: 'short', name: 'Short' },
-    { id: 'long', name: 'Long' },
-    { id: 'curly', name: 'Curly' },
-    { id: 'afro', name: 'Afro' },
-    { id: 'braids', name: 'Braids' },
-    { id: 'buzz', name: 'Buzz Cut' },
-    { id: 'wavy', name: 'Wavy' },
-    { id: 'straight', name: 'Straight' },
-    { id: 'ponytail', name: 'Ponytail' },
-    { id: 'bun', name: 'Bun' }
-  ];
-
-  const hairColors = [
-    { id: 'black', name: 'Black', color: '#000000' },
-    { id: 'brown', name: 'Brown', color: '#4A2C1A' },
-    { id: 'blonde', name: 'Blonde', color: '#F5DEB3' },
-    { id: 'red', name: 'Red', color: '#8B0000' },
-    { id: 'blue', name: 'Blue', color: '#0000FF' },
-    { id: 'pink', name: 'Pink', color: '#FF69B4' },
-    { id: 'purple', name: 'Purple', color: '#800080' },
-    { id: 'green', name: 'Green', color: '#00FF00' }
-  ];
-
-  const eyeShapes = [
-    { id: 'almond', name: 'Almond' },
-    { id: 'round', name: 'Round' },
-    { id: 'sleepy', name: 'Sleepy' }
-  ];
-
-  const eyeColors = [
-    { id: 'brown', name: 'Brown', color: '#4A2C1A' },
-    { id: 'blue', name: 'Blue', color: '#0000FF' },
-    { id: 'green', name: 'Green', color: '#00FF00' },
-    { id: 'hazel', name: 'Hazel', color: '#8E7618' },
-    { id: 'gray', name: 'Gray', color: '#808080' }
-  ];
-
-  const outfits = [
-    { id: 'casual', name: 'Casual' },
-    { id: 'sporty', name: 'Sporty' },
-    { id: 'formal', name: 'Formal' },
-    { id: 'party', name: 'Party' },
-    { id: 'streetwear', name: 'Streetwear' },
-    { id: 'fantasy', name: 'Fantasy' }
-  ];
-
-  const handleOptionSelect = (category: string, value: string) => {
-    const newAvatar = { ...avatar, [category]: value };
-    setAvatar(newAvatar);
-    const newHistory = [...history.slice(0, historyIndex + 1), JSON.stringify(newAvatar)];
-    setHistory(newHistory);
-    setHistoryIndex(newHistory.length - 1);
+  const updateAvatar = (key: string, value: string) => {
+    setAvatar((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleUndo = () => {
-    if (historyIndex > 0) {
-      setHistoryIndex(historyIndex - 1);
-      setAvatar(JSON.parse(history[historyIndex - 1]));
-    }
-  };
-
-  const handleRedo = () => {
-    if (historyIndex < history.length - 1) {
-      setHistoryIndex(historyIndex + 1);
-      setAvatar(JSON.parse(history[historyIndex + 1]));
-    }
-  };
-
-  const handleRandomize = () => {
-    const randomAvatar = {
-      skin: skinTones[Math.floor(Math.random() * skinTones.length)].id,
-      hair: hairStyles[Math.floor(Math.random() * hairStyles.length)].id,
-      hairColor: hairColors[Math.floor(Math.random() * hairColors.length)].id,
-      eyes: eyeShapes[Math.floor(Math.random() * eyeShapes.length)].id,
-      eyeColor: eyeColors[Math.floor(Math.random() * eyeColors.length)].id,
-      nose: 'medium',
-      mouth: 'smile',
-      facialHair: 'none',
-      outfit: outfits[Math.floor(Math.random() * outfits.length)].id,
-      outfitColor: 'blue',
-      accessories: 'none'
-    };
-    setAvatar(randomAvatar);
-    toast({
-      title: "Random avatar!",
-      description: "New look generated ✨",
-    });
-  };
-
-  const handleSave = () => {
-    const avatarData = JSON.stringify(avatar);
-    onSave(avatarData);
-    toast({
-      title: "Avatar saved!",
-      description: "Your custom avatar has been saved.",
-    });
-    onOpenChange(false);
-  };
+  const colorOptions = ["green", "blue", "pink", "purple", "black", "brown"];
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl h-[90vh] p-0">
-        <DialogHeader className="p-6 pb-0">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-2xl font-bold">Avatar Studio</DialogTitle>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleUndo}
-                disabled={historyIndex <= 0}
-              >
-                <Undo2 className="w-4 h-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRedo}
-                disabled={historyIndex >= history.length - 1}
-              >
-                <Redo2 className="w-4 h-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRandomize}
-              >
-                <Shuffle className="w-4 h-4 mr-2" />
-                Randomize
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleSave}
-              >
-                <Save className="w-4 h-4 mr-2" />
-                Save
-              </Button>
-            </div>
-          </div>
-        </DialogHeader>
+    <div className="min-h-screen bg-white text-green-900 flex flex-col items-center p-6">
+      <motion.h1
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="text-3xl font-semibold mb-6 text-green-600"
+      >
+        Avatar Studio
+      </motion.h1>
 
-        <div className="flex flex-1 overflow-hidden">
-          <div className="w-1/3 bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center p-0">
-            <div className="relative w-full h-full">
+      <Card className="w-full max-w-6xl border-green-200 shadow-lg">
+        <CardContent className="flex flex-col md:flex-row gap-8 p-6">
+          {/* LEFT: Preview */}
+          <div className="w-full md:w-1/2 bg-green-50 rounded-2xl overflow-hidden flex flex-col items-center justify-center shadow-inner">
+            <div className="w-full h-[400px] flex items-center justify-center">
               <AvatarPreview3D avatar={avatar} />
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 text-center text-xs text-muted-foreground">
-                Live 3D Preview
-              </div>
+            </div>
+            <div className="flex gap-3 mt-4">
+              <Button
+                variant="outline"
+                className="border-green-600 text-green-600 hover:bg-green-100"
+              >
+                <RefreshCcw size={16} className="mr-2" /> Randomize
+              </Button>
+              <Button className="bg-green-600 hover:bg-green-700 text-white">
+                <Save size={16} className="mr-2" /> Save
+              </Button>
             </div>
           </div>
 
-          <div className="flex-1 p-6">
-            <Tabs value={selectedTab} onValueChange={setSelectedTab} className="h-full flex flex-col">
-              <TabsList className="grid w-full grid-cols-3 mb-4">
+          {/* RIGHT: Customization Tabs */}
+          <div className="w-full md:w-1/2">
+            <Tabs defaultValue="features" className="w-full">
+              <TabsList className="grid grid-cols-3 bg-green-100 rounded-lg mb-4">
                 <TabsTrigger value="features">Features</TabsTrigger>
-                <TabsTrigger value="clothes">Clothes</TabsTrigger>
+                <TabsTrigger value="hair">Hair</TabsTrigger>
                 <TabsTrigger value="fashion">Fashion</TabsTrigger>
               </TabsList>
 
-              <ScrollArea className="flex-1">
-                <TabsContent value="features" className="space-y-6 mt-0">
-                  <div>
-                    <h3 className="text-lg font-semibold mb-3">Skin Tone</h3>
-                    <div className="grid grid-cols-6 gap-3">
-                      {skinTones.map((tone) => (
-                        <button
-                          key={tone.id}
-                          onClick={() => handleOptionSelect('skin', tone.id)}
-                          className={`relative h-16 rounded-lg border-2 transition-all ${
-                            avatar.skin === tone.id
-                              ? 'border-primary ring-2 ring-primary/20'
-                              : 'border-border hover:border-primary/50'
-                          }`}
-                          style={{ backgroundColor: tone.color }}
-                        >
-                          {avatar.skin === tone.id && (
-                            <Check className="absolute top-1 right-1 w-4 h-4 text-white drop-shadow" />
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+              {/* FEATURES */}
+              <TabsContent value="features">
+                <h3 className="font-semibold mb-2 text-green-700">Skin Tone</h3>
+                <div className="flex gap-3 mb-4">
+                  {["light", "fair", "medium", "olive", "brown", "deep"].map((tone) => (
+                    <button
+                      key={tone}
+                      onClick={() => updateAvatar("skin", tone)}
+                      className={`w-10 h-10 rounded-full border-2 ${
+                        avatar.skin === tone
+                          ? "border-green-500"
+                          : "border-transparent"
+                      }`}
+                      style={{ backgroundColor: tone }}
+                    />
+                  ))}
+                </div>
 
-                  <div>
-                    <h3 className="text-lg font-semibold mb-3">Hair Style</h3>
-                    <div className="grid grid-cols-5 gap-3">
-                      {hairStyles.map((style) => (
-                        <Card
-                          key={style.id}
-                          onClick={() => handleOptionSelect('hair', style.id)}
-                          className={`p-4 cursor-pointer transition-all hover:shadow-md ${
-                            avatar.hair === style.id
-                              ? 'border-2 border-primary ring-2 ring-primary/20'
-                              : 'border hover:border-primary/50'
-                          }`}
-                        >
-                          <div className="text-center">
-                            <div className="text-sm font-medium">{style.name}</div>
-                          </div>
-                        </Card>
-                      ))}
-                    </div>
-                  </div>
+                <h3 className="font-semibold mb-2 text-green-700">Eye Color</h3>
+                <div className="flex gap-3">
+                  {["blue", "green", "hazel", "gray", "brown"].map((color) => (
+                    <button
+                      key={color}
+                      onClick={() => updateAvatar("eyeColor", color)}
+                      className={`w-10 h-10 rounded-full border-2 ${
+                        avatar.eyeColor === color
+                          ? "border-green-500"
+                          : "border-transparent"
+                      }`}
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
+              </TabsContent>
 
-                  <div>
-                    <h3 className="text-lg font-semibold mb-3">Hair Color</h3>
-                    <div className="grid grid-cols-8 gap-3">
-                      {hairColors.map((color) => (
-                        <button
-                          key={color.id}
-                          onClick={() => handleOptionSelect('hairColor', color.id)}
-                          className={`relative h-12 rounded-lg border-2 transition-all ${
-                            avatar.hairColor === color.id
-                              ? 'border-primary ring-2 ring-primary/20'
-                              : 'border-border hover:border-primary/50'
-                          }`}
-                          style={{ backgroundColor: color.color }}
-                        >
-                          {avatar.hairColor === color.id && (
-                            <Check className="absolute top-1 right-1 w-3 h-3 text-white drop-shadow" />
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+              {/* HAIR */}
+              <TabsContent value="hair">
+                <h3 className="font-semibold mb-2 text-green-700">Hair Style</h3>
+                <div className="grid grid-cols-3 gap-2 mb-4">
+                  {["short", "buzz", "long", "afro"].map((style) => (
+                    <Button
+                      key={style}
+                      variant={avatar.hair === style ? "default" : "outline"}
+                      onClick={() => updateAvatar("hair", style)}
+                      className={`${
+                        avatar.hair === style
+                          ? "bg-green-600 text-white"
+                          : "border-green-500 text-green-600"
+                      }`}
+                    >
+                      {style.charAt(0).toUpperCase() + style.slice(1)}
+                    </Button>
+                  ))}
+                </div>
 
-                  <div>
-                    <h3 className="text-lg font-semibold mb-3">Eye Shape</h3>
-                    <div className="grid grid-cols-3 gap-3">
-                      {eyeShapes.map((shape) => (
-                        <Card
-                          key={shape.id}
-                          onClick={() => handleOptionSelect('eyes', shape.id)}
-                          className={`p-4 cursor-pointer transition-all hover:shadow-md ${
-                            avatar.eyes === shape.id
-                              ? 'border-2 border-primary ring-2 ring-primary/20'
-                              : 'border hover:border-primary/50'
-                          }`}
-                        >
-                          <div className="text-center">
-                            <div className="text-sm font-medium">{shape.name}</div>
-                          </div>
-                        </Card>
-                      ))}
-                    </div>
-                  </div>
+                <h3 className="font-semibold mb-2 text-green-700">Hair Color</h3>
+                <div className="flex gap-3">
+                  {colorOptions.map((color) => (
+                    <button
+                      key={color}
+                      onClick={() => updateAvatar("hairColor", color)}
+                      className={`w-10 h-10 rounded-full border-2 ${
+                        avatar.hairColor === color
+                          ? "border-green-500"
+                          : "border-transparent"
+                      }`}
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
+              </TabsContent>
 
-                  <div>
-                    <h3 className="text-lg font-semibold mb-3">Eye Color</h3>
-                    <div className="grid grid-cols-5 gap-3">
-                      {eyeColors.map((color) => (
-                        <button
-                          key={color.id}
-                          onClick={() => handleOptionSelect('eyeColor', color.id)}
-                          className={`relative h-12 rounded-lg border-2 transition-all ${
-                            avatar.eyeColor === color.id
-                              ? 'border-primary ring-2 ring-primary/20'
-                              : 'border-border hover:border-primary/50'
-                          }`}
-                          style={{ backgroundColor: color.color }}
-                        >
-                          {avatar.eyeColor === color.id && (
-                            <Check className="absolute top-1 right-1 w-3 h-3 text-white drop-shadow" />
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </TabsContent>
+              {/* FASHION */}
+              <TabsContent value="fashion">
+                <h3 className="font-semibold mb-2 text-green-700">Outfit</h3>
+                <Input
+                  placeholder="Type outfit (e.g., Hoodie)"
+                  className="border-green-300 focus:border-green-500 mb-4"
+                  value={avatar.outfit}
+                  onChange={(e) => updateAvatar("outfit", e.target.value)}
+                />
 
-                <TabsContent value="clothes" className="space-y-6 mt-0">
-                  <div>
-                    <h3 className="text-lg font-semibold mb-3">Outfits</h3>
-                    <div className="grid grid-cols-3 gap-4">
-                      {outfits.map((outfit) => (
-                        <Card
-                          key={outfit.id}
-                          onClick={() => handleOptionSelect('outfit', outfit.id)}
-                          className={`p-6 cursor-pointer transition-all hover:shadow-md ${
-                            avatar.outfit === outfit.id
-                              ? 'border-2 border-primary ring-2 ring-primary/20'
-                              : 'border hover:border-primary/50'
-                          }`}
-                        >
-                          <div className="text-center">
-                            <div className="text-base font-medium">{outfit.name}</div>
-                          </div>
-                        </Card>
-                      ))}
-                    </div>
-                  </div>
-                </TabsContent>
+                <h3 className="font-semibold mb-2 text-green-700">
+                  Outfit Color
+                </h3>
+                <div className="flex gap-3 mb-4">
+                  {colorOptions.map((color) => (
+                    <button
+                      key={color}
+                      onClick={() => updateAvatar("outfitColor", color)}
+                      className={`w-10 h-10 rounded-full border-2 ${
+                        avatar.outfitColor === color
+                          ? "border-green-500"
+                          : "border-transparent"
+                      }`}
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
 
-                <TabsContent value="fashion" className="space-y-6 mt-0">
-                  <div>
-                    <h3 className="text-lg font-semibold mb-3">Pre-made Outfits</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      {outfits.map((outfit) => (
-                        <Card
-                          key={outfit.id}
-                          onClick={() => handleOptionSelect('outfit', outfit.id)}
-                          className={`p-8 cursor-pointer transition-all hover:shadow-md ${
-                            avatar.outfit === outfit.id
-                              ? 'border-2 border-primary ring-2 ring-primary/20'
-                              : 'border hover:border-primary/50'
-                          }`}
-                        >
-                          <div className="text-center">
-                            <div className="text-lg font-medium mb-2">{outfit.name}</div>
-                            <Badge variant="secondary">Complete Look</Badge>
-                          </div>
-                        </Card>
-                      ))}
-                    </div>
-                  </div>
-                </TabsContent>
-              </ScrollArea>
+                <h3 className="font-semibold mb-2 text-green-700">
+                  Accessories
+                </h3>
+                <div className="grid grid-cols-3 gap-2">
+                  {["none", "cap", "headband", "glasses"].map((acc) => (
+                    <Button
+                      key={acc}
+                      variant={avatar.accessories === acc ? "default" : "outline"}
+                      onClick={() => updateAvatar("accessories", acc)}
+                      className={`${
+                        avatar.accessories === acc
+                          ? "bg-green-600 text-white"
+                          : "border-green-500 text-green-600"
+                      }`}
+                    >
+                      {acc.charAt(0).toUpperCase() + acc.slice(1)}
+                    </Button>
+                  ))}
+                </div>
+              </TabsContent>
             </Tabs>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </CardContent>
+      </Card>
+    </div>
   );
-};
-
-export default AvatarStudio;
+}
