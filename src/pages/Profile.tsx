@@ -54,7 +54,6 @@ const Profile = () => {
         let currentUserId = user.id;
         let currentUser = user;
 
-        // If viewing another profile, fetch it
         if (userIdentifier) {
           const { data: profiles, error } = await supabase
             .from('profiles')
@@ -95,19 +94,17 @@ const Profile = () => {
           currentUser = foundUser;
         }
 
-        // Fetch posts & reels
+        // Posts & reels
         const posts = await dataService.getPosts();
         const filteredPosts = posts.filter(p => p.userId === currentUserId);
         setUserPosts(filteredPosts.filter(p => !p.isReel));
         setUserReels(filteredPosts.filter(p => p.isReel));
 
-        // Saved posts for own profile
         if (isOwnProfile) {
           const saved = await ProfileService.getSavedPosts().catch(() => []);
           setSavedPosts(saved);
         }
 
-        // Followers & following
         const [followersList, followingList] = await Promise.all([
           ProfileService.getFollowers(currentUserId).catch(() => []),
           ProfileService.getFollowing(currentUserId).catch(() => [])
@@ -223,7 +220,7 @@ const Profile = () => {
                 {isOwnProfile ? (
                   <>
                     <Button variant="outline" className="backdrop-blur-sm bg-white/10 border-white/20" onClick={() => setShowEditDialog(true)}><Edit className="w-4 h-4 mr-2" />Edit Profile</Button>
-                    <Button variant="outline" className="backdrop-blur-sm bg-green-600 text-white" onClick={() => navigate("/avatar")}><UserCircle className="w-4 h-4 mr-2" />Customize Avatar</Button>
+                    <Button variant="outline" className="backdrop-blur-sm bg-green-600 text-white" onClick={() => setShowAvatarStudio(true)}><UserCircle className="w-4 h-4 mr-2" />Customize Avatar</Button>
                   </>
                 ) : (
                   <>
@@ -284,6 +281,7 @@ const Profile = () => {
           </Tabs>
         </Card>
 
+        {/* Modals & Dialogs */}
         <EditProfileDialog open={showEditDialog} onOpenChange={setShowEditDialog} user={user} />
         {showImageModal && <ImageModal src={showImageModal} alt="Profile Picture" isOpen={!!showImageModal} onClose={() => setShowImageModal(null)} />}
         <AvatarStudio open={showAvatarStudio} onOpenChange={setShowAvatarStudio} onSave={data => console.log("Avatar saved", data)} />
