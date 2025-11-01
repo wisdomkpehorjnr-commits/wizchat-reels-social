@@ -6,6 +6,7 @@ import { Pin, PinOff, BellOff, Ban, AlertTriangle, Trash2, Archive } from 'lucid
 import { User } from '@/types';
 import OnlineStatusIndicator from './OnlineStatusIndicator';
 import { useToast } from '@/hooks/use-toast';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 
 interface ChatListItemProps {
   friend: User;
@@ -18,6 +19,7 @@ interface ChatListItemProps {
 const ChatListItem = ({ friend, lastMessage, unreadCount, isPinned, onClick }: ChatListItemProps) => {
   const { toast } = useToast();
   const [pinned, setPinned] = useState(isPinned || false);
+  const isOnline = useOnlineStatus(friend.id);
 
   const handlePin = () => {
     setPinned(!pinned);
@@ -71,7 +73,7 @@ const ChatListItem = ({ friend, lastMessage, unreadCount, isPinned, onClick }: C
           className="flex items-center gap-3 p-4 mb-3 hover:bg-accent rounded-lg cursor-pointer transition-colors active:scale-98"
         >
           <div className="relative">
-            <Avatar>
+            <Avatar className={`${isOnline ? 'ring-2 ring-green-500 ring-offset-2 ring-offset-background' : ''}`}>
               <AvatarImage src={friend.avatar} />
               <AvatarFallback>{friend.name.charAt(0)}</AvatarFallback>
             </Avatar>
