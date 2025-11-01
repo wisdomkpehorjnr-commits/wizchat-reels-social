@@ -68,8 +68,7 @@ export const useNotificationBadges = () => {
         console.log('Badge counts:', {
           home: homeCount,
           chat: chatCount,
-          friends: friendsCount,
-          unreadMessages: unreadMessages?.length || 0
+          friends: friendsCount
         });
 
         setBadges({

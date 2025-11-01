@@ -46,34 +46,18 @@ export const dataService = {
       const likes = (post.likes as any[]) || [];
       const isLiked = currentUser ? likes.some(like => like.user_id === currentUser.id) : false;
       
-      // Handle imageUrls - prioritize image_urls column, fallback to image_url
+      // Convert single image_url to imageUrls array for consistency in rendering
       let imageUrls = undefined;
       let imageUrl = post.image_url;
       
-      if (post.image_urls) {
-        try {
-          imageUrls = typeof post.image_urls === 'string' ? JSON.parse(post.image_urls) : post.image_urls;
-          // If we have imageUrls array, use the first one as imageUrl for backward compatibility
-          if (Array.isArray(imageUrls) && imageUrls.length > 0) {
-            imageUrl = imageUrls[0];
-          }
-        } catch (e) {
-          console.warn('Failed to parse image_urls:', post.image_urls);
-          // If parsing fails, fallback to image_url
-          if (post.image_url) {
-            imageUrls = [post.image_url];
-          }
-        }
-      } else if (post.image_url) {
-        // Fallback: if no image_urls but we have image_url, create array with single image
+      if (post.image_url) {
         imageUrls = [post.image_url];
       }
       
       console.log('Post data:', {
         id: post.id,
         image_url: post.image_url,
-        image_urls: post.image_urls,
-        parsed_imageUrls: imageUrls,
+        imageUrls: imageUrls,
         media_type: post.media_type
       });
       
@@ -119,15 +103,16 @@ export const dataService = {
       is_reel: postData.isReel || false
     };
 
-    // Handle images - use both columns for maximum compatibility
+    // Handle images - store first image in image_url column
     if (postData.imageUrls && Array.isArray(postData.imageUrls) && postData.imageUrls.length > 0) {
-      insertData.image_urls = JSON.stringify(postData.imageUrls);
+      // Store first image URL (the database only has image_url column, not image_urls)
       insertData.image_url = postData.imageUrls[0];
       insertData.media_type = 'image';
+      console.log('Setting image_url to first image:', insertData.image_url);
     } else if (postData.imageUrl) {
       insertData.image_url = postData.imageUrl;
-      insertData.image_urls = JSON.stringify([postData.imageUrl]);
       insertData.media_type = 'image';
+      console.log('Setting image_url:', insertData.image_url);
     }
 
     // Handle video
@@ -159,19 +144,13 @@ export const dataService = {
     }
 
     console.log('Post created successfully:', data.id);
+    console.log('Created post data:', data);
 
-    // Parse imageUrls properly
+    // Convert single image_url to imageUrls array for consistency
     let imageUrls = undefined;
-    const dataWithImageUrls = data as any;
-    if (dataWithImageUrls.image_urls) {
-      try {
-        imageUrls = typeof dataWithImageUrls.image_urls === 'string' ? JSON.parse(dataWithImageUrls.image_urls) : dataWithImageUrls.image_urls;
-      } catch (e) {
-        console.warn('Failed to parse image_urls:', dataWithImageUrls.image_urls);
-        imageUrls = dataWithImageUrls.image_url ? [dataWithImageUrls.image_url] : undefined;
-      }
-    } else if (dataWithImageUrls.image_url) {
-      imageUrls = [dataWithImageUrls.image_url];
+    if (data.image_url) {
+      imageUrls = [data.image_url];
+      console.log('Setting imageUrls from image_url:', imageUrls);
     }
 
     return {

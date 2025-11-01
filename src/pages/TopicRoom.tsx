@@ -23,7 +23,7 @@ const TopicRoom = () => {
   useEffect(() => {
     const loadPosts = async () => {
       const { data, error } = await supabase
-        .from("topic_posts")
+        .from("room_posts")
         .select("*")
         .eq("room_id", roomId)
         .order("created_at", { ascending: false });
@@ -42,19 +42,22 @@ const TopicRoom = () => {
       const fileExt = mediaFile.name.split(".").pop();
       const fileName = `${Date.now()}.${fileExt}`;
       const { data, error } = await supabase.storage
-        .from("topic_media")
+        .from("room-media")
         .upload(fileName, mediaFile);
 
       if (error) {
         console.error("Error uploading media:", error);
       } else {
-        media_url = supabase.storage.from("topic_media").getPublicUrl(fileName).data.publicUrl;
+        media_url = supabase.storage.from("room-media").getPublicUrl(fileName).data.publicUrl;
       }
     }
 
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
     const { data, error } = await supabase
-      .from("topic_posts")
-      .insert([{ room_id: roomId, content: newPost, media_url }])
+      .from("room_posts")
+      .insert([{ room_id: roomId, user_id: user.id, content: newPost, media_url }])
       .select();
 
     if (error) console.error("Error posting:", error);
