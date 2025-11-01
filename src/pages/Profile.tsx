@@ -247,15 +247,34 @@ const Profile = () => {
               <TabsTrigger value="groups"><Users className="w-4 h-4 mr-1" />Groups</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="posts" className="p-4 space-y-4">
-              {userPosts.length > 0 ? userPosts.map(p => <PostCard key={p.id} post={p} onPostUpdate={() => {}} />) :
-                <div className="text-center py-12 text-strong-contrast/60">No posts yet</div>}
+            <TabsContent value="posts" className="p-4">
+              {userPosts.length > 0 ? (
+                <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+                  {userPosts.map(p => (
+                    <div key={p.id} className="aspect-square rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity" onClick={() => navigate(`/post/${p.id}`)}>
+                      {p.imageUrl ? (
+                        <img src={p.imageUrl} className="w-full h-full object-cover" alt="Post" />
+                      ) : p.videoUrl ? (
+                        <video src={p.videoUrl} className="w-full h-full object-cover" muted />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center p-2">
+                          <p className="text-xs text-center line-clamp-3">{p.content}</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : <div className="text-center py-12 text-strong-contrast/60">No posts yet</div>}
             </TabsContent>
 
-            <TabsContent value="reels" className="p-4 space-y-4">
+            <TabsContent value="reels" className="p-4">
               {userReels.length > 0 ? (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {userReels.map(r => <ReelCard key={r.id} post={r} onLike={handleLikePost} onUserClick={handleUserClick} onShare={handleSharePost} isMuted={isMuted} onMuteToggle={() => setIsMuted(!isMuted)} />)}
+                <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+                  {userReels.map(r => (
+                    <div key={r.id} className="aspect-[9/16] rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity" onClick={() => navigate(`/reels`)}>
+                      {r.videoUrl && <video src={r.videoUrl} className="w-full h-full object-cover" muted />}
+                    </div>
+                  ))}
                 </div>
               ) : <div className="text-center py-12 text-strong-contrast/60">No reels yet</div>}
             </TabsContent>

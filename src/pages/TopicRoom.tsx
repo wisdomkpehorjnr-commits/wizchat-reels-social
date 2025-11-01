@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useParams } from "react-router-dom";
+import { Camera, Video } from "lucide-react";
 
 interface PostType {
   id: string;
@@ -31,6 +32,27 @@ const TopicRoom = () => {
       else setPosts(data || []);
     };
     loadPosts();
+    
+    // Real-time subscription for new posts
+    const channel = supabase
+      .channel(`room-posts-${roomId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'room_posts',
+          filter: `room_id=eq.${roomId}`
+        },
+        (payload) => {
+          setPosts(prev => [payload.new as PostType, ...prev]);
+        }
+      )
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [roomId]);
 
   // Handle new post submission
@@ -90,9 +112,9 @@ const TopicRoom = () => {
             />
 
             {/* Media Upload Buttons */}
-            <div className="flex gap-2 mb-3">
-              <label className="cursor-pointer bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">
-                Upload Image
+            <div className="flex gap-2 mb-3 items-center">
+              <label className="cursor-pointer bg-green-600 text-white p-2 rounded-full hover:bg-green-700 transition-colors">
+                <Camera className="w-5 h-5" />
                 <input
                   type="file"
                   accept="image/*"
@@ -100,8 +122,8 @@ const TopicRoom = () => {
                   onChange={(e) => e.target.files && setMediaFile(e.target.files[0])}
                 />
               </label>
-              <label className="cursor-pointer bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">
-                Upload Video
+              <label className="cursor-pointer bg-green-600 text-white p-2 rounded-full hover:bg-green-700 transition-colors">
+                <Video className="w-5 h-5" />
                 <input
                   type="file"
                   accept="video/*"

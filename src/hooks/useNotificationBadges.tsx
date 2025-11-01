@@ -36,15 +36,25 @@ export const useNotificationBadges = () => {
         // Get unread message counts for chat badge - only messages from OTHER users
         let chatCount = 0;
         if (chatIds.length > 0) {
-          const { data: unreadMessages } = await supabase
+          const { data: unreadMessages, error: messagesError } = await supabase
             .from('messages')
             .select('id, user_id, seen')
             .in('chat_id', chatIds)
             .eq('seen', false)
             .neq('user_id', user.id);
           
-          // Double-check: only count messages from other users that are truly unread
-          chatCount = unreadMessages?.filter(msg => msg.user_id !== user.id && !msg.seen)?.length || 0;
+          if (messagesError) {
+            console.error('Error fetching unread messages:', messagesError);
+          }
+          
+          // Triple-check: only count messages from other users that are truly unread
+          chatCount = unreadMessages?.filter(msg => msg.user_id !== user.id && msg.seen === false)?.length || 0;
+          
+          console.log('Unread messages for chat badge:', {
+            totalUnreadMessages: unreadMessages?.length || 0,
+            filteredCount: chatCount,
+            userChats: chatIds.length
+          });
         }
 
         // Get pending friend requests count

@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { MoreVertical, Heart, MessageSquare, Share, Edit, Trash2, Download } from 'lucide-react';
+import { MoreVertical, Heart, MessageSquare, Share2, Edit, Trash2, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
@@ -380,7 +380,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
             size="sm"
             disabled={isOptimistic}
           >
-            <Share className="mr-2 h-4 w-4" />
+            <Share2 className="mr-2 h-4 w-4" />
             Share
           </Button>
         </div>

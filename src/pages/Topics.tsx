@@ -45,9 +45,9 @@ const Topics = () => {
           </Card>
 
           {/* Topic Room Cards */}
-          <div className="grid gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {rooms.length === 0 && (
-              <p className="text-center text-gray-800 dark:text-gray-300 py-8">
+              <p className="text-center text-gray-800 dark:text-gray-300 py-8 col-span-full">
                 No topic rooms yet.
               </p>
             )}
@@ -55,18 +55,18 @@ const Topics = () => {
             {rooms.map((room) => (
               <Card
                 key={room.id}
-                className="border-2 border-green-500 hover:border-green-700 cursor-pointer bg-white dark:bg-gray-800"
+                className="border-2 border-green-500 hover:border-green-700 cursor-pointer bg-white dark:bg-gray-800 transition-all"
                 onClick={() => navigate(`/topic-room/${room.id}`)}
               >
-                <CardContent className="py-3 px-4">
-                  <h3 className="text-black dark:text-white font-semibold text-lg">
+                <CardContent className="py-4 px-4">
+                  <h3 className="text-black dark:text-white font-semibold text-base">
                     {room.name}
                   </h3>
-                  <p className="text-gray-700 dark:text-gray-300 text-sm mt-1">
+                  <p className="text-gray-700 dark:text-gray-300 text-xs mt-1 line-clamp-2">
                     {room.description}
                   </p>
                   <Button
-                    className="mt-2 bg-green-600 hover:bg-green-700 text-white dark:text-white"
+                    className="mt-3 bg-green-600 hover:bg-green-700 text-white dark:text-white text-sm h-9"
                   >
                     Enter Room
                   </Button>
