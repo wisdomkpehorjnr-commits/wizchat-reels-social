@@ -2,175 +2,141 @@ import React, { useEffect, useState } from "react";
 import Layout from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
-import { useParams } from "react-router-dom";
-import { Camera, Video } from "lucide-react";
+import { useParams, useNavigate } from "react-router-dom";
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import { Camera, Video, ArrowLeft, X } from "lucide-react";
+import PostCard from '@/components/PostCard';
 
 interface PostType {
   id: string;
   content: string;
+  image_url?: string;
+  video_url?: string;
   media_url?: string;
+  media_type?: string;
+  user_id: string;
   created_at: string;
+  updated_at?: string;
+  user?: any;
 }
 
 const TopicRoom = () => {
   const { roomId } = useParams();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [posts, setPosts] = useState<PostType[]>([]);
-  const [newPost, setNewPost] = useState("");
+  const [content, setContent] = useState("");
   const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [mediaPreview, setMediaPreview] = useState<string | null>(null);
+  const [mediaType, setMediaType] = useState<'image' | 'video' | null>(null);
+  const [uploading, setUploading] = useState(false);
 
-  // Fetch posts from Supabase
   useEffect(() => {
-    const loadPosts = async () => {
-      const { data, error } = await supabase
-        .from("room_posts")
-        .select("*")
-        .eq("room_id", roomId)
-        .order("created_at", { ascending: false });
-      if (error) console.error("Error fetching posts:", error);
-      else setPosts(data || []);
-    };
-    loadPosts();
-    
-    // Real-time subscription for new posts
-    const channel = supabase
-      .channel(`room-posts-${roomId}`)
-      .on(
-        'postgres_changes',
-        {
+    if (roomId) {
+      loadPosts();
+      
+      const channel = supabase
+        .channel(`room_posts:${roomId}`)
+        .on('postgres_changes', {
           event: 'INSERT',
           schema: 'public',
           table: 'room_posts',
           filter: `room_id=eq.${roomId}`
-        },
-        (payload) => {
-          setPosts(prev => [payload.new as PostType, ...prev]);
-        }
-      )
-      .subscribe();
-    
-    return () => {
-      supabase.removeChannel(channel);
-    };
+        }, async (payload) => {
+          const newPost = payload.new as PostType;
+          const { data: profile } = await supabase.from('profiles').select('*').eq('id', newPost.user_id).single();
+          if (profile) setPosts(prev => [{ ...newPost, user: profile }, ...prev]);
+        }).subscribe();
+
+      return () => { supabase.removeChannel(channel); };
+    }
   }, [roomId]);
 
-  // Handle new post submission
+  const loadPosts = async () => {
+    const { data, error } = await supabase.from('room_posts').select('*, user:profiles(*)').eq('room_id', roomId).order('created_at', { ascending: false });
+    if (error) console.error('Error:', error);
+    else setPosts(data || []);
+  };
+
+  const handleFileSelect = (file: File, type: 'image' | 'video') => {
+    setMediaFile(file);
+    setMediaType(type);
+    setMediaPreview(URL.createObjectURL(file));
+  };
+
+  const clearMedia = () => {
+    if (mediaPreview) URL.revokeObjectURL(mediaPreview);
+    setMediaFile(null);
+    setMediaPreview(null);
+    setMediaType(null);
+  };
+
   const handlePost = async () => {
-    if (!newPost.trim() && !mediaFile) return;
+    if (!content.trim() && !mediaFile) return;
+    setUploading(true);
 
-    let media_url = null;
-    if (mediaFile) {
-      const fileExt = mediaFile.name.split(".").pop();
-      const fileName = `${Date.now()}.${fileExt}`;
-      const { data, error } = await supabase.storage
-        .from("room-media")
-        .upload(fileName, mediaFile);
-
-      if (error) {
-        console.error("Error uploading media:", error);
-      } else {
-        media_url = supabase.storage.from("room-media").getPublicUrl(fileName).data.publicUrl;
+    try {
+      let mediaUrl = null;
+      if (mediaFile) {
+        const fileName = `${Date.now()}.${mediaFile.name.split(".").pop()}`;
+        const { error } = await supabase.storage.from("room-media").upload(fileName, mediaFile);
+        if (!error) mediaUrl = supabase.storage.from("room-media").getPublicUrl(fileName).data.publicUrl;
       }
-    }
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+      await supabase.from("room_posts").insert([{
+        room_id: roomId,
+        user_id: user?.id,
+        content,
+        [mediaType === 'image' ? 'image_url' : 'video_url']: mediaUrl,
+        media_type: mediaType || 'text'
+      }]);
 
-    const { data, error } = await supabase
-      .from("room_posts")
-      .insert([{ room_id: roomId, user_id: user.id, content: newPost, media_url }])
-      .select();
-
-    if (error) console.error("Error posting:", error);
-    else {
-      setPosts([data[0], ...posts]);
-      setNewPost("");
-      setMediaFile(null);
+      setContent('');
+      clearMedia();
+      toast({ title: "Success", description: "Post created successfully" });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (error) {
+      console.error('Error:', error);
+      toast({ title: "Error", description: "Failed to create post", variant: "destructive" });
+    } finally {
+      setUploading(false);
     }
   };
 
   return (
     <Layout>
       <div className="container mx-auto px-4 py-6">
-        {/* Topic Room Heading */}
-        <h1 className="text-3xl font-extrabold text-white mb-6">Topic Room</h1>
+        <Button variant="ghost" onClick={() => navigate('/topics')} className="mb-4">
+          <ArrowLeft className="w-4 h-4 mr-2" /> Back
+        </Button>
 
-        {/* Facebook-style Posting Card */}
-        <Card className="mb-6 border-2 border-green-500 bg-white dark:bg-gray-800">
-          <CardHeader>
-            <CardTitle className="text-lg font-bold text-green-700 dark:text-white">
-              Create a Post
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Input
-              placeholder="What's on your mind?"
-              className="mb-3 text-black dark:text-white"
-              value={newPost}
-              onChange={(e) => setNewPost(e.target.value)}
-            />
+        <Card className="mb-6 border-2">
+          <CardHeader><CardTitle>Create a Post</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            <Textarea placeholder="What's on your mind?" value={content} onChange={(e) => setContent(e.target.value)} className="min-h-[100px]" />
 
-            {/* Media Upload Buttons */}
-            <div className="flex gap-2 mb-3 items-center">
-              <label className="cursor-pointer bg-green-600 text-white p-2 rounded-full hover:bg-green-700 transition-colors">
-                <Camera className="w-5 h-5" />
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => e.target.files && setMediaFile(e.target.files[0])}
-                />
-              </label>
-              <label className="cursor-pointer bg-green-600 text-white p-2 rounded-full hover:bg-green-700 transition-colors">
-                <Video className="w-5 h-5" />
-                <input
-                  type="file"
-                  accept="video/*"
-                  className="hidden"
-                  onChange={(e) => e.target.files && setMediaFile(e.target.files[0])}
-                />
-              </label>
-              {mediaFile && <span className="text-sm text-gray-700 dark:text-gray-300">{mediaFile.name}</span>}
+            {mediaPreview && (
+              <div className="relative">
+                {mediaType === 'image' ? <img src={mediaPreview} alt="Preview" className="w-full max-h-[300px] object-cover rounded-lg" /> : <video src={mediaPreview} controls className="w-full max-h-[300px] rounded-lg" />}
+                <Button type="button" variant="destructive" size="icon" className="absolute top-2 right-2" onClick={clearMedia}><X className="w-4 h-4" /></Button>
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" size="icon" onClick={() => { const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.onchange = (e) => { const file = (e.target as HTMLInputElement).files?.[0]; if (file) handleFileSelect(file, 'image'); }; input.click(); }} title="Upload Image"><Camera className="w-4 h-4" /></Button>
+              <Button type="button" variant="outline" size="icon" onClick={() => { const input = document.createElement('input'); input.type = 'file'; input.accept = 'video/*'; input.onchange = (e) => { const file = (e.target as HTMLInputElement).files?.[0]; if (file) handleFileSelect(file, 'video'); }; input.click(); }} title="Upload Video"><Video className="w-4 h-4" /></Button>
             </div>
 
-            <Button
-              className="bg-green-600 text-white hover:bg-green-700 w-full"
-              onClick={handlePost}
-            >
-              Post
-            </Button>
+            <Button onClick={handlePost} disabled={!content.trim() || uploading} className="w-full">{uploading ? 'Posting...' : 'Post'}</Button>
           </CardContent>
         </Card>
 
-        {/* Posts List */}
         <div className="space-y-4">
-          {posts.length === 0 ? (
-            <p className="text-white dark:text-gray-300">No posts yet. Be the first!</p>
-          ) : (
-            posts.map((post) => (
-              <Card
-                key={post.id}
-                className="border-2 border-green-500 bg-white dark:bg-gray-800"
-              >
-                <CardContent>
-                  <p className="text-black dark:text-white">{post.content}</p>
-                  {post.media_url && (
-                    <>
-                      {post.media_url.match(/\.(mp4|webm|ogg)$/i) ? (
-                        <video src={post.media_url} controls className="mt-2 w-full rounded" />
-                      ) : (
-                        <img src={post.media_url} alt="post media" className="mt-2 w-full rounded" />
-                      )}
-                    </>
-                  )}
-                  <p className="text-gray-500 text-sm mt-1">
-                    {new Date(post.created_at).toLocaleString()}
-                  </p>
-                </CardContent>
-              </Card>
-            ))
-          )}
+          {posts.length === 0 ? <Card className="border-2"><CardContent className="p-8 text-center"><p className="text-muted-foreground">No posts yet. Be the first to post!</p></CardContent></Card> : posts.map((post) => <PostCard key={post.id} post={{ id: post.id, user_id: post.user_id, content: post.content, image_url: post.image_url || post.media_url, video_url: post.video_url, media_type: post.media_type || 'text', created_at: post.created_at, updated_at: post.updated_at || post.created_at, is_reel: false, music_id: null, user: post.user }} onPostUpdate={loadPosts} />)}
         </div>
       </div>
     </Layout>

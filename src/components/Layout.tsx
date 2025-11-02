@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Home, PlayCircle, MessageCircle, Users, User, Settings, MessageSquare } from 'lucide-react';
+import { Home, PlayCircle, MessageCircle, Users, User, Settings, MessageSquare, Crown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotificationBadges } from '@/hooks/useNotificationBadges';
 import Logo from './Logo';
@@ -142,6 +142,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   <Link to="/settings" className="cursor-pointer text-foreground">
                     <Settings className="mr-2 h-4 w-4" />
                     <span>Settings</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/premium" className="cursor-pointer text-foreground">
+                    <Crown className="mr-2 h-4 w-4" />
+                    <span>Premium</span>
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />

@@ -28,6 +28,16 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 // ✅ Avatar customization page
 const AvatarStudio = lazy(() => import("./components/AvatarStudio"));
 
+// ✅ Premium pages
+const Premium = lazy(() => import("./pages/Premium"));
+const Advertise = lazy(() => import("./pages/premium/Advertise"));
+const VerifyAccount = lazy(() => import("./pages/premium/VerifyAccount"));
+const BeAnAdmin = lazy(() => import("./pages/premium/BeAnAdmin"));
+const WizBoost = lazy(() => import("./pages/premium/WizBoost"));
+const UnlimitedWizAi = lazy(() => import("./pages/premium/UnlimitedWizAi"));
+const PremiumThemes = lazy(() => import("./pages/premium/PremiumThemes"));
+const GPP = lazy(() => import("./pages/premium/GPP"));
+
 // ✅ React Query client config
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -156,6 +166,72 @@ const App = () => (
                   element={
                     <ProtectedRoute>
                       <AvatarStudio />
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* ✅ Premium Pages */}
+                <Route
+                  path="/premium"
+                  element={
+                    <ProtectedRoute>
+                      <Premium />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/premium/advertise"
+                  element={
+                    <ProtectedRoute>
+                      <Advertise />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/premium/verify"
+                  element={
+                    <ProtectedRoute>
+                      <VerifyAccount />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/premium/admin"
+                  element={
+                    <ProtectedRoute>
+                      <BeAnAdmin />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/premium/wizboost"
+                  element={
+                    <ProtectedRoute>
+                      <WizBoost />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/premium/wizai"
+                  element={
+                    <ProtectedRoute>
+                      <UnlimitedWizAi />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/premium/themes"
+                  element={
+                    <ProtectedRoute>
+                      <PremiumThemes />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/premium/gpp"
+                  element={
+                    <ProtectedRoute>
+                      <GPP />
                     </ProtectedRoute>
                   }
                 />
