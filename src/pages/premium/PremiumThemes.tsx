@@ -1,12 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Layout from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Palette, Moon, PartyPopper, Flag, BookOpen } from 'lucide-react';
+import { ArrowLeft, Palette, Moon, Flag, BookOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import PremiumCodeVerification from '@/components/PremiumCodeVerification';
+import { useToast } from '@/hooks/use-toast';
 
 const PremiumThemes = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [showVerification, setShowVerification] = useState(false);
+  const [selectedFeature, setSelectedFeature] = useState('');
 
   const themes = [
     {
@@ -20,30 +25,23 @@ const PremiumThemes = () => {
     {
       icon: Moon,
       title: 'Night Mode',
-      price: '₵3',
+      price: 'FREE',
       description: 'Dark green & black',
       colors: ['bg-green-900', 'bg-black']
     },
     {
-      icon: PartyPopper,
-      title: 'Party Mode',
-      price: '₵5',
-      description: 'Animated emojis & confetti',
-      colors: ['bg-purple-500', 'bg-pink-500', 'bg-yellow-500']
-    },
-    {
       icon: Flag,
       title: 'Ghana Pride',
-      price: '₵7',
+      price: '₵20',
       description: 'Flag colors & cultural patterns',
       colors: ['bg-red-500', 'bg-yellow-500', 'bg-green-500']
     },
     {
       icon: BookOpen,
-      title: 'Exam Mode',
-      price: '₵4',
-      description: 'Calm blue with focus timer',
-      colors: ['bg-blue-400', 'bg-blue-600']
+      title: 'Ultra',
+      price: '₵70',
+      description: 'Black & white focus mode — minimal distractions',
+      colors: ['bg-black', 'bg-white']
     }
   ];
 
@@ -118,9 +116,15 @@ const PremiumThemes = () => {
                     <Button 
                       className="w-full"
                       variant={theme.active ? 'outline' : 'default'}
-                      disabled={theme.active}
+                      disabled={theme.active || theme.price === 'FREE'}
+                      onClick={() => {
+                        if (theme.price !== 'FREE') {
+                          setSelectedFeature(theme.title);
+                          setShowVerification(true);
+                        }
+                      }}
                     >
-                      {theme.active ? 'Currently Active' : 'Apply Theme Now'}
+                      {theme.active ? 'Currently Active' : theme.price === 'FREE' ? 'Free Theme' : 'Apply Theme Now'}
                     </Button>
                   </CardContent>
                 </Card>
@@ -137,6 +141,13 @@ const PremiumThemes = () => {
           </Card>
         </div>
       </div>
+
+      <PremiumCodeVerification
+        open={showVerification}
+        onOpenChange={setShowVerification}
+        onVerified={() => toast({ title: "Success!", description: `${selectedFeature} theme activated!` })}
+        featureName={selectedFeature}
+      />
     </Layout>
   );
 };

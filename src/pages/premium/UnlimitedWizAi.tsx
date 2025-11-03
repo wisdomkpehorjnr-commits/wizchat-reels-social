@@ -1,12 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Layout from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Bot, MessageSquare, Languages, FileText, Wifi } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import PremiumCodeVerification from '@/components/PremiumCodeVerification';
+import { useToast } from '@/hooks/use-toast';
 
 const UnlimitedWizAi = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [showVerification, setShowVerification] = useState(false);
 
   const features = [
     {
@@ -109,14 +113,17 @@ const UnlimitedWizAi = () => {
                 <div className="space-y-2 mb-4">
                   <div className="flex items-center justify-between">
                     <span className="text-sm">Weekly</span>
-                    <span className="font-bold">₵8</span>
+                    <span className="font-bold">₵20</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm">Monthly</span>
-                    <span className="font-bold text-primary">₵25</span>
+                    <span className="font-bold text-primary">₵70</span>
                   </div>
                 </div>
-                <Button className="w-full">
+                <Button 
+                  className="w-full"
+                  onClick={() => setShowVerification(true)}
+                >
                   Unlock Unlimited AI
                 </Button>
               </CardContent>
@@ -132,6 +139,13 @@ const UnlimitedWizAi = () => {
           </Card>
         </div>
       </div>
+
+      <PremiumCodeVerification
+        open={showVerification}
+        onOpenChange={setShowVerification}
+        onVerified={() => toast({ title: "Success!", description: "Unlimited WizAi activated!" })}
+        featureName="Unlimited WizAi"
+      />
     </Layout>
   );
 };

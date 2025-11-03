@@ -1,12 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Layout from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, BadgeCheck, Shield, TrendingUp, HeadphonesIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import PremiumCodeVerification from '@/components/PremiumCodeVerification';
+import { useToast } from '@/hooks/use-toast';
 
 const VerifyAccount = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [showVerification, setShowVerification] = useState(false);
 
   const benefits = [
     {
@@ -124,9 +128,13 @@ const VerifyAccount = () => {
 
           <Card className="border-2 bg-primary/5">
             <CardContent className="p-8 text-center">
-              <div className="text-4xl font-bold text-primary mb-2">₵15</div>
+              <div className="text-4xl font-bold text-primary mb-2">₵45</div>
               <p className="text-muted-foreground mb-4">One-time verification fee</p>
-              <Button size="lg" className="w-full max-w-md">
+              <Button 
+                size="lg" 
+                className="w-full max-w-md"
+                onClick={() => setShowVerification(true)}
+              >
                 Verify My Account Now
               </Button>
               <p className="text-sm text-muted-foreground mt-4">
@@ -136,6 +144,13 @@ const VerifyAccount = () => {
           </Card>
         </div>
       </div>
+
+      <PremiumCodeVerification
+        open={showVerification}
+        onOpenChange={setShowVerification}
+        onVerified={() => toast({ title: "Success!", description: "Account verified successfully!" })}
+        featureName="Account Verification"
+      />
     </Layout>
   );
 };

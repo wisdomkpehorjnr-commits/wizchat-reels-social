@@ -5,12 +5,26 @@ import ChatListItem from '@/components/ChatListItem';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, MessageCircle } from 'lucide-react';
+import { Search, MessageCircle, Bot } from 'lucide-react';
 import { Friend, User } from '@/types';
 import { dataService } from '@/services/dataService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useCache } from '@/hooks/useCache';
+
+const WIZAI_USER: User = {
+  id: 'wizai',
+  name: 'WizAi',
+  email: 'wizai@wizchat.app',
+  username: 'wizai',
+  avatar: '',
+  bio: 'Your AI assistant',
+  photoURL: '',
+  followerCount: 0,
+  followingCount: 0,
+  profileViews: 0,
+  createdAt: new Date(),
+};
 
 const Chat = () => {
   const { user } = useAuth();
@@ -126,7 +140,15 @@ const Chat = () => {
           ) : (
             <Card className="border-2 green-border">
               <CardContent className="p-0">
-                <div className="divide-y">
+                <div>
+                  {/* WizAi Chat - Always Pinned */}
+                  <ChatListItem
+                    friend={WIZAI_USER}
+                    onClick={() => openChat(WIZAI_USER)}
+                    isPinned
+                    isWizAi
+                  />
+                  
                   {/* Friends list for chatting */}
                   {filteredFriends.map((friend) => (
                     <ChatListItem

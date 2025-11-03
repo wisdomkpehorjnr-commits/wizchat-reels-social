@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, Video, ArrowLeft, X } from "lucide-react";
+import { Camera, Video, ArrowLeft, X, Bell } from "lucide-react";
 import PostCard from '@/components/PostCard';
 
 interface PostType {
@@ -34,9 +34,12 @@ const TopicRoom = () => {
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
   const [mediaType, setMediaType] = useState<'image' | 'video' | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [roomName, setRoomName] = useState("");
+  const [showFlash, setShowFlash] = useState(false);
 
   useEffect(() => {
     if (roomId) {
+      loadRoom();
       loadPosts();
       
       const channel = supabase
@@ -55,6 +58,11 @@ const TopicRoom = () => {
       return () => { supabase.removeChannel(channel); };
     }
   }, [roomId]);
+
+  const loadRoom = async () => {
+    const { data } = await supabase.from('topic_rooms').select('name').eq('id', roomId).single();
+    if (data) setRoomName(data.name);
+  };
 
   const loadPosts = async () => {
     const { data, error } = await supabase.from('room_posts').select('*, user:profiles(*)').eq('room_id', roomId).order('created_at', { ascending: false });
@@ -80,6 +88,10 @@ const TopicRoom = () => {
     setUploading(true);
 
     try {
+      // Flash effect
+      setShowFlash(true);
+      setTimeout(() => setShowFlash(false), 200);
+
       let mediaUrl = null;
       if (mediaFile) {
         const fileName = `${Date.now()}.${mediaFile.name.split(".").pop()}`;
@@ -97,7 +109,7 @@ const TopicRoom = () => {
 
       setContent('');
       clearMedia();
-      toast({ title: "Success", description: "Post created successfully" });
+      toast({ title: "Success! 🎉", description: "Post created successfully" });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) {
       console.error('Error:', error);
@@ -109,10 +121,20 @@ const TopicRoom = () => {
 
   return (
     <Layout>
+      {showFlash && (
+        <div className="fixed inset-0 bg-white dark:bg-black pointer-events-none z-50 animate-fade-out opacity-50" />
+      )}
       <div className="container mx-auto px-4 py-6">
-        <Button variant="ghost" onClick={() => navigate('/topics')} className="mb-4">
-          <ArrowLeft className="w-4 h-4 mr-2" /> Back
-        </Button>
+        {/* Topic Header */}
+        <div className="flex items-center justify-between mb-4 p-4 bg-primary text-primary-foreground rounded-lg">
+          <Button variant="ghost" onClick={() => navigate('/topics')} className="text-primary-foreground hover:bg-primary-foreground/10">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+          </Button>
+          <h1 className="text-xl font-bold flex-1 text-center">{roomName || 'Topic Room'}</h1>
+          <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/10">
+            <Bell className="w-4 h-4" />
+          </Button>
+        </div>
 
         <Card className="mb-6 border-2">
           <CardHeader><CardTitle>Create a Post</CardTitle></CardHeader>

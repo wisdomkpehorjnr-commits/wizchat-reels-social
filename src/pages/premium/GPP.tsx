@@ -1,12 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Layout from '@/components/Layout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, DollarSign, BookOpen, Radio, ShoppingBag, Trophy, MessageSquare } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import PremiumCodeVerification from '@/components/PremiumCodeVerification';
+import { useToast } from '@/hooks/use-toast';
 
 const GPP = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [showVerification, setShowVerification] = useState(false);
 
   const earningWays = [
     {
@@ -134,7 +138,11 @@ const GPP = () => {
                   For the first 3 months → then 5% transaction fee
                 </p>
               </div>
-              <Button size="lg" className="w-full">
+              <Button 
+                size="lg" 
+                className="w-full"
+                onClick={() => setShowVerification(true)}
+              >
                 Start Earning Today
               </Button>
             </CardContent>
@@ -155,6 +163,13 @@ const GPP = () => {
           </Card>
         </div>
       </div>
+
+      <PremiumCodeVerification
+        open={showVerification}
+        onOpenChange={setShowVerification}
+        onVerified={() => toast({ title: "Success!", description: "GPP activated! Start earning today!" })}
+        featureName="Get Paid Plan (GPP)"
+      />
     </Layout>
   );
 };

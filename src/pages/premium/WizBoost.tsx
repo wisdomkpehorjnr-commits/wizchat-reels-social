@@ -1,18 +1,23 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Layout from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Flame, Compass, Megaphone } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import PremiumCodeVerification from '@/components/PremiumCodeVerification';
+import { useToast } from '@/hooks/use-toast';
 
 const WizBoost = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [showVerification, setShowVerification] = useState(false);
+  const [selectedFeature, setSelectedFeature] = useState('');
 
   const boostOptions = [
     {
       icon: Flame,
       title: 'Feed Boost',
-      price: '₵2',
+      price: '₵15',
       duration: '6 hours',
       description: 'Pin your post to Top Feed',
       features: ['Top visibility', 'More likes & comments', 'Track engagement']
@@ -20,7 +25,7 @@ const WizBoost = () => {
     {
       icon: Compass,
       title: 'Discovery Boost',
-      price: '₵5',
+      price: '₵15',
       duration: '24 hours',
       description: 'Show your profile/group in "Nearby Discover"',
       features: ['Local visibility', 'New followers', 'Group members']
@@ -28,7 +33,7 @@ const WizBoost = () => {
     {
       icon: Megaphone,
       title: 'Group Blast',
-      price: '₵10',
+      price: '₵35',
       duration: 'One-time',
       description: 'Notify 100+ nearby users about your group',
       features: ['Direct notifications', 'Targeted audience', 'Instant reach']
@@ -88,7 +93,13 @@ const WizBoost = () => {
                     </ul>
                   </CardHeader>
                   <CardContent>
-                    <Button className="w-full">
+                    <Button 
+                      className="w-full"
+                      onClick={() => {
+                        setSelectedFeature(option.title);
+                        setShowVerification(true);
+                      }}
+                    >
                       Boost Now
                     </Button>
                   </CardContent>
@@ -106,6 +117,13 @@ const WizBoost = () => {
           </Card>
         </div>
       </div>
+
+      <PremiumCodeVerification
+        open={showVerification}
+        onOpenChange={setShowVerification}
+        onVerified={() => toast({ title: "Success!", description: `${selectedFeature} activated!` })}
+        featureName={selectedFeature}
+      />
     </Layout>
   );
 };

@@ -1,12 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Layout from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Crown, Users, DollarSign, BarChart } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import PremiumCodeVerification from '@/components/PremiumCodeVerification';
+import { useToast } from '@/hooks/use-toast';
 
 const BeAnAdmin = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [showVerification, setShowVerification] = useState(false);
 
   return (
     <Layout>
@@ -50,7 +54,7 @@ const BeAnAdmin = () => {
                   <DollarSign className="w-5 h-5 text-primary mt-1" />
                   <div>
                     <h3 className="font-semibold mb-1">Set Monthly Fees</h3>
-                    <p className="text-sm text-muted-foreground">₵5–₵50 per member</p>
+                    <p className="text-sm text-muted-foreground">₵15–₵100 per member</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3 p-4 bg-muted/50 rounded-lg">
@@ -96,7 +100,11 @@ const BeAnAdmin = () => {
 
           <Card className="border-2 bg-primary/5">
             <CardContent className="p-8 text-center">
-              <Button size="lg" className="w-full max-w-md mb-4">
+              <Button 
+                size="lg" 
+                className="w-full max-w-md mb-4"
+                onClick={() => setShowVerification(true)}
+              >
                 Start Earning as an Admin
               </Button>
               <p className="text-sm text-muted-foreground">
@@ -106,6 +114,13 @@ const BeAnAdmin = () => {
           </Card>
         </div>
       </div>
+
+      <PremiumCodeVerification
+        open={showVerification}
+        onOpenChange={setShowVerification}
+        onVerified={() => toast({ title: "Success!", description: "Admin features unlocked!" })}
+        featureName="Admin Features"
+      />
     </Layout>
   );
 };

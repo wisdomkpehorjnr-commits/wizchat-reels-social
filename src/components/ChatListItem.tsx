@@ -1,25 +1,72 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu';
 import { Pin, PinOff, BellOff, Ban, AlertTriangle, Trash2, Archive } from 'lucide-react';
 import { User } from '@/types';
 import OnlineStatusIndicator from './OnlineStatusIndicator';
 import { useToast } from '@/hooks/use-toast';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ChatListItemProps {
   friend: User;
-  lastMessage?: string;
   unreadCount?: number;
   isPinned?: boolean;
   onClick: () => void;
+  isWizAi?: boolean;
 }
 
-const ChatListItem = ({ friend, lastMessage, unreadCount, isPinned, onClick }: ChatListItemProps) => {
+const ChatListItem = ({ friend, unreadCount, isPinned, onClick, isWizAi }: ChatListItemProps) => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [pinned, setPinned] = useState(isPinned || false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [lastMessage, setLastMessage] = useState<string>('');
   const isOnline = useOnlineStatus(friend.id);
+
+  useEffect(() => {
+    if (isWizAi) {
+      setLastMessage("Ask me anything — I'm here to help!");
+      return;
+    }
+
+    const fetchLastMessage = async () => {
+      try {
+        const { data: chats } = await supabase
+          .from('chats')
+          .select('id')
+          .or(`creator_id.eq.${user?.id},creator_id.eq.${friend.id}`)
+          .limit(1)
+          .single();
+
+        if (chats) {
+          const { data: messages } = await supabase
+            .from('messages')
+            .select('content')
+            .eq('chat_id', chats.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+
+          if (messages) {
+            const preview = messages.content.length > 30 
+              ? messages.content.substring(0, 30) + '...'
+              : messages.content;
+            setLastMessage(preview);
+          } else {
+            setLastMessage('No messages yet');
+          }
+        } else {
+          setLastMessage('No messages yet');
+        }
+      } catch (error) {
+        setLastMessage('No messages yet');
+      }
+    };
+
+    fetchLastMessage();
+  }, [friend.id, user?.id, isWizAi]);
 
   const handlePin = () => {
     setPinned(!pinned);
@@ -65,80 +112,116 @@ const ChatListItem = ({ friend, lastMessage, unreadCount, isPinned, onClick }: C
     });
   };
 
+  const handleLongPress = () => {
+    if (!isWizAi) {
+      setShowMenu(true);
+    }
+  };
+
   return (
-    <ContextMenu>
-      <ContextMenuTrigger>
-        <div
-          onClick={onClick}
-          className="flex items-center gap-3 p-4 mb-3 hover:bg-accent rounded-lg cursor-pointer transition-colors active:scale-98"
-        >
-          <div className="relative">
-            <Avatar className={`${isOnline ? 'ring-2 ring-green-500 ring-offset-2 ring-offset-background' : ''}`}>
-              <AvatarImage src={friend.avatar} />
-              <AvatarFallback>{friend.name.charAt(0)}</AvatarFallback>
-            </Avatar>
-            <OnlineStatusIndicator userId={friend.id} />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <p className="font-semibold truncate">{friend.name}</p>
-              {pinned && <Pin className="w-3 h-3 text-primary" />}
-            </div>
-            {lastMessage && (
-              <p className="text-sm text-muted-foreground truncate">{lastMessage}</p>
-            )}
-          </div>
-          {unreadCount && unreadCount > 0 && (
-            <Badge variant="destructive" className="ml-2 rounded-full min-w-[20px] h-5">
-              {unreadCount > 99 ? '99+' : unreadCount}
-            </Badge>
-          )}
+    <>
+      <div
+        onClick={onClick}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          handleLongPress();
+        }}
+        className="flex items-center gap-3 p-4 hover:bg-accent cursor-pointer transition-colors relative"
+        style={{ borderBottom: '1px solid hsla(142, 60%, 49%, 0.2)' }}
+      >
+        <div className="relative">
+          <Avatar className={`${isOnline && !isWizAi ? 'ring-2 ring-green-500 ring-offset-2 ring-offset-background' : ''}`}>
+            <AvatarImage src={friend.avatar} />
+            <AvatarFallback className={isWizAi ? 'bg-primary text-primary-foreground' : ''}>
+              {friend.name.charAt(0)}
+            </AvatarFallback>
+          </Avatar>
+          {!isWizAi && <OnlineStatusIndicator userId={friend.id} />}
         </div>
-      </ContextMenuTrigger>
-      <ContextMenuContent className="w-56">
-        <ContextMenuItem onClick={handlePin}>
-          {pinned ? (
-            <>
-              <PinOff className="w-4 h-4 mr-2" />
-              Unpin Chat
-            </>
-          ) : (
-            <>
-              <Pin className="w-4 h-4 mr-2" />
-              Pin Chat
-            </>
-          )}
-        </ContextMenuItem>
-        <ContextMenuItem onClick={() => handleMute('8 hours')}>
-          <BellOff className="w-4 h-4 mr-2" />
-          Mute for 8 hours
-        </ContextMenuItem>
-        <ContextMenuItem onClick={() => handleMute('1 day')}>
-          <BellOff className="w-4 h-4 mr-2" />
-          Mute for 1 day
-        </ContextMenuItem>
-        <ContextMenuItem onClick={() => handleMute('1 week')}>
-          <BellOff className="w-4 h-4 mr-2" />
-          Mute for 1 week
-        </ContextMenuItem>
-        <ContextMenuItem onClick={handleArchive}>
-          <Archive className="w-4 h-4 mr-2" />
-          Archive Chat
-        </ContextMenuItem>
-        <ContextMenuItem onClick={handleReport}>
-          <AlertTriangle className="w-4 h-4 mr-2" />
-          Report User
-        </ContextMenuItem>
-        <ContextMenuItem onClick={handleBlock} className="text-destructive">
-          <Ban className="w-4 h-4 mr-2" />
-          Block User
-        </ContextMenuItem>
-        <ContextMenuItem onClick={handleDelete} className="text-destructive">
-          <Trash2 className="w-4 h-4 mr-2" />
-          Delete Chat
-        </ContextMenuItem>
-      </ContextMenuContent>
-    </ContextMenu>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className={`font-semibold truncate ${isWizAi ? 'text-primary' : ''}`}>
+              {friend.name}
+            </p>
+            {pinned && <Pin className="w-3 h-3 text-primary" />}
+          </div>
+          <p className="text-sm text-muted-foreground truncate">
+            {lastMessage || 'No messages yet'}
+          </p>
+        </div>
+        {unreadCount && unreadCount > 0 && (
+          <Badge variant="destructive" className="ml-2 rounded-full min-w-[20px] h-5">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </Badge>
+        )}
+      </div>
+
+      {/* Bottom Sheet Menu */}
+      {showMenu && (
+        <>
+          <div 
+            className="fixed inset-0 bg-black/20 z-40"
+            onClick={() => setShowMenu(false)}
+          />
+          <div className="fixed bottom-0 left-0 right-0 bg-background rounded-t-2xl p-6 z-50 animate-slide-in-right shadow-lg">
+            <div className="flex justify-around items-center gap-2">
+              <button
+                onClick={() => { handlePin(); setShowMenu(false); }}
+                className="flex flex-col items-center gap-2"
+              >
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  {pinned ? (
+                    <PinOff className="w-6 h-6 text-primary" />
+                  ) : (
+                    <Pin className="w-6 h-6 text-primary" />
+                  )}
+                </div>
+              </button>
+              <button
+                onClick={() => { handleMute('muted'); setShowMenu(false); }}
+                className="flex flex-col items-center gap-2"
+              >
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <BellOff className="w-6 h-6 text-primary" />
+                </div>
+              </button>
+              <button
+                onClick={() => { handleArchive(); setShowMenu(false); }}
+                className="flex flex-col items-center gap-2"
+              >
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Archive className="w-6 h-6 text-primary" />
+                </div>
+              </button>
+              <button
+                onClick={() => { handleReport(); setShowMenu(false); }}
+                className="flex flex-col items-center gap-2"
+              >
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <AlertTriangle className="w-6 h-6 text-primary" />
+                </div>
+              </button>
+              <button
+                onClick={() => { handleBlock(); setShowMenu(false); }}
+                className="flex flex-col items-center gap-2"
+              >
+                <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
+                  <Ban className="w-6 h-6 text-destructive" />
+                </div>
+              </button>
+              <button
+                onClick={() => { handleDelete(); setShowMenu(false); }}
+                className="flex flex-col items-center gap-2"
+              >
+                <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
+                  <Trash2 className="w-6 h-6 text-destructive" />
+                </div>
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </>
   );
 };
 

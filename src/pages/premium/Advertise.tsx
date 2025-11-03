@@ -1,32 +1,37 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Layout from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, DollarSign, MapPin, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import PremiumCodeVerification from '@/components/PremiumCodeVerification';
+import { useToast } from '@/hooks/use-toast';
 
 const Advertise = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [showVerification, setShowVerification] = useState(false);
+  const [selectedFeature, setSelectedFeature] = useState('');
 
   const adOptions = [
     {
       icon: DollarSign,
       title: 'Boosted Post',
-      price: '₵5',
+      price: '₵15',
       description: 'Pin your post to "Top Feed" for 24 hours',
       features: ['Top visibility', 'Reach thousands', 'Track views']
     },
     {
       icon: MapPin,
       title: 'Geo-Targeted Ad',
-      price: '₵10',
+      price: '₵35',
       description: 'Show your ad to users in Accra/Kumasi only',
       features: ['Location targeting', 'Higher conversion', 'Track by city']
     },
     {
       icon: Users,
       title: 'Group Sponsorship',
-      price: '₵20',
+      price: '₵60',
       description: 'Sponsor a popular study group',
       features: ['Direct audience', 'Engaged users', 'Brand awareness']
     }
@@ -84,7 +89,13 @@ const Advertise = () => {
                         </li>
                       ))}
                     </ul>
-                    <Button className="w-full">
+                    <Button 
+                      className="w-full"
+                      onClick={() => {
+                        setSelectedFeature(option.title);
+                        setShowVerification(true);
+                      }}
+                    >
                       Start Advertising Now
                     </Button>
                   </CardContent>
@@ -102,6 +113,13 @@ const Advertise = () => {
           </Card>
         </div>
       </div>
+
+      <PremiumCodeVerification
+        open={showVerification}
+        onOpenChange={setShowVerification}
+        onVerified={() => toast({ title: "Success!", description: `${selectedFeature} activated!` })}
+        featureName={selectedFeature}
+      />
     </Layout>
   );
 };
