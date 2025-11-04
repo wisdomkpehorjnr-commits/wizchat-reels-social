@@ -10,7 +10,7 @@ import { dataService } from '@/services/dataService';
 import { ProfileService } from '@/services/profileService';
 import { Post, SavedPost, Follow } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
-import { Calendar, MapPin, Link as LinkIcon, Edit, MessageCircle, UserPlus, UserMinus, Bookmark, Users, UserCircle } from 'lucide-react';
+import { Calendar, MapPin, Link as LinkIcon, Edit, MessageCircle, UserPlus, UserMinus, Bookmark, Users, UserCircle, Trash2 } from 'lucide-react';
 import EditProfileDialog from '@/components/EditProfileDialog';
 import PostCard from '@/components/PostCard';
 import ReelCard from '@/components/ReelCard';
@@ -239,10 +239,9 @@ const Profile = () => {
         {/* Tabs */}
         <Card className="backdrop-blur-md bg-white/10 border-white/20">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid grid-cols-5 bg-white/5 backdrop-blur-sm">
+            <TabsList className="grid grid-cols-4 bg-white/5 backdrop-blur-sm">
               <TabsTrigger value="posts">Posts</TabsTrigger>
               <TabsTrigger value="reels">Reels</TabsTrigger>
-              <TabsTrigger value="media">Media</TabsTrigger>
               <TabsTrigger value="saved"><Bookmark className="w-4 h-4 mr-1" />Saved</TabsTrigger>
               <TabsTrigger value="groups"><Users className="w-4 h-4 mr-1" />Groups</TabsTrigger>
             </TabsList>
@@ -251,7 +250,7 @@ const Profile = () => {
               {userPosts.length > 0 ? (
                 <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
                   {userPosts.map(p => (
-                    <div key={p.id} className="aspect-square rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity" onClick={() => navigate(`/post/${p.id}`)}>
+                    <div key={p.id} className="relative group aspect-square rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity" onClick={() => navigate(`/post/${p.id}`)}>
                       {p.imageUrl ? (
                         <img src={p.imageUrl} className="w-full h-full object-cover" alt="Post" />
                       ) : p.videoUrl ? (
@@ -260,6 +259,26 @@ const Profile = () => {
                         <div className="w-full h-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center p-2">
                           <p className="text-xs text-center line-clamp-3">{p.content}</p>
                         </div>
+                      )}
+                      {isOwnProfile && (
+                        <Button
+                          variant="destructive"
+                          size="icon"
+                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity w-8 h-8"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm('Are you sure you want to delete this post?')) {
+                              dataService.deletePost(p.id).then(() => {
+                                toast({ title: "Success", description: "Post deleted successfully" });
+                                window.location.reload();
+                              }).catch(() => {
+                                toast({ title: "Error", description: "Failed to delete post", variant: "destructive" });
+                              });
+                            }
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       )}
                     </div>
                   ))}
@@ -271,22 +290,32 @@ const Profile = () => {
               {userReels.length > 0 ? (
                 <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
                   {userReels.map(r => (
-                    <div key={r.id} className="aspect-[9/16] rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity" onClick={() => navigate(`/reels`)}>
+                    <div key={r.id} className="relative group aspect-[9/16] rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity" onClick={() => navigate(`/reels`)}>
                       {r.videoUrl && <video src={r.videoUrl} className="w-full h-full object-cover" muted />}
+                      {isOwnProfile && (
+                        <Button
+                          variant="destructive"
+                          size="icon"
+                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity w-8 h-8"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm('Are you sure you want to delete this reel?')) {
+                              dataService.deletePost(r.id).then(() => {
+                                toast({ title: "Success", description: "Reel deleted successfully" });
+                                window.location.reload();
+                              }).catch(() => {
+                                toast({ title: "Error", description: "Failed to delete reel", variant: "destructive" });
+                              });
+                            }
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
                     </div>
                   ))}
                 </div>
               ) : <div className="text-center py-12 text-strong-contrast/60">No reels yet</div>}
-            </TabsContent>
-
-            <TabsContent value="media" className="p-4 space-y-4">
-              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
-                {[...userPosts, ...userReels].filter(p => p.imageUrl || p.videoUrl).map(p => (
-                  <div key={p.id} className="aspect-square rounded-lg overflow-hidden">
-                    {p.videoUrl ? <video src={p.videoUrl} className="w-full h-full object-cover" muted /> : <img src={p.imageUrl} className="w-full h-full object-cover" />}
-                  </div>
-                ))}
-              </div>
             </TabsContent>
 
             <TabsContent value="saved" className="p-4 space-y-4">

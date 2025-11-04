@@ -100,13 +100,13 @@ const BeAnAdmin = () => {
 
           <Card className="border-2 bg-primary/5">
             <CardContent className="p-8 text-center">
-              <Button 
-                size="lg" 
-                className="w-full max-w-md mb-4"
-                onClick={() => setShowVerification(true)}
-              >
-                Start Earning as an Admin
-              </Button>
+            <Button 
+              size="lg" 
+              className="w-full max-w-md mb-4"
+              onClick={() => setShowVerification(true)}
+            >
+              Apply
+            </Button>
               <p className="text-sm text-muted-foreground">
                 💡 Tip: Perfect for tutors, coaches, or side hustle teams!
               </p>

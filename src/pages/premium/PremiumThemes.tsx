@@ -113,19 +113,19 @@ const PremiumThemes = () => {
                         ))}
                       </div>
                     </div>
-                    <Button 
-                      className="w-full"
-                      variant={theme.active ? 'outline' : 'default'}
-                      disabled={theme.active || theme.price === 'FREE'}
-                      onClick={() => {
-                        if (theme.price !== 'FREE') {
-                          setSelectedFeature(theme.title);
-                          setShowVerification(true);
-                        }
-                      }}
-                    >
-                      {theme.active ? 'Currently Active' : theme.price === 'FREE' ? 'Free Theme' : 'Apply Theme Now'}
-                    </Button>
+                  <Button 
+                    className="w-full"
+                    variant={theme.active ? 'outline' : 'default'}
+                    disabled={theme.active || theme.price === 'FREE'}
+                    onClick={() => {
+                      if (theme.price !== 'FREE') {
+                        setSelectedFeature(theme.title);
+                        setShowVerification(true);
+                      }
+                    }}
+                  >
+                    {theme.active ? 'Currently Active' : theme.price === 'FREE' ? 'Free Theme' : 'Apply'}
+                  </Button>
                   </CardContent>
                 </Card>
               );

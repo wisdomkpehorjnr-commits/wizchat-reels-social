@@ -379,6 +379,25 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
             variant="ghost" 
             size="sm"
             disabled={isOptimistic}
+            onClick={async () => {
+              try {
+                if (navigator.share) {
+                  await navigator.share({
+                    title: 'WizChat Post',
+                    text: post.content || 'Check out this post on WizChat!',
+                    url: window.location.href
+                  });
+                } else {
+                  await navigator.clipboard.writeText(window.location.href);
+                  toast({
+                    title: "Link Copied",
+                    description: "Post link copied to clipboard"
+                  });
+                }
+              } catch (error) {
+                console.error('Error sharing:', error);
+              }
+            }}
           >
             <Share2 className="mr-2 h-4 w-4" />
             Share

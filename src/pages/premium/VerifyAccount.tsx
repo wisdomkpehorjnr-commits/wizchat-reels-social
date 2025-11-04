@@ -130,13 +130,13 @@ const VerifyAccount = () => {
             <CardContent className="p-8 text-center">
               <div className="text-4xl font-bold text-primary mb-2">₵45</div>
               <p className="text-muted-foreground mb-4">One-time verification fee</p>
-              <Button 
-                size="lg" 
-                className="w-full max-w-md"
-                onClick={() => setShowVerification(true)}
-              >
-                Verify My Account Now
-              </Button>
+            <Button 
+              size="lg" 
+              className="w-full max-w-md"
+              onClick={() => setShowVerification(true)}
+            >
+              Apply
+            </Button>
               <p className="text-sm text-muted-foreground mt-4">
                 ✨ Bonus: Verified users get 1 free WizBoost per month!
               </p>
@@ -145,12 +145,17 @@ const VerifyAccount = () => {
         </div>
       </div>
 
-      <PremiumCodeVerification
-        open={showVerification}
-        onOpenChange={setShowVerification}
-        onVerified={() => toast({ title: "Success!", description: "Account verified successfully!" })}
-        featureName="Account Verification"
-      />
+              <PremiumCodeVerification
+                open={showVerification}
+                onOpenChange={setShowVerification}
+                onVerified={() => {
+                  toast({ 
+                    title: "Success! ✅", 
+                    description: "Account verified! Check your profile for the blue tick." 
+                  });
+                }}
+                featureName="Verification"
+              />
     </Layout>
   );
 };

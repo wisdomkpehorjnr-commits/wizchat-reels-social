@@ -89,15 +89,15 @@ const Advertise = () => {
                         </li>
                       ))}
                     </ul>
-                    <Button 
-                      className="w-full"
-                      onClick={() => {
-                        setSelectedFeature(option.title);
-                        setShowVerification(true);
-                      }}
-                    >
-                      Start Advertising Now
-                    </Button>
+                <Button 
+                  className="w-full"
+                  onClick={() => {
+                    setSelectedFeature(option.title);
+                    setShowVerification(true);
+                  }}
+                >
+                  Apply
+                </Button>
                   </CardContent>
                 </Card>
               );

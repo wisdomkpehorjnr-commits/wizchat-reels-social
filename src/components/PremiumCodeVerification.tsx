@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Dialog,
   DialogContent,
@@ -32,7 +33,7 @@ const PremiumCodeVerification = ({
   const [showBuyPopup, setShowBuyPopup] = useState(false);
   const { toast } = useToast();
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
     if (code.trim() === VALID_CODE) {
       toast({
         title: "Success! 🎉",

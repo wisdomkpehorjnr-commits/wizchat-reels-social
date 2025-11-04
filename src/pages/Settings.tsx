@@ -213,11 +213,24 @@ const Settings = () => {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-4">
-                  <Button variant="outline" className="w-full justify-start h-16 text-base px-6 hover:bg-accent/50 transition-colors min-h-[64px]">
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start h-16 text-base px-6 hover:bg-accent/50 transition-colors min-h-[64px]"
+                    onClick={() => {
+                      const email = 'wisdomkpehorjnr@gmail.com';
+                      const phone = '0503370554';
+                      const choice = window.confirm('Contact Support:\n\nClick OK to send email\nClick Cancel to make a call');
+                      if (choice) {
+                        window.location.href = `mailto:${email}?subject=Support Request&body=Hi, I need help with...`;
+                      } else {
+                        window.location.href = `tel:${phone}`;
+                      }
+                    }}
+                  >
                     <MessageCircle className="w-6 h-6 mr-4" />
                     <div className="text-left">
                       <div className="font-medium">Contact Support</div>
-                      <div className="text-sm text-muted-foreground">Get help from our team</div>
+                      <div className="text-sm text-muted-foreground">Email: wisdomkpehorjnr@gmail.com | Call: 0503370554</div>
                     </div>
                   </Button>
                   <Button variant="outline" className="w-full justify-start h-16 text-base px-6 hover:bg-accent/50 transition-colors min-h-[64px]">
@@ -246,7 +259,22 @@ const Settings = () => {
                     onChange={(e) => setReportDetails(e.target.value)}
                     className="h-12 text-base"
                   />
-                  <Button onClick={handleReportProblem} className="w-full h-16 text-base font-bold shadow-lg hover:shadow-xl transition-all">
+                  <Button 
+                    onClick={() => {
+                      if (!reportReason.trim()) {
+                        toast({ title: "Error", description: "Please describe the problem.", variant: "destructive" });
+                        return;
+                      }
+                      const email = 'wisdomkpehorjnr@gmail.com';
+                      const subject = 'User Report';
+                      const body = `Problem: ${reportReason}\n\nDetails: ${reportDetails || 'None provided'}\n\nReported by: ${user?.email || 'Unknown'}`;
+                      window.location.href = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                      toast({ title: "Report Sent", description: "Thank you! Our team will review your report." });
+                      setReportReason('');
+                      setReportDetails('');
+                    }} 
+                    className="w-full h-16 text-base font-bold shadow-lg hover:shadow-xl transition-all"
+                  >
                     <AlertTriangle className="w-6 h-6 mr-3" />
                     Submit Report
                   </Button>
@@ -267,14 +295,34 @@ const Settings = () => {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-4">
-                  <Button variant="outline" className="w-full justify-start h-16 text-base px-6 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-all min-h-[64px]">
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start h-16 text-base px-6 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-all min-h-[64px]"
+                    onClick={() => {
+                      const email = 'wisdomkpehorjnr@gmail.com';
+                      const today = new Date().toLocaleDateString('en-GB');
+                      const subject = 'User Report';
+                      const body = `${user?.name || 'A user'} reported someone on the app on ${today}\n\nReporter: ${user?.email || 'Unknown'}`;
+                      window.location.href = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                      toast({ title: "Report Sent", description: "User report submitted successfully" });
+                    }}
+                  >
                     <AlertTriangle className="w-6 h-6 mr-4" />
                     <div className="text-left">
                       <div className="font-medium">Report a User</div>
                       <div className="text-sm text-muted-foreground">Report inappropriate behavior</div>
                     </div>
                   </Button>
-                  <Button variant="outline" className="w-full justify-start h-16 text-base px-6 hover:bg-accent/50 transition-colors min-h-[64px]">
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start h-16 text-base px-6 hover:bg-accent/50 transition-colors min-h-[64px]"
+                    onClick={() => {
+                      toast({ 
+                        title: "Blocked Users", 
+                        description: "No users blocked yet. Long-press a chat to block a user."
+                      });
+                    }}
+                  >
                     <Shield className="w-6 h-6 mr-4" />
                     <div className="text-left">
                       <div className="font-medium">Blocked Users</div>

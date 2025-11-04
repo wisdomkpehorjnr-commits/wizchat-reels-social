@@ -100,7 +100,7 @@ const WizBoost = () => {
                         setShowVerification(true);
                       }}
                     >
-                      Boost Now
+                      Apply
                     </Button>
                   </CardContent>
                 </Card>

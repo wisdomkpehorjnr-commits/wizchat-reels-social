@@ -120,12 +120,12 @@ const UnlimitedWizAi = () => {
                     <span className="font-bold text-primary">₵70</span>
                   </div>
                 </div>
-                <Button 
-                  className="w-full"
-                  onClick={() => setShowVerification(true)}
-                >
-                  Unlock Unlimited AI
-                </Button>
+              <Button 
+                className="w-full"
+                onClick={() => setShowVerification(true)}
+              >
+                Apply
+              </Button>
               </CardContent>
             </Card>
           </div>

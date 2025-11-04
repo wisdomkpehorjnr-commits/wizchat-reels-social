@@ -138,13 +138,13 @@ const GPP = () => {
                   For the first 3 months → then 5% transaction fee
                 </p>
               </div>
-              <Button 
-                size="lg" 
-                className="w-full"
-                onClick={() => setShowVerification(true)}
-              >
-                Start Earning Today
-              </Button>
+            <Button 
+              size="lg" 
+              className="w-full"
+              onClick={() => setShowVerification(true)}
+            >
+              Apply
+            </Button>
             </CardContent>
           </Card>
 
