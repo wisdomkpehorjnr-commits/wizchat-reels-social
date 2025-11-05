@@ -18,7 +18,7 @@ const WIZAI_USER: User = {
   name: 'WizAi',
   email: 'wizai@wizchat.app',
   username: 'wizai',
-  avatar: '',
+  avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=wizai&backgroundColor=2ECC71',
   bio: 'Your AI assistant',
   photoURL: '',
   followerCount: 0,

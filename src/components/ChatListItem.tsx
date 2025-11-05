@@ -22,6 +22,7 @@ const ChatListItem = ({ friend, unreadCount, isPinned, onClick, isWizAi }: ChatL
   const { user } = useAuth();
   const [pinned, setPinned] = useState(isPinned || false);
   const [showMenu, setShowMenu] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, height: 0 });
   const [lastMessage, setLastMessage] = useState<string>('');
   const isOnline = useOnlineStatus(friend.id);
 
@@ -112,8 +113,10 @@ const ChatListItem = ({ friend, unreadCount, isPinned, onClick, isWizAi }: ChatL
     });
   };
 
-  const handleLongPress = () => {
+  const handleLongPress = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!isWizAi) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      setMenuPosition({ top: rect.bottom, height: rect.height });
       setShowMenu(true);
     }
   };
@@ -124,7 +127,7 @@ const ChatListItem = ({ friend, unreadCount, isPinned, onClick, isWizAi }: ChatL
         onClick={onClick}
         onContextMenu={(e) => {
           e.preventDefault();
-          handleLongPress();
+          handleLongPress(e);
         }}
         className="flex items-center gap-3 p-4 hover:bg-accent cursor-pointer transition-colors relative"
         style={{ borderBottom: '1px solid hsla(142, 60%, 49%, 0.2)' }}
@@ -156,14 +159,17 @@ const ChatListItem = ({ friend, unreadCount, isPinned, onClick, isWizAi }: ChatL
         )}
       </div>
 
-      {/* Bottom Sheet Menu */}
+      {/* Context Menu */}
       {showMenu && (
         <>
           <div 
             className="fixed inset-0 bg-black/20 z-40"
             onClick={() => setShowMenu(false)}
           />
-          <div className="fixed bottom-0 left-0 right-0 bg-background rounded-t-2xl p-6 z-50 animate-slide-in-right shadow-lg">
+          <div 
+            className="fixed left-0 right-0 bg-background rounded-2xl p-4 z-50 animate-fade-in shadow-lg mx-2"
+            style={{ top: `${menuPosition.top + 8}px` }}
+          >
             <div className="flex justify-around items-center gap-2">
               <button
                 onClick={() => { handlePin(); setShowMenu(false); }}
