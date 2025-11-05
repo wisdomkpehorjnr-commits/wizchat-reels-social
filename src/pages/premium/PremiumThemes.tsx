@@ -124,7 +124,7 @@ const PremiumThemes = () => {
                       }
                     }}
                   >
-                    {theme.active ? 'Currently Active' : theme.price === 'FREE' ? 'Free Theme' : 'Apply'}
+                    {theme.active ? 'Currently Active' : theme.price === 'FREE' ? 'Free Theme' : 'Get Premium'}
                   </Button>
                   </CardContent>
                 </Card>

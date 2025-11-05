@@ -100,7 +100,7 @@ const WizBoost = () => {
                         setShowVerification(true);
                       }}
                     >
-                      Apply
+                      Get Premium
                     </Button>
                   </CardContent>
                 </Card>

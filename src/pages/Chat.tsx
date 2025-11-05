@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import ChatPopup from '@/components/ChatPopup';
+import WizAiChat from '@/components/WizAiChat';
 import ChatListItem from '@/components/ChatListItem';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -88,6 +89,10 @@ const Chat = () => {
   );
 
   if (selectedFriend) {
+    if (selectedFriend.id === 'wizai') {
+      return <WizAiChat onClose={() => setSelectedFriend(null)} />;
+    }
+    
     return (
       <div className="fixed inset-0 bg-background z-50 flex flex-col">
         <ChatPopup 

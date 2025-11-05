@@ -135,7 +135,7 @@ const VerifyAccount = () => {
               className="w-full max-w-md"
               onClick={() => setShowVerification(true)}
             >
-              Apply
+              Get Premium
             </Button>
               <p className="text-sm text-muted-foreground mt-4">
                 ✨ Bonus: Verified users get 1 free WizBoost per month!

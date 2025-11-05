@@ -105,7 +105,7 @@ const BeAnAdmin = () => {
               className="w-full max-w-md mb-4"
               onClick={() => setShowVerification(true)}
             >
-              Apply
+              Get Premium
             </Button>
               <p className="text-sm text-muted-foreground">
                 💡 Tip: Perfect for tutors, coaches, or side hustle teams!

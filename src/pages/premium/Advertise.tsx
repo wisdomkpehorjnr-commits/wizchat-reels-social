@@ -96,7 +96,7 @@ const Advertise = () => {
                     setShowVerification(true);
                   }}
                 >
-                  Apply
+                  Get Premium
                 </Button>
                   </CardContent>
                 </Card>

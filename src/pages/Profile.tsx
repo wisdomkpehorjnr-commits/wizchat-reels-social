@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import ThemeAwareDialog from '@/components/ThemeAwareDialog';
 import Layout from '@/components/Layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -39,6 +40,7 @@ const Profile = () => {
   const [showImageModal, setShowImageModal] = useState<string | null>(null);
   const [showAvatarStudio, setShowAvatarStudio] = useState(false);
   const [activeTab, setActiveTab] = useState('posts');
+  const [deletePostId, setDeletePostId] = useState<string | null>(null);
 
   const isOwnProfile = !userIdentifier;
   const targetUser = profileUser || user;
@@ -267,14 +269,7 @@ const Profile = () => {
                           className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity w-8 h-8"
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (window.confirm('Are you sure you want to delete this post?')) {
-                              dataService.deletePost(p.id).then(() => {
-                                toast({ title: "Success", description: "Post deleted successfully" });
-                                window.location.reload();
-                              }).catch(() => {
-                                toast({ title: "Error", description: "Failed to delete post", variant: "destructive" });
-                              });
-                            }
+                            setDeletePostId(p.id);
                           }}
                         >
                           <Trash2 className="w-4 h-4" />
@@ -299,14 +294,7 @@ const Profile = () => {
                           className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity w-8 h-8"
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (window.confirm('Are you sure you want to delete this reel?')) {
-                              dataService.deletePost(r.id).then(() => {
-                                toast({ title: "Success", description: "Reel deleted successfully" });
-                                window.location.reload();
-                              }).catch(() => {
-                                toast({ title: "Error", description: "Failed to delete reel", variant: "destructive" });
-                              });
-                            }
+                            setDeletePostId(r.id);
                           }}
                         >
                           <Trash2 className="w-4 h-4" />
@@ -333,6 +321,24 @@ const Profile = () => {
         <EditProfileDialog open={showEditDialog} onOpenChange={setShowEditDialog} user={user} />
         {showImageModal && <ImageModal src={showImageModal} alt="Profile Picture" isOpen={!!showImageModal} onClose={() => setShowImageModal(null)} />}
         <AvatarStudio open={showAvatarStudio} onOpenChange={setShowAvatarStudio} onSave={data => console.log("Avatar saved", data)} />
+        
+        <ThemeAwareDialog
+          open={!!deletePostId}
+          onOpenChange={(open) => !open && setDeletePostId(null)}
+          title="Delete Post"
+          description="Are you sure you want to delete this post? This action cannot be undone."
+          onConfirm={() => {
+            if (deletePostId) {
+              dataService.deletePost(deletePostId).then(() => {
+                toast({ title: "Success", description: "Post deleted successfully" });
+                window.location.reload();
+              }).catch(() => {
+                toast({ title: "Error", description: "Failed to delete post", variant: "destructive" });
+              });
+              setDeletePostId(null);
+            }
+          }}
+        />
       </div>
     </Layout>
   );

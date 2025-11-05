@@ -28,12 +28,21 @@ import {
   Volume2,
   Vibrate,
   Star,
-  Share2
+  Share2,
+  Mail,
+  Phone
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import ConfirmationDialog from '@/components/ui/confirmation-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 const Settings = () => {
   const { toast } = useToast();
@@ -52,6 +61,7 @@ const Settings = () => {
   const [feedbackText, setFeedbackText] = useState('');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [showContactDialog, setShowContactDialog] = useState(false);
 
   useEffect(() => {
     const raw = localStorage.getItem('app_settings');
@@ -216,21 +226,11 @@ const Settings = () => {
                   <Button 
                     variant="outline" 
                     className="w-full justify-start h-16 text-base px-6 hover:bg-accent/50 transition-colors min-h-[64px]"
-                    onClick={() => {
-                      const email = 'wisdomkpehorjnr@gmail.com';
-                      const phone = '0503370554';
-                      const choice = window.confirm('Contact Support:\n\nClick OK to send email\nClick Cancel to make a call');
-                      if (choice) {
-                        window.location.href = `mailto:${email}?subject=Support Request&body=Hi, I need help with...`;
-                      } else {
-                        window.location.href = `tel:${phone}`;
-                      }
-                    }}
+                    onClick={() => setShowContactDialog(true)}
                   >
                     <MessageCircle className="w-6 h-6 mr-4" />
                     <div className="text-left">
                       <div className="font-medium">Contact Support</div>
-                      <div className="text-sm text-muted-foreground">Email: wisdomkpehorjnr@gmail.com | Call: 0503370554</div>
                     </div>
                   </Button>
                   <Button variant="outline" className="w-full justify-start h-16 text-base px-6 hover:bg-accent/50 transition-colors min-h-[64px]">
@@ -734,6 +734,40 @@ const Settings = () => {
         description="This will log you out from all devices except this one. You'll need to log in again on other devices."
         confirmText="Logout All"
       />
+
+      <Dialog open={showContactDialog} onOpenChange={setShowContactDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold">Contact Support</DialogTitle>
+            <DialogDescription className="text-sm">
+              How would you like to reach us?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 py-4">
+            <Button
+              variant="outline"
+              className="w-full gap-2 justify-start"
+              onClick={() => {
+                window.location.href = 'tel:0503370554';
+                setShowContactDialog(false);
+              }}
+            >
+              <Phone className="w-4 h-4" />
+              Call
+            </Button>
+            <Button
+              className="w-full gap-2 justify-start"
+              onClick={() => {
+                window.location.href = 'mailto:wisdomkpehorjnr@gmail.com?subject=Support Request';
+                setShowContactDialog(false);
+              }}
+            >
+              <Mail className="w-4 h-4" />
+              Email
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 };

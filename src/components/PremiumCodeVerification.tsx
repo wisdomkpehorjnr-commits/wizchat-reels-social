@@ -33,15 +33,11 @@ const PremiumCodeVerification = ({
   const [showBuyPopup, setShowBuyPopup] = useState(false);
   const { toast } = useToast();
 
+  const [showApply, setShowApply] = useState(false);
+
   const handleVerify = async () => {
     if (code.trim() === VALID_CODE) {
-      toast({
-        title: "Success! 🎉",
-        description: `${featureName} unlocked successfully!`,
-      });
-      onVerified();
-      onOpenChange(false);
-      setCode('');
+      setShowApply(true);
     } else {
       toast({
         title: "Invalid Code",
@@ -49,6 +45,17 @@ const PremiumCodeVerification = ({
         variant: "destructive",
       });
     }
+  };
+
+  const handleApply = () => {
+    toast({
+      title: "Success! 🎉",
+      description: `${featureName} unlocked successfully!`,
+    });
+    onVerified();
+    onOpenChange(false);
+    setShowApply(false);
+    setCode('');
   };
 
   const handleEmailClick = () => {
@@ -61,7 +68,7 @@ const PremiumCodeVerification = ({
 
   return (
     <>
-      <Dialog open={open && !showBuyPopup} onOpenChange={onOpenChange}>
+      <Dialog open={open && !showBuyPopup && !showApply} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Enter Code to Unlock Feature</DialogTitle>
@@ -88,6 +95,22 @@ const PremiumCodeVerification = ({
                 💳 Buy Code
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showApply} onOpenChange={setShowApply}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>🎉 Success! Code Verified</DialogTitle>
+            <DialogDescription>
+              You've unlocked {featureName}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Button onClick={handleApply} className="w-full">
+              Apply
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

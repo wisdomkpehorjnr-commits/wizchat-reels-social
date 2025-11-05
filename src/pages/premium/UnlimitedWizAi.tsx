@@ -124,7 +124,7 @@ const UnlimitedWizAi = () => {
                 className="w-full"
                 onClick={() => setShowVerification(true)}
               >
-                Apply
+                Get Premium
               </Button>
               </CardContent>
             </Card>
