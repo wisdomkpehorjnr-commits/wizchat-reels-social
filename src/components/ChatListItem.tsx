@@ -15,9 +15,10 @@ interface ChatListItemProps {
   isPinned?: boolean;
   onClick: () => void;
   isWizAi?: boolean;
+  onPinToggle?: () => void;
 }
 
-const ChatListItem = ({ friend, unreadCount, isPinned, onClick, isWizAi }: ChatListItemProps) => {
+const ChatListItem = ({ friend, unreadCount, isPinned, onClick, isWizAi, onPinToggle }: ChatListItemProps) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const [pinned, setPinned] = useState(isPinned || false);
@@ -71,6 +72,7 @@ const ChatListItem = ({ friend, unreadCount, isPinned, onClick, isWizAi }: ChatL
 
   const handlePin = () => {
     setPinned(!pinned);
+    onPinToggle?.();
     toast({
       title: pinned ? "Chat unpinned" : "Chat pinned",
       description: pinned ? "Chat moved to regular list" : "Chat moved to top",

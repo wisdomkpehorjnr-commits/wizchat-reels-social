@@ -18,7 +18,7 @@ const WIZAI_USER: User = {
   name: 'WizAi',
   email: 'wizai@wizchat.app',
   username: 'wizai',
-  avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=wizai&backgroundColor=2ECC71',
+  avatar: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSJ3aGl0ZSIvPgo8Y2lyY2xlIGN4PSIxMDAiIGN5PSI4MCIgcj0iNTAiIGZpbGw9ImJsYWNrIi8+CjxjaXJjbGUgY3g9IjgwIiBjeT0iNzAiIHI9IjgiIGZpbGw9IndoaXRlIi8+CjxjaXJjbGUgY3g9IjEyMCIgY3k9IjcwIiByPSI4IiBmaWxsPSJ3aGl0ZSIvPgo8cmVjdCB4PSI3MCIgeT0iMTMwIiB3aWR0aD0iNjAiIGhlaWdodD0iNTAiIGZpbGw9ImJsYWNrIi8+CjxyZWN0IHg9IjQwIiB5PSIxNTAiIHdpZHRoPSIzMCIgaGVpZ2h0PSI1MCIgZmlsbD0iYmxhY2siLz4KPHJlY3QgeD0iMTMwIiB5PSIxNTAiIHdpZHRoPSIzMCIgaGVpZ2h0PSI1MCIgZmlsbD0iYmxhY2siLz4KPC9zdmc+',
   bio: 'Your AI assistant',
   photoURL: '',
   followerCount: 0,
@@ -39,6 +39,7 @@ const Chat = () => {
   const [selectedFriend, setSelectedFriend] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(!cachedFriends);
+  const [pinnedFriends, setPinnedFriends] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (user) {
@@ -87,6 +88,28 @@ const Chat = () => {
   const filteredFriends = friendsData.filter(friend =>
     friend.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Sort friends: pinned first, then alphabetically
+  const sortedFriends = [...filteredFriends].sort((a, b) => {
+    const aIsPinned = pinnedFriends.has(a.id);
+    const bIsPinned = pinnedFriends.has(b.id);
+    
+    if (aIsPinned && !bIsPinned) return -1;
+    if (!aIsPinned && bIsPinned) return 1;
+    return a.name.localeCompare(b.name);
+  });
+
+  const handlePinToggle = (friendId: string) => {
+    setPinnedFriends(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(friendId)) {
+        newSet.delete(friendId);
+      } else {
+        newSet.add(friendId);
+      }
+      return newSet;
+    });
+  };
 
   if (selectedFriend) {
     if (selectedFriend.id === 'wizai') {
@@ -155,11 +178,13 @@ const Chat = () => {
                   />
                   
                   {/* Friends list for chatting */}
-                  {filteredFriends.map((friend) => (
+                  {sortedFriends.map((friend) => (
                     <ChatListItem
                       key={friend.id}
                       friend={friend}
                       onClick={() => openChat(friend)}
+                      isPinned={pinnedFriends.has(friend.id)}
+                      onPinToggle={() => handlePinToggle(friend.id)}
                     />
                   ))}
                   

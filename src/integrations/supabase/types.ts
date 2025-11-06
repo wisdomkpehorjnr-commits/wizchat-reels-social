@@ -615,6 +615,42 @@ export type Database = {
           },
         ]
       }
+      pinned_posts: {
+        Row: {
+          id: string
+          pinned_at: string | null
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          pinned_at?: string | null
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          pinned_at?: string | null
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pinned_posts_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pinned_posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       post_hashtags: {
         Row: {
           created_at: string

@@ -39,17 +39,42 @@ const WizAiChat = ({ onClose }: WizAiChatProps) => {
     setInputValue('');
     setIsThinking(true);
 
-    // Simulate AI response
-    setTimeout(() => {
+    try {
+      // Call the WizAi edge function
+      const response = await fetch(
+        'https://cgydbjsuhwsnqsiskmex.supabase.co/functions/v1/wizai-chat',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNneWRianN1aHdzbnFzaXNrbWV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMwNTI5MTgsImV4cCI6MjA2ODYyODkxOH0.eCdvFODSW4VSRjgYf6me2fTVsGTmhv_P7uWWgJYD8ak'}`,
+          },
+          body: JSON.stringify({ message: inputValue }),
+        }
+      );
+
+      const data = await response.json();
+      
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: "I'm WizAi, your assistant! How can I help you today?",
+        content: data.response || "I'm here to help! Ask me anything about the app, business, studies, social life, or just for fun! 😊",
         timestamp: new Date(),
       };
+      
       setMessages(prev => [...prev, aiMessage]);
+    } catch (error) {
+      console.error('Error calling WizAi:', error);
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: "Oops! I had trouble processing that. Can you try again? 🤔",
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
       setIsThinking(false);
-    }, 1500);
+    }
   };
 
   const handleImageUpload = () => {

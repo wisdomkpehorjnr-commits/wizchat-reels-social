@@ -19,6 +19,7 @@ import ImageModal from '@/components/ImageModal';
 import AvatarStudio from '@/components/AvatarStudio';
 import { useToast } from '@/components/ui/use-toast';
 import { useNavigate, useParams } from 'react-router-dom';
+import VerificationBadge from '@/components/VerificationBadge';
 
 const Profile = () => {
   const { user } = useAuth();
@@ -89,7 +90,8 @@ const Profile = () => {
             followerCount: foundProfile.follower_count || 0,
             followingCount: foundProfile.following_count || 0,
             profileViews: foundProfile.profile_views || 0,
-            createdAt: new Date(foundProfile.created_at)
+            createdAt: new Date(foundProfile.created_at),
+            is_verified: foundProfile.is_verified || false
           };
           setProfileUser(foundUser);
           currentUserId = foundUser.id;
@@ -194,12 +196,22 @@ const Profile = () => {
                     {targetUser?.name?.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
+                {targetUser?.is_verified && (
+                  <div className="absolute bottom-2 right-2">
+                    <VerificationBadge isVerified={true} size="md" />
+                  </div>
+                )}
                 {targetUser?.isPrivate && <Badge className="absolute -bottom-2 -right-2 bg-orange-500">Private</Badge>}
               </div>
 
               <div className="flex-1 space-y-4">
                 <div>
-                  <h1 className="text-3xl font-bold text-strong-contrast">{targetUser?.name}</h1>
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-3xl font-bold text-strong-contrast">{targetUser?.name}</h1>
+                    {targetUser?.is_verified && (
+                      <VerificationBadge isVerified={true} size="lg" showText />
+                    )}
+                  </div>
                   <p className="text-strong-contrast/80">@{targetUser?.username}</p>
                   {targetUser?.bio && <p className="text-strong-contrast/90 mt-2">{targetUser.bio}</p>}
                 </div>

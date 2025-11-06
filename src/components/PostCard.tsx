@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { MoreVertical, Heart, MessageSquare, Share2, Edit, Trash2, Download } from 'lucide-react';
+import { MoreVertical, Heart, MessageSquare, Share2, Edit, Trash2, Download, Pin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,6 +20,9 @@ import ClickableUserInfo from './ClickableUserInfo';
 import ConfirmationDialog from './ui/confirmation-dialog';
 import { useDownload } from '@/hooks/useDownload';
 import ImageModal from './ImageModal';
+import ThemeAwareDialog from './ThemeAwareDialog';
+import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
 
 interface PostCardProps {
   post: any;
@@ -29,6 +32,7 @@ interface PostCardProps {
 const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [showAllComments, setShowAllComments] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [isLiked, setIsLiked] = useState(false);
@@ -39,6 +43,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
   const [longPressProgress, setLongPressProgress] = useState(0);
   const { downloadMedia } = useDownload();
+  const [showPinDialog, setShowPinDialog] = useState(false);
 
   // Load likes when component mounts
   useEffect(() => {
@@ -226,6 +231,9 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => setShowPinDialog(true)}>
+                    <Pin className="mr-2 h-4 w-4" /> Pin Post
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setIsEditing(true)}>
                     <Edit className="mr-2 h-4 w-4" /> Edit
                   </DropdownMenuItem>
@@ -406,7 +414,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
 
         {/* Comments */}
         <div className="mt-4 space-y-3">
-          {post.comments.slice(0, showAllComments ? post.comments.length : 2).map((comment) => (
+          {post.comments.slice(0, showAllComments ? post.comments.length : 1).map((comment) => (
             <div key={comment.id} className="flex space-x-3">
               <ClickableUserInfo 
                 user={comment.user}
@@ -429,9 +437,9 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
             </div>
           ))}
           
-          {post.comments.length > 2 && !showAllComments && (
-            <Button variant="link" size="sm" onClick={() => setShowAllComments(true)}>
-              Show All Comments
+          {post.comments.length > 1 && !showAllComments && (
+            <Button variant="link" size="sm" onClick={() => setShowAllComments(true)} className="text-primary">
+              Unhide {post.comments.length - 1} more comment{post.comments.length - 1 > 1 ? 's' : ''}
             </Button>
           )}
         </div>
@@ -479,6 +487,19 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
         alt="Post image"
         isOpen={imageModalOpen}
         onClose={() => setImageModalOpen(false)}
+      />
+      
+      <ThemeAwareDialog
+        open={showPinDialog}
+        onOpenChange={setShowPinDialog}
+        title="Pin Post"
+        description="Get premium to pin this post to the top of your feed!"
+        onConfirm={() => {
+          setShowPinDialog(false);
+          navigate('/premium/wizboost');
+        }}
+        confirmText="Get Premium"
+        cancelText="Cancel"
       />
     </Card>
   );

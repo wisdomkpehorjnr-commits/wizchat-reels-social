@@ -47,15 +47,41 @@ const PremiumCodeVerification = ({
     }
   };
 
-  const handleApply = () => {
-    toast({
-      title: "Success! 🎉",
-      description: `${featureName} unlocked successfully!`,
-    });
-    onVerified();
-    onOpenChange(false);
-    setShowApply(false);
-    setCode('');
+  const handleApply = async () => {
+    try {
+      // If this is for account verification, update the profile
+      if (featureName === 'Verify Account') {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase
+            .from('profiles')
+            .update({ is_verified: true })
+            .eq('id', user.id);
+          
+          toast({
+            title: "✅ Account Verified!",
+            description: "Your account is now verified. Check your profile!",
+          });
+        }
+      } else {
+        toast({
+          title: "Success! 🎉",
+          description: `${featureName} unlocked successfully!`,
+        });
+      }
+      
+      onVerified();
+      onOpenChange(false);
+      setShowApply(false);
+      setCode('');
+    } catch (error) {
+      console.error('Error applying verification:', error);
+      toast({
+        title: "Error",
+        description: "Failed to apply verification. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleEmailClick = () => {

@@ -18,6 +18,7 @@ export interface User {
   profileViews: number;
   createdAt: Date;
   role?: string; // Add role property for chat participants
+  is_verified?: boolean; // Add verification status
 }
 
 export interface Post {
