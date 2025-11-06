@@ -1,0 +1,2 @@
+-- Add verification status to profiles
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT false;

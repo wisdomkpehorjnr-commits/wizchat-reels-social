@@ -718,6 +718,7 @@ export type Database = {
           gender: string | null
           id: string
           is_private: boolean | null
+          is_verified: boolean | null
           location: string | null
           name: string
           profile_views: number | null
@@ -738,6 +739,7 @@ export type Database = {
           gender?: string | null
           id: string
           is_private?: boolean | null
+          is_verified?: boolean | null
           location?: string | null
           name: string
           profile_views?: number | null
@@ -758,6 +760,7 @@ export type Database = {
           gender?: string | null
           id?: string
           is_private?: boolean | null
+          is_verified?: boolean | null
           location?: string | null
           name?: string
           profile_views?: number | null
