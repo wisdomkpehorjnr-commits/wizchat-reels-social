@@ -48,7 +48,6 @@ const WatchReelsCard = ({ reelPosts }: WatchReelsCardProps) => {
           <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
             <div className="text-center text-white drop-shadow-lg">
               <Play className="w-16 h-16 mx-auto mb-2" />
-              <p className="text-lg font-bold">Watch {reelPosts.length} Reel{reelPosts.length !== 1 ? 's' : ''}</p>
             </div>
           </div>
         </div>

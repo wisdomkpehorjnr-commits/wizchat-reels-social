@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Camera, Video, Smile, MapPin, Hash, AtSign } from 'lucide-react';
+import { Camera, Video } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { MediaService } from '@/services/mediaService';
@@ -172,30 +172,43 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
             </div>
           </div>
           
-          {/* Preview images grid */}
+          {/* Preview media grid */}
           {selectedFiles.length > 0 && previewUrls.length > 0 && (
             <div className="mt-3 p-3 border border-border rounded-lg grid grid-cols-2 md:grid-cols-3 gap-2">
-              {previewUrls.map((url, idx) => (
-                <div key={idx} className="relative">
-                  <img 
-                    src={url} 
-                    alt={`Preview ${idx+1}`}
-                    className="object-cover w-full md:w-32 md:h-32 h-24 rounded"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      const newFiles = selectedFiles.filter((_, i) => i !== idx);
-                      const newUrls = previewUrls.filter((_, i) => i !== idx);
-                      setSelectedFiles(newFiles);
-                      setPreviewUrls(newUrls);
-                    }}
-                    className="absolute top-1 right-1 text-xs bg-white/80"
-                  >Remove</Button>
-                </div>
-              ))}
+              {previewUrls.map((url, idx) => {
+                const file = selectedFiles[idx];
+                const isVideo = file?.type?.startsWith('video/');
+                return (
+                  <div key={idx} className="relative">
+                    {isVideo ? (
+                      <video 
+                        src={url} 
+                        className="object-cover w-full md:w-32 md:h-32 h-24 rounded"
+                        controls
+                        preload="metadata"
+                      />
+                    ) : (
+                      <img 
+                        src={url} 
+                        alt={`Preview ${idx+1}`}
+                        className="object-cover w-full md:w-32 md:h-32 h-24 rounded"
+                      />
+                    )}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const newFiles = selectedFiles.filter((_, i) => i !== idx);
+                        const newUrls = previewUrls.filter((_, i) => i !== idx);
+                        setSelectedFiles(newFiles);
+                        setPreviewUrls(newUrls);
+                      }}
+                      className="absolute top-1 right-1 text-xs bg-white/80"
+                    >Remove</Button>
+                  </div>
+                );
+              })}
             </div>
           )}
           
@@ -215,38 +228,20 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
                 variant="ghost"
                 size="sm"
                 onClick={() => document.getElementById('file-input')?.click()}
-                className="text-muted-foreground hover:text-foreground"
+                className="text-muted-foreground hover:text-foreground border-2 border-primary rounded p-2 hover:bg-primary/10 transition-colors"
                 disabled={isSubmitting}
               >
-                <Camera className="w-4 h-4" />
+                <Camera className="w-5 h-5 text-primary" />
               </Button>
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
                 onClick={() => document.getElementById('file-input')?.click()}
-                className="text-muted-foreground hover:text-foreground"
+                className="text-muted-foreground hover:text-foreground border-2 border-primary rounded p-2 hover:bg-primary/10 transition-colors"
                 disabled={isSubmitting}
               >
-                <Video className="w-4 h-4" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="text-muted-foreground hover:text-foreground"
-                disabled={isSubmitting}
-              >
-                <Smile className="w-4 h-4" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="text-muted-foreground hover:text-foreground"
-                disabled={isSubmitting}
-              >
-                <MapPin className="w-4 h-4" />
+                <Video className="w-5 h-5 text-primary" />
               </Button>
             </div>
             <Button

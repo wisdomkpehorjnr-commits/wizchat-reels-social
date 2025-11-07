@@ -442,6 +442,11 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
               Unhide {post.comments.length - 1} more comment{post.comments.length - 1 > 1 ? 's' : ''}
             </Button>
           )}
+          {post.comments.length > 1 && showAllComments && (
+            <Button variant="link" size="sm" onClick={() => setShowAllComments(false)} className="text-primary">
+              Hide comments
+            </Button>
+          )}
         </div>
 
         {/* Add Comment */}
