@@ -18,7 +18,7 @@ const WIZAI_USER: User = {
   name: 'WizAi',
   email: 'wizai@wizchat.app',
   username: 'wizai',
-  avatar: require('@/assets/wizai-head.svg'), // Or data:image/svg+xml;base64,...
+  avatar: 'data:image/svg+xml;utf8,<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="200" rx="100" fill="white"/><ellipse cx="100" cy="85" rx="55" ry="45" fill="black"/><ellipse cx="82" cy="80" rx="6" ry="6" fill="white"/><ellipse cx="118" cy="80" rx="6" ry="6" fill="white"/><rect x="70" y="124" width="60" height="19" rx="9.5" fill="black" stroke="white" stroke-width="4"/></svg>',
   bio: 'Your AI assistant',
   photoURL: '',
   followerCount: 0,

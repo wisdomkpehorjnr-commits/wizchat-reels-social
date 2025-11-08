@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import wizAiHead from '@/assets/wizai-head.svg'; // (TEMP: Place your SVG or PNG asset in the assets directory and name it wizai-head.svg)
+// REMOVE: import wizAiHead from '@/assets/wizai-head.svg';
 
 interface Message {
   id: string;
@@ -129,7 +129,7 @@ const WizAiChat = ({ onClose }: WizAiChatProps) => {
         </button>
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center overflow-hidden">
-            <img src={wizAiHead} alt="WizAi bot head" className="w-8 h-8" />
+            <svg width="32" height="32" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="200" rx="100" fill="white"/><ellipse cx="100" cy="85" rx="55" ry="45" fill="black"/><ellipse cx="82" cy="80" rx="6" ry="6" fill="white"/><ellipse cx="118" cy="80" rx="6" ry="6" fill="white"/><rect x="70" y="124" width="60" height="19" rx="9.5" fill="black" stroke="white" stroke-width="4"/></svg>
           </div>
           <span className="font-bold text-primary">WizAi</span>
         </div>
