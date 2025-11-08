@@ -7,8 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, Video, ArrowLeft, X, Bell } from "lucide-react";
-import PostCard from '@/components/PostCard';
+import { Camera, Video, X } from "lucide-react";
+import RoomPostCard from '@/components/RoomPostCard';
 
 interface PostType {
   id: string;
@@ -88,10 +88,6 @@ const TopicRoom = () => {
     setUploading(true);
 
     try {
-      // Flash effect
-      setShowFlash(true);
-      setTimeout(() => setShowFlash(false), 200);
-
       let mediaUrl = null;
       if (mediaFile) {
         const fileName = `${Date.now()}.${mediaFile.name.split(".").pop()}`;
@@ -99,20 +95,68 @@ const TopicRoom = () => {
         if (!error) mediaUrl = supabase.storage.from("room-media").getPublicUrl(fileName).data.publicUrl;
       }
 
-      await supabase.from("room_posts").insert([{
+      // Optimistic update - create temporary post
+      const tempPost: PostType = {
+        id: `temp-${Date.now()}`,
+        content,
+        user_id: user?.id || '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        [mediaType === 'image' ? 'image_url' : 'video_url']: mediaUrl || undefined,
+        media_type: mediaType || 'text',
+        user: user ? {
+          id: user.id,
+          name: user.name || '',
+          email: user.email || '',
+          username: user.username || '',
+          avatar: user.photoURL || '',
+        } : undefined
+      };
+
+      // Add optimistic post to the top of the list immediately
+      setPosts(prev => [tempPost, ...prev]);
+      
+      // Scroll to top to show the new post immediately
+      setTimeout(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 10);
+      
+      // Flash effect after post appears (boom effect)
+      setTimeout(() => {
+        setShowFlash(true);
+        setTimeout(() => setShowFlash(false), 200);
+      }, 50);
+
+      // Insert actual post
+      const { data, error } = await supabase.from("room_posts").insert([{
         room_id: roomId,
         user_id: user?.id,
         content,
         [mediaType === 'image' ? 'image_url' : 'video_url']: mediaUrl,
         media_type: mediaType || 'text'
-      }]);
+      }]).select().single();
+
+      if (error) throw error;
+
+      // Replace temporary post with real one
+      if (data && user) {
+        const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+        setPosts(prev => prev.map(p => 
+          p.id === tempPost.id ? { ...data, user: profile } : p
+        ));
+      }
 
       setContent('');
       clearMedia();
-      toast({ title: "Success! 🎉", description: "Post created successfully" });
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      
+      // Show success toast after a brief delay
+      setTimeout(() => {
+        toast({ title: "Success! 🎉", description: "Post created successfully" });
+      }, 500);
     } catch (error) {
       console.error('Error:', error);
+      // Remove optimistic post on error
+      setPosts(prev => prev.filter(p => !p.id.startsWith('temp-')));
       toast({ title: "Error", description: "Failed to create post", variant: "destructive" });
     } finally {
       setUploading(false);
@@ -122,17 +166,19 @@ const TopicRoom = () => {
   return (
     <Layout>
       {showFlash && (
-        <div className="fixed inset-0 bg-white dark:bg-black pointer-events-none z-50 animate-fade-out opacity-50" />
+        <div className="fixed inset-0 bg-white dark:bg-black pointer-events-none z-50 opacity-30 animate-in fade-in-0 duration-200" />
       )}
       <div className="container mx-auto px-4 py-6">
-        {/* Topic Header */}
-        <div className="flex items-center justify-between mb-4 p-4 bg-primary text-primary-foreground rounded-lg">
-          <Button variant="ghost" onClick={() => navigate('/topics')} className="text-primary-foreground hover:bg-primary-foreground/10">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-          </Button>
-          <h1 className="text-xl font-bold flex-1 text-center">{roomName || 'Topic Room'}</h1>
-          <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/10">
-            <Bell className="w-4 h-4" />
+        {/* Topic Header - Simple text and exit button */}
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold text-foreground">{roomName || 'Topic Room'}</h1>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => navigate('/topics')}
+            className="hover:bg-accent"
+          >
+            <X className="w-5 h-5" />
           </Button>
         </div>
 
@@ -153,12 +199,36 @@ const TopicRoom = () => {
               <Button type="button" variant="outline" size="icon" onClick={() => { const input = document.createElement('input'); input.type = 'file'; input.accept = 'video/*'; input.onchange = (e) => { const file = (e.target as HTMLInputElement).files?.[0]; if (file) handleFileSelect(file, 'video'); }; input.click(); }} title="Upload Video"><Video className="w-4 h-4" /></Button>
             </div>
 
-            <Button onClick={handlePost} disabled={!content.trim() || uploading} className="w-full">{uploading ? 'Posting...' : 'Post'}</Button>
+            <Button onClick={handlePost} disabled={(!content.trim() && !mediaFile) || uploading} className="w-full">{uploading ? 'Posting...' : 'Post'}</Button>
           </CardContent>
         </Card>
 
         <div className="space-y-4">
-          {posts.length === 0 ? <Card className="border-2"><CardContent className="p-8 text-center"><p className="text-muted-foreground">No posts yet. Be the first to post!</p></CardContent></Card> : posts.map((post) => <PostCard key={post.id} post={{ id: post.id, user_id: post.user_id, content: post.content, image_url: post.image_url || post.media_url, video_url: post.video_url, media_type: post.media_type || 'text', created_at: post.created_at, updated_at: post.updated_at || post.created_at, is_reel: false, music_id: null, user: post.user }} onPostUpdate={loadPosts} />)}
+          {posts.length === 0 ? (
+            <Card className="border-2">
+              <CardContent className="p-8 text-center">
+                <p className="text-muted-foreground">No posts yet. Be the first to post!</p>
+              </CardContent>
+            </Card>
+          ) : (
+            posts.map((post) => (
+              <RoomPostCard 
+                key={post.id} 
+                post={{
+                  id: post.id,
+                  user_id: post.user_id,
+                  content: post.content,
+                  image_url: post.image_url || post.media_url,
+                  video_url: post.video_url,
+                  media_type: post.media_type || 'text',
+                  created_at: post.created_at,
+                  updated_at: post.updated_at || post.created_at,
+                  user: post.user
+                }} 
+                onPostUpdate={loadPosts} 
+              />
+            ))
+          )}
         </div>
       </div>
     </Layout>

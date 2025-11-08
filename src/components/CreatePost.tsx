@@ -228,20 +228,20 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
                 variant="ghost"
                 size="sm"
                 onClick={() => document.getElementById('file-input')?.click()}
-                className="text-muted-foreground hover:text-foreground border-2 border-primary rounded p-2 hover:bg-primary/10 transition-colors"
+                className="border border-black/20 dark:border-white/20 rounded p-2 hover:bg-accent transition-colors"
                 disabled={isSubmitting}
               >
-                <Camera className="w-5 h-5 text-primary" />
+                <Camera className="w-5 h-5 text-black dark:text-white" />
               </Button>
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
                 onClick={() => document.getElementById('file-input')?.click()}
-                className="text-muted-foreground hover:text-foreground border-2 border-primary rounded p-2 hover:bg-primary/10 transition-colors"
+                className="border border-black/20 dark:border-white/20 rounded p-2 hover:bg-accent transition-colors"
                 disabled={isSubmitting}
               >
-                <Video className="w-5 h-5 text-primary" />
+                <Video className="w-5 h-5 text-black dark:text-white" />
               </Button>
             </div>
             <Button
