@@ -35,32 +35,35 @@ const ChatListItem = ({ friend, unreadCount, isPinned, onClick, isWizAi, onPinTo
 
     const fetchLastMessage = async () => {
       try {
-        const { data: chats } = await supabase
+        // Find the chat between the logged-in user and this friend only
+        // Try BOTH orderings (creator_id, participant_id) in the 'chats' table
+        const { data: chats, error: chatError } = await supabase
           .from('chats')
-          .select('id')
-          .or(`creator_id.eq.${user?.id},creator_id.eq.${friend.id}`)
+          .select('*')
+          .or(`and(creator_id.eq.${user?.id},participant_id.eq.${friend.id}),and(creator_id.eq.${friend.id},participant_id.eq.${user?.id})`)
           .limit(1)
           .single();
 
-        if (chats) {
-          const { data: messages } = await supabase
-            .from('messages')
-            .select('content')
-            .eq('chat_id', chats.id)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .single();
-
-          if (messages) {
-            const preview = messages.content.length > 30 
-              ? messages.content.substring(0, 30) + '...'
-              : messages.content;
-            setLastMessage(preview);
-          } else {
-            setLastMessage('No messages yet');
-          }
-        } else {
+        if (chatError || !chats?.id) {
           setLastMessage('No messages yet');
+          return;
+        }
+        // Get last message from this specific chat
+        const { data: messages, error: msgError } = await supabase
+          .from('messages')
+          .select('content')
+          .eq('chat_id', chats.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (msgError || !messages?.content) {
+          setLastMessage('No messages yet');
+        } else {
+          const preview = messages.content.length > 30
+            ? messages.content.substring(0, 30) + '...'
+            : messages.content;
+          setLastMessage(preview);
         }
       } catch (error) {
         setLastMessage('No messages yet');
