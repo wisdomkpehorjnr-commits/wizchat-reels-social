@@ -32,44 +32,39 @@ const ChatListItem = ({ friend, unreadCount, isPinned, onClick, isWizAi, onPinTo
       setLastMessage("Ask me anything — I'm here to help!");
       return;
     }
-
     const fetchLastMessage = async () => {
       try {
-        // Find the chat between the logged-in user and this friend only
-        // Try BOTH orderings (creator_id, participant_id) in the 'chats' table
-        const { data: chats, error: chatError } = await supabase
+        // Find the chat between you and friend, both orderings
+        const { data: chat, error: chatError } = await supabase
           .from('chats')
           .select('*')
           .or(`and(creator_id.eq.${user?.id},participant_id.eq.${friend.id}),and(creator_id.eq.${friend.id},participant_id.eq.${user?.id})`)
           .limit(1)
           .single();
-
-        if (chatError || !chats?.id) {
-          setLastMessage('No messages yet');
+        if (chatError || !chat?.id) {
+          setLastMessage(""); // No chat yet: show blank
           return;
         }
-        // Get last message from this specific chat
-        const { data: messages, error: msgError } = await supabase
+        // Get last message for this chat regardless of sender
+        const { data: msg, error: msgError } = await supabase
           .from('messages')
           .select('content')
-          .eq('chat_id', chats.id)
+          .eq('chat_id', chat.id)
           .order('created_at', { ascending: false })
           .limit(1)
           .single();
-
-        if (msgError || !messages?.content) {
-          setLastMessage('No messages yet');
+        if (msgError || !msg?.content) {
+          setLastMessage(""); // Chat exists, but no messages
         } else {
-          const preview = messages.content.length > 30
-            ? messages.content.substring(0, 30) + '...'
-            : messages.content;
+          const preview = msg.content.length > 30
+            ? msg.content.substring(0, 30) + '...'
+            : msg.content;
           setLastMessage(preview);
         }
       } catch (error) {
-        setLastMessage('No messages yet');
+        setLastMessage("");
       }
     };
-
     fetchLastMessage();
   }, [friend.id, user?.id, isWizAi]);
 

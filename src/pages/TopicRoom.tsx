@@ -36,6 +36,7 @@ const TopicRoom = () => {
   const [uploading, setUploading] = useState(false);
   const [roomName, setRoomName] = useState("");
   const [showFlash, setShowFlash] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (roomId) {
@@ -71,9 +72,18 @@ const TopicRoom = () => {
   };
 
   const loadPosts = async () => {
-    const { data, error } = await supabase.from('room_posts').select('*, user:profiles(*)').eq('room_id', roomId).order('created_at', { ascending: false });
-    if (error) console.error('Error:', error);
-    else setPosts((data || []).filter((p:any) => !(typeof p.id === 'string' && p.id.startsWith('temp-')))); // Remove temp on refresh!
+    setRefreshing(true);
+    try {
+      const { data, error } = await supabase.from('room_posts').select('*, user:profiles(*)').eq('room_id', roomId).order('created_at', { ascending: false });
+      if (error) {
+        toast({ title: 'Refresh failed', description: error.message, variant: 'destructive' });
+      } else {
+        setPosts((data || []).filter((p:any) => !(typeof p.id === 'string' && p.id.startsWith('temp-'))));
+        toast({ title: 'Refreshed', description: 'Room feed is up to date' });
+      }
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const handleFileSelect = (file: File, type: 'image' | 'video') => {
@@ -185,8 +195,9 @@ const TopicRoom = () => {
               onClick={loadPosts}
               className="flex items-center gap-1 hover:bg-accent"
               aria-label="Refresh room"
+              disabled={refreshing}
             >
-              <RefreshCw className="w-5 h-5 mr-1" /> Refresh
+              <RefreshCw className={`w-5 h-5 mr-1${refreshing ? ' animate-spin' : ''}`} /> Refresh
             </Button>
             <Button
               variant="ghost"
