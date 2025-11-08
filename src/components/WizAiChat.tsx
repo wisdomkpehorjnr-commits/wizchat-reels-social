@@ -39,7 +39,7 @@ const CREATOR_QA = [
 const SYSTEM_PROMPT = `You are WizAi, the smart assistant inside the WizChat app. You know all features: chat list with previews, dark/light theme, image upload (for Pro users), pinned WizAi chat, sending reels, feed, profile, settings, etc. Always give friendly, helpful answers in very clear simple English. Use emojis sometimes 😊. When asked about this app, answer perfectly and up-to-date based on real functionality. Do NOT make up features that do not exist.`;
 
 const deepseekCall = async (userInput: string) => {
-  const apiKey = 'sk-07a368dce80942cda3aeae7cdebd3491';
+  const apiKey = 'sk-a684676ed86d4d9ea63b3e36a77a1526'; // updated API key
   try {
     const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
       method: 'POST',
@@ -57,10 +57,14 @@ const deepseekCall = async (userInput: string) => {
         max_tokens: 512
       })
     });
-    if (!response.ok) throw new Error('DeepSeek API error');
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`DeepSeek API error: ${error}`);
+    }
     const data = await response.json();
     return data.choices?.[0]?.message?.content?.trim() || null;
   } catch (err) {
+    console.error('DeepSeek API error:', err);
     return null;
   }
 };
