@@ -18,7 +18,7 @@ const WIZAI_USER: User = {
   name: 'WizAi',
   email: 'wizai@wizchat.app',
   username: 'wizai',
-  avatar: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSJ3aGl0ZSIvPgo8Y2lyY2xlIGN4PSIxMDAiIGN5PSI4MCIgcj0iNDUiIGZpbGw9IiMwMDAwMDAiLz4KPGNpcmNsZSBjeD0iODUiIGN5PSI3NSIgcj0iNiIgZmlsbD0id2hpdGUiLz4KPGNpcmNsZSBjeD0iMTE1IiBjeT0iNzUiIHI9IjYiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik03NSAxMDUgUTc1IDExNSAxMDAgMTE1IFE5NSAxMTUgMTI1IDExNSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIzIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGZpbGw9Im5vbmUiLz4KPC9zdmc+',
+  avatar: require('@/assets/wizai-head.svg'), // Or data:image/svg+xml;base64,...
   bio: 'Your AI assistant',
   photoURL: '',
   followerCount: 0,

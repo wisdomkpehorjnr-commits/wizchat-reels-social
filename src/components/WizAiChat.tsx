@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
+import wizAiHead from '@/assets/wizai-head.svg'; // (TEMP: Place your SVG or PNG asset in the assets directory and name it wizai-head.svg)
 
 interface Message {
   id: string;
@@ -15,6 +16,54 @@ interface Message {
 interface WizAiChatProps {
   onClose: () => void;
 }
+
+const CREATOR_QA = [
+  {
+    q: /who\s+created\s+you|who\s+is\s+your\s+creator|who\s+made\s+you/i,
+    a: 'A young man called Wisdom Kpehor Jnr.'
+  },
+  {
+    q: /where.*school|which.*school.*owner|which.*school.*wisdom/i,
+    a: 'Wisdom Kpehor Jnr attended Symm Educational School Complex, Good Shepherd International School, and is currently at Wesley Grammar Senior High School.'
+  },
+  {
+    q: /how.*old.*owner|owner.*age|creator.*age|how old.*wisdom/i,
+    a: 'I can\'t share this with you, I\'m sorry 😔... But wait! I can help you contact him.'
+  },
+  {
+    q: /contact.*him|reach.*owner|contact.*creator/i,
+    a: 'Look in the Settings button... information about him can be reached there 😁.'
+  }
+];
+
+const SYSTEM_PROMPT = `You are WizAi, the smart assistant inside the WizChat app. You know all features: chat list with previews, dark/light theme, image upload (for Pro users), pinned WizAi chat, sending reels, feed, profile, settings, etc. Always give friendly, helpful answers in very clear simple English. Use emojis sometimes 😊. When asked about this app, answer perfectly and up-to-date based on real functionality. Do NOT make up features that do not exist.`;
+
+const deepseekCall = async (userInput: string) => {
+  const apiKey = 'sk-07a368dce80942cda3aeae7cdebd3491';
+  try {
+    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: userInput }
+        ],
+        temperature: 0.7,
+        max_tokens: 512
+      })
+    });
+    if (!response.ok) throw new Error('DeepSeek API error');
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content?.trim() || null;
+  } catch (err) {
+    return null;
+  }
+};
 
 const WizAiChat = ({ onClose }: WizAiChatProps) => {
   const { toast } = useToast();
@@ -39,42 +88,28 @@ const WizAiChat = ({ onClose }: WizAiChatProps) => {
     setInputValue('');
     setIsThinking(true);
 
-    try {
-      // Call the WizAi edge function
-      const response = await fetch(
-        'https://cgydbjsuhwsnqsiskmex.supabase.co/functions/v1/wizai-chat',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNneWRianN1aHdzbnFzaXNrbWV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMwNTI5MTgsImV4cCI6MjA2ODYyODkxOH0.eCdvFODSW4VSRjgYf6me2fTVsGTmhv_P7uWWgJYD8ak'}`,
-          },
-          body: JSON.stringify({ message: inputValue }),
-        }
-      );
-
-      const data = await response.json();
-      
-      const aiMessage: Message = {
+    // Creator Q&A check
+    const match = CREATOR_QA.find(({ q }) => q.test(inputValue));
+    if (match) {
+      setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: data.response || "I'm here to help! Ask me anything about the app, business, studies, social life, or just for fun! 😊",
-        timestamp: new Date(),
-      };
-      
-      setMessages(prev => [...prev, aiMessage]);
-    } catch (error) {
-      console.error('Error calling WizAi:', error);
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: "Oops! I had trouble processing that. Can you try again? 🤔",
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, errorMessage]);
-    } finally {
+        content: match.a,
+        timestamp: new Date()
+      }]);
       setIsThinking(false);
+      return;
     }
+
+    // Otherwise, call DeepSeek
+    const aiReply = await deepseekCall(userMessage.content);
+    setMessages(prev => [...prev, {
+      id: (Date.now() + 1).toString(),
+      role: 'assistant',
+      content: aiReply || "Hmm, let me think… can you rephrase that?",
+      timestamp: new Date()
+    }]);
+    setIsThinking(false);
   };
 
   const handleImageUpload = () => {
@@ -93,8 +128,8 @@ const WizAiChat = ({ onClose }: WizAiChatProps) => {
           <ArrowLeft className="w-5 h-5 text-foreground" />
         </button>
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-            <Bot className="w-5 h-5 text-primary-foreground" />
+          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center overflow-hidden">
+            <img src={wizAiHead} alt="WizAi bot head" className="w-8 h-8" />
           </div>
           <span className="font-bold text-primary">WizAi</span>
         </div>

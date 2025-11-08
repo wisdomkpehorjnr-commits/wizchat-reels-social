@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, Video, X } from "lucide-react";
+import { ArrowLeft, Camera, Video, X, RefreshCw } from "lucide-react";
 import RoomPostCard from '@/components/RoomPostCard';
 
 interface PostType {
@@ -52,7 +52,13 @@ const TopicRoom = () => {
         }, async (payload) => {
           const newPost = payload.new as PostType;
           const { data: profile } = await supabase.from('profiles').select('*').eq('id', newPost.user_id).single();
-          if (profile) setPosts(prev => [{ ...newPost, user: profile }, ...prev]);
+          if (profile) setPosts(prev => {
+            // Remove any duplicate or temp posts with matching content
+            const filtered = prev.filter(
+              p => p.id !== newPost.id && (typeof p.id !== 'string' || !p.id.startsWith('temp-') || p.content !== newPost.content)
+            );
+            return [{ ...newPost, user: profile }, ...filtered];
+          });
         }).subscribe();
 
       return () => { supabase.removeChannel(channel); };
@@ -67,7 +73,7 @@ const TopicRoom = () => {
   const loadPosts = async () => {
     const { data, error } = await supabase.from('room_posts').select('*, user:profiles(*)').eq('room_id', roomId).order('created_at', { ascending: false });
     if (error) console.error('Error:', error);
-    else setPosts(data || []);
+    else setPosts((data || []).filter((p:any) => !(typeof p.id === 'string' && p.id.startsWith('temp-')))); // Remove temp on refresh!
   };
 
   const handleFileSelect = (file: File, type: 'image' | 'video') => {
@@ -172,14 +178,26 @@ const TopicRoom = () => {
         {/* Topic Header - Simple text and exit button */}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-foreground">{roomName || 'Topic Room'}</h1>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => navigate('/topics')}
-            className="hover:bg-accent"
-          >
-            <X className="w-5 h-5" />
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={loadPosts}
+              className="flex items-center gap-1 hover:bg-accent"
+              aria-label="Refresh room"
+            >
+              <RefreshCw className="w-5 h-5 mr-1" /> Refresh
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate('/topics')}
+              className="flex items-center gap-1 hover:bg-accent"
+              aria-label="Exit"
+            >
+              <ArrowLeft className="w-5 h-5 mr-1" /> Exit
+            </Button>
+          </div>
         </div>
 
         <Card className="mb-6 border-2">
