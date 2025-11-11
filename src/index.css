@@ -195,3 +195,13 @@ h1, h2, h3, h4, h5, h6, p, span, div {
 button {
   color: hsl(var(--foreground));
 }
+
+/* Hide scrollbar but keep functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
+}

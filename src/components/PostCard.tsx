@@ -488,13 +488,13 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
           )}
 
           {/* Actions */}
-          <div className="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
-            <div className="flex items-center gap-4">
+          <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between border border-black dark:border-white rounded-lg p-1">
               <Button 
                 variant="ghost" 
                 size="sm" 
                 onClick={handleLikePost} 
-                className={`relative hover:text-green-500 transition-colors ${isLiked ? 'text-green-500' : 'text-gray-600 dark:text-gray-400'} border border-green-500`}
+                className={`relative hover:text-green-500 transition-colors flex-1 ${isLiked ? 'text-green-500' : 'text-gray-600 dark:text-gray-400'} border-0`}
                 disabled={isOptimistic}
               >
                 <ThumbsUp 
@@ -509,46 +509,48 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
                   <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full animate-ping"></span>
                 )}
               </Button>
+              <div className="w-px h-6 bg-black dark:bg-white"></div>
               <Button 
                 variant="ghost" 
                 size="sm" 
                 onClick={() => setShowCommentModal(true)}
-                className="text-gray-600 dark:text-gray-400 border border-green-500"
+                className="text-gray-600 dark:text-gray-400 border-0 flex-1"
                 disabled={isOptimistic}
               >
                 <MessageSquare className="mr-2 h-4 w-4" />
                 Comment
                 {comments.length > 0 && <span className="ml-1">({comments.length})</span>}
               </Button>
-            </div>
-            <Button 
-              variant="ghost" 
-              size="sm"
-              disabled={isOptimistic}
-              className="text-gray-600 dark:text-gray-400 border-[1px] border-green-500"
-              onClick={async () => {
-                try {
-                  if (navigator.share) {
-                    await navigator.share({
-                      title: 'WizChat Post',
-                      text: post.content || 'Check out this post on WizChat!',
-                      url: window.location.href
-                    });
-                  } else {
-                    await navigator.clipboard.writeText(window.location.href);
-                    toast({
-                      title: "Link Copied",
-                      description: "Post link copied to clipboard"
-                    });
+              <div className="w-px h-6 bg-black dark:bg-white"></div>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                disabled={isOptimistic}
+                className="text-gray-600 dark:text-gray-400 border-0 flex-1"
+                onClick={async () => {
+                  try {
+                    if (navigator.share) {
+                      await navigator.share({
+                        title: 'WizChat Post',
+                        text: post.content || 'Check out this post on WizChat!',
+                        url: window.location.href
+                      });
+                    } else {
+                      await navigator.clipboard.writeText(window.location.href);
+                      toast({
+                        title: "Link Copied",
+                        description: "Post link copied to clipboard"
+                      });
+                    }
+                  } catch (error) {
+                    console.error('Error sharing:', error);
                   }
-                } catch (error) {
-                  console.error('Error sharing:', error);
-                }
-              }}
-            >
-              <Share2 className="mr-2 h-4 w-4" />
-              Share
-            </Button>
+                }}
+              >
+                <Share2 className="mr-2 h-4 w-4" />
+                Share
+              </Button>
+            </div>
           </div>
         </CardContent>
         

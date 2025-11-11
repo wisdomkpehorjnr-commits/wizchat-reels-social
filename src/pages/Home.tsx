@@ -4,6 +4,7 @@ import CreatePost from '@/components/CreatePost';
 import PostCard from '@/components/PostCard';
 import StoriesSection from '@/components/StoriesSection';
 import WatchReelsCard from '@/components/WatchReelsCard';
+import FriendsSuggestionCard from '@/components/FriendsSuggestionCard';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
 import { dataService } from '@/services/dataService';
@@ -230,7 +231,7 @@ const Home = () => {
           <div className="space-y-6">
             {posts
               .filter(post => !post.isReel)
-              .map((post) => {
+              .map((post, index) => {
                 console.log('Rendering post:', {
                   id: post.id,
                   content: post.content,
@@ -239,12 +240,20 @@ const Home = () => {
                   mediaType: post.mediaType,
                   hasImages: !!(post.imageUrls?.length || post.imageUrl)
                 });
+                
+                // Show friends suggestion card after every 60 posts
+                const shouldShowSuggestion = (index + 1) % 60 === 0;
+                
                 return (
-                  <PostCard
-                    key={post.id}
-                    post={post}
-                    onPostUpdate={loadPosts}
-                  />
+                  <div key={post.id}>
+                    <PostCard
+                      post={post}
+                      onPostUpdate={loadPosts}
+                    />
+                    {shouldShowSuggestion && (
+                      <FriendsSuggestionCard />
+                    )}
+                  </div>
                 );
               })
             }
