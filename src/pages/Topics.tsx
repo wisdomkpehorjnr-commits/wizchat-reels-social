@@ -5,49 +5,152 @@ import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { MessageCircle, Users, Flame } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 interface TopicRoomType {
   id: string;
   name: string;
   description: string;
   participant_count?: number;
+  isJoined?: boolean;
 }
 
 const Topics = () => {
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [rooms, setRooms] = useState<TopicRoomType[]>([]);
   const [loading, setLoading] = useState(true);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [joiningRoomId, setJoiningRoomId] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const loadRooms = async () => {
-      try {
-        const { data, error } = await supabase.from("topic_rooms").select("*");
-        if (error) {
-          console.error("Error fetching rooms:", error);
-        } else {
-          // Fetch participant counts for each room
-          const roomsWithCounts = await Promise.all(
-            (data || []).map(async (room) => {
-              const { count } = await supabase
+    if (user?.id) {
+      loadRooms();
+      
+      // Subscribe to room_participants changes for real-time updates
+      const channel = supabase
+        .channel('room_participants_changes')
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'room_participants'
+        }, () => {
+          // Reload participant counts when someone joins/leaves
+          loadRooms();
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    } else {
+      loadRooms();
+    }
+  }, [user?.id]);
+
+  const loadRooms = async () => {
+    try {
+      const { data, error } = await supabase.from("topic_rooms").select("*");
+      if (error) {
+        console.error("Error fetching rooms:", error);
+      } else {
+        // Fetch participant counts and check if user has joined
+        const roomsWithCounts = await Promise.all(
+          (data || []).map(async (room) => {
+            const { count } = await supabase
+              .from('room_participants')
+              .select('*', { count: 'exact', head: true })
+              .eq('room_id', room.id);
+            
+            let isJoined = false;
+            if (user?.id) {
+              const { data: participant } = await supabase
                 .from('room_participants')
-                .select('*', { count: 'exact', head: true })
-                .eq('room_id', room.id);
-              return {
-                ...room,
-                participant_count: count || 0
-              };
-            })
-          );
-          setRooms(roomsWithCounts);
-        }
-        setDataLoaded(true);
-      } finally {
-        setLoading(false);
+                .select('id')
+                .eq('room_id', room.id)
+                .eq('user_id', user.id)
+                .single();
+              isJoined = !!participant;
+            }
+            
+            return {
+              ...room,
+              participant_count: count || 0,
+              isJoined
+            };
+          })
+        );
+        setRooms(roomsWithCounts);
       }
-    };
-    loadRooms();
-  }, []);
+      setDataLoaded(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleJoinRoom = async (roomId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!user?.id) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to join topic rooms",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setJoiningRoomId(roomId);
+    try {
+      const { error } = await supabase
+        .from('room_participants')
+        .upsert({
+          room_id: roomId,
+          user_id: user.id,
+          joined_at: new Date().toISOString()
+        }, {
+          onConflict: 'room_id,user_id'
+        });
+
+      if (error) throw error;
+
+      // Update local state
+      setRooms(prev => prev.map(room => 
+        room.id === roomId 
+          ? { 
+              ...room, 
+              isJoined: true, 
+              participant_count: (room.participant_count || 0) + 1 
+            }
+          : room
+      ));
+
+      toast({
+        title: "Success! 🎉",
+        description: "You've successfully joined the topic room!"
+      });
+
+      // Navigate to room after a brief delay
+      setTimeout(() => {
+        navigate(`/topic-room/${roomId}`);
+      }, 500);
+    } catch (error: any) {
+      console.error('Error joining room:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to join room. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setJoiningRoomId(null);
+    }
+  };
+
+  const handleOpenRoom = (roomId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigate(`/topic-room/${roomId}`);
+  };
 
   return (
     <Layout>
@@ -90,7 +193,7 @@ const Topics = () => {
                   <Card
                     key={room.id}
                     className="border border-green-500 hover:border-green-600 cursor-pointer bg-white dark:bg-gray-700 transition-all shadow-sm"
-                    onClick={() => navigate(`/topic-room/${room.id}`)}
+                    onClick={() => room.isJoined ? navigate(`/topic-room/${room.id}`) : undefined}
                   >
                     <CardContent className="p-4 flex items-center justify-between gap-4">
                       <div className="flex items-center gap-4 flex-1 min-w-0">
@@ -118,17 +221,24 @@ const Topics = () => {
                         </div>
                       </div>
                       
-                      {/* Join Button */}
+                      {/* Join/Open Button */}
                       <div className="flex-shrink-0">
-                        <Button
-                          className="bg-green-600 hover:bg-green-700 text-white px-6 h-9"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/topic-room/${room.id}`);
-                          }}
-                        >
-                          Join
-                        </Button>
+                        {room.isJoined ? (
+                          <Button
+                            className="bg-green-600 hover:bg-green-700 text-white px-6 h-9"
+                            onClick={(e) => handleOpenRoom(room.id, e)}
+                          >
+                            Open
+                          </Button>
+                        ) : (
+                          <Button
+                            className="bg-green-600 hover:bg-green-700 text-white px-6 h-9"
+                            onClick={(e) => handleJoinRoom(room.id, e)}
+                            disabled={joiningRoomId === room.id}
+                          >
+                            {joiningRoomId === room.id ? 'Joining...' : 'Join'}
+                          </Button>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
