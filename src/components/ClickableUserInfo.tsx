@@ -1,10 +1,11 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { User } from '@/types';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import VerificationBadge from './VerificationBadge';
 import { supabase } from '@/integrations/supabase/client';
 import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ClickableUserInfoProps {
   user: User | any;
@@ -22,28 +23,21 @@ const ClickableUserInfo = ({
   className = "" 
 }: ClickableUserInfoProps) => {
   const navigate = useNavigate();
+  const { user: currentUser } = useAuth();
   const [isNavigating, setIsNavigating] = useState(false);
   const isOnline = useOnlineStatus(user?.id);
   const isVerified = (user as any)?.is_verified || false;
   
-  // Get the profile identifier - prefer username, fallback to id
-  const getProfilePath = () => {
-    if (!user?.id) return '/';
-    
-    // If user has username, use it
-    if (user.username) {
-      return `/profile/${user.username}`;
-    }
-    
-    // Otherwise use ID
-    return `/profile/${user.id}`;
-  };
-
   const handleClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
     if (!user?.id || isNavigating) return;
+    
+    // Check if this is the current user's profile - if so, do nothing
+    if (currentUser && (user.id === currentUser.id || user.username === currentUser.username)) {
+      return; // No action for own profile
+    }
     
     setIsNavigating(true);
     
@@ -91,10 +85,15 @@ const ClickableUserInfo = ({
     return null;
   }
   
+  // Check if this is the current user - if so, make it non-clickable
+  const isOwnProfile = currentUser && (user.id === currentUser.id || user.username === currentUser.username);
+  
   return (
     <div 
-      onClick={handleClick}
-      className={`flex items-center space-x-2 hover:opacity-80 transition-opacity cursor-pointer ${className}`}
+      onClick={isOwnProfile ? undefined : handleClick}
+      className={`flex items-center space-x-2 transition-opacity ${
+        isOwnProfile ? '' : 'hover:opacity-80 cursor-pointer'
+      } ${className}`}
     >
       {showAvatar && (
         <div className="relative">

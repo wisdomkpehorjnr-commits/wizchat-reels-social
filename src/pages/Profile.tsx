@@ -287,7 +287,41 @@ const Profile = () => {
                       {isFollowing ? <UserMinus className="w-4 h-4 mr-2" /> : <UserPlus className="w-4 h-4 mr-2" />}
                       {isFollowing ? 'Unfollow' : 'Follow'}
                     </Button>
-                    <Button variant="outline" className="backdrop-blur-sm bg-white/10 border-white/20"><MessageCircle className="w-4 h-4 mr-2" />Message</Button>
+                    <Button 
+                      variant="outline" 
+                      className="backdrop-blur-sm bg-white/10 border-white/20"
+                      onClick={async () => {
+                        if (!targetUser?.id || !user?.id) return;
+                        try {
+                          // Get or create chat with the user
+                          const { data: chatId, error } = await supabase.rpc('get_or_create_direct_chat', {
+                            p_other_user_id: targetUser.id
+                          });
+                          
+                          if (error) throw error;
+                          
+                          // Navigate to chat page
+                          navigate('/chat');
+                          
+                          // After navigation, trigger opening the chat with this user
+                          // We'll use a custom event or URL parameter
+                          setTimeout(() => {
+                            window.dispatchEvent(new CustomEvent('openChatWithUser', { 
+                              detail: { userId: targetUser.id, chatId } 
+                            }));
+                          }, 300);
+                        } catch (error) {
+                          console.error('Error opening chat:', error);
+                          toast({
+                            title: "Error",
+                            description: "Failed to open chat. Please try again.",
+                            variant: "destructive"
+                          });
+                        }
+                      }}
+                    >
+                      <MessageCircle className="w-4 h-4 mr-2" />Message
+                    </Button>
                   </>
                 )}
               </div>
@@ -295,84 +329,26 @@ const Profile = () => {
           </CardContent>
         </Card>
 
-        {/* Tabs */}
-        <Card className="backdrop-blur-md bg-white/10 border-white/20">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid grid-cols-4 bg-white/5 backdrop-blur-sm">
-              <TabsTrigger value="posts">Posts</TabsTrigger>
-              <TabsTrigger value="reels">Reels</TabsTrigger>
-              <TabsTrigger value="saved"><Bookmark className="w-4 h-4 mr-1" />Saved</TabsTrigger>
-              <TabsTrigger value="groups"><Users className="w-4 h-4 mr-1" />Groups</TabsTrigger>
-            </TabsList>
+        {/* Tabs - Only show for own profile */}
+        {isOwnProfile && (
+          <Card className="backdrop-blur-md bg-white/10 border-white/20">
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="grid grid-cols-2 bg-white/5 backdrop-blur-sm">
+                <TabsTrigger value="saved"><Bookmark className="w-4 h-4 mr-1" />Saved</TabsTrigger>
+                <TabsTrigger value="groups"><Users className="w-4 h-4 mr-1" />Groups</TabsTrigger>
+              </TabsList>
 
-            <TabsContent value="posts" className="p-4">
-              {userPosts.length > 0 ? (
-                <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
-                  {userPosts.map(p => (
-                    <div key={p.id} className="relative group aspect-square rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity" onClick={() => navigate(`/post/${p.id}`)}>
-                      {p.imageUrl ? (
-                        <img src={p.imageUrl} className="w-full h-full object-cover" alt="Post" />
-                      ) : p.videoUrl ? (
-                        <video src={p.videoUrl} className="w-full h-full object-cover" muted />
-                      ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center p-2">
-                          <p className="text-xs text-center line-clamp-3">{p.content}</p>
-                        </div>
-                      )}
-                      {isOwnProfile && (
-                        <Button
-                          variant="destructive"
-                          size="icon"
-                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity w-8 h-8"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDeletePostId(p.id);
-                          }}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : <div className="text-center py-12 text-strong-contrast/60">No posts yet</div>}
-            </TabsContent>
+              <TabsContent value="saved" className="p-4 space-y-4">
+                {savedPosts.length > 0 ? savedPosts.map(s => <PostCard key={s.id} post={s.post} onPostUpdate={() => {}} />) :
+                  <div className="text-center py-12 text-strong-contrast/60">No saved posts yet</div>}
+              </TabsContent>
 
-            <TabsContent value="reels" className="p-4">
-              {userReels.length > 0 ? (
-                <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
-                  {userReels.map(r => (
-                    <div key={r.id} className="relative group aspect-[9/16] rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity" onClick={() => navigate(`/reels`)}>
-                      {r.videoUrl && <video src={r.videoUrl} className="w-full h-full object-cover" muted />}
-                      {isOwnProfile && (
-                        <Button
-                          variant="destructive"
-                          size="icon"
-                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity w-8 h-8"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDeletePostId(r.id);
-                          }}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : <div className="text-center py-12 text-strong-contrast/60">No reels yet</div>}
-            </TabsContent>
-
-            <TabsContent value="saved" className="p-4 space-y-4">
-              {savedPosts.length > 0 ? savedPosts.map(s => <PostCard key={s.id} post={s.post} onPostUpdate={() => {}} />) :
-                <div className="text-center py-12 text-white/60">No saved posts yet</div>}
-            </TabsContent>
-
-            <TabsContent value="groups" className="p-4 space-y-4">
-              <div className="text-center py-12 text-white/60">Groups feature coming soon</div>
-            </TabsContent>
-          </Tabs>
-        </Card>
+              <TabsContent value="groups" className="p-4 space-y-4">
+                <div className="text-center py-12 text-strong-contrast/60">Groups feature coming soon</div>
+              </TabsContent>
+            </Tabs>
+          </Card>
+        )}
 
         {/* Modals & Dialogs */}
         <EditProfileDialog open={showEditDialog} onOpenChange={setShowEditDialog} user={user} />

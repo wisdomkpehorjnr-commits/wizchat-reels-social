@@ -12,6 +12,7 @@ import { dataService } from '@/services/dataService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useCache } from '@/hooks/useCache';
+import { supabase } from '@/integrations/supabase/client';
 
 const WIZAI_USER: User = {
   id: 'wizai',
@@ -45,7 +46,61 @@ const Chat = () => {
     if (user) {
       loadData();
     }
-  }, [user]);
+    
+    // Listen for custom event to open chat with a specific user
+    const handleOpenChatWithUser = async (event: CustomEvent) => {
+      const { userId, chatId } = event.detail;
+      
+      if (!userId) return;
+      
+      try {
+        // Fetch user profile
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single();
+        
+        if (error || !profile) {
+          toast({
+            title: "Error",
+            description: "User not found",
+            variant: "destructive"
+          });
+          return;
+        }
+        
+        const chatUser: User = {
+          id: profile.id,
+          name: profile.name,
+          username: profile.username,
+          email: profile.email,
+          avatar: profile.avatar,
+          photoURL: profile.avatar,
+          bio: profile.bio,
+          followerCount: profile.follower_count || 0,
+          followingCount: profile.following_count || 0,
+          profileViews: profile.profile_views || 0,
+          createdAt: new Date(profile.created_at)
+        };
+        
+        setSelectedFriend(chatUser);
+      } catch (error) {
+        console.error('Error opening chat with user:', error);
+        toast({
+          title: "Error",
+          description: "Failed to open chat",
+          variant: "destructive"
+        });
+      }
+    };
+    
+    window.addEventListener('openChatWithUser', handleOpenChatWithUser as EventListener);
+    
+    return () => {
+      window.removeEventListener('openChatWithUser', handleOpenChatWithUser as EventListener);
+    };
+  }, [user, toast]);
 
   const loadData = async () => {
     if (!user) return;
