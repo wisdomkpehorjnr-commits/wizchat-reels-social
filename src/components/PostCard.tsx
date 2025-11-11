@@ -471,7 +471,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
               variant="ghost" 
               size="sm"
               disabled={isOptimistic}
-              className="border border-green-500"
+              className="text-gray-600 dark:text-gray-400 border-[1px] border-green-500"
               onClick={async () => {
                 try {
                   if (navigator.share) {
@@ -491,7 +491,6 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
                   console.error('Error sharing:', error);
                 }
               }}
-              className="text-gray-600 dark:text-gray-400"
             >
               <Share2 className="mr-2 h-4 w-4" />
               Share

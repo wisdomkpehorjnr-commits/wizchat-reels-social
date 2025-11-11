@@ -11,7 +11,7 @@ import { dataService } from '@/services/dataService';
 import { ProfileService } from '@/services/profileService';
 import { Post, SavedPost, Follow } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
-import { Calendar, MapPin, Link as LinkIcon, Edit, MessageCircle, UserPlus, UserMinus, Bookmark, Users, UserCircle, Trash2 } from 'lucide-react';
+import { Calendar, MapPin, Link as LinkIcon, Edit, MessageCircle, UserPlus, UserMinus, Bookmark, Users, UserCircle, Trash2, Heart, ThumbsUp } from 'lucide-react';
 import EditProfileDialog from '@/components/EditProfileDialog';
 import PostCard from '@/components/PostCard';
 import ReelCard from '@/components/ReelCard';
@@ -345,29 +345,87 @@ const Profile = () => {
               {isOwnProfile && <TabsTrigger value="saved"><Bookmark className="w-4 h-4 mr-1" />Saved</TabsTrigger>}
             </TabsList>
 
-            <TabsContent value="posts" className="p-4 space-y-4">
+            <TabsContent value="posts" className="p-2">
               {userPosts.length > 0 ? (
-                userPosts.map(post => (
-                  <PostCard key={post.id} post={post} onPostUpdate={() => {}} />
-                ))
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-1">
+                  {userPosts.map(post => (
+                    <div
+                      key={post.id}
+                      className="aspect-square relative rounded overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
+                      onClick={() => {
+                        // Navigate to post or show full view
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                    >
+                      {post.imageUrl ? (
+                        <img
+                          src={post.imageUrl}
+                          alt={post.content || 'Post'}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : post.videoUrl ? (
+                        <video
+                          src={post.videoUrl}
+                          className="w-full h-full object-cover"
+                          muted
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center p-1">
+                          <p className="text-white text-[10px] text-center line-clamp-2">{post.content}</p>
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-black/0 hover:bg-black/30 transition-colors flex items-center justify-center">
+                        <div className="opacity-0 hover:opacity-100 transition-opacity flex items-center gap-1 text-white">
+                          <Heart className="w-3 h-3 fill-white" />
+                          <span className="text-[10px]">{post.likes?.length || 0}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               ) : (
                 <div className="text-center py-12 text-strong-contrast/60">No posts yet</div>
               )}
             </TabsContent>
 
-            <TabsContent value="reels" className="p-4 space-y-4">
+            <TabsContent value="reels" className="p-2">
               {userReels.length > 0 ? (
-                userReels.map(reel => (
-                  <ReelCard 
-                    key={reel.id} 
-                    post={reel} 
-                    onLike={() => {}} 
-                    onUserClick={() => {}} 
-                    onShare={() => {}} 
-                    isMuted={isMuted}
-                    onMuteToggle={() => setIsMuted(!isMuted)}
-                  />
-                ))
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-1">
+                  {userReels.map(reel => (
+                    <div
+                      key={reel.id}
+                      className="aspect-[9/16] relative rounded overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
+                      onClick={() => {
+                        // Navigate to reels page or show full view
+                        navigate('/reels');
+                      }}
+                    >
+                      {reel.videoUrl ? (
+                        <video
+                          src={reel.videoUrl}
+                          className="w-full h-full object-cover"
+                          muted
+                        />
+                      ) : reel.imageUrl ? (
+                        <img
+                          src={reel.imageUrl}
+                          alt={reel.content || 'Reel'}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-blue-400 to-purple-400 flex items-center justify-center p-1">
+                          <p className="text-white text-[10px] text-center line-clamp-2">{reel.content}</p>
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-black/0 hover:bg-black/30 transition-colors flex items-center justify-center">
+                        <div className="opacity-0 hover:opacity-100 transition-opacity flex items-center gap-1 text-white">
+                          <ThumbsUp className="w-3 h-3 fill-white" />
+                          <span className="text-[10px]">{reel.likes?.length || 0}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               ) : (
                 <div className="text-center py-12 text-strong-contrast/60">No reels yet</div>
               )}
