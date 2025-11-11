@@ -27,6 +27,33 @@ const Home = () => {
     
     window.addEventListener('refreshHome', handleRefreshHome);
     
+    // Check for post ID in URL (from notifications)
+    const urlParams = new URLSearchParams(window.location.search);
+    const postId = urlParams.get('post');
+    if (postId) {
+      // Wait for posts to load, then scroll to post
+      const scrollToPost = () => {
+        const postElement = document.querySelector(`[data-post-id="${postId}"]`);
+        if (postElement) {
+          postElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Highlight the post briefly
+          postElement.classList.add('ring-4', 'ring-green-500', 'ring-offset-2', 'transition-all');
+          setTimeout(() => {
+            postElement.classList.remove('ring-4', 'ring-green-500', 'ring-offset-2');
+          }, 2000);
+        } else {
+          // If post not found yet, try again after a delay
+          setTimeout(scrollToPost, 500);
+        }
+      };
+      
+      // Clean up URL immediately
+      window.history.replaceState({}, '', '/');
+      
+      // Try scrolling after posts load
+      setTimeout(scrollToPost, 1000);
+    }
+    
     return () => {
       window.removeEventListener('refreshHome', handleRefreshHome);
     };

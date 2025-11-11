@@ -121,9 +121,43 @@ const Profile = () => {
           setIsFollowing(following);
         }
 
-      } catch (err) {
-        console.error(err);
-        setError("Failed to load profile data");
+      } catch (err: any) {
+        console.error('Error loading profile:', err);
+        // Only show error if it's a critical error, not just missing data
+        if (err?.code === 'PGRST116' || err?.message?.includes('not found')) {
+          setError("User not found");
+        } else {
+          // For other errors, try to still show what we can
+          setError(null);
+          // If we have userIdentifier, try to load basic profile info
+          if (userIdentifier && !profileUser) {
+            try {
+              const { data: basicProfile } = await supabase
+                .from('profiles')
+                .select('id, name, username, email, avatar')
+                .or(`username.eq.${userIdentifier},id.eq.${userIdentifier}`)
+                .limit(1)
+                .single();
+              
+              if (basicProfile) {
+                setProfileUser({
+                  id: basicProfile.id,
+                  name: basicProfile.name,
+                  username: basicProfile.username || `user_${basicProfile.id.slice(0, 8)}`,
+                  email: basicProfile.email,
+                  avatar: basicProfile.avatar || '',
+                  photoURL: basicProfile.avatar || '',
+                  followerCount: 0,
+                  followingCount: 0,
+                  profileViews: 0,
+                  createdAt: new Date()
+                });
+              }
+            } catch (fallbackErr) {
+              setError("User not found");
+            }
+          }
+        }
       } finally {
         setLoading(false);
       }
@@ -171,7 +205,18 @@ const Profile = () => {
 
   if (!user) return null;
   if (loading) return <Layout><div className="max-w-4xl mx-auto p-6 text-center">Loading...</div></Layout>;
-  if (error) return <Layout><div className="max-w-4xl mx-auto p-6 text-center text-red-500">{error}</div></Layout>;
+  if (error && error === "User not found") {
+    return (
+      <Layout>
+        <div className="max-w-4xl mx-auto p-6 text-center">
+          <div className="text-red-500 mb-4">{error}</div>
+          <Button onClick={() => navigate('/')} className="bg-green-600 hover:bg-green-700">
+            Go to Home
+          </Button>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>

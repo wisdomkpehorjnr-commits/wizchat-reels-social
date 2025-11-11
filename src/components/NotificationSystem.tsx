@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Bell, Check, X, User, MessageCircle, Heart, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,9 +11,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 
 const NotificationSystem = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
@@ -131,11 +132,114 @@ const NotificationSystem = () => {
       case 'comment':
         return <MessageCircle className="w-4 h-4 text-blue-500" />;
       case 'friend_request':
+      case 'friend_accept':
         return <UserPlus className="w-4 h-4 text-green-500" />;
       case 'message':
+      case 'new_message':
         return <MessageCircle className="w-4 h-4 text-purple-500" />;
+      case 'follow':
+        return <User className="w-4 h-4 text-blue-500" />;
       default:
         return <Bell className="w-4 h-4 text-gray-500" />;
+    }
+  };
+
+  const handleNotificationClick = async (notification: Notification) => {
+    // Mark as read first
+    if (!notification.isRead) {
+      await markAsRead(notification.id);
+    }
+
+    // Close the popover
+    setOpen(false);
+
+    // Navigate based on notification type and data
+    try {
+      switch (notification.type) {
+        case 'like':
+        case 'comment':
+          // Navigate to home and scroll to post if post_id is available
+          if (notification.data?.post_id) {
+            navigate('/');
+            // Scroll to post after a brief delay
+            setTimeout(() => {
+              const postElement = document.querySelector(`[data-post-id="${notification.data.post_id}"]`);
+              if (postElement) {
+                postElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+            }, 300);
+          } else {
+            navigate('/');
+          }
+          break;
+          
+        case 'friend_request':
+        case 'friend_accept':
+          // Navigate to friends page
+          navigate('/friends');
+          break;
+          
+        case 'follow':
+          // Navigate to the user's profile who followed
+          if (notification.data?.user_id) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('username')
+              .eq('id', notification.data.user_id)
+              .single();
+            
+            const identifier = profile?.username || notification.data.user_id;
+            navigate(`/profile/${identifier}`);
+          } else {
+            navigate('/friends');
+          }
+          break;
+          
+        case 'message':
+        case 'new_message':
+          // Navigate to chat
+          if (notification.data?.chat_id) {
+            navigate(`/chat`);
+            // Optionally open specific chat
+            setTimeout(() => {
+              const chatElement = document.querySelector(`[data-chat-id="${notification.data.chat_id}"]`);
+              if (chatElement) {
+                chatElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+            }, 300);
+          } else {
+            navigate('/chat');
+          }
+          break;
+          
+        default:
+          // For any other notification types, try to navigate based on available data
+          if (notification.data?.post_id) {
+            navigate('/');
+            setTimeout(() => {
+              const postElement = document.querySelector(`[data-post-id="${notification.data.post_id}"]`);
+              if (postElement) {
+                postElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+            }, 300);
+          } else if (notification.data?.user_id) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('username')
+              .eq('id', notification.data.user_id)
+              .single();
+            
+            const identifier = profile?.username || notification.data.user_id;
+            navigate(`/profile/${identifier}`);
+          } else if (notification.data?.chat_id) {
+            navigate('/chat');
+          }
+          break;
+      }
+    } catch (error) {
+      console.error('Error handling notification click:', error);
+      // Fallback navigation
+      navigate('/');
     }
   };
 
@@ -185,12 +289,12 @@ const NotificationSystem = () => {
                   {notifications.map((notification) => (
                     <div
                       key={notification.id}
-                      className={`flex items-start space-x-3 p-3 hover:bg-muted/50 cursor-pointer border-l-2 ${
+                      className={`flex items-start space-x-3 p-3 hover:bg-muted/50 cursor-pointer border-l-2 transition-colors ${
                         !notification.isRead 
                           ? 'border-l-primary bg-primary/5' 
                           : 'border-l-transparent'
                       }`}
-                      onClick={() => markAsRead(notification.id)}
+                      onClick={() => handleNotificationClick(notification)}
                     >
                       <div className="flex-shrink-0 mt-1">
                         {getNotificationIcon(notification.type)}
