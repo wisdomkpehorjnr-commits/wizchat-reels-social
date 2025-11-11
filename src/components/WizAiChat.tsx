@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
+import { findKnowledgeBaseAnswer } from '@/data/wizaiKnowledgeBase';
 // REMOVE: import wizAiHead from '@/assets/wizai-head.svg';
 
 interface Message {
@@ -16,25 +17,6 @@ interface Message {
 interface WizAiChatProps {
   onClose: () => void;
 }
-
-const CREATOR_QA = [
-  {
-    q: /who\s+created\s+you|who\s+is\s+your\s+creator|who\s+made\s+you/i,
-    a: 'A young man called Wisdom Kpehor Jnr.'
-  },
-  {
-    q: /where.*school|which.*school.*owner|which.*school.*wisdom/i,
-    a: 'Wisdom Kpehor Jnr attended Symm Educational School Complex, Good Shepherd International School, and is currently at Wesley Grammar Senior High School.'
-  },
-  {
-    q: /how.*old.*owner|owner.*age|creator.*age|how old.*wisdom/i,
-    a: 'I can\'t share this with you, I\'m sorry 😔... But wait! I can help you contact him.'
-  },
-  {
-    q: /contact.*him|reach.*owner|contact.*creator/i,
-    a: 'Look in the Settings button... information about him can be reached there 😁.'
-  }
-];
 
 const SYSTEM_PROMPT = `You are WizAi, the smart assistant inside the WizChat app. You know all features: chat list with previews, dark/light theme, image upload (for Pro users), pinned WizAi chat, sending reels, feed, profile, settings, etc. Always give friendly, helpful answers in very clear simple English. Use emojis sometimes 😊. When asked about this app, answer perfectly and up-to-date based on real functionality. Do NOT make up features that do not exist.`;
 
@@ -92,13 +74,13 @@ const WizAiChat = ({ onClose }: WizAiChatProps) => {
     setInputValue('');
     setIsThinking(true);
 
-    // Creator Q&A check
-    const match = CREATOR_QA.find(({ q }) => q.test(inputValue));
-    if (match) {
+    // Check knowledge base first
+    const knowledgeAnswer = findKnowledgeBaseAnswer(inputValue);
+    if (knowledgeAnswer) {
       setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: match.a,
+        content: knowledgeAnswer,
         timestamp: new Date()
       }]);
       setIsThinking(false);
