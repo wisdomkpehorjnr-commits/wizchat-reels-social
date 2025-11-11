@@ -35,7 +35,13 @@ const ClickableUserInfo = ({
     if (!user?.id || isNavigating) return;
     
     // Check if this is the current user's profile - if so, do nothing
-    if (currentUser && (user.id === currentUser.id || user.username === currentUser.username)) {
+    const isOwnProfile = currentUser && (
+      user.id === currentUser.id || 
+      user.username === currentUser.username ||
+      (user.id && currentUser.id && user.id === currentUser.id)
+    );
+    
+    if (isOwnProfile) {
       return; // No action for own profile
     }
     
@@ -59,9 +65,18 @@ const ClickableUserInfo = ({
             .single();
           
           if (profileByUsername) {
+            // Double-check it's not the current user
+            if (currentUser && profileByUsername.id === currentUser.id) {
+              return; // No action for own profile
+            }
             navigate(`/profile/${profileByUsername.username || profileByUsername.id}`);
             return;
           }
+        }
+        
+        // Double-check it's not the current user before navigating
+        if (currentUser && user.id === currentUser.id) {
+          return; // No action for own profile
         }
         
         // If still not found, navigate with ID anyway (Profile page will handle error gracefully)
@@ -69,11 +84,20 @@ const ClickableUserInfo = ({
         return;
       }
       
+      // Double-check it's not the current user
+      if (currentUser && profile.id === currentUser.id) {
+        return; // No action for own profile
+      }
+      
       // Navigate using username if available, otherwise ID
       const identifier = profile.username || profile.id;
       navigate(`/profile/${identifier}`);
     } catch (error) {
       console.error('Error navigating to profile:', error);
+      // Double-check it's not the current user before fallback navigation
+      if (currentUser && user.id === currentUser.id) {
+        return; // No action for own profile
+      }
       // Fallback navigation
       navigate(`/profile/${user.id}`);
     } finally {

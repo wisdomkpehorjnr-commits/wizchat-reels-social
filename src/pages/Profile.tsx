@@ -43,7 +43,9 @@ const Profile = () => {
   const [activeTab, setActiveTab] = useState('posts');
   const [deletePostId, setDeletePostId] = useState<string | null>(null);
 
-  const isOwnProfile = !userIdentifier;
+  // Determine if this is the current user's profile
+  // Check both if there's no userIdentifier (own profile route) or if the profileUser matches current user
+  const isOwnProfile = !userIdentifier || (profileUser && user && profileUser.id === user.id);
   const targetUser = profileUser || user;
 
   /** Fetch profile data */
@@ -268,8 +270,12 @@ const Profile = () => {
                 </div>
 
                 <div className="flex space-x-6">
-                  <div className="text-center"><p className="text-2xl font-bold">{userPosts.length}</p><p className="text-sm text-strong-contrast/80">Posts</p></div>
-                  <div className="text-center"><p className="text-2xl font-bold">{userReels.length}</p><p className="text-sm text-strong-contrast/80">Reels</p></div>
+                  {isOwnProfile && (
+                    <>
+                      <div className="text-center"><p className="text-2xl font-bold">{userPosts.length}</p><p className="text-sm text-strong-contrast/80">Posts</p></div>
+                      <div className="text-center"><p className="text-2xl font-bold">{userReels.length}</p><p className="text-sm text-strong-contrast/80">Reels</p></div>
+                    </>
+                  )}
                   <div className="text-center"><p className="text-2xl font-bold">{targetUser?.followerCount || 0}</p><p className="text-sm text-strong-contrast/80">Followers</p></div>
                   <div className="text-center"><p className="text-2xl font-bold">{targetUser?.followingCount || 0}</p><p className="text-sm text-strong-contrast/80">Following</p></div>
                 </div>
