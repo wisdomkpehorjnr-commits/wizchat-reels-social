@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { MoreVertical, Heart, MessageSquare, Share2, Edit, Trash2, Download, Pin, Send, X } from 'lucide-react';
+import { MoreVertical, ThumbsUp, MessageSquare, Share2, Edit, Trash2, Download, Pin, Send, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -46,38 +46,59 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
   const [longPressProgress, setLongPressProgress] = useState(0);
   const { downloadMedia } = useDownload();
   const [showPinDialog, setShowPinDialog] = useState(false);
-  const [comments, setComments] = useState<any[]>([]);
+  const [comments, setComments] = useState<any[]>(post.comments || []);
   const [loadingComments, setLoadingComments] = useState(false);
   const [postingComment, setPostingComment] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
 
   // Load likes when component mounts
   useEffect(() => {
     loadLikes();
   }, [post.id]);
 
-  // Load comments when modal opens
+  // Initialize comments from post data and subscribe to updates
+  useEffect(() => {
+    // Set initial comments from post data
+    if (post.comments && Array.isArray(post.comments) && post.comments.length > 0) {
+      setComments(post.comments);
+    } else {
+      // If not in post data, load them
+      loadComments();
+    }
+
+    // Subscribe to new comments in real-time
+    const channel = supabase
+      .channel(`post_comments:${post.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'comments',
+        filter: `post_id=eq.${post.id}`
+      }, () => {
+        loadComments();
+      })
+      .on('postgres_changes', {
+        event: 'DELETE',
+        schema: 'public',
+        table: 'comments',
+        filter: `post_id=eq.${post.id}`
+      }, () => {
+        loadComments();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [post.id]);
+
+  // Load comments when modal opens (for detailed view)
   useEffect(() => {
     if (showCommentModal) {
       loadComments();
-      
-      // Subscribe to new comments
-      const channel = supabase
-        .channel(`post_comments:${post.id}`)
-        .on('postgres_changes', {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'comments',
-          filter: `post_id=eq.${post.id}`
-        }, () => {
-          loadComments();
-        })
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
     }
-  }, [showCommentModal, post.id]);
+  }, [showCommentModal]);
 
   const loadLikes = async () => {
     try {
@@ -142,6 +163,32 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
 
   const handleLikePost = async () => {
     if (!user) return;
+
+    // Play sound effect
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.value = isLiked ? 200 : 400;
+      oscillator.type = 'sine';
+      
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.2);
+    } catch (e) {
+      // Fallback: silent if audio fails
+      console.log('Audio not available');
+    }
+
+    // Trigger animation
+    setIsAnimating(true);
+    setTimeout(() => setIsAnimating(false), 600);
 
     // Optimistic UI update
     const wasLiked = isLiked;
@@ -281,7 +328,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
   return (
     <>
       <Card 
-        className={`w-full border-2 border-green-500 bg-white dark:bg-gray-800 ${isOptimistic ? 'opacity-75 animate-pulse' : ''}`}
+        className={`w-full border-2 border-green-500 bg-background ${isOptimistic ? 'opacity-75 animate-pulse' : ''}`}
         data-post-id={post.id}
       >
         <CardContent className="p-6">
@@ -447,13 +494,20 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
                 variant="ghost" 
                 size="sm" 
                 onClick={handleLikePost} 
-                className={`hover:text-red-500 ${isLiked ? 'text-red-500' : 'text-gray-600 dark:text-gray-400'} border border-green-500`}
+                className={`relative hover:text-green-500 transition-colors ${isLiked ? 'text-green-500' : 'text-gray-600 dark:text-gray-400'} border border-green-500`}
                 disabled={isOptimistic}
               >
-                <Heart 
-                  className={`mr-2 h-4 w-4 ${isLiked ? 'fill-red-500 text-red-500' : ''}`} 
+                <ThumbsUp 
+                  className={`mr-2 h-4 w-4 transition-all duration-300 ${isLiked ? 'fill-green-500 text-green-500' : ''} ${isAnimating ? 'scale-150 rotate-12' : 'scale-100 rotate-0'}`} 
                 />
-                {likeCount > 0 && <span>{likeCount}</span>}
+                {likeCount > 0 && (
+                  <span className={`transition-all duration-300 ${isAnimating ? 'scale-125 font-bold' : ''}`}>
+                    {likeCount}
+                  </span>
+                )}
+                {isAnimating && (
+                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full animate-ping"></span>
+                )}
               </Button>
               <Button 
                 variant="ghost" 
