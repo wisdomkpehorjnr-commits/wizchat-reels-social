@@ -16,7 +16,7 @@ import EditProfileDialog from '@/components/EditProfileDialog';
 import PostCard from '@/components/PostCard';
 import ReelCard from '@/components/ReelCard';
 import ImageModal from '@/components/ImageModal';
-import AvatarStudio from '@/components/AvatarStudio';
+import AvatarStudio, { EnhancedAvatarData } from '@/components/AvatarStudio';
 import { useToast } from '@/components/ui/use-toast';
 import { useNavigate, useParams } from 'react-router-dom';
 import VerificationBadge from '@/components/VerificationBadge';
@@ -332,7 +332,44 @@ const Profile = () => {
         {/* Modals & Dialogs */}
         <EditProfileDialog open={showEditDialog} onOpenChange={setShowEditDialog} user={user} />
         {showImageModal && <ImageModal src={showImageModal} alt="Profile Picture" isOpen={!!showImageModal} onClose={() => setShowImageModal(null)} />}
-        <AvatarStudio open={showAvatarStudio} onOpenChange={setShowAvatarStudio} onSave={data => console.log("Avatar saved", data)} />
+        <AvatarStudio 
+          open={showAvatarStudio} 
+          onOpenChange={setShowAvatarStudio}
+          initialAvatar={(() => {
+            // Try to parse saved avatar data from user's avatar field
+            if (user?.avatar) {
+              try {
+                const parsed = JSON.parse(user.avatar);
+                // Check if it's valid EnhancedAvatarData (has required fields)
+                if (parsed && typeof parsed === 'object' && 'skinColor' in parsed) {
+                  return parsed as Partial<EnhancedAvatarData>;
+                }
+              } catch {
+                // If parsing fails, it's probably a URL, return undefined
+              }
+            }
+            return undefined;
+          })()}
+          onSave={async (data) => {
+            try {
+              // Save avatar data as JSON string
+              const avatarDataJson = JSON.stringify(data);
+              await ProfileService.updateProfile({ avatar: avatarDataJson });
+              toast({ 
+                title: "Success", 
+                description: "Avatar saved successfully!" 
+              });
+              // Reload to show updated avatar
+              window.location.reload();
+            } catch (error) {
+              toast({ 
+                title: "Error", 
+                description: "Failed to save avatar", 
+                variant: "destructive" 
+              });
+            }
+          }} 
+        />
         
         <ThemeAwareDialog
           open={!!deletePostId}
