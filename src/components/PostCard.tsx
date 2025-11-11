@@ -447,7 +447,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
                 variant="ghost" 
                 size="sm" 
                 onClick={handleLikePost} 
-                className={`hover:text-red-500 ${isLiked ? 'text-red-500' : 'text-gray-600 dark:text-gray-400'}`}
+                className={`hover:text-red-500 ${isLiked ? 'text-red-500' : 'text-gray-600 dark:text-gray-400'} border border-green-500`}
                 disabled={isOptimistic}
               >
                 <Heart 
@@ -459,7 +459,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
                 variant="ghost" 
                 size="sm" 
                 onClick={() => setShowCommentModal(true)}
-                className="text-gray-600 dark:text-gray-400"
+                className="text-gray-600 dark:text-gray-400 border border-green-500"
                 disabled={isOptimistic}
               >
                 <MessageSquare className="mr-2 h-4 w-4" />
@@ -471,6 +471,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
               variant="ghost" 
               size="sm"
               disabled={isOptimistic}
+              className="border border-green-500"
               onClick={async () => {
                 try {
                   if (navigator.share) {

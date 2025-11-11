@@ -166,6 +166,11 @@ const Profile = () => {
     };
 
     fetchUserData();
+    
+    // Reset active tab if viewing another user's profile and currently on saved tab
+    if (!isOwnProfile && activeTab === 'saved') {
+      setActiveTab('posts');
+    }
   }, [user, userIdentifier, isOwnProfile]);
 
   /** Follow / Unfollow */
@@ -270,12 +275,8 @@ const Profile = () => {
                 </div>
 
                 <div className="flex space-x-6">
-                  {isOwnProfile && (
-                    <>
-                      <div className="text-center"><p className="text-2xl font-bold">{userPosts.length}</p><p className="text-sm text-strong-contrast/80">Posts</p></div>
-                      <div className="text-center"><p className="text-2xl font-bold">{userReels.length}</p><p className="text-sm text-strong-contrast/80">Reels</p></div>
-                    </>
-                  )}
+                  <div className="text-center"><p className="text-2xl font-bold">{userPosts.length}</p><p className="text-sm text-strong-contrast/80">Posts</p></div>
+                  <div className="text-center"><p className="text-2xl font-bold">{userReels.length}</p><p className="text-sm text-strong-contrast/80">Reels</p></div>
                   <div className="text-center"><p className="text-2xl font-bold">{targetUser?.followerCount || 0}</p><p className="text-sm text-strong-contrast/80">Followers</p></div>
                   <div className="text-center"><p className="text-2xl font-bold">{targetUser?.followingCount || 0}</p><p className="text-sm text-strong-contrast/80">Following</p></div>
                 </div>
@@ -335,26 +336,51 @@ const Profile = () => {
           </CardContent>
         </Card>
 
-        {/* Tabs - Only show for own profile */}
-        {isOwnProfile && (
-          <Card className="backdrop-blur-md bg-white/10 border-white/20">
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid grid-cols-2 bg-white/5 backdrop-blur-sm">
-                <TabsTrigger value="saved"><Bookmark className="w-4 h-4 mr-1" />Saved</TabsTrigger>
-                <TabsTrigger value="groups"><Users className="w-4 h-4 mr-1" />Groups</TabsTrigger>
-              </TabsList>
+        {/* Posts and Reels Section */}
+        <Card className="backdrop-blur-md bg-white/10 border-white/20">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className={`grid ${isOwnProfile ? 'grid-cols-3' : 'grid-cols-2'} bg-white/5 backdrop-blur-sm`}>
+              <TabsTrigger value="posts">Posts</TabsTrigger>
+              <TabsTrigger value="reels">Reels</TabsTrigger>
+              {isOwnProfile && <TabsTrigger value="saved"><Bookmark className="w-4 h-4 mr-1" />Saved</TabsTrigger>}
+            </TabsList>
 
+            <TabsContent value="posts" className="p-4 space-y-4">
+              {userPosts.length > 0 ? (
+                userPosts.map(post => (
+                  <PostCard key={post.id} post={post} onPostUpdate={() => {}} />
+                ))
+              ) : (
+                <div className="text-center py-12 text-strong-contrast/60">No posts yet</div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="reels" className="p-4 space-y-4">
+              {userReels.length > 0 ? (
+                userReels.map(reel => (
+                  <ReelCard 
+                    key={reel.id} 
+                    post={reel} 
+                    onLike={() => {}} 
+                    onUserClick={() => {}} 
+                    onShare={() => {}} 
+                    isMuted={isMuted}
+                    onMuteToggle={() => setIsMuted(!isMuted)}
+                  />
+                ))
+              ) : (
+                <div className="text-center py-12 text-strong-contrast/60">No reels yet</div>
+              )}
+            </TabsContent>
+
+            {isOwnProfile && (
               <TabsContent value="saved" className="p-4 space-y-4">
                 {savedPosts.length > 0 ? savedPosts.map(s => <PostCard key={s.id} post={s.post} onPostUpdate={() => {}} />) :
                   <div className="text-center py-12 text-strong-contrast/60">No saved posts yet</div>}
               </TabsContent>
-
-              <TabsContent value="groups" className="p-4 space-y-4">
-                <div className="text-center py-12 text-strong-contrast/60">Groups feature coming soon</div>
-              </TabsContent>
-            </Tabs>
-          </Card>
-        )}
+            )}
+          </Tabs>
+        </Card>
 
         {/* Modals & Dialogs */}
         <EditProfileDialog open={showEditDialog} onOpenChange={setShowEditDialog} user={user} />
