@@ -489,12 +489,12 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
 
           {/* Actions */}
           <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between bg-background rounded-lg divide-x divide-gray-200 dark:divide-white/10">
+            <div className="flex items-center justify-between border border-black dark:border-white rounded-lg p-1">
               <Button 
                 variant="ghost" 
                 size="sm" 
                 onClick={handleLikePost} 
-                className={`relative flex-1 border border-gray-200 dark:border-white/10 rounded-l-lg hover:text-green-500 transition-colors ${isLiked ? 'text-green-500' : 'text-gray-600 dark:text-gray-400'} border-r-0`}
+                className={`relative hover:text-green-500 transition-colors flex-1 ${isLiked ? 'text-green-500' : 'text-gray-600 dark:text-gray-400'} border-0`}
                 disabled={isOptimistic}
               >
                 <ThumbsUp 
@@ -509,22 +509,24 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
                   <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full animate-ping"></span>
                 )}
               </Button>
+              <div className="w-px h-6 bg-black dark:bg-white"></div>
               <Button 
                 variant="ghost" 
                 size="sm" 
                 onClick={() => setShowCommentModal(true)}
-                className="flex-1 border-t border-b border-gray-200 dark:border-white/10 rounded-none text-gray-600 dark:text-gray-400 border-x-0"
+                className="text-gray-600 dark:text-gray-400 border-0 flex-1"
                 disabled={isOptimistic}
               >
                 <MessageSquare className="mr-2 h-4 w-4" />
                 Comment
                 {comments.length > 0 && <span className="ml-1">({comments.length})</span>}
               </Button>
+              <div className="w-px h-6 bg-black dark:bg-white"></div>
               <Button 
                 variant="ghost" 
                 size="sm"
                 disabled={isOptimistic}
-                className="flex-1 border border-gray-200 dark:border-white/10 rounded-r-lg text-gray-600 dark:text-gray-400 border-l-0"
+                className="text-gray-600 dark:text-gray-400 border-0 flex-1"
                 onClick={async () => {
                   try {
                     if (navigator.share) {

@@ -205,12 +205,3 @@ button {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;  /* Chrome, Safari and Opera */
 }
-
-.animate-fade-in {
-  opacity: 0;
-  animation: fadeIn 0.23s cubic-bezier(.3,.57,0,1) forwards;
-}
-
-@keyframes fadeIn {
-  to { opacity: 1; }
-}
