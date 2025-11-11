@@ -341,7 +341,7 @@ const Profile = () => {
               try {
                 const parsed = JSON.parse(user.avatar);
                 // Check if it's valid EnhancedAvatarData (has required fields)
-                if (parsed && typeof parsed === 'object' && 'skinColor' in parsed) {
+                if (parsed && typeof parsed === 'object' && ('skinColor' in parsed || 'headColor' in parsed || 'gender' in parsed)) {
                   return parsed as Partial<EnhancedAvatarData>;
                 }
               } catch {

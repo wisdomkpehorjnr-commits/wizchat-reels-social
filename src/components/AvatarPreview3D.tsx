@@ -9,207 +9,435 @@ interface AvatarPreview3DProps {
   size?: "small" | "medium" | "large";
 }
 
-// 3D Avatar Component (same as in AvatarStudio)
-const Avatar3D: React.FC<{ avatar: EnhancedAvatarData }> = ({ avatar }) => {
+// Helper functions for shapes (same as in AvatarStudio)
+function createHeartShape() {
+  const shape = new THREE.Shape();
+  shape.moveTo(0, 0.1);
+  shape.bezierCurveTo(0, 0.1, -0.1, 0, -0.1, -0.05);
+  shape.bezierCurveTo(-0.1, -0.1, 0, -0.1, 0, -0.05);
+  shape.bezierCurveTo(0, -0.1, 0.1, -0.1, 0.1, -0.05);
+  shape.bezierCurveTo(0.1, 0, 0, 0.1, 0, 0.1);
+  return shape;
+}
+
+function createStarShape() {
+  const shape = new THREE.Shape();
+  const spikes = 5;
+  const outerRadius = 0.15;
+  const innerRadius = 0.08;
+  for (let i = 0; i < spikes * 2; i++) {
+    const angle = (i * Math.PI) / spikes;
+    const radius = i % 2 === 0 ? outerRadius : innerRadius;
+    const x = Math.cos(angle) * radius;
+    const y = Math.sin(angle) * radius;
+    if (i === 0) shape.moveTo(x, y);
+    else shape.lineTo(x, y);
+  }
+  shape.closePath();
+  return shape;
+}
+
+function createVNeckShape() {
+  const shape = new THREE.Shape();
+  shape.moveTo(-0.15, 0.35);
+  shape.lineTo(0, 0.2);
+  shape.lineTo(0.15, 0.35);
+  shape.lineTo(0.15, 0.35);
+  return shape;
+}
+
+// LEGO 3D Avatar Component (same as in AvatarStudio)
+const LegoAvatar3D: React.FC<{ avatar: EnhancedAvatarData }> = ({ avatar }) => {
+  const legoYellow = "#FFD700";
+  const legoRed = "#DC143C";
+  const legoBlue = "#0066CC";
+  
   return (
     <group>
-      {/* Lighting */}
-      <ambientLight intensity={0.6} />
-      <directionalLight position={[5, 5, 5]} intensity={0.8} />
-      <directionalLight position={[-5, 5, -5]} intensity={0.4} />
-      <pointLight position={[0, 3, 0]} intensity={0.3} />
+      <ambientLight intensity={0.8} />
+      <directionalLight position={[5, 5, 5]} intensity={1} />
+      <directionalLight position={[-5, 5, -5]} intensity={0.5} />
       
-      {/* Head */}
-      <mesh position={[0, 1.5, 0]}>
-        <sphereGeometry args={[0.5 * avatar.headSize, 32, 32]} />
-        <meshStandardMaterial color={avatar.skinColor} roughness={0.7} />
-      </mesh>
-      
-      {/* Hair */}
-      {avatar.hairStyle === "short" && (
-        <mesh position={[0, 1.8, 0]}>
-          <sphereGeometry args={[0.52 * avatar.headSize, 32, 32, 0, Math.PI * 2, 0, Math.PI * 0.6]} />
-          <meshStandardMaterial color={avatar.hairColor} />
+      {/* LEGO Head */}
+      <group position={[0, 1.2, 0]}>
+        <mesh>
+          <cylinderGeometry args={[0.4, 0.4, 0.5, 16]} />
+          <meshStandardMaterial color={avatar.headColor || legoYellow} roughness={0.3} metalness={0.1} />
         </mesh>
-      )}
-      {avatar.hairStyle === "medium" && (
-        <group>
-          <mesh position={[0, 1.8, 0]}>
-            <sphereGeometry args={[0.52 * avatar.headSize, 32, 32, 0, Math.PI * 2, 0, Math.PI * 0.6]} />
-            <meshStandardMaterial color={avatar.hairColor} />
-          </mesh>
-          <mesh position={[0, 1.5, 0.3]}>
-            <boxGeometry args={[0.4, 0.3 * avatar.hairLength, 0.2]} />
-            <meshStandardMaterial color={avatar.hairColor} />
-          </mesh>
-        </group>
-      )}
-      {avatar.hairStyle === "long" && (
-        <group>
-          <mesh position={[0, 1.8, 0]}>
-            <sphereGeometry args={[0.52 * avatar.headSize, 32, 32, 0, Math.PI * 2, 0, Math.PI * 0.6]} />
-            <meshStandardMaterial color={avatar.hairColor} />
-          </mesh>
-          <mesh position={[0, 1.2, 0.4]}>
-            <boxGeometry args={[0.5, 0.5 * avatar.hairLength, 0.15]} />
-            <meshStandardMaterial color={avatar.hairColor} />
-          </mesh>
-        </group>
-      )}
-      {avatar.hairStyle === "curly" && (
-        <group>
-          {[...Array(8)].map((_, i) => (
-            <mesh key={i} position={[
-              Math.cos(i * Math.PI / 4) * 0.3,
-              1.7 + Math.sin(i * 0.5) * 0.1,
-              Math.sin(i * Math.PI / 4) * 0.3
-            ]}>
-              <sphereGeometry args={[0.08, 16, 16]} />
-              <meshStandardMaterial color={avatar.hairColor} />
-            </mesh>
-          ))}
-        </group>
-      )}
-      
-      {/* Eyes */}
-      <group>
-        {/* Left Eye */}
-        <mesh position={[-0.15 * avatar.eyeSpacing, 1.6, 0.4]}>
-          <sphereGeometry args={[0.08 * avatar.eyeSize, 16, 16]} />
-          <meshStandardMaterial color="#ffffff" />
-        </mesh>
-        <mesh position={[-0.15 * avatar.eyeSpacing, 1.6, 0.42]}>
-          <sphereGeometry args={[0.06 * avatar.eyeSize, 16, 16]} />
-          <meshStandardMaterial color={avatar.eyeColor} />
-        </mesh>
-        <mesh position={[-0.15 * avatar.eyeSpacing, 1.6, 0.44]}>
-          <sphereGeometry args={[0.03 * avatar.eyeSize, 16, 16]} />
-          <meshStandardMaterial color="#000000" />
+        <mesh position={[0, 0.25, 0]}>
+          <cylinderGeometry args={[0.4, 0.4, 0.05, 16]} />
+          <meshStandardMaterial color={avatar.headColor || legoYellow} roughness={0.3} metalness={0.1} />
         </mesh>
         
-        {/* Right Eye */}
-        <mesh position={[0.15 * avatar.eyeSpacing, 1.6, 0.4]}>
-          <sphereGeometry args={[0.08 * avatar.eyeSize, 16, 16]} />
-          <meshStandardMaterial color="#ffffff" />
-        </mesh>
-        <mesh position={[0.15 * avatar.eyeSpacing, 1.6, 0.42]}>
-          <sphereGeometry args={[0.06 * avatar.eyeSize, 16, 16]} />
-          <meshStandardMaterial color={avatar.eyeColor} />
-        </mesh>
-        <mesh position={[0.15 * avatar.eyeSpacing, 1.6, 0.44]}>
-          <sphereGeometry args={[0.03 * avatar.eyeSize, 16, 16]} />
-          <meshStandardMaterial color="#000000" />
-        </mesh>
+        {/* Face */}
+        {avatar.faceExpression === "happy" || avatar.faceExpression === "neutral" ? (
+          <>
+            <mesh position={[-0.12, 0.05, 0.41]}>
+              <circleGeometry args={[0.03, 16]} />
+              <meshStandardMaterial color="#000000" />
+            </mesh>
+            <mesh position={[0.12, 0.05, 0.41]}>
+              <circleGeometry args={[0.03, 16]} />
+              <meshStandardMaterial color="#000000" />
+            </mesh>
+          </>
+        ) : avatar.faceExpression === "wink" ? (
+          <>
+            <mesh position={[-0.12, 0.05, 0.41]}>
+              <circleGeometry args={[0.03, 16]} />
+              <meshStandardMaterial color="#000000" />
+            </mesh>
+            <mesh position={[0.12, 0.05, 0.41]} rotation={[0, 0, Math.PI / 4]}>
+              <boxGeometry args={[0.06, 0.01, 0.01]} />
+              <meshStandardMaterial color="#000000" />
+            </mesh>
+          </>
+        ) : (
+          <>
+            <mesh position={[-0.12, 0.08, 0.41]}>
+              <circleGeometry args={[0.04, 16]} />
+              <meshStandardMaterial color="#000000" />
+            </mesh>
+            <mesh position={[0.12, 0.08, 0.41]}>
+              <circleGeometry args={[0.04, 16]} />
+              <meshStandardMaterial color="#000000" />
+            </mesh>
+          </>
+        )}
+        
+        {avatar.faceExpression === "happy" ? (
+          <mesh position={[0, -0.1, 0.41]} rotation={[0, 0, 0]}>
+            <torusGeometry args={[0.08, 0.01, 8, 16, Math.PI]} />
+            <meshStandardMaterial color="#000000" />
+          </mesh>
+        ) : avatar.faceExpression === "surprised" ? (
+          <mesh position={[0, -0.1, 0.41]}>
+            <circleGeometry args={[0.06, 16]} />
+            <meshStandardMaterial color="#FFFFFF" />
+          </mesh>
+        ) : (
+          <mesh position={[0, -0.1, 0.41]}>
+            <boxGeometry args={[0.12, 0.02, 0.01]} />
+            <meshStandardMaterial color="#000000" />
+          </mesh>
+        )}
       </group>
       
-      {/* Eyebrows */}
-      <mesh position={[-0.15 * avatar.eyeSpacing, 1.75, 0.38]}>
-        <boxGeometry args={[0.12, 0.02 * avatar.eyebrowThickness, 0.05]} />
-        <meshStandardMaterial color={avatar.eyebrowColor} />
-      </mesh>
-      <mesh position={[0.15 * avatar.eyeSpacing, 1.75, 0.38]}>
-        <boxGeometry args={[0.12, 0.02 * avatar.eyebrowThickness, 0.05]} />
-        <meshStandardMaterial color={avatar.eyebrowColor} />
-      </mesh>
-      
-      {/* Nose */}
-      <mesh position={[0, 1.5, 0.45]}>
-        <coneGeometry args={[0.05 * avatar.noseWidth, 0.1 * avatar.noseSize, 8]} />
-        <meshStandardMaterial color={avatar.skinColor} roughness={0.7} />
-      </mesh>
-      
-      {/* Mouth */}
-      <mesh position={[0, 1.35, 0.42]}>
-        <torusGeometry args={[0.06 * avatar.mouthWidth, 0.02 * avatar.mouthSize, 8, 16, Math.PI]} />
-        <meshStandardMaterial color={avatar.lipColor} />
-      </mesh>
-      
-      {/* Ears */}
-      <mesh position={[-0.5 * avatar.headSize, 1.5, 0]}>
-        <sphereGeometry args={[0.08 * avatar.earSize, 16, 16]} />
-        <meshStandardMaterial color={avatar.skinColor} roughness={0.7} />
-      </mesh>
-      <mesh position={[0.5 * avatar.headSize, 1.5, 0]}>
-        <sphereGeometry args={[0.08 * avatar.earSize, 16, 16]} />
-        <meshStandardMaterial color={avatar.skinColor} roughness={0.7} />
-      </mesh>
-      
-      {/* Neck */}
-      <mesh position={[0, 1.0, 0]}>
-        <cylinderGeometry args={[0.15, 0.15, 0.3, 16]} />
-        <meshStandardMaterial color={avatar.skinColor} roughness={0.7} />
-      </mesh>
-      
-      {/* Torso/Body */}
-      <mesh position={[0, 0.2, 0]}>
-        <boxGeometry args={[0.8 * avatar.shoulderWidth, 1.2 * avatar.bodySize, 0.5]} />
-        <meshStandardMaterial color={avatar.bodyColor} />
-      </mesh>
-      
-      {/* Outfit */}
-      {avatar.outfitStyle === "shirt" && (
-        <mesh position={[0, 0.2, 0.26]}>
-          <boxGeometry args={[0.85 * avatar.shoulderWidth, 1.25 * avatar.bodySize, 0.1]} />
-          <meshStandardMaterial color={avatar.outfitColor} />
-        </mesh>
+      {/* Hair */}
+      {avatar.hairStyle && (
+        <group position={[0, 1.45, 0]}>
+          {avatar.hairStyle === "short" && (
+            <mesh>
+              <cylinderGeometry args={[0.42, 0.42, 0.15, 16]} />
+              <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+            </mesh>
+          )}
+          {avatar.hairStyle === "spiky" && (
+            <group>
+              {[...Array(5)].map((_, i) => (
+                <mesh key={i} position={[Math.cos(i * Math.PI * 0.4) * 0.3, 0.1, Math.sin(i * Math.PI * 0.4) * 0.3]}>
+                  <boxGeometry args={[0.05, 0.15, 0.05]} />
+                  <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+                </mesh>
+              ))}
+            </group>
+          )}
+          {avatar.hairStyle === "curly" && (
+            <group>
+              {[...Array(8)].map((_, i) => (
+                <mesh key={i} position={[
+                  Math.cos(i * Math.PI / 4) * 0.3,
+                  0.05 + Math.sin(i * 0.5) * 0.05,
+                  Math.sin(i * Math.PI / 4) * 0.3
+                ]}>
+                  <sphereGeometry args={[0.06, 8, 8]} />
+                  <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+                </mesh>
+              ))}
+            </group>
+          )}
+          {avatar.hairStyle === "slicked" && (
+            <mesh rotation={[0, 0, 0]}>
+              <boxGeometry args={[0.4, 0.1, 0.3]} />
+              <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+            </mesh>
+          )}
+          {avatar.hairStyle === "afro" && (
+            <mesh>
+              <sphereGeometry args={[0.45, 16, 16, 0, Math.PI * 2, 0, Math.PI * 0.7]} />
+              <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+            </mesh>
+          )}
+          {avatar.hairStyle === "buzz" && (
+            <mesh>
+              <cylinderGeometry args={[0.41, 0.41, 0.05, 16]} />
+              <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+            </mesh>
+          )}
+          {avatar.hairStyle === "long" && (
+            <group>
+              <mesh>
+                <cylinderGeometry args={[0.42, 0.42, 0.2, 16]} />
+                <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+              </mesh>
+              <mesh position={[0, -0.3, 0.2]}>
+                <boxGeometry args={[0.35, 0.4, 0.1]} />
+                <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+              </mesh>
+            </group>
+          )}
+          {avatar.hairStyle === "ponytail" && (
+            <group>
+              <mesh>
+                <cylinderGeometry args={[0.42, 0.42, 0.15, 16]} />
+                <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+              </mesh>
+              <mesh position={[0, -0.2, 0.25]}>
+                <cylinderGeometry args={[0.08, 0.08, 0.3, 8]} />
+                <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+              </mesh>
+            </group>
+          )}
+          {avatar.hairStyle === "bob" && (
+            <mesh>
+              <cylinderGeometry args={[0.42, 0.42, 0.2, 16]} />
+              <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+            </mesh>
+          )}
+          {avatar.hairStyle === "braids" && (
+            <group>
+              <mesh>
+                <cylinderGeometry args={[0.42, 0.42, 0.15, 16]} />
+                <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+              </mesh>
+              {[-1, 1].map((side) => (
+                <mesh key={side} position={[side * 0.3, -0.2, 0.2]}>
+                  <cylinderGeometry args={[0.06, 0.06, 0.3, 8]} />
+                  <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+                </mesh>
+              ))}
+            </group>
+          )}
+          {avatar.hairStyle === "bun" && (
+            <group>
+              <mesh>
+                <cylinderGeometry args={[0.42, 0.42, 0.1, 16]} />
+                <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+              </mesh>
+              <mesh position={[0, 0.05, 0.2]}>
+                <torusGeometry args={[0.12, 0.04, 8, 16]} />
+                <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+              </mesh>
+            </group>
+          )}
+        </group>
       )}
-      {avatar.outfitStyle === "jacket" && (
-        <mesh position={[0, 0.2, 0.26]}>
-          <boxGeometry args={[0.9 * avatar.shoulderWidth, 1.3 * avatar.bodySize, 0.12]} />
-          <meshStandardMaterial color={avatar.outfitColor} />
+      
+      {/* Torso/Shirt */}
+      <group position={[0, 0.5, 0]}>
+        <mesh>
+          <boxGeometry args={[0.6, 0.7, 0.4]} />
+          <meshStandardMaterial color={avatar.shirtColor || legoRed} roughness={0.3} metalness={0.1} />
         </mesh>
-      )}
-      {avatar.outfitStyle === "dress" && (
-        <mesh position={[0, -0.1, 0.26]}>
-          <coneGeometry args={[0.5 * avatar.shoulderWidth, 1.5 * avatar.bodySize, 8]} />
-          <meshStandardMaterial color={avatar.outfitColor} />
-        </mesh>
-      )}
+        
+        {avatar.shirtPattern === "stripes" && (
+          <>
+            {[...Array(5)].map((_, i) => (
+              <mesh key={i} position={[0, -0.35 + i * 0.175, 0.21]}>
+                <boxGeometry args={[0.6, 0.02, 0.01]} />
+                <meshStandardMaterial color="#FFFFFF" />
+              </mesh>
+            ))}
+          </>
+        )}
+        {avatar.shirtPattern === "polka" && (
+          <>
+            {[0, 1, 2].map((row) => (
+              [-1, 0, 1].map((col) => (
+                <mesh key={`${row}-${col}`} position={[col * 0.2, -0.2 + row * 0.2, 0.21]}>
+                  <circleGeometry args={[0.05, 8]} />
+                  <meshStandardMaterial color="#FFFFFF" />
+                </mesh>
+              ))
+            ))}
+          </>
+        )}
+        {avatar.shirtPattern === "heart" && (
+          <mesh position={[0, 0, 0.21]}>
+            <shapeGeometry args={[createHeartShape()]} />
+            <meshStandardMaterial color="#FF69B4" />
+          </mesh>
+        )}
+        {avatar.shirtPattern === "star" && (
+          <mesh position={[0, 0, 0.21]}>
+            <shapeGeometry args={[createStarShape()]} />
+            <meshStandardMaterial color="#FFD700" />
+          </mesh>
+        )}
+        {avatar.shirtPattern === "checkered" && (
+          <>
+            {[0, 1].map((row) => (
+              [0, 1].map((col) => (
+                <mesh key={`${row}-${col}`} position={[-0.15 + col * 0.3, -0.15 + row * 0.3, 0.21]}>
+                  <boxGeometry args={[0.25, 0.25, 0.01]} />
+                  <meshStandardMaterial color="#FFFFFF" />
+                </mesh>
+              ))
+            ))}
+          </>
+        )}
+        
+        {avatar.shirtStyle === "vneck" && (
+          <mesh position={[0, 0.25, 0.21]}>
+            <shapeGeometry args={[createVNeckShape()]} />
+            <meshStandardMaterial color="#000000" />
+          </mesh>
+        )}
+      </group>
       
       {/* Arms */}
-      <mesh position={[-0.5 * avatar.shoulderWidth, 0.2, 0]}>
-        <cylinderGeometry args={[0.08, 0.08, 0.8, 16]} />
-        <meshStandardMaterial color={avatar.skinColor} roughness={0.7} />
+      <mesh position={[-0.4, 0.5, 0]}>
+        <cylinderGeometry args={[0.08, 0.08, 0.5, 8]} />
+        <meshStandardMaterial color={avatar.shirtColor || legoRed} roughness={0.3} metalness={0.1} />
       </mesh>
-      <mesh position={[0.5 * avatar.shoulderWidth, 0.2, 0]}>
-        <cylinderGeometry args={[0.08, 0.08, 0.8, 16]} />
-        <meshStandardMaterial color={avatar.skinColor} roughness={0.7} />
+      <mesh position={[0.4, 0.5, 0]}>
+        <cylinderGeometry args={[0.08, 0.08, 0.5, 8]} />
+        <meshStandardMaterial color={avatar.shirtColor || legoRed} roughness={0.3} metalness={0.1} />
+      </mesh>
+      
+      {/* LEGO C-shaped Hands */}
+      <mesh position={[-0.4, 0.2, 0.15]}>
+        <torusGeometry args={[0.1, 0.05, 8, 16, Math.PI]} />
+        <meshStandardMaterial color={avatar.handColor || legoYellow} roughness={0.3} />
+      </mesh>
+      <mesh position={[0.4, 0.2, 0.15]}>
+        <torusGeometry args={[0.1, 0.05, 8, 16, Math.PI]} />
+        <meshStandardMaterial color={avatar.handColor || legoYellow} roughness={0.3} />
       </mesh>
       
       {/* Legs */}
-      <mesh position={[-0.2, -0.8, 0]}>
-        <cylinderGeometry args={[0.1, 0.1, 0.8, 16]} />
-        <meshStandardMaterial color={avatar.skinColor} roughness={0.7} />
-      </mesh>
-      <mesh position={[0.2, -0.8, 0]}>
-        <cylinderGeometry args={[0.1, 0.1, 0.8, 16]} />
-        <meshStandardMaterial color={avatar.skinColor} roughness={0.7} />
-      </mesh>
+      <group position={[0, -0.3, 0]}>
+        {avatar.legStyle === "pants" ? (
+          <>
+            <mesh position={[-0.15, 0, 0]}>
+              <boxGeometry args={[0.2, 0.8, 0.2]} />
+              <meshStandardMaterial 
+                color={avatar.legColor || legoBlue} 
+                roughness={avatar.legPattern === "denim" ? 0.6 : 0.3}
+                metalness={0.1}
+              />
+            </mesh>
+            <mesh position={[0.15, 0, 0]}>
+              <boxGeometry args={[0.2, 0.8, 0.2]} />
+              <meshStandardMaterial 
+                color={avatar.legColor || legoBlue} 
+                roughness={avatar.legPattern === "denim" ? 0.6 : 0.3}
+                metalness={0.1}
+              />
+            </mesh>
+            {avatar.legPattern === "denim" && (
+              <>
+                <mesh position={[-0.15, -0.2, 0.11]}>
+                  <boxGeometry args={[0.18, 0.02, 0.01]} />
+                  <meshStandardMaterial color="#87CEEB" />
+                </mesh>
+                <mesh position={[0.15, -0.2, 0.11]}>
+                  <boxGeometry args={[0.18, 0.02, 0.01]} />
+                  <meshStandardMaterial color="#87CEEB" />
+                </mesh>
+              </>
+            )}
+            {avatar.legPattern === "cargo" && (
+              <>
+                {[-1, 1].map((side) => (
+                  <mesh key={side} position={[side * 0.15, 0.1, 0.11]}>
+                    <boxGeometry args={[0.08, 0.1, 0.02]} />
+                    <meshStandardMaterial color={avatar.legColor || legoBlue} />
+                  </mesh>
+                ))}
+              </>
+            )}
+          </>
+        ) : (
+          <>
+            <mesh position={[-0.15, 0.2, 0]}>
+              <boxGeometry args={[0.2, 0.4, 0.2]} />
+              <meshStandardMaterial 
+                color={avatar.legColor || legoBlue} 
+                roughness={avatar.legPattern === "denim" ? 0.6 : 0.3}
+                metalness={0.1}
+              />
+            </mesh>
+            <mesh position={[0.15, 0.2, 0]}>
+              <boxGeometry args={[0.2, 0.4, 0.2]} />
+              <meshStandardMaterial 
+                color={avatar.legColor || legoBlue} 
+                roughness={avatar.legPattern === "denim" ? 0.6 : 0.3}
+                metalness={0.1}
+              />
+            </mesh>
+            {avatar.legPattern === "stripes" && (
+              <>
+                <mesh position={[-0.15, 0.3, 0.11]}>
+                  <boxGeometry args={[0.18, 0.02, 0.01]} />
+                  <meshStandardMaterial color="#FFFFFF" />
+                </mesh>
+                <mesh position={[0.15, 0.3, 0.11]}>
+                  <boxGeometry args={[0.18, 0.02, 0.01]} />
+                  <meshStandardMaterial color="#FFFFFF" />
+                </mesh>
+              </>
+            )}
+          </>
+        )}
+      </group>
       
-      {/* Accessories - Glasses */}
-      {avatar.accessories.includes("glasses") && (
-        <group>
-          <mesh position={[-0.15 * avatar.eyeSpacing, 1.6, 0.38]}>
-            <torusGeometry args={[0.1, 0.01, 8, 16]} />
-            <meshStandardMaterial color="#333333" metalness={0.8} />
+      {/* Accessories */}
+      {avatar.accessories.includes("backpack") && (
+        <mesh position={[0, 0.3, -0.25]}>
+          <boxGeometry args={[0.4, 0.5, 0.15]} />
+          <meshStandardMaterial color="#333333" roughness={0.5} />
+        </mesh>
+      )}
+      {avatar.accessories.includes("bag") && (
+        <mesh position={[0.35, 0.4, 0]}>
+          <boxGeometry args={[0.15, 0.2, 0.1]} />
+          <meshStandardMaterial color="#8B4513" roughness={0.6} />
+        </mesh>
+      )}
+      {avatar.accessories.includes("hat") && (
+        <mesh position={[0, 1.7, 0]}>
+          <cylinderGeometry args={[0.45, 0.45, 0.1, 16]} />
+          <meshStandardMaterial color="#1a1a1a" roughness={0.4} />
+        </mesh>
+      )}
+      {avatar.accessories.includes("cap") && (
+        <group position={[0, 1.65, 0]}>
+          <mesh>
+            <cylinderGeometry args={[0.42, 0.42, 0.08, 16]} />
+            <meshStandardMaterial color="#0066CC" roughness={0.4} />
           </mesh>
-          <mesh position={[0.15 * avatar.eyeSpacing, 1.6, 0.38]}>
-            <torusGeometry args={[0.1, 0.01, 8, 16]} />
-            <meshStandardMaterial color="#333333" metalness={0.8} />
-          </mesh>
-          <mesh position={[0, 1.6, 0.38]}>
-            <boxGeometry args={[0.3, 0.01, 0.01]} />
-            <meshStandardMaterial color="#333333" metalness={0.8} />
+          <mesh position={[0, -0.04, 0.2]}>
+            <boxGeometry args={[0.35, 0.05, 0.15]} />
+            <meshStandardMaterial color="#0066CC" roughness={0.4} />
           </mesh>
         </group>
       )}
-      
-      {/* Accessories - Hat */}
-      {avatar.accessories.includes("hat") && (
-        <mesh position={[0, 2.0, 0]}>
-          <cylinderGeometry args={[0.6, 0.6, 0.15, 16]} />
-          <meshStandardMaterial color="#1a1a1a" />
-        </mesh>
+      {avatar.accessories.includes("glasses") && (
+        <group position={[0, 1.2, 0.4]}>
+          <mesh position={[-0.12, 0, 0]}>
+            <torusGeometry args={[0.1, 0.01, 8, 16]} />
+            <meshStandardMaterial color="#333333" metalness={0.8} />
+          </mesh>
+          <mesh position={[0.12, 0, 0]}>
+            <torusGeometry args={[0.1, 0.01, 8, 16]} />
+            <meshStandardMaterial color="#333333" metalness={0.8} />
+          </mesh>
+          <mesh position={[0, 0, 0]}>
+            <boxGeometry args={[0.24, 0.01, 0.01]} />
+            <meshStandardMaterial color="#333333" metalness={0.8} />
+          </mesh>
+        </group>
       )}
     </group>
   );
@@ -229,7 +457,7 @@ export default function AvatarPreview3D({ avatar, size = "medium" }: AvatarPrevi
       <div className={`${dimensions.width} ${dimensions.height} rounded-full flex items-center justify-center bg-white dark:bg-gray-800 shadow-lg border border-green-200 dark:border-gray-700 overflow-hidden`}>
         <Canvas camera={{ position: [0, 1, 3], fov: 50 }}>
           <PerspectiveCamera makeDefault position={[0, 1, 3]} fov={50} />
-          <Avatar3D avatar={avatar} />
+          <LegoAvatar3D avatar={avatar} />
           <OrbitControls enableZoom={false} enablePan={false} autoRotate autoRotateSpeed={1} />
         </Canvas>
       </div>

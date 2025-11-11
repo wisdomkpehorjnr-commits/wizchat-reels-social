@@ -4,49 +4,37 @@ import { OrbitControls, PerspectiveCamera } from "@react-three/drei";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Slider } from "@/components/ui/slider";
 import { motion } from "framer-motion";
 import * as THREE from "three";
 
-// Enhanced Avatar Data Interface
+// LEGO Avatar Data Interface
 export interface EnhancedAvatarData {
-  // Head & Face
-  skinColor: string;
-  headSize: number;
+  // Gender
+  gender: "male" | "female";
   
-  // Facial Features
-  eyeColor: string;
-  eyeSize: number;
-  eyeSpacing: number;
-  eyebrowColor: string;
-  eyebrowThickness: number;
-  
-  noseSize: number;
-  noseWidth: number;
-  
-  mouthSize: number;
-  mouthWidth: number;
-  lipColor: string;
-  
-  earSize: number;
-  earPosition: number;
+  // Head & Face (LEGO style - simple)
+  headColor: string; // LEGO heads are typically yellow
+  faceExpression: "happy" | "neutral" | "wink" | "surprised";
   
   // Hair
   hairColor: string;
   hairStyle: string;
-  hairLength: number;
   
-  // Body
-  bodyColor: string;
-  bodySize: number;
-  shoulderWidth: number;
+  // Torso/Shirt
+  shirtStyle: string;
+  shirtColor: string;
+  shirtPattern?: string;
   
-  // Outfit
-  outfitColor: string;
-  outfitStyle: string;
+  // Legs
+  legStyle: "pants" | "shorts";
+  legColor: string;
+  legPattern?: string;
   
   // Accessories
   accessories: string[];
+  
+  // Hands (LEGO C-shaped)
+  handColor: string;
 }
 
 interface AvatarStudioProps {
@@ -56,252 +44,515 @@ interface AvatarStudioProps {
   initialAvatar?: Partial<EnhancedAvatarData>;
 }
 
-// 3D Avatar Component
-const Avatar3D: React.FC<{ avatar: EnhancedAvatarData }> = ({ avatar }) => {
+// LEGO-style clothing options
+const SHIRT_STYLES = [
+  { id: "basic", name: "Basic Shirt", pattern: null },
+  { id: "striped", name: "Striped Shirt", pattern: "stripes" },
+  { id: "polka", name: "Polka Dot", pattern: "polka" },
+  { id: "heart", name: "Heart Design", pattern: "heart" },
+  { id: "star", name: "Star Design", pattern: "star" },
+  { id: "checkered", name: "Checkered", pattern: "checkered" },
+  { id: "solid", name: "Solid Color", pattern: null },
+  { id: "vneck", name: "V-Neck", pattern: null },
+];
+
+const PANTS_STYLES = [
+  { id: "jeans", name: "Jeans", pattern: "denim" },
+  { id: "cargo", name: "Cargo Pants", pattern: "cargo" },
+  { id: "sweatpants", name: "Sweatpants", pattern: null },
+  { id: "dress", name: "Dress Pants", pattern: null },
+];
+
+const SHORTS_STYLES = [
+  { id: "casual", name: "Casual Shorts", pattern: null },
+  { id: "athletic", name: "Athletic Shorts", pattern: "stripes" },
+  { id: "cargo", name: "Cargo Shorts", pattern: "cargo" },
+  { id: "denim", name: "Denim Shorts", pattern: "denim" },
+];
+
+const HAIR_STYLES = {
+  male: [
+    { id: "short", name: "Short" },
+    { id: "spiky", name: "Spiky" },
+    { id: "curly", name: "Curly" },
+    { id: "slicked", name: "Slicked Back" },
+    { id: "afro", name: "Afro" },
+    { id: "buzz", name: "Buzz Cut" },
+  ],
+  female: [
+    { id: "long", name: "Long Hair" },
+    { id: "ponytail", name: "Ponytail" },
+    { id: "bob", name: "Bob Cut" },
+    { id: "curly", name: "Curly" },
+    { id: "braids", name: "Braids" },
+    { id: "bun", name: "Bun" },
+  ],
+};
+
+// LEGO 3D Avatar Component
+const LegoAvatar3D: React.FC<{ avatar: EnhancedAvatarData }> = ({ avatar }) => {
+  // LEGO colors
+  const legoYellow = "#FFD700";
+  const legoRed = "#DC143C";
+  const legoBlue = "#0066CC";
+  const legoGreen = "#00AA44";
+  
   return (
     <group>
       {/* Lighting */}
-      <ambientLight intensity={0.6} />
-      <directionalLight position={[5, 5, 5]} intensity={0.8} />
-      <directionalLight position={[-5, 5, -5]} intensity={0.4} />
-      <pointLight position={[0, 3, 0]} intensity={0.3} />
+      <ambientLight intensity={0.8} />
+      <directionalLight position={[5, 5, 5]} intensity={1} />
+      <directionalLight position={[-5, 5, -5]} intensity={0.5} />
       
-      {/* Head */}
-      <mesh position={[0, 1.5, 0]}>
-        <sphereGeometry args={[0.5 * avatar.headSize, 32, 32]} />
-        <meshStandardMaterial color={avatar.skinColor} roughness={0.7} />
-      </mesh>
-      
-      {/* Hair */}
-      {avatar.hairStyle === "short" && (
-        <mesh position={[0, 1.8, 0]}>
-          <sphereGeometry args={[0.52 * avatar.headSize, 32, 32, 0, Math.PI * 2, 0, Math.PI * 0.6]} />
-          <meshStandardMaterial color={avatar.hairColor} />
-        </mesh>
-      )}
-      {avatar.hairStyle === "medium" && (
-        <group>
-          <mesh position={[0, 1.8, 0]}>
-            <sphereGeometry args={[0.52 * avatar.headSize, 32, 32, 0, Math.PI * 2, 0, Math.PI * 0.6]} />
-            <meshStandardMaterial color={avatar.hairColor} />
-          </mesh>
-          <mesh position={[0, 1.5, 0.3]}>
-            <boxGeometry args={[0.4, 0.3 * avatar.hairLength, 0.2]} />
-            <meshStandardMaterial color={avatar.hairColor} />
-          </mesh>
-        </group>
-      )}
-      {avatar.hairStyle === "long" && (
-        <group>
-          <mesh position={[0, 1.8, 0]}>
-            <sphereGeometry args={[0.52 * avatar.headSize, 32, 32, 0, Math.PI * 2, 0, Math.PI * 0.6]} />
-            <meshStandardMaterial color={avatar.hairColor} />
-          </mesh>
-          <mesh position={[0, 1.2, 0.4]}>
-            <boxGeometry args={[0.5, 0.5 * avatar.hairLength, 0.15]} />
-            <meshStandardMaterial color={avatar.hairColor} />
-          </mesh>
-        </group>
-      )}
-      {avatar.hairStyle === "curly" && (
-        <group>
-          {[...Array(8)].map((_, i) => (
-            <mesh key={i} position={[
-              Math.cos(i * Math.PI / 4) * 0.3,
-              1.7 + Math.sin(i * 0.5) * 0.1,
-              Math.sin(i * Math.PI / 4) * 0.3
-            ]}>
-              <sphereGeometry args={[0.08, 16, 16]} />
-              <meshStandardMaterial color={avatar.hairColor} />
-            </mesh>
-          ))}
-        </group>
-      )}
-      
-      {/* Eyes */}
-      <group>
-        {/* Left Eye */}
-        <mesh position={[-0.15 * avatar.eyeSpacing, 1.6, 0.4]}>
-          <sphereGeometry args={[0.08 * avatar.eyeSize, 16, 16]} />
-          <meshStandardMaterial color="#ffffff" />
-        </mesh>
-        <mesh position={[-0.15 * avatar.eyeSpacing, 1.6, 0.42]}>
-          <sphereGeometry args={[0.06 * avatar.eyeSize, 16, 16]} />
-          <meshStandardMaterial color={avatar.eyeColor} />
-        </mesh>
-        <mesh position={[-0.15 * avatar.eyeSpacing, 1.6, 0.44]}>
-          <sphereGeometry args={[0.03 * avatar.eyeSize, 16, 16]} />
-          <meshStandardMaterial color="#000000" />
+      {/* LEGO Head - Cylindrical with flat top */}
+      <group position={[0, 1.2, 0]}>
+        {/* Main head cylinder */}
+        <mesh>
+          <cylinderGeometry args={[0.4, 0.4, 0.5, 16]} />
+          <meshStandardMaterial color={avatar.headColor || legoYellow} roughness={0.3} metalness={0.1} />
         </mesh>
         
-        {/* Right Eye */}
-        <mesh position={[0.15 * avatar.eyeSpacing, 1.6, 0.4]}>
-          <sphereGeometry args={[0.08 * avatar.eyeSize, 16, 16]} />
-          <meshStandardMaterial color="#ffffff" />
+        {/* Flat top */}
+        <mesh position={[0, 0.25, 0]}>
+          <cylinderGeometry args={[0.4, 0.4, 0.05, 16]} />
+          <meshStandardMaterial color={avatar.headColor || legoYellow} roughness={0.3} metalness={0.1} />
         </mesh>
-        <mesh position={[0.15 * avatar.eyeSpacing, 1.6, 0.42]}>
-          <sphereGeometry args={[0.06 * avatar.eyeSize, 16, 16]} />
-          <meshStandardMaterial color={avatar.eyeColor} />
-        </mesh>
-        <mesh position={[0.15 * avatar.eyeSpacing, 1.6, 0.44]}>
-          <sphereGeometry args={[0.03 * avatar.eyeSize, 16, 16]} />
-          <meshStandardMaterial color="#000000" />
-        </mesh>
+        
+        {/* Face - Simple printed details */}
+        {/* Eyes */}
+        {avatar.faceExpression === "happy" || avatar.faceExpression === "neutral" ? (
+          <>
+            <mesh position={[-0.12, 0.05, 0.41]}>
+              <circleGeometry args={[0.03, 16]} />
+              <meshStandardMaterial color="#000000" />
+            </mesh>
+            <mesh position={[0.12, 0.05, 0.41]}>
+              <circleGeometry args={[0.03, 16]} />
+              <meshStandardMaterial color="#000000" />
+            </mesh>
+          </>
+        ) : avatar.faceExpression === "wink" ? (
+          <>
+            <mesh position={[-0.12, 0.05, 0.41]}>
+              <circleGeometry args={[0.03, 16]} />
+              <meshStandardMaterial color="#000000" />
+            </mesh>
+            <mesh position={[0.12, 0.05, 0.41]} rotation={[0, 0, Math.PI / 4]}>
+              <boxGeometry args={[0.06, 0.01, 0.01]} />
+              <meshStandardMaterial color="#000000" />
+            </mesh>
+          </>
+        ) : (
+          <>
+            <mesh position={[-0.12, 0.08, 0.41]}>
+              <circleGeometry args={[0.04, 16]} />
+              <meshStandardMaterial color="#000000" />
+            </mesh>
+            <mesh position={[0.12, 0.08, 0.41]}>
+              <circleGeometry args={[0.04, 16]} />
+              <meshStandardMaterial color="#000000" />
+            </mesh>
+          </>
+        )}
+        
+        {/* Mouth */}
+        {avatar.faceExpression === "happy" ? (
+          <mesh position={[0, -0.1, 0.41]} rotation={[0, 0, 0]}>
+            <torusGeometry args={[0.08, 0.01, 8, 16, Math.PI]} />
+            <meshStandardMaterial color="#000000" />
+          </mesh>
+        ) : avatar.faceExpression === "surprised" ? (
+          <mesh position={[0, -0.1, 0.41]}>
+            <circleGeometry args={[0.06, 16]} />
+            <meshStandardMaterial color="#FFFFFF" />
+          </mesh>
+        ) : (
+          <mesh position={[0, -0.1, 0.41]}>
+            <boxGeometry args={[0.12, 0.02, 0.01]} />
+            <meshStandardMaterial color="#000000" />
+          </mesh>
+        )}
       </group>
       
-      {/* Eyebrows */}
-      <mesh position={[-0.15 * avatar.eyeSpacing, 1.75, 0.38]}>
-        <boxGeometry args={[0.12, 0.02 * avatar.eyebrowThickness, 0.05]} />
-        <meshStandardMaterial color={avatar.eyebrowColor} />
-      </mesh>
-      <mesh position={[0.15 * avatar.eyeSpacing, 1.75, 0.38]}>
-        <boxGeometry args={[0.12, 0.02 * avatar.eyebrowThickness, 0.05]} />
-        <meshStandardMaterial color={avatar.eyebrowColor} />
-      </mesh>
-      
-      {/* Nose */}
-      <mesh position={[0, 1.5, 0.45]}>
-        <coneGeometry args={[0.05 * avatar.noseWidth, 0.1 * avatar.noseSize, 8]} />
-        <meshStandardMaterial color={avatar.skinColor} roughness={0.7} />
-      </mesh>
-      
-      {/* Mouth */}
-      <mesh position={[0, 1.35, 0.42]}>
-        <torusGeometry args={[0.06 * avatar.mouthWidth, 0.02 * avatar.mouthSize, 8, 16, Math.PI]} />
-        <meshStandardMaterial color={avatar.lipColor} />
-      </mesh>
-      
-      {/* Ears */}
-      <mesh position={[-0.5 * avatar.headSize, 1.5, 0]}>
-        <sphereGeometry args={[0.08 * avatar.earSize, 16, 16]} />
-        <meshStandardMaterial color={avatar.skinColor} roughness={0.7} />
-      </mesh>
-      <mesh position={[0.5 * avatar.headSize, 1.5, 0]}>
-        <sphereGeometry args={[0.08 * avatar.earSize, 16, 16]} />
-        <meshStandardMaterial color={avatar.skinColor} roughness={0.7} />
-      </mesh>
-      
-      {/* Neck */}
-      <mesh position={[0, 1.0, 0]}>
-        <cylinderGeometry args={[0.15, 0.15, 0.3, 16]} />
-        <meshStandardMaterial color={avatar.skinColor} roughness={0.7} />
-      </mesh>
-      
-      {/* Torso/Body */}
-      <mesh position={[0, 0.2, 0]}>
-        <boxGeometry args={[0.8 * avatar.shoulderWidth, 1.2 * avatar.bodySize, 0.5]} />
-        <meshStandardMaterial color={avatar.bodyColor} />
-      </mesh>
-      
-      {/* Outfit */}
-      {avatar.outfitStyle === "shirt" && (
-        <mesh position={[0, 0.2, 0.26]}>
-          <boxGeometry args={[0.85 * avatar.shoulderWidth, 1.25 * avatar.bodySize, 0.1]} />
-          <meshStandardMaterial color={avatar.outfitColor} />
-        </mesh>
+      {/* Hair */}
+      {avatar.hairStyle && (
+        <group position={[0, 1.45, 0]}>
+          {avatar.hairStyle === "short" && (
+            <mesh>
+              <cylinderGeometry args={[0.42, 0.42, 0.15, 16]} />
+              <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+            </mesh>
+          )}
+          {avatar.hairStyle === "spiky" && (
+            <group>
+              {[...Array(5)].map((_, i) => (
+                <mesh key={i} position={[Math.cos(i * Math.PI * 0.4) * 0.3, 0.1, Math.sin(i * Math.PI * 0.4) * 0.3]}>
+                  <boxGeometry args={[0.05, 0.15, 0.05]} />
+                  <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+                </mesh>
+              ))}
+            </group>
+          )}
+          {avatar.hairStyle === "curly" && (
+            <group>
+              {[...Array(8)].map((_, i) => (
+                <mesh key={i} position={[
+                  Math.cos(i * Math.PI / 4) * 0.3,
+                  0.05 + Math.sin(i * 0.5) * 0.05,
+                  Math.sin(i * Math.PI / 4) * 0.3
+                ]}>
+                  <sphereGeometry args={[0.06, 8, 8]} />
+                  <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+                </mesh>
+              ))}
+            </group>
+          )}
+          {avatar.hairStyle === "slicked" && (
+            <mesh rotation={[0, 0, 0]}>
+              <boxGeometry args={[0.4, 0.1, 0.3]} />
+              <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+            </mesh>
+          )}
+          {avatar.hairStyle === "afro" && (
+            <mesh>
+              <sphereGeometry args={[0.45, 16, 16, 0, Math.PI * 2, 0, Math.PI * 0.7]} />
+              <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+            </mesh>
+          )}
+          {avatar.hairStyle === "buzz" && (
+            <mesh>
+              <cylinderGeometry args={[0.41, 0.41, 0.05, 16]} />
+              <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+            </mesh>
+          )}
+          {avatar.hairStyle === "long" && (
+            <group>
+              <mesh>
+                <cylinderGeometry args={[0.42, 0.42, 0.2, 16]} />
+                <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+              </mesh>
+              <mesh position={[0, -0.3, 0.2]}>
+                <boxGeometry args={[0.35, 0.4, 0.1]} />
+                <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+              </mesh>
+            </group>
+          )}
+          {avatar.hairStyle === "ponytail" && (
+            <group>
+              <mesh>
+                <cylinderGeometry args={[0.42, 0.42, 0.15, 16]} />
+                <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+              </mesh>
+              <mesh position={[0, -0.2, 0.25]}>
+                <cylinderGeometry args={[0.08, 0.08, 0.3, 8]} />
+                <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+              </mesh>
+            </group>
+          )}
+          {avatar.hairStyle === "bob" && (
+            <mesh>
+              <cylinderGeometry args={[0.42, 0.42, 0.2, 16]} />
+              <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+            </mesh>
+          )}
+          {avatar.hairStyle === "braids" && (
+            <group>
+              <mesh>
+                <cylinderGeometry args={[0.42, 0.42, 0.15, 16]} />
+                <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+              </mesh>
+              {[-1, 1].map((side) => (
+                <mesh key={side} position={[side * 0.3, -0.2, 0.2]}>
+                  <cylinderGeometry args={[0.06, 0.06, 0.3, 8]} />
+                  <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+                </mesh>
+              ))}
+            </group>
+          )}
+          {avatar.hairStyle === "bun" && (
+            <group>
+              <mesh>
+                <cylinderGeometry args={[0.42, 0.42, 0.1, 16]} />
+                <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+              </mesh>
+              <mesh position={[0, 0.05, 0.2]}>
+                <torusGeometry args={[0.12, 0.04, 8, 16]} />
+                <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+              </mesh>
+            </group>
+          )}
+        </group>
       )}
-      {avatar.outfitStyle === "jacket" && (
-        <mesh position={[0, 0.2, 0.26]}>
-          <boxGeometry args={[0.9 * avatar.shoulderWidth, 1.3 * avatar.bodySize, 0.12]} />
-          <meshStandardMaterial color={avatar.outfitColor} />
+      
+      {/* Torso/Shirt */}
+      <group position={[0, 0.5, 0]}>
+        {/* Base torso */}
+        <mesh>
+          <boxGeometry args={[0.6, 0.7, 0.4]} />
+          <meshStandardMaterial color={avatar.shirtColor || legoRed} roughness={0.3} metalness={0.1} />
         </mesh>
-      )}
-      {avatar.outfitStyle === "dress" && (
-        <mesh position={[0, -0.1, 0.26]}>
-          <coneGeometry args={[0.5 * avatar.shoulderWidth, 1.5 * avatar.bodySize, 8]} />
-          <meshStandardMaterial color={avatar.outfitColor} />
-        </mesh>
-      )}
+        
+        {/* Shirt patterns */}
+        {avatar.shirtPattern === "stripes" && (
+          <>
+            {[...Array(5)].map((_, i) => (
+              <mesh key={i} position={[0, -0.35 + i * 0.175, 0.21]}>
+                <boxGeometry args={[0.6, 0.02, 0.01]} />
+                <meshStandardMaterial color="#FFFFFF" />
+              </mesh>
+            ))}
+          </>
+        )}
+        {avatar.shirtPattern === "polka" && (
+          <>
+            {[0, 1, 2].map((row) => (
+              [-1, 0, 1].map((col) => (
+                <mesh key={`${row}-${col}`} position={[col * 0.2, -0.2 + row * 0.2, 0.21]}>
+                  <circleGeometry args={[0.05, 8]} />
+                  <meshStandardMaterial color="#FFFFFF" />
+                </mesh>
+              ))
+            ))}
+          </>
+        )}
+        {avatar.shirtPattern === "heart" && (
+          <mesh position={[0, 0, 0.21]}>
+            <shapeGeometry args={[createHeartShape()]} />
+            <meshStandardMaterial color="#FF69B4" />
+          </mesh>
+        )}
+        {avatar.shirtPattern === "star" && (
+          <mesh position={[0, 0, 0.21]}>
+            <shapeGeometry args={[createStarShape()]} />
+            <meshStandardMaterial color="#FFD700" />
+          </mesh>
+        )}
+        {avatar.shirtPattern === "checkered" && (
+          <>
+            {[0, 1].map((row) => (
+              [0, 1].map((col) => (
+                <mesh key={`${row}-${col}`} position={[-0.15 + col * 0.3, -0.15 + row * 0.3, 0.21]}>
+                  <boxGeometry args={[0.25, 0.25, 0.01]} />
+                  <meshStandardMaterial color="#FFFFFF" />
+                </mesh>
+              ))
+            ))}
+          </>
+        )}
+        
+        {/* V-neck */}
+        {avatar.shirtStyle === "vneck" && (
+          <mesh position={[0, 0.25, 0.21]}>
+            <shapeGeometry args={[createVNeckShape()]} />
+            <meshStandardMaterial color="#000000" />
+          </mesh>
+        )}
+      </group>
       
       {/* Arms */}
-      <mesh position={[-0.5 * avatar.shoulderWidth, 0.2, 0]}>
-        <cylinderGeometry args={[0.08, 0.08, 0.8, 16]} />
-        <meshStandardMaterial color={avatar.skinColor} roughness={0.7} />
+      <mesh position={[-0.4, 0.5, 0]}>
+        <cylinderGeometry args={[0.08, 0.08, 0.5, 8]} />
+        <meshStandardMaterial color={avatar.shirtColor || legoRed} roughness={0.3} metalness={0.1} />
       </mesh>
-      <mesh position={[0.5 * avatar.shoulderWidth, 0.2, 0]}>
-        <cylinderGeometry args={[0.08, 0.08, 0.8, 16]} />
-        <meshStandardMaterial color={avatar.skinColor} roughness={0.7} />
+      <mesh position={[0.4, 0.5, 0]}>
+        <cylinderGeometry args={[0.08, 0.08, 0.5, 8]} />
+        <meshStandardMaterial color={avatar.shirtColor || legoRed} roughness={0.3} metalness={0.1} />
+      </mesh>
+      
+      {/* LEGO C-shaped Hands */}
+      <mesh position={[-0.4, 0.2, 0.15]}>
+        <torusGeometry args={[0.1, 0.05, 8, 16, Math.PI]} />
+        <meshStandardMaterial color={avatar.handColor || legoYellow} roughness={0.3} />
+      </mesh>
+      <mesh position={[0.4, 0.2, 0.15]}>
+        <torusGeometry args={[0.1, 0.05, 8, 16, Math.PI]} />
+        <meshStandardMaterial color={avatar.handColor || legoYellow} roughness={0.3} />
       </mesh>
       
       {/* Legs */}
-      <mesh position={[-0.2, -0.8, 0]}>
-        <cylinderGeometry args={[0.1, 0.1, 0.8, 16]} />
-        <meshStandardMaterial color={avatar.skinColor} roughness={0.7} />
-      </mesh>
-      <mesh position={[0.2, -0.8, 0]}>
-        <cylinderGeometry args={[0.1, 0.1, 0.8, 16]} />
-        <meshStandardMaterial color={avatar.skinColor} roughness={0.7} />
-      </mesh>
+      <group position={[0, -0.3, 0]}>
+        {avatar.legStyle === "pants" ? (
+          <>
+            <mesh position={[-0.15, 0, 0]}>
+              <boxGeometry args={[0.2, 0.8, 0.2]} />
+              <meshStandardMaterial 
+                color={avatar.legColor || legoBlue} 
+                roughness={avatar.legPattern === "denim" ? 0.6 : 0.3}
+                metalness={0.1}
+              />
+            </mesh>
+            <mesh position={[0.15, 0, 0]}>
+              <boxGeometry args={[0.2, 0.8, 0.2]} />
+              <meshStandardMaterial 
+                color={avatar.legColor || legoBlue} 
+                roughness={avatar.legPattern === "denim" ? 0.6 : 0.3}
+                metalness={0.1}
+              />
+            </mesh>
+            {/* Denim stitching */}
+            {avatar.legPattern === "denim" && (
+              <>
+                <mesh position={[-0.15, -0.2, 0.11]}>
+                  <boxGeometry args={[0.18, 0.02, 0.01]} />
+                  <meshStandardMaterial color="#87CEEB" />
+                </mesh>
+                <mesh position={[0.15, -0.2, 0.11]}>
+                  <boxGeometry args={[0.18, 0.02, 0.01]} />
+                  <meshStandardMaterial color="#87CEEB" />
+                </mesh>
+              </>
+            )}
+            {/* Cargo pockets */}
+            {avatar.legPattern === "cargo" && (
+              <>
+                {[-1, 1].map((side) => (
+                  <mesh key={side} position={[side * 0.15, 0.1, 0.11]}>
+                    <boxGeometry args={[0.08, 0.1, 0.02]} />
+                    <meshStandardMaterial color={avatar.legColor || legoBlue} />
+                  </mesh>
+                ))}
+              </>
+            )}
+          </>
+        ) : (
+          <>
+            <mesh position={[-0.15, 0.2, 0]}>
+              <boxGeometry args={[0.2, 0.4, 0.2]} />
+              <meshStandardMaterial 
+                color={avatar.legColor || legoBlue} 
+                roughness={avatar.legPattern === "denim" ? 0.6 : 0.3}
+                metalness={0.1}
+              />
+            </mesh>
+            <mesh position={[0.15, 0.2, 0]}>
+              <boxGeometry args={[0.2, 0.4, 0.2]} />
+              <meshStandardMaterial 
+                color={avatar.legColor || legoBlue} 
+                roughness={avatar.legPattern === "denim" ? 0.6 : 0.3}
+                metalness={0.1}
+              />
+            </mesh>
+            {/* Athletic stripes */}
+            {avatar.legPattern === "stripes" && (
+              <>
+                <mesh position={[-0.15, 0.3, 0.11]}>
+                  <boxGeometry args={[0.18, 0.02, 0.01]} />
+                  <meshStandardMaterial color="#FFFFFF" />
+                </mesh>
+                <mesh position={[0.15, 0.3, 0.11]}>
+                  <boxGeometry args={[0.18, 0.02, 0.01]} />
+                  <meshStandardMaterial color="#FFFFFF" />
+                </mesh>
+              </>
+            )}
+          </>
+        )}
+      </group>
       
-      {/* Accessories - Glasses */}
-      {avatar.accessories.includes("glasses") && (
-        <group>
-          <mesh position={[-0.15 * avatar.eyeSpacing, 1.6, 0.38]}>
-            <torusGeometry args={[0.1, 0.01, 8, 16]} />
-            <meshStandardMaterial color="#333333" metalness={0.8} />
+      {/* Accessories */}
+      {avatar.accessories.includes("backpack") && (
+        <mesh position={[0, 0.3, -0.25]}>
+          <boxGeometry args={[0.4, 0.5, 0.15]} />
+          <meshStandardMaterial color="#333333" roughness={0.5} />
+        </mesh>
+      )}
+      {avatar.accessories.includes("bag") && (
+        <mesh position={[0.35, 0.4, 0]}>
+          <boxGeometry args={[0.15, 0.2, 0.1]} />
+          <meshStandardMaterial color="#8B4513" roughness={0.6} />
+        </mesh>
+      )}
+      {avatar.accessories.includes("hat") && (
+        <mesh position={[0, 1.7, 0]}>
+          <cylinderGeometry args={[0.45, 0.45, 0.1, 16]} />
+          <meshStandardMaterial color="#1a1a1a" roughness={0.4} />
+        </mesh>
+      )}
+      {avatar.accessories.includes("cap") && (
+        <group position={[0, 1.65, 0]}>
+          <mesh>
+            <cylinderGeometry args={[0.42, 0.42, 0.08, 16]} />
+            <meshStandardMaterial color="#0066CC" roughness={0.4} />
           </mesh>
-          <mesh position={[0.15 * avatar.eyeSpacing, 1.6, 0.38]}>
-            <torusGeometry args={[0.1, 0.01, 8, 16]} />
-            <meshStandardMaterial color="#333333" metalness={0.8} />
-          </mesh>
-          <mesh position={[0, 1.6, 0.38]}>
-            <boxGeometry args={[0.3, 0.01, 0.01]} />
-            <meshStandardMaterial color="#333333" metalness={0.8} />
+          <mesh position={[0, -0.04, 0.2]}>
+            <boxGeometry args={[0.35, 0.05, 0.15]} />
+            <meshStandardMaterial color="#0066CC" roughness={0.4} />
           </mesh>
         </group>
       )}
-      
-      {/* Accessories - Hat */}
-      {avatar.accessories.includes("hat") && (
-        <mesh position={[0, 2.0, 0]}>
-          <cylinderGeometry args={[0.6, 0.6, 0.15, 16]} />
-          <meshStandardMaterial color="#1a1a1a" />
-        </mesh>
+      {avatar.accessories.includes("glasses") && (
+        <group position={[0, 1.2, 0.4]}>
+          <mesh position={[-0.12, 0, 0]}>
+            <torusGeometry args={[0.1, 0.01, 8, 16]} />
+            <meshStandardMaterial color="#333333" metalness={0.8} />
+          </mesh>
+          <mesh position={[0.12, 0, 0]}>
+            <torusGeometry args={[0.1, 0.01, 8, 16]} />
+            <meshStandardMaterial color="#333333" metalness={0.8} />
+          </mesh>
+          <mesh position={[0, 0, 0]}>
+            <boxGeometry args={[0.24, 0.01, 0.01]} />
+            <meshStandardMaterial color="#333333" metalness={0.8} />
+          </mesh>
+        </group>
       )}
     </group>
   );
 };
 
+// Helper functions for shapes
+function createHeartShape() {
+  const shape = new THREE.Shape();
+  shape.moveTo(0, 0.1);
+  shape.bezierCurveTo(0, 0.1, -0.1, 0, -0.1, -0.05);
+  shape.bezierCurveTo(-0.1, -0.1, 0, -0.1, 0, -0.05);
+  shape.bezierCurveTo(0, -0.1, 0.1, -0.1, 0.1, -0.05);
+  shape.bezierCurveTo(0.1, 0, 0, 0.1, 0, 0.1);
+  return shape;
+}
+
+function createStarShape() {
+  const shape = new THREE.Shape();
+  const spikes = 5;
+  const outerRadius = 0.15;
+  const innerRadius = 0.08;
+  for (let i = 0; i < spikes * 2; i++) {
+    const angle = (i * Math.PI) / spikes;
+    const radius = i % 2 === 0 ? outerRadius : innerRadius;
+    const x = Math.cos(angle) * radius;
+    const y = Math.sin(angle) * radius;
+    if (i === 0) shape.moveTo(x, y);
+    else shape.lineTo(x, y);
+  }
+  shape.closePath();
+  return shape;
+}
+
+function createVNeckShape() {
+  const shape = new THREE.Shape();
+  shape.moveTo(-0.15, 0.35);
+  shape.lineTo(0, 0.2);
+  shape.lineTo(0.15, 0.35);
+  shape.lineTo(0.15, 0.35);
+  return shape;
+}
+
 const AvatarStudio: React.FC<AvatarStudioProps> = ({ open = true, onOpenChange, onSave, initialAvatar }) => {
   const [avatar, setAvatar] = useState<EnhancedAvatarData>({
-    // Head & Face
-    skinColor: "#f5cba7",
-    headSize: 1.0,
-    
-    // Facial Features
-    eyeColor: "#4a90e2",
-    eyeSize: 1.0,
-    eyeSpacing: 1.0,
-    eyebrowColor: "#2c1a0e",
-    eyebrowThickness: 1.0,
-    
-    noseSize: 1.0,
-    noseWidth: 1.0,
-    
-    mouthSize: 1.0,
-    mouthWidth: 1.0,
-    lipColor: "#d4a574",
-    
-    earSize: 1.0,
-    earPosition: 1.0,
-    
-    // Hair
-    hairColor: "#2c1a0e",
+    gender: "male",
+    headColor: "#FFD700",
+    faceExpression: "happy",
+    hairColor: "#8B4513",
     hairStyle: "short",
-    hairLength: 1.0,
-    
-    // Body
-    bodyColor: "#f5cba7",
-    bodySize: 1.0,
-    shoulderWidth: 1.0,
-    
-    // Outfit
-    outfitColor: "#4ade80",
-    outfitStyle: "shirt",
-    
-    // Accessories
+    shirtStyle: "basic",
+    shirtColor: "#DC143C",
+    legStyle: "pants",
+    legColor: "#0066CC",
     accessories: [],
+    handColor: "#FFD700",
   });
+
+  const [selectedClothingType, setSelectedClothingType] = useState<"shirt" | "pants" | "shorts" | null>(null);
 
   useEffect(() => {
     if (initialAvatar) {
@@ -329,16 +580,15 @@ const AvatarStudio: React.FC<AvatarStudioProps> = ({ open = true, onOpenChange, 
 
   if (!open) return null;
 
-  const skinColors = ["#f5cba7", "#e0ac69", "#8d5524", "#ffdbac", "#d4a574", "#c68642"];
-  const hairColors = ["#2c1a0e", "#8b4513", "#000000", "#d2b48c", "#ffd700", "#ff69b4", "#4b0082"];
-  const eyeColors = ["#4a90e2", "#2e7d32", "#8b4513", "#000000", "#9c27b0", "#ff5722", "#00bcd4"];
-  const outfitColors = ["#4ade80", "#2563eb", "#f43f5e", "#facc15", "#8b5cf6", "#06b6d4", "#ffffff", "#000000"];
+  const hairColors = ["#8B4513", "#2C1A0E", "#000000", "#FFD700", "#FF69B4", "#FFFFFF", "#4B0082"];
+  const shirtColors = ["#DC143C", "#0066CC", "#00AA44", "#FFD700", "#FF69B4", "#FFFFFF", "#000000", "#8B4513"];
+  const legColors = ["#0066CC", "#000000", "#8B4513", "#FFFFFF", "#DC143C", "#00AA44", "#808080"];
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
         <div className="flex justify-between items-center p-6 border-b">
-          <h1 className="text-2xl font-semibold text-green-700 dark:text-green-400">Customize Your Avatar</h1>
+          <h1 className="text-2xl font-semibold text-green-700 dark:text-green-400">Build Your LEGO Avatar</h1>
           <div className="flex gap-2">
             <Button 
               className="bg-gray-300 text-black hover:bg-gray-400 dark:bg-gray-700 dark:text-white" 
@@ -362,7 +612,7 @@ const AvatarStudio: React.FC<AvatarStudioProps> = ({ open = true, onOpenChange, 
               <div className="w-full h-[500px] flex items-center justify-center">
                 <Canvas camera={{ position: [0, 1, 5], fov: 50 }}>
                   <PerspectiveCamera makeDefault position={[0, 1, 5]} fov={50} />
-                  <Avatar3D avatar={avatar} />
+                  <LegoAvatar3D avatar={avatar} />
                   <OrbitControls enableZoom={true} enablePan={false} minDistance={3} maxDistance={8} />
                 </Canvas>
               </div>
@@ -370,139 +620,85 @@ const AvatarStudio: React.FC<AvatarStudioProps> = ({ open = true, onOpenChange, 
 
             {/* Customization Panel */}
             <div className="space-y-4">
+              {/* Gender Toggle */}
+              <div className="mb-4">
+                <label className="text-sm font-medium mb-2 block">Gender</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {(["male", "female"] as const).map((gender) => (
+                    <motion.button
+                      key={gender}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => {
+                        handleChange("gender", gender);
+                        // Reset hair style to first option for selected gender
+                        const firstHairStyle = HAIR_STYLES[gender][0].id;
+                        handleChange("hairStyle", firstHairStyle);
+                      }}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        avatar.gender === gender
+                          ? "bg-green-600 text-white"
+                          : "bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300"
+                      }`}
+                    >
+                      {gender.charAt(0).toUpperCase() + gender.slice(1)}
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
+
               <Tabs defaultValue="face" className="w-full">
                 <TabsList className="grid w-full grid-cols-4">
                   <TabsTrigger value="face">Face</TabsTrigger>
                   <TabsTrigger value="hair">Hair</TabsTrigger>
-                  <TabsTrigger value="body">Body</TabsTrigger>
-                  <TabsTrigger value="style">Style</TabsTrigger>
+                  <TabsTrigger value="clothing">Clothing</TabsTrigger>
+                  <TabsTrigger value="accessories">Extras</TabsTrigger>
                 </TabsList>
 
                 {/* Face Tab */}
                 <TabsContent value="face" className="space-y-4 mt-4">
                   <div>
-                    <label className="text-sm font-medium mb-2 block">Skin Color</label>
-                    <div className="grid grid-cols-6 gap-2">
-                      {skinColors.map((color) => (
-                        <div
-                          key={color}
-                          onClick={() => handleChange("skinColor", color)}
-                          className={`w-10 h-10 rounded-full cursor-pointer border-2 transition-all ${
-                            avatar.skinColor === color
-                              ? "border-green-600 scale-110"
-                              : "border-transparent hover:scale-105"
-                          }`}
-                          style={{ backgroundColor: color }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Head Size: {avatar.headSize.toFixed(1)}</label>
-                    <Slider
-                      value={[avatar.headSize]}
-                      onValueChange={(value) => handleChange("headSize", value[0])}
-                      min={0.8}
-                      max={1.3}
-                      step={0.1}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Eye Color</label>
-                    <div className="grid grid-cols-7 gap-2">
-                      {eyeColors.map((color) => (
-                        <div
-                          key={color}
-                          onClick={() => handleChange("eyeColor", color)}
-                          className={`w-10 h-10 rounded-full cursor-pointer border-2 transition-all ${
-                            avatar.eyeColor === color
-                              ? "border-green-600 scale-110"
-                              : "border-transparent hover:scale-105"
-                          }`}
-                          style={{ backgroundColor: color }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Eye Size: {avatar.eyeSize.toFixed(1)}</label>
-                    <Slider
-                      value={[avatar.eyeSize]}
-                      onValueChange={(value) => handleChange("eyeSize", value[0])}
-                      min={0.7}
-                      max={1.5}
-                      step={0.1}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Eye Spacing: {avatar.eyeSpacing.toFixed(1)}</label>
-                    <Slider
-                      value={[avatar.eyeSpacing]}
-                      onValueChange={(value) => handleChange("eyeSpacing", value[0])}
-                      min={0.7}
-                      max={1.5}
-                      step={0.1}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Eyebrow Color</label>
+                    <label className="text-sm font-medium mb-2 block">Face Expression</label>
                     <div className="grid grid-cols-4 gap-2">
-                      {hairColors.slice(0, 4).map((color) => (
-                        <div
-                          key={color}
-                          onClick={() => handleChange("eyebrowColor", color)}
-                          className={`w-10 h-10 rounded-full cursor-pointer border-2 transition-all ${
-                            avatar.eyebrowColor === color
-                              ? "border-green-600 scale-110"
-                              : "border-transparent hover:scale-105"
+                      {(["happy", "neutral", "wink", "surprised"] as const).map((expr) => (
+                        <motion.button
+                          key={expr}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => handleChange("faceExpression", expr)}
+                          className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                            avatar.faceExpression === expr
+                              ? "bg-green-600 text-white"
+                              : "bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300"
                           }`}
-                          style={{ backgroundColor: color }}
-                        />
+                        >
+                          {expr.charAt(0).toUpperCase() + expr.slice(1)}
+                        </motion.button>
                       ))}
                     </div>
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Nose Size: {avatar.noseSize.toFixed(1)}</label>
-                    <Slider
-                      value={[avatar.noseSize]}
-                      onValueChange={(value) => handleChange("noseSize", value[0])}
-                      min={0.7}
-                      max={1.5}
-                      step={0.1}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Mouth Size: {avatar.mouthSize.toFixed(1)}</label>
-                    <Slider
-                      value={[avatar.mouthSize]}
-                      onValueChange={(value) => handleChange("mouthSize", value[0])}
-                      min={0.7}
-                      max={1.5}
-                      step={0.1}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Ear Size: {avatar.earSize.toFixed(1)}</label>
-                    <Slider
-                      value={[avatar.earSize]}
-                      onValueChange={(value) => handleChange("earSize", value[0])}
-                      min={0.7}
-                      max={1.5}
-                      step={0.1}
-                    />
                   </div>
                 </TabsContent>
 
                 {/* Hair Tab */}
                 <TabsContent value="hair" className="space-y-4 mt-4">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Hair Style</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {HAIR_STYLES[avatar.gender].map((style) => (
+                        <motion.button
+                          key={style.id}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => handleChange("hairStyle", style.id)}
+                          className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                            avatar.hairStyle === style.id
+                              ? "bg-green-600 text-white"
+                              : "bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300"
+                          }`}
+                        >
+                          {style.name}
+                        </motion.button>
+                      ))}
+                    </div>
+                  </div>
+
                   <div>
                     <label className="text-sm font-medium mb-2 block">Hair Color</label>
                     <div className="grid grid-cols-7 gap-2">
@@ -520,110 +716,207 @@ const AvatarStudio: React.FC<AvatarStudioProps> = ({ open = true, onOpenChange, 
                       ))}
                     </div>
                   </div>
+                </TabsContent>
 
+                {/* Clothing Tab */}
+                <TabsContent value="clothing" className="space-y-4 mt-4">
+                  {/* Shirt Selection */}
                   <div>
-                    <label className="text-sm font-medium mb-2 block">Hair Style</label>
-                    <div className="grid grid-cols-4 gap-2">
-                      {["short", "medium", "long", "curly"].map((style) => (
+                    <label className="text-sm font-medium mb-2 block">Shirt</label>
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
                         <motion.button
-                          key={style}
                           whileTap={{ scale: 0.95 }}
-                          onClick={() => handleChange("hairStyle", style)}
+                          onClick={() => setSelectedClothingType(selectedClothingType === "shirt" ? null : "shirt")}
                           className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                            avatar.hairStyle === style
+                            selectedClothingType === "shirt"
                               ? "bg-green-600 text-white"
                               : "bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300"
                           }`}
                         >
-                          {style.charAt(0).toUpperCase() + style.slice(1)}
+                          Choose Shirt
                         </motion.button>
-                      ))}
+                        {selectedClothingType === "shirt" && (
+                          <div className="col-span-2 grid grid-cols-4 gap-2 mt-2">
+                            {SHIRT_STYLES.map((shirt) => (
+                              <motion.button
+                                key={shirt.id}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => {
+                                  handleChange("shirtStyle", shirt.id);
+                                  if (shirt.pattern) handleChange("shirtPattern", shirt.pattern);
+                                  else handleChange("shirtPattern", undefined);
+                                  setSelectedClothingType(null);
+                                }}
+                                className={`px-2 py-1 rounded text-xs font-medium transition-all ${
+                                  avatar.shirtStyle === shirt.id
+                                    ? "bg-green-600 text-white"
+                                    : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
+                                }`}
+                              >
+                                {shirt.name}
+                              </motion.button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-600 dark:text-gray-400 mb-1 block">Shirt Color</label>
+                        <div className="grid grid-cols-8 gap-2">
+                          {shirtColors.map((color) => (
+                            <div
+                              key={color}
+                              onClick={() => handleChange("shirtColor", color)}
+                              className={`w-8 h-8 rounded-full cursor-pointer border-2 transition-all ${
+                                avatar.shirtColor === color
+                                  ? "border-green-600 scale-110"
+                                  : "border-transparent hover:scale-105"
+                              }`}
+                              style={{ backgroundColor: color }}
+                            />
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  {avatar.hairStyle !== "short" && (
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Hair Length: {avatar.hairLength.toFixed(1)}</label>
-                      <Slider
-                        value={[avatar.hairLength]}
-                        onValueChange={(value) => handleChange("hairLength", value[0])}
-                        min={0.8}
-                        max={1.5}
-                        step={0.1}
-                      />
-                    </div>
-                  )}
-                </TabsContent>
-
-                {/* Body Tab */}
-                <TabsContent value="body" className="space-y-4 mt-4">
+                  {/* Pants Selection */}
                   <div>
-                    <label className="text-sm font-medium mb-2 block">Body Size: {avatar.bodySize.toFixed(1)}</label>
-                    <Slider
-                      value={[avatar.bodySize]}
-                      onValueChange={(value) => handleChange("bodySize", value[0])}
-                      min={0.8}
-                      max={1.3}
-                      step={0.1}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Shoulder Width: {avatar.shoulderWidth.toFixed(1)}</label>
-                    <Slider
-                      value={[avatar.shoulderWidth]}
-                      onValueChange={(value) => handleChange("shoulderWidth", value[0])}
-                      min={0.8}
-                      max={1.3}
-                      step={0.1}
-                    />
-                  </div>
-                </TabsContent>
-
-                {/* Style Tab */}
-                <TabsContent value="style" className="space-y-4 mt-4">
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Outfit Color</label>
-                    <div className="grid grid-cols-8 gap-2">
-                      {outfitColors.map((color) => (
-                        <div
-                          key={color}
-                          onClick={() => handleChange("outfitColor", color)}
-                          className={`w-10 h-10 rounded-full cursor-pointer border-2 transition-all ${
-                            avatar.outfitColor === color
-                              ? "border-green-600 scale-110"
-                              : "border-transparent hover:scale-105"
-                          }`}
-                          style={{ backgroundColor: color }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Outfit Style</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {["shirt", "jacket", "dress"].map((style) => (
+                    <label className="text-sm font-medium mb-2 block">Pants</label>
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
                         <motion.button
-                          key={style}
                           whileTap={{ scale: 0.95 }}
-                          onClick={() => handleChange("outfitStyle", style)}
+                          onClick={() => {
+                            handleChange("legStyle", "pants");
+                            setSelectedClothingType(selectedClothingType === "pants" ? null : "pants");
+                          }}
                           className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                            avatar.outfitStyle === style
+                            avatar.legStyle === "pants" && selectedClothingType === "pants"
                               ? "bg-green-600 text-white"
+                              : avatar.legStyle === "pants"
+                              ? "bg-green-200 text-green-700 dark:bg-green-800 dark:text-green-300"
                               : "bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300"
                           }`}
                         >
-                          {style.charAt(0).toUpperCase() + style.slice(1)}
+                          Choose Pants
                         </motion.button>
-                      ))}
+                        {selectedClothingType === "pants" && (
+                          <div className="col-span-2 grid grid-cols-4 gap-2 mt-2">
+                            {PANTS_STYLES.map((pant) => (
+                              <motion.button
+                                key={pant.id}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => {
+                                  handleChange("legStyle", "pants");
+                                  if (pant.pattern) handleChange("legPattern", pant.pattern);
+                                  else handleChange("legPattern", undefined);
+                                  setSelectedClothingType(null);
+                                }}
+                                className={`px-2 py-1 rounded text-xs font-medium transition-all ${
+                                  avatar.legPattern === pant.pattern && avatar.legStyle === "pants"
+                                    ? "bg-green-600 text-white"
+                                    : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
+                                }`}
+                              >
+                                {pant.name}
+                              </motion.button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-600 dark:text-gray-400 mb-1 block">Pants Color</label>
+                        <div className="grid grid-cols-7 gap-2">
+                          {legColors.map((color) => (
+                            <div
+                              key={color}
+                              onClick={() => handleChange("legColor", color)}
+                              className={`w-8 h-8 rounded-full cursor-pointer border-2 transition-all ${
+                                avatar.legColor === color && avatar.legStyle === "pants"
+                                  ? "border-green-600 scale-110"
+                                  : "border-transparent hover:scale-105"
+                              }`}
+                              style={{ backgroundColor: color }}
+                            />
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </div>
 
+                  {/* Shorts Selection */}
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Shorts</label>
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <motion.button
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => {
+                            handleChange("legStyle", "shorts");
+                            setSelectedClothingType(selectedClothingType === "shorts" ? null : "shorts");
+                          }}
+                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                            avatar.legStyle === "shorts" && selectedClothingType === "shorts"
+                              ? "bg-green-600 text-white"
+                              : avatar.legStyle === "shorts"
+                              ? "bg-green-200 text-green-700 dark:bg-green-800 dark:text-green-300"
+                              : "bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300"
+                          }`}
+                        >
+                          Choose Shorts
+                        </motion.button>
+                        {selectedClothingType === "shorts" && (
+                          <div className="col-span-2 grid grid-cols-4 gap-2 mt-2">
+                            {SHORTS_STYLES.map((short) => (
+                              <motion.button
+                                key={short.id}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => {
+                                  handleChange("legStyle", "shorts");
+                                  if (short.pattern) handleChange("legPattern", short.pattern);
+                                  else handleChange("legPattern", undefined);
+                                  setSelectedClothingType(null);
+                                }}
+                                className={`px-2 py-1 rounded text-xs font-medium transition-all ${
+                                  avatar.legPattern === short.pattern && avatar.legStyle === "shorts"
+                                    ? "bg-green-600 text-white"
+                                    : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
+                                }`}
+                              >
+                                {short.name}
+                              </motion.button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-600 dark:text-gray-400 mb-1 block">Shorts Color</label>
+                        <div className="grid grid-cols-7 gap-2">
+                          {legColors.map((color) => (
+                            <div
+                              key={color}
+                              onClick={() => handleChange("legColor", color)}
+                              className={`w-8 h-8 rounded-full cursor-pointer border-2 transition-all ${
+                                avatar.legColor === color && avatar.legStyle === "shorts"
+                                  ? "border-green-600 scale-110"
+                                  : "border-transparent hover:scale-105"
+                              }`}
+                              style={{ backgroundColor: color }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                {/* Accessories Tab */}
+                <TabsContent value="accessories" className="space-y-4 mt-4">
                   <div>
                     <label className="text-sm font-medium mb-2 block">Accessories</label>
                     <div className="grid grid-cols-2 gap-2">
-                      {["glasses", "hat"].map((accessory) => (
+                      {["glasses", "hat", "cap", "backpack", "bag"].map((accessory) => (
                         <motion.button
                           key={accessory}
                           whileTap={{ scale: 0.95 }}
@@ -646,7 +939,7 @@ const AvatarStudio: React.FC<AvatarStudioProps> = ({ open = true, onOpenChange, 
         </div>
 
         <p className="text-gray-500 dark:text-gray-400 mt-4 text-sm text-center p-4 border-t">
-          Create your unique avatar with detailed customization options! 💚
+          Build your unique LEGO minifigure! 🧱
         </p>
       </div>
     </div>
