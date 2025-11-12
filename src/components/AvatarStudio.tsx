@@ -1,11 +1,16 @@
-import React, { useState, useEffect } from "react";
-import { Canvas } from "@react-three/fiber";
+import React, { useState, useEffect, useRef } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, PerspectiveCamera } from "@react-three/drei";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion } from "framer-motion";
 import * as THREE from "three";
+import { useAuth } from "@/contexts/AuthContext";
+import { ProfileService } from "@/services/profileService";
+import { MediaService } from "@/services/mediaService";
+import { useToast } from "@/hooks/use-toast";
+import { Palette } from "lucide-react";
 
 // LEGO Avatar Data Interface
 export interface EnhancedAvatarData {
@@ -13,8 +18,8 @@ export interface EnhancedAvatarData {
   gender: "male" | "female";
   
   // Head & Face (LEGO style - simple)
-  headColor: string; // LEGO heads are typically yellow
-  faceExpression: "happy" | "neutral" | "wink" | "surprised";
+  headColor: string;
+  faceExpression: "happy" | "neutral" | "wink" | "surprised" | "sad" | "angry" | "cool" | "sleepy";
   
   // Hair
   hairColor: string;
@@ -35,6 +40,9 @@ export interface EnhancedAvatarData {
   
   // Hands (LEGO C-shaped)
   handColor: string;
+  
+  // Background
+  backgroundColor?: string;
 }
 
 interface AvatarStudioProps {
@@ -44,7 +52,7 @@ interface AvatarStudioProps {
   initialAvatar?: Partial<EnhancedAvatarData>;
 }
 
-// LEGO-style clothing options
+// Enhanced clothing options
 const SHIRT_STYLES = [
   { id: "basic", name: "Basic Shirt", pattern: null },
   { id: "striped", name: "Striped Shirt", pattern: "stripes" },
@@ -54,6 +62,8 @@ const SHIRT_STYLES = [
   { id: "checkered", name: "Checkered", pattern: "checkered" },
   { id: "solid", name: "Solid Color", pattern: null },
   { id: "vneck", name: "V-Neck", pattern: null },
+  { id: "hoodie", name: "Hoodie", pattern: null },
+  { id: "tank", name: "Tank Top", pattern: null },
 ];
 
 const PANTS_STYLES = [
@@ -61,6 +71,7 @@ const PANTS_STYLES = [
   { id: "cargo", name: "Cargo Pants", pattern: "cargo" },
   { id: "sweatpants", name: "Sweatpants", pattern: null },
   { id: "dress", name: "Dress Pants", pattern: null },
+  { id: "skinny", name: "Skinny Jeans", pattern: "denim" },
 ];
 
 const SHORTS_STYLES = [
@@ -68,34 +79,64 @@ const SHORTS_STYLES = [
   { id: "athletic", name: "Athletic Shorts", pattern: "stripes" },
   { id: "cargo", name: "Cargo Shorts", pattern: "cargo" },
   { id: "denim", name: "Denim Shorts", pattern: "denim" },
+  { id: "basketball", name: "Basketball", pattern: null },
 ];
 
+// Enhanced hairstyles with modern, detailed 3D designs
 const HAIR_STYLES = {
   male: [
-    { id: "short", name: "Short" },
+    { id: "short", name: "Classic Short" },
     { id: "spiky", name: "Spiky" },
     { id: "curly", name: "Curly" },
     { id: "slicked", name: "Slicked Back" },
     { id: "afro", name: "Afro" },
     { id: "buzz", name: "Buzz Cut" },
+    { id: "fade", name: "Fade" },
+    { id: "undercut", name: "Undercut" },
+    { id: "manbun", name: "Man Bun" },
+    { id: "dreads", name: "Dreadlocks" },
+    { id: "mohawk", name: "Mohawk" },
+    { id: "quiff", name: "Quiff" },
   ],
   female: [
-    { id: "long", name: "Long Hair" },
+    { id: "long", name: "Long Straight" },
     { id: "ponytail", name: "Ponytail" },
     { id: "bob", name: "Bob Cut" },
     { id: "curly", name: "Curly" },
     { id: "braids", name: "Braids" },
     { id: "bun", name: "Bun" },
+    { id: "wavy", name: "Wavy" },
+    { id: "pixie", name: "Pixie Cut" },
+    { id: "layered", name: "Layered" },
+    { id: "bangs", name: "With Bangs" },
+    { id: "twists", name: "Twists" },
+    { id: "updo", name: "Updo" },
   ],
 };
 
-// LEGO 3D Avatar Component
-const LegoAvatar3D: React.FC<{ avatar: EnhancedAvatarData }> = ({ avatar }) => {
-  // LEGO colors
+// Background colors
+const BACKGROUND_COLORS = [
+  "#FFFFFF", "#F0F0F0", "#E8E8E8", "#D3D3D3", "#A9A9A9", "#808080",
+  "#00AA44", "#00D955", "#00FF66", "#00CC55", "#008833",
+  "#0066CC", "#0088FF", "#00AAFF", "#00CCFF", "#00EEFF",
+  "#FFD700", "#FFE44D", "#FFFF00", "#FFCC00", "#FFAA00",
+  "#DC143C", "#FF3366", "#FF6699", "#FF99CC", "#FFCCFF",
+  "#8B00FF", "#AA44FF", "#CC66FF", "#EE88FF", "#FFAAFF",
+  "#FF6B6B", "#4ECDC4", "#45B7D1", "#FFA07A", "#98D8C8",
+];
+
+// LEGO 3D Avatar Component with joined parts
+const LegoAvatar3D: React.FC<{ avatar: EnhancedAvatarData; canvasRef?: React.RefObject<HTMLCanvasElement> }> = ({ avatar, canvasRef }) => {
   const legoYellow = "#FFD700";
   const legoRed = "#DC143C";
   const legoBlue = "#0066CC";
   const legoGreen = "#00AA44";
+  
+  // Gender-specific body proportions
+  const isFemale = avatar.gender === "female";
+  const torsoWidth = isFemale ? 0.55 : 0.6;
+  const torsoHeight = isFemale ? 0.75 : 0.7;
+  const hipWidth = isFemale ? 0.65 : 0.6;
   
   return (
     <group>
@@ -104,22 +145,21 @@ const LegoAvatar3D: React.FC<{ avatar: EnhancedAvatarData }> = ({ avatar }) => {
       <directionalLight position={[5, 5, 5]} intensity={1} />
       <directionalLight position={[-5, 5, -5]} intensity={0.5} />
       
-      {/* LEGO Head - Cylindrical with flat top */}
+      {/* LEGO Head - Seamlessly connected to neck */}
       <group position={[0, 1.2, 0]}>
-        {/* Main head cylinder */}
-        <mesh>
+        {/* Main head cylinder - connected to torso */}
+        <mesh position={[0, 0, 0]}>
           <cylinderGeometry args={[0.4, 0.4, 0.5, 16]} />
           <meshStandardMaterial color={avatar.headColor || legoYellow} roughness={0.3} metalness={0.1} />
         </mesh>
         
-        {/* Flat top */}
-        <mesh position={[0, 0.25, 0]}>
-          <cylinderGeometry args={[0.4, 0.4, 0.05, 16]} />
+        {/* Neck connection - seamless join */}
+        <mesh position={[0, -0.25, 0]}>
+          <cylinderGeometry args={[0.35, 0.4, 0.1, 16]} />
           <meshStandardMaterial color={avatar.headColor || legoYellow} roughness={0.3} metalness={0.1} />
         </mesh>
         
-        {/* Face - Simple printed details */}
-        {/* Eyes */}
+        {/* Face expressions */}
         {avatar.faceExpression === "happy" || avatar.faceExpression === "neutral" ? (
           <>
             <mesh position={[-0.12, 0.05, 0.41]}>
@@ -142,7 +182,7 @@ const LegoAvatar3D: React.FC<{ avatar: EnhancedAvatarData }> = ({ avatar }) => {
               <meshStandardMaterial color="#000000" />
             </mesh>
           </>
-        ) : (
+        ) : avatar.faceExpression === "surprised" ? (
           <>
             <mesh position={[-0.12, 0.08, 0.41]}>
               <circleGeometry args={[0.04, 16]} />
@@ -150,6 +190,54 @@ const LegoAvatar3D: React.FC<{ avatar: EnhancedAvatarData }> = ({ avatar }) => {
             </mesh>
             <mesh position={[0.12, 0.08, 0.41]}>
               <circleGeometry args={[0.04, 16]} />
+              <meshStandardMaterial color="#000000" />
+            </mesh>
+          </>
+        ) : avatar.faceExpression === "sad" ? (
+          <>
+            <mesh position={[-0.12, 0.05, 0.41]}>
+              <circleGeometry args={[0.03, 16]} />
+              <meshStandardMaterial color="#000000" />
+            </mesh>
+            <mesh position={[0.12, 0.05, 0.41]}>
+              <circleGeometry args={[0.03, 16]} />
+              <meshStandardMaterial color="#000000" />
+            </mesh>
+          </>
+        ) : avatar.faceExpression === "angry" ? (
+          <>
+            <mesh position={[-0.12, 0.08, 0.41]} rotation={[0, 0, -0.3]}>
+              <boxGeometry args={[0.06, 0.02, 0.01]} />
+              <meshStandardMaterial color="#000000" />
+            </mesh>
+            <mesh position={[0.12, 0.08, 0.41]} rotation={[0, 0, 0.3]}>
+              <boxGeometry args={[0.06, 0.02, 0.01]} />
+              <meshStandardMaterial color="#000000" />
+            </mesh>
+          </>
+        ) : avatar.faceExpression === "cool" ? (
+          <>
+            <mesh position={[-0.12, 0.05, 0.41]}>
+              <circleGeometry args={[0.03, 16]} />
+              <meshStandardMaterial color="#000000" />
+            </mesh>
+            <mesh position={[0.12, 0.05, 0.41]}>
+              <circleGeometry args={[0.03, 16]} />
+              <meshStandardMaterial color="#000000" />
+            </mesh>
+            <mesh position={[0, 0.1, 0.41]} rotation={[0, 0, 0]}>
+              <boxGeometry args={[0.08, 0.01, 0.01]} />
+              <meshStandardMaterial color="#000000" />
+            </mesh>
+          </>
+        ) : (
+          <>
+            <mesh position={[-0.12, 0.05, 0.41]}>
+              <circleGeometry args={[0.03, 16]} />
+              <meshStandardMaterial color="#000000" />
+            </mesh>
+            <mesh position={[0.12, 0.05, 0.41]}>
+              <circleGeometry args={[0.03, 16]} />
               <meshStandardMaterial color="#000000" />
             </mesh>
           </>
@@ -166,6 +254,36 @@ const LegoAvatar3D: React.FC<{ avatar: EnhancedAvatarData }> = ({ avatar }) => {
             <circleGeometry args={[0.06, 16]} />
             <meshStandardMaterial color="#FFFFFF" />
           </mesh>
+        ) : avatar.faceExpression === "sad" ? (
+          <mesh position={[0, -0.15, 0.41]} rotation={[0, 0, Math.PI]}>
+            <torusGeometry args={[0.08, 0.01, 8, 16, Math.PI]} />
+            <meshStandardMaterial color="#000000" />
+          </mesh>
+        ) : avatar.faceExpression === "angry" ? (
+          <mesh position={[0, -0.12, 0.41]}>
+            <boxGeometry args={[0.12, 0.02, 0.01]} />
+            <meshStandardMaterial color="#000000" />
+          </mesh>
+        ) : avatar.faceExpression === "cool" ? (
+          <mesh position={[0, -0.1, 0.41]}>
+            <boxGeometry args={[0.1, 0.02, 0.01]} />
+            <meshStandardMaterial color="#000000" />
+          </mesh>
+        ) : avatar.faceExpression === "sleepy" ? (
+          <>
+            <mesh position={[-0.12, 0.05, 0.41]} rotation={[0, 0, 0]}>
+              <boxGeometry args={[0.06, 0.01, 0.01]} />
+              <meshStandardMaterial color="#000000" />
+            </mesh>
+            <mesh position={[0.12, 0.05, 0.41]} rotation={[0, 0, 0]}>
+              <boxGeometry args={[0.06, 0.01, 0.01]} />
+              <meshStandardMaterial color="#000000" />
+            </mesh>
+            <mesh position={[0, -0.1, 0.41]}>
+              <boxGeometry args={[0.12, 0.02, 0.01]} />
+              <meshStandardMaterial color="#000000" />
+            </mesh>
+          </>
         ) : (
           <mesh position={[0, -0.1, 0.41]}>
             <boxGeometry args={[0.12, 0.02, 0.01]} />
@@ -174,121 +292,332 @@ const LegoAvatar3D: React.FC<{ avatar: EnhancedAvatarData }> = ({ avatar }) => {
         )}
       </group>
       
-      {/* Hair */}
+      {/* Enhanced Hair Styles - Modern, detailed 3D */}
       {avatar.hairStyle && (
         <group position={[0, 1.45, 0]}>
-          {avatar.hairStyle === "short" && (
-            <mesh>
-              <cylinderGeometry args={[0.42, 0.42, 0.15, 16]} />
-              <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
-            </mesh>
-          )}
-          {avatar.hairStyle === "spiky" && (
-            <group>
-              {[...Array(5)].map((_, i) => (
-                <mesh key={i} position={[Math.cos(i * Math.PI * 0.4) * 0.3, 0.1, Math.sin(i * Math.PI * 0.4) * 0.3]}>
-                  <boxGeometry args={[0.05, 0.15, 0.05]} />
+          {/* Male hairstyles */}
+          {avatar.gender === "male" && (
+            <>
+              {avatar.hairStyle === "short" && (
+                <mesh>
+                  <cylinderGeometry args={[0.42, 0.42, 0.15, 16]} />
                   <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
                 </mesh>
-              ))}
-            </group>
-          )}
-          {avatar.hairStyle === "curly" && (
-            <group>
-              {[...Array(8)].map((_, i) => (
-                <mesh key={i} position={[
-                  Math.cos(i * Math.PI / 4) * 0.3,
-                  0.05 + Math.sin(i * 0.5) * 0.05,
-                  Math.sin(i * Math.PI / 4) * 0.3
-                ]}>
-                  <sphereGeometry args={[0.06, 8, 8]} />
+              )}
+              {avatar.hairStyle === "spiky" && (
+                <group>
+                  {[...Array(7)].map((_, i) => (
+                    <mesh key={i} position={[
+                      Math.cos(i * Math.PI * 0.3) * 0.32,
+                      0.08 + Math.sin(i * 0.8) * 0.03,
+                      Math.sin(i * Math.PI * 0.3) * 0.32
+                    ]}>
+                      <boxGeometry args={[0.06, 0.18, 0.06]} />
+                      <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+                    </mesh>
+                  ))}
+                </group>
+              )}
+              {avatar.hairStyle === "curly" && (
+                <group>
+                  {[...Array(12)].map((_, i) => (
+                    <mesh key={i} position={[
+                      Math.cos(i * Math.PI / 6) * (0.25 + Math.random() * 0.1),
+                      0.05 + Math.sin(i * 0.5) * 0.05,
+                      Math.sin(i * Math.PI / 6) * (0.25 + Math.random() * 0.1)
+                    ]}>
+                      <sphereGeometry args={[0.05, 8, 8]} />
+                      <meshStandardMaterial color={avatar.hairColor} roughness={0.5} />
+                    </mesh>
+                  ))}
+                </group>
+              )}
+              {avatar.hairStyle === "slicked" && (
+                <mesh rotation={[0, 0, 0]}>
+                  <boxGeometry args={[0.4, 0.1, 0.35]} />
+                  <meshStandardMaterial color={avatar.hairColor} roughness={0.2} metalness={0.3} />
+                </mesh>
+              )}
+              {avatar.hairStyle === "afro" && (
+                <mesh>
+                  <sphereGeometry args={[0.48, 16, 16, 0, Math.PI * 2, 0, Math.PI * 0.75]} />
+                  <meshStandardMaterial color={avatar.hairColor} roughness={0.6} />
+                </mesh>
+              )}
+              {avatar.hairStyle === "buzz" && (
+                <mesh>
+                  <cylinderGeometry args={[0.41, 0.41, 0.05, 16]} />
                   <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
                 </mesh>
-              ))}
-            </group>
+              )}
+              {avatar.hairStyle === "fade" && (
+                <group>
+                  <mesh>
+                    <cylinderGeometry args={[0.42, 0.38, 0.12, 16]} />
+                    <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+                  </mesh>
+                  <mesh position={[0, -0.06, 0]}>
+                    <cylinderGeometry args={[0.38, 0.35, 0.08, 16]} />
+                    <meshStandardMaterial color={avatar.hairColor} roughness={0.3} />
+                  </mesh>
+                </group>
+              )}
+              {avatar.hairStyle === "undercut" && (
+                <group>
+                  <mesh position={[0, 0.05, 0]}>
+                    <boxGeometry args={[0.4, 0.12, 0.3]} />
+                    <meshStandardMaterial color={avatar.hairColor} roughness={0.3} />
+                  </mesh>
+                  <mesh position={[0, -0.05, 0]}>
+                    <cylinderGeometry args={[0.38, 0.38, 0.08, 16]} />
+                    <meshStandardMaterial color="#FFD700" roughness={0.3} />
+                  </mesh>
+                </group>
+              )}
+              {avatar.hairStyle === "manbun" && (
+                <group>
+                  <mesh>
+                    <cylinderGeometry args={[0.42, 0.42, 0.1, 16]} />
+                    <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+                  </mesh>
+                  <mesh position={[0, 0.05, 0.25]}>
+                    <torusGeometry args={[0.1, 0.05, 8, 16]} />
+                    <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+                  </mesh>
+                </group>
+              )}
+              {avatar.hairStyle === "dreads" && (
+                <group>
+                  {[...Array(8)].map((_, i) => (
+                    <mesh key={i} position={[
+                      Math.cos(i * Math.PI / 4) * 0.3,
+                      0.1,
+                      Math.sin(i * Math.PI / 4) * 0.3
+                    ]}>
+                      <cylinderGeometry args={[0.04, 0.04, 0.25, 8]} />
+                      <meshStandardMaterial color={avatar.hairColor} roughness={0.5} />
+                    </mesh>
+                  ))}
+                </group>
+              )}
+              {avatar.hairStyle === "mohawk" && (
+                <group>
+                  <mesh position={[0, 0.1, 0]}>
+                    <boxGeometry args={[0.15, 0.2, 0.25]} />
+                    <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+                  </mesh>
+                  {[...Array(5)].map((_, i) => (
+                    <mesh key={i} position={[0, 0.2 + i * 0.04, 0]}>
+                      <boxGeometry args={[0.12, 0.04, 0.2]} />
+                      <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+                    </mesh>
+                  ))}
+                </group>
+              )}
+              {avatar.hairStyle === "quiff" && (
+                <group>
+                  <mesh>
+                    <cylinderGeometry args={[0.42, 0.42, 0.12, 16]} />
+                    <meshStandardMaterial color={avatar.hairColor} roughness={0.3} />
+                  </mesh>
+                  <mesh position={[0, 0.06, 0.2]} rotation={[-0.2, 0, 0]}>
+                    <boxGeometry args={[0.3, 0.08, 0.15]} />
+                    <meshStandardMaterial color={avatar.hairColor} roughness={0.2} metalness={0.2} />
+                  </mesh>
+                </group>
+              )}
+            </>
           )}
-          {avatar.hairStyle === "slicked" && (
-            <mesh rotation={[0, 0, 0]}>
-              <boxGeometry args={[0.4, 0.1, 0.3]} />
-              <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
-            </mesh>
-          )}
-          {avatar.hairStyle === "afro" && (
-            <mesh>
-              <sphereGeometry args={[0.45, 16, 16, 0, Math.PI * 2, 0, Math.PI * 0.7]} />
-              <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
-            </mesh>
-          )}
-          {avatar.hairStyle === "buzz" && (
-            <mesh>
-              <cylinderGeometry args={[0.41, 0.41, 0.05, 16]} />
-              <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
-            </mesh>
-          )}
-          {avatar.hairStyle === "long" && (
-            <group>
-              <mesh>
-                <cylinderGeometry args={[0.42, 0.42, 0.2, 16]} />
-                <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
-              </mesh>
-              <mesh position={[0, -0.3, 0.2]}>
-                <boxGeometry args={[0.35, 0.4, 0.1]} />
-                <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
-              </mesh>
-            </group>
-          )}
-          {avatar.hairStyle === "ponytail" && (
-            <group>
-              <mesh>
-                <cylinderGeometry args={[0.42, 0.42, 0.15, 16]} />
-                <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
-              </mesh>
-              <mesh position={[0, -0.2, 0.25]}>
-                <cylinderGeometry args={[0.08, 0.08, 0.3, 8]} />
-                <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
-              </mesh>
-            </group>
-          )}
-          {avatar.hairStyle === "bob" && (
-            <mesh>
-              <cylinderGeometry args={[0.42, 0.42, 0.2, 16]} />
-              <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
-            </mesh>
-          )}
-          {avatar.hairStyle === "braids" && (
-            <group>
-              <mesh>
-                <cylinderGeometry args={[0.42, 0.42, 0.15, 16]} />
-                <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
-              </mesh>
-              {[-1, 1].map((side) => (
-                <mesh key={side} position={[side * 0.3, -0.2, 0.2]}>
-                  <cylinderGeometry args={[0.06, 0.06, 0.3, 8]} />
-                  <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
-                </mesh>
-              ))}
-            </group>
-          )}
-          {avatar.hairStyle === "bun" && (
-            <group>
-              <mesh>
-                <cylinderGeometry args={[0.42, 0.42, 0.1, 16]} />
-                <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
-              </mesh>
-              <mesh position={[0, 0.05, 0.2]}>
-                <torusGeometry args={[0.12, 0.04, 8, 16]} />
-                <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
-              </mesh>
-            </group>
+          
+          {/* Female hairstyles */}
+          {avatar.gender === "female" && (
+            <>
+              {avatar.hairStyle === "long" && (
+                <group>
+                  <mesh>
+                    <cylinderGeometry args={[0.42, 0.42, 0.2, 16]} />
+                    <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+                  </mesh>
+                  <mesh position={[0, -0.35, 0.25]}>
+                    <boxGeometry args={[0.38, 0.5, 0.12]} />
+                    <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+                  </mesh>
+                  {[-1, 1].map((side) => (
+                    <mesh key={side} position={[side * 0.25, -0.2, 0.3]}>
+                      <boxGeometry args={[0.15, 0.4, 0.08]} />
+                      <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+                    </mesh>
+                  ))}
+                </group>
+              )}
+              {avatar.hairStyle === "ponytail" && (
+                <group>
+                  <mesh>
+                    <cylinderGeometry args={[0.42, 0.42, 0.15, 16]} />
+                    <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+                  </mesh>
+                  <mesh position={[0, -0.2, 0.3]}>
+                    <cylinderGeometry args={[0.1, 0.1, 0.35, 8]} />
+                    <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+                  </mesh>
+                </group>
+              )}
+              {avatar.hairStyle === "bob" && (
+                <group>
+                  <mesh>
+                    <cylinderGeometry args={[0.42, 0.42, 0.2, 16]} />
+                    <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+                  </mesh>
+                  {[-1, 1].map((side) => (
+                    <mesh key={side} position={[side * 0.3, -0.1, 0.25]}>
+                      <boxGeometry args={[0.2, 0.25, 0.1]} />
+                      <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+                    </mesh>
+                  ))}
+                </group>
+              )}
+              {avatar.hairStyle === "curly" && (
+                <group>
+                  <mesh>
+                    <cylinderGeometry args={[0.42, 0.42, 0.15, 16]} />
+                    <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+                  </mesh>
+                  {[...Array(15)].map((_, i) => (
+                    <mesh key={i} position={[
+                      Math.cos(i * Math.PI / 7.5) * (0.3 + Math.random() * 0.1),
+                      -0.1 + Math.sin(i * 0.4) * 0.15,
+                      Math.sin(i * Math.PI / 7.5) * (0.3 + Math.random() * 0.1)
+                    ]}>
+                      <sphereGeometry args={[0.05, 8, 8]} />
+                      <meshStandardMaterial color={avatar.hairColor} roughness={0.5} />
+                    </mesh>
+                  ))}
+                </group>
+              )}
+              {avatar.hairStyle === "braids" && (
+                <group>
+                  <mesh>
+                    <cylinderGeometry args={[0.42, 0.42, 0.15, 16]} />
+                    <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+                  </mesh>
+                  {[-1, 1].map((side) => (
+                    <group key={side}>
+                      {[...Array(4)].map((_, i) => (
+                        <mesh key={i} position={[side * 0.3, -0.15 - i * 0.08, 0.25]}>
+                          <cylinderGeometry args={[0.05, 0.05, 0.1, 8]} />
+                          <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+                        </mesh>
+                      ))}
+                    </group>
+                  ))}
+                </group>
+              )}
+              {avatar.hairStyle === "bun" && (
+                <group>
+                  <mesh>
+                    <cylinderGeometry args={[0.42, 0.42, 0.1, 16]} />
+                    <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+                  </mesh>
+                  <mesh position={[0, 0.05, 0.25]}>
+                    <torusGeometry args={[0.12, 0.05, 8, 16]} />
+                    <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+                  </mesh>
+                </group>
+              )}
+              {avatar.hairStyle === "wavy" && (
+                <group>
+                  <mesh>
+                    <cylinderGeometry args={[0.42, 0.42, 0.18, 16]} />
+                    <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+                  </mesh>
+                  {[-1, 1].map((side) => (
+                    <mesh key={side} position={[side * 0.28, -0.15, 0.28]}>
+                      <boxGeometry args={[0.18, 0.35, 0.1]} />
+                      <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+                    </mesh>
+                  ))}
+                </group>
+              )}
+              {avatar.hairStyle === "pixie" && (
+                <group>
+                  <mesh>
+                    <cylinderGeometry args={[0.42, 0.38, 0.12, 16]} />
+                    <meshStandardMaterial color={avatar.hairColor} roughness={0.3} />
+                  </mesh>
+                  <mesh position={[0, 0.06, 0.22]}>
+                    <boxGeometry args={[0.35, 0.08, 0.12]} />
+                    <meshStandardMaterial color={avatar.hairColor} roughness={0.3} />
+                  </mesh>
+                </group>
+              )}
+              {avatar.hairStyle === "layered" && (
+                <group>
+                  {[0, 1, 2].map((layer) => (
+                    <mesh key={layer} position={[0, layer * 0.05, 0]}>
+                      <cylinderGeometry args={[0.42 - layer * 0.02, 0.42 - layer * 0.02, 0.15 - layer * 0.03, 16]} />
+                      <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+                    </mesh>
+                  ))}
+                </group>
+              )}
+              {avatar.hairStyle === "bangs" && (
+                <group>
+                  <mesh>
+                    <cylinderGeometry args={[0.42, 0.42, 0.18, 16]} />
+                    <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+                  </mesh>
+                  <mesh position={[0, 0.09, 0.42]}>
+                    <boxGeometry args={[0.35, 0.08, 0.05]} />
+                    <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+                  </mesh>
+                </group>
+              )}
+              {avatar.hairStyle === "twists" && (
+                <group>
+                  <mesh>
+                    <cylinderGeometry args={[0.42, 0.42, 0.15, 16]} />
+                    <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+                  </mesh>
+                  {[...Array(6)].map((_, i) => (
+                    <mesh key={i} position={[
+                      Math.cos(i * Math.PI / 3) * 0.28,
+                      -0.1 - i * 0.05,
+                      Math.sin(i * Math.PI / 3) * 0.28
+                    ]}>
+                      <cylinderGeometry args={[0.04, 0.04, 0.2, 8]} />
+                      <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+                    </mesh>
+                  ))}
+                </group>
+              )}
+              {avatar.hairStyle === "updo" && (
+                <group>
+                  <mesh>
+                    <cylinderGeometry args={[0.42, 0.42, 0.12, 16]} />
+                    <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+                  </mesh>
+                  <mesh position={[0, 0.06, 0.25]}>
+                    <torusGeometry args={[0.15, 0.06, 8, 16]} />
+                    <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+                  </mesh>
+                </group>
+              )}
+            </>
           )}
         </group>
       )}
       
-      {/* Torso/Shirt */}
+      {/* Torso/Shirt - Seamlessly connected to head and legs */}
       <group position={[0, 0.5, 0]}>
-        {/* Base torso */}
+        {/* Base torso - gender-specific */}
         <mesh>
-          <boxGeometry args={[0.6, 0.7, 0.4]} />
+          <boxGeometry args={[torsoWidth, torsoHeight, 0.4]} />
+          <meshStandardMaterial color={avatar.shirtColor || legoRed} roughness={0.3} metalness={0.1} />
+        </mesh>
+        
+        {/* Hip area - seamless connection to legs */}
+        <mesh position={[0, -torsoHeight/2 - 0.05, 0]}>
+          <boxGeometry args={[hipWidth, 0.1, 0.4]} />
           <meshStandardMaterial color={avatar.shirtColor || legoRed} roughness={0.3} metalness={0.1} />
         </mesh>
         
@@ -296,8 +625,8 @@ const LegoAvatar3D: React.FC<{ avatar: EnhancedAvatarData }> = ({ avatar }) => {
         {avatar.shirtPattern === "stripes" && (
           <>
             {[...Array(5)].map((_, i) => (
-              <mesh key={i} position={[0, -0.35 + i * 0.175, 0.21]}>
-                <boxGeometry args={[0.6, 0.02, 0.01]} />
+              <mesh key={i} position={[0, -torsoHeight/2 + i * (torsoHeight/4), 0.21]}>
+                <boxGeometry args={[torsoWidth, 0.02, 0.01]} />
                 <meshStandardMaterial color="#FFFFFF" />
               </mesh>
             ))}
@@ -307,7 +636,7 @@ const LegoAvatar3D: React.FC<{ avatar: EnhancedAvatarData }> = ({ avatar }) => {
           <>
             {[0, 1, 2].map((row) => (
               [-1, 0, 1].map((col) => (
-                <mesh key={`${row}-${col}`} position={[col * 0.2, -0.2 + row * 0.2, 0.21]}>
+                <mesh key={`${row}-${col}`} position={[col * 0.18, -torsoHeight/2 + row * 0.25 + 0.35, 0.21]}>
                   <circleGeometry args={[0.05, 8]} />
                   <meshStandardMaterial color="#FFFFFF" />
                 </mesh>
@@ -331,8 +660,8 @@ const LegoAvatar3D: React.FC<{ avatar: EnhancedAvatarData }> = ({ avatar }) => {
           <>
             {[0, 1].map((row) => (
               [0, 1].map((col) => (
-                <mesh key={`${row}-${col}`} position={[-0.15 + col * 0.3, -0.15 + row * 0.3, 0.21]}>
-                  <boxGeometry args={[0.25, 0.25, 0.01]} />
+                <mesh key={`${row}-${col}`} position={[-torsoWidth/2 + col * torsoWidth/2 + torsoWidth/4, -torsoHeight/2 + row * torsoHeight/2 + torsoHeight/4, 0.21]}>
+                  <boxGeometry args={[torsoWidth/2 - 0.05, torsoHeight/2 - 0.05, 0.01]} />
                   <meshStandardMaterial color="#FFFFFF" />
                 </mesh>
               ))
@@ -342,34 +671,48 @@ const LegoAvatar3D: React.FC<{ avatar: EnhancedAvatarData }> = ({ avatar }) => {
         
         {/* V-neck */}
         {avatar.shirtStyle === "vneck" && (
-          <mesh position={[0, 0.25, 0.21]}>
+          <mesh position={[0, torsoHeight/2 - 0.1, 0.21]}>
             <shapeGeometry args={[createVNeckShape()]} />
             <meshStandardMaterial color="#000000" />
           </mesh>
         )}
+        
+        {/* Hoodie */}
+        {avatar.shirtStyle === "hoodie" && (
+          <group position={[0, torsoHeight/2, 0]}>
+            <mesh position={[0, 0.15, 0.22]}>
+              <boxGeometry args={[0.5, 0.3, 0.15]} />
+              <meshStandardMaterial color={avatar.shirtColor || legoRed} roughness={0.4} />
+            </mesh>
+            <mesh position={[0, 0.3, 0.3]}>
+              <sphereGeometry args={[0.25, 8, 8, 0, Math.PI]} />
+              <meshStandardMaterial color={avatar.shirtColor || legoRed} roughness={0.4} />
+            </mesh>
+          </group>
+        )}
       </group>
       
-      {/* Arms */}
-      <mesh position={[-0.4, 0.5, 0]}>
+      {/* Arms - Seamlessly connected to torso */}
+      <mesh position={[-torsoWidth/2 - 0.05, 0.5, 0]}>
         <cylinderGeometry args={[0.08, 0.08, 0.5, 8]} />
         <meshStandardMaterial color={avatar.shirtColor || legoRed} roughness={0.3} metalness={0.1} />
       </mesh>
-      <mesh position={[0.4, 0.5, 0]}>
+      <mesh position={[torsoWidth/2 + 0.05, 0.5, 0]}>
         <cylinderGeometry args={[0.08, 0.08, 0.5, 8]} />
         <meshStandardMaterial color={avatar.shirtColor || legoRed} roughness={0.3} metalness={0.1} />
       </mesh>
       
-      {/* LEGO C-shaped Hands */}
-      <mesh position={[-0.4, 0.2, 0.15]}>
+      {/* LEGO C-shaped Hands - Seamlessly connected to arms */}
+      <mesh position={[-torsoWidth/2 - 0.05, 0.2, 0.15]}>
         <torusGeometry args={[0.1, 0.05, 8, 16, Math.PI]} />
         <meshStandardMaterial color={avatar.handColor || legoYellow} roughness={0.3} />
       </mesh>
-      <mesh position={[0.4, 0.2, 0.15]}>
+      <mesh position={[torsoWidth/2 + 0.05, 0.2, 0.15]}>
         <torusGeometry args={[0.1, 0.05, 8, 16, Math.PI]} />
         <meshStandardMaterial color={avatar.handColor || legoYellow} roughness={0.3} />
       </mesh>
       
-      {/* Legs */}
+      {/* Legs - Seamlessly connected to hip */}
       <group position={[0, -0.3, 0]}>
         {avatar.legStyle === "pants" ? (
           <>
@@ -449,7 +792,7 @@ const LegoAvatar3D: React.FC<{ avatar: EnhancedAvatarData }> = ({ avatar }) => {
         )}
       </group>
       
-      {/* Accessories */}
+      {/* Enhanced Accessories */}
       {avatar.accessories.includes("backpack") && (
         <mesh position={[0, 0.3, -0.25]}>
           <boxGeometry args={[0.4, 0.5, 0.15]} />
@@ -496,6 +839,30 @@ const LegoAvatar3D: React.FC<{ avatar: EnhancedAvatarData }> = ({ avatar }) => {
           </mesh>
         </group>
       )}
+      {avatar.accessories.includes("watch") && (
+        <mesh position={[0.4, 0.25, 0.1]}>
+          <torusGeometry args={[0.12, 0.02, 8, 16]} />
+          <meshStandardMaterial color="#C0C0C0" metalness={0.9} />
+        </mesh>
+      )}
+      {avatar.accessories.includes("necklace") && (
+        <mesh position={[0, 0.75, 0.22]}>
+          <torusGeometry args={[0.15, 0.01, 8, 16]} />
+          <meshStandardMaterial color="#FFD700" metalness={0.8} />
+        </mesh>
+      )}
+      {avatar.accessories.includes("earrings") && (
+        <>
+          <mesh position={[-0.4, 1.15, 0.05]}>
+            <torusGeometry args={[0.03, 0.01, 8, 16]} />
+            <meshStandardMaterial color="#FFD700" metalness={0.9} />
+          </mesh>
+          <mesh position={[0.4, 1.15, 0.05]}>
+            <torusGeometry args={[0.03, 0.01, 8, 16]} />
+            <meshStandardMaterial color="#FFD700" metalness={0.9} />
+          </mesh>
+        </>
+      )}
     </group>
   );
 };
@@ -538,6 +905,9 @@ function createVNeckShape() {
 }
 
 const AvatarStudio: React.FC<AvatarStudioProps> = ({ open = true, onOpenChange, onSave, initialAvatar }) => {
+  const { user, setUser } = useAuth();
+  const { toast } = useToast();
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [avatar, setAvatar] = useState<EnhancedAvatarData>({
     gender: "male",
     headColor: "#FFD700",
@@ -550,9 +920,11 @@ const AvatarStudio: React.FC<AvatarStudioProps> = ({ open = true, onOpenChange, 
     legColor: "#0066CC",
     accessories: [],
     handColor: "#FFD700",
+    backgroundColor: "#FFFFFF",
   });
 
   const [selectedClothingType, setSelectedClothingType] = useState<"shirt" | "pants" | "shorts" | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (initialAvatar) {
@@ -578,11 +950,92 @@ const AvatarStudio: React.FC<AvatarStudioProps> = ({ open = true, onOpenChange, 
     if (onOpenChange) onOpenChange(false);
   };
 
+  const captureAvatarAsImage = async (): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      // Get the canvas element from the Three.js renderer
+      const canvas = document.querySelector('canvas');
+      if (!canvas) {
+        reject(new Error('Canvas not found'));
+        return;
+      }
+
+      // Create a new canvas with the background color
+      const outputCanvas = document.createElement('canvas');
+      outputCanvas.width = canvas.width;
+      outputCanvas.height = canvas.height;
+      const ctx = outputCanvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error('Failed to get canvas context'));
+        return;
+      }
+
+      // Fill with background color
+      ctx.fillStyle = avatar.backgroundColor || '#FFFFFF';
+      ctx.fillRect(0, 0, outputCanvas.width, outputCanvas.height);
+
+      // Draw the Three.js canvas on top
+      ctx.drawImage(canvas, 0, 0);
+
+      // Convert to blob
+      outputCanvas.toBlob((blob) => {
+        if (!blob) {
+          reject(new Error('Failed to capture image'));
+          return;
+        }
+        const file = new File([blob], `avatar-${Date.now()}.png`, { type: 'image/png' });
+        resolve(file);
+      }, 'image/png', 1.0);
+    });
+  };
+
+  const handleSaveAsProfile = async () => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to save as profile picture",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      // Capture the avatar
+      const avatarFile = await captureAvatarAsImage();
+      
+      // Upload to Supabase
+      const avatarUrl = await MediaService.uploadAvatar(avatarFile);
+      
+      // Update profile
+      const updatedUser = await ProfileService.updateProfile({
+        avatar: avatarUrl,
+      });
+      
+      setUser(updatedUser);
+      
+      toast({
+        title: "Success!",
+        description: "Lego used as Profile",
+      });
+      
+      if (onOpenChange) onOpenChange(false);
+    } catch (error) {
+      console.error('Error saving avatar as profile:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save avatar as profile picture",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (!open) return null;
 
-  const hairColors = ["#8B4513", "#2C1A0E", "#000000", "#FFD700", "#FF69B4", "#FFFFFF", "#4B0082"];
-  const shirtColors = ["#DC143C", "#0066CC", "#00AA44", "#FFD700", "#FF69B4", "#FFFFFF", "#000000", "#8B4513"];
-  const legColors = ["#0066CC", "#000000", "#8B4513", "#FFFFFF", "#DC143C", "#00AA44", "#808080"];
+  const hairColors = ["#8B4513", "#2C1A0E", "#000000", "#FFD700", "#FF69B4", "#FFFFFF", "#4B0082", "#8B7355", "#D2691E"];
+  const shirtColors = ["#DC143C", "#0066CC", "#00AA44", "#FFD700", "#FF69B4", "#FFFFFF", "#000000", "#8B4513", "#800080"];
+  const legColors = ["#0066CC", "#000000", "#8B4513", "#FFFFFF", "#DC143C", "#00AA44", "#808080", "#4B0082"];
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
@@ -602,19 +1055,48 @@ const AvatarStudio: React.FC<AvatarStudioProps> = ({ open = true, onOpenChange, 
             >
               Save Avatar
             </Button>
+            <Button 
+              className="bg-green-700 text-white hover:bg-green-800" 
+              onClick={handleSaveAsProfile}
+              disabled={saving}
+            >
+              {saving ? "Saving..." : "Save as Profile"}
+            </Button>
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* 3D Preview */}
-            <Card className="relative flex flex-col items-center bg-gradient-to-br from-green-50 to-green-100 dark:from-gray-800 dark:to-gray-900 shadow-lg rounded-2xl p-4">
+            <Card className="relative flex flex-col items-center shadow-lg rounded-2xl p-4" style={{ backgroundColor: avatar.backgroundColor || "#FFFFFF" }}>
               <div className="w-full h-[500px] flex items-center justify-center">
                 <Canvas camera={{ position: [0, 1, 5], fov: 50 }}>
                   <PerspectiveCamera makeDefault position={[0, 1, 5]} fov={50} />
-                  <LegoAvatar3D avatar={avatar} />
+                  <LegoAvatar3D avatar={avatar} canvasRef={canvasRef} />
                   <OrbitControls enableZoom={true} enablePan={false} minDistance={3} maxDistance={8} />
                 </Canvas>
+              </div>
+              {/* Background Color Picker */}
+              <div className="mt-4 w-full">
+                <label className="text-sm font-medium mb-2 block flex items-center gap-2">
+                  <Palette className="w-4 h-4" />
+                  Background Color
+                </label>
+                <div className="grid grid-cols-8 gap-2 max-h-32 overflow-y-auto">
+                  {BACKGROUND_COLORS.map((color) => (
+                    <div
+                      key={color}
+                      onClick={() => handleChange("backgroundColor", color)}
+                      className={`w-8 h-8 rounded cursor-pointer border-2 transition-all ${
+                        avatar.backgroundColor === color
+                          ? "border-green-600 scale-110 ring-2 ring-green-300"
+                          : "border-transparent hover:scale-105"
+                      }`}
+                      style={{ backgroundColor: color }}
+                      title={color}
+                    />
+                  ))}
+                </div>
               </div>
             </Card>
 
@@ -630,7 +1112,6 @@ const AvatarStudio: React.FC<AvatarStudioProps> = ({ open = true, onOpenChange, 
                       whileTap={{ scale: 0.95 }}
                       onClick={() => {
                         handleChange("gender", gender);
-                        // Reset hair style to first option for selected gender
                         const firstHairStyle = HAIR_STYLES[gender][0].id;
                         handleChange("hairStyle", firstHairStyle);
                       }}
@@ -659,7 +1140,7 @@ const AvatarStudio: React.FC<AvatarStudioProps> = ({ open = true, onOpenChange, 
                   <div>
                     <label className="text-sm font-medium mb-2 block">Face Expression</label>
                     <div className="grid grid-cols-4 gap-2">
-                      {(["happy", "neutral", "wink", "surprised"] as const).map((expr) => (
+                      {(["happy", "neutral", "wink", "surprised", "sad", "angry", "cool", "sleepy"] as const).map((expr) => (
                         <motion.button
                           key={expr}
                           whileTap={{ scale: 0.95 }}
@@ -681,7 +1162,7 @@ const AvatarStudio: React.FC<AvatarStudioProps> = ({ open = true, onOpenChange, 
                 <TabsContent value="hair" className="space-y-4 mt-4">
                   <div>
                     <label className="text-sm font-medium mb-2 block">Hair Style</label>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto">
                       {HAIR_STYLES[avatar.gender].map((style) => (
                         <motion.button
                           key={style.id}
@@ -701,7 +1182,7 @@ const AvatarStudio: React.FC<AvatarStudioProps> = ({ open = true, onOpenChange, 
 
                   <div>
                     <label className="text-sm font-medium mb-2 block">Hair Color</label>
-                    <div className="grid grid-cols-7 gap-2">
+                    <div className="grid grid-cols-9 gap-2">
                       {hairColors.map((color) => (
                         <div
                           key={color}
@@ -737,7 +1218,7 @@ const AvatarStudio: React.FC<AvatarStudioProps> = ({ open = true, onOpenChange, 
                           Choose Shirt
                         </motion.button>
                         {selectedClothingType === "shirt" && (
-                          <div className="col-span-2 grid grid-cols-4 gap-2 mt-2">
+                          <div className="col-span-2 grid grid-cols-5 gap-2 mt-2">
                             {SHIRT_STYLES.map((shirt) => (
                               <motion.button
                                 key={shirt.id}
@@ -762,7 +1243,7 @@ const AvatarStudio: React.FC<AvatarStudioProps> = ({ open = true, onOpenChange, 
                       </div>
                       <div>
                         <label className="text-xs text-gray-600 dark:text-gray-400 mb-1 block">Shirt Color</label>
-                        <div className="grid grid-cols-8 gap-2">
+                        <div className="grid grid-cols-9 gap-2">
                           {shirtColors.map((color) => (
                             <div
                               key={color}
@@ -802,7 +1283,7 @@ const AvatarStudio: React.FC<AvatarStudioProps> = ({ open = true, onOpenChange, 
                           Choose Pants
                         </motion.button>
                         {selectedClothingType === "pants" && (
-                          <div className="col-span-2 grid grid-cols-4 gap-2 mt-2">
+                          <div className="col-span-2 grid grid-cols-5 gap-2 mt-2">
                             {PANTS_STYLES.map((pant) => (
                               <motion.button
                                 key={pant.id}
@@ -827,7 +1308,7 @@ const AvatarStudio: React.FC<AvatarStudioProps> = ({ open = true, onOpenChange, 
                       </div>
                       <div>
                         <label className="text-xs text-gray-600 dark:text-gray-400 mb-1 block">Pants Color</label>
-                        <div className="grid grid-cols-7 gap-2">
+                        <div className="grid grid-cols-8 gap-2">
                           {legColors.map((color) => (
                             <div
                               key={color}
@@ -867,7 +1348,7 @@ const AvatarStudio: React.FC<AvatarStudioProps> = ({ open = true, onOpenChange, 
                           Choose Shorts
                         </motion.button>
                         {selectedClothingType === "shorts" && (
-                          <div className="col-span-2 grid grid-cols-4 gap-2 mt-2">
+                          <div className="col-span-2 grid grid-cols-5 gap-2 mt-2">
                             {SHORTS_STYLES.map((short) => (
                               <motion.button
                                 key={short.id}
@@ -892,7 +1373,7 @@ const AvatarStudio: React.FC<AvatarStudioProps> = ({ open = true, onOpenChange, 
                       </div>
                       <div>
                         <label className="text-xs text-gray-600 dark:text-gray-400 mb-1 block">Shorts Color</label>
-                        <div className="grid grid-cols-7 gap-2">
+                        <div className="grid grid-cols-8 gap-2">
                           {legColors.map((color) => (
                             <div
                               key={color}
@@ -916,7 +1397,7 @@ const AvatarStudio: React.FC<AvatarStudioProps> = ({ open = true, onOpenChange, 
                   <div>
                     <label className="text-sm font-medium mb-2 block">Accessories</label>
                     <div className="grid grid-cols-2 gap-2">
-                      {["glasses", "hat", "cap", "backpack", "bag"].map((accessory) => (
+                      {["glasses", "hat", "cap", "backpack", "bag", "watch", "necklace", "earrings"].map((accessory) => (
                         <motion.button
                           key={accessory}
                           whileTap={{ scale: 0.95 }}
