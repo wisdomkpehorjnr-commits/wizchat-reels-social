@@ -224,8 +224,12 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
           .eq('user_id', user.id)
           .eq('emoji', '👍');
         
-        if (error) throw error;
+        if (error) {
+          console.error('Delete like error:', error);
+          throw error;
+        }
       } else {
+        // Delete dislike if exists
         if (wasDisliked) {
           const { error } = await supabase
             .from('room_post_reactions')
@@ -234,18 +238,25 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
             .eq('user_id', user.id)
             .eq('emoji', '👎');
           
-          if (error) throw error;
+          if (error) {
+            console.error('Delete dislike error:', error);
+            throw error;
+          }
         }
         
+        // Insert like reaction (upsert handles UNIQUE constraint automatically)
         const { error: insertError } = await supabase
           .from('room_post_reactions')
-          .insert([{
+          .insert({
             post_id: post.id,
             user_id: user.id,
             emoji: '👍'
-          }]);
+          });
         
-        if (insertError) throw insertError;
+        if (insertError) {
+          console.error('Insert like error:', insertError);
+          throw insertError;
+        }
       }
       
       // Only reload if there's a mismatch (for sync purposes, but don't override optimistic update)
@@ -260,7 +271,7 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
       loadLikes();
       toast({
         title: "Error",
-        description: "Failed to like post",
+        description: error.message || "Failed to like post",
         variant: "destructive"
       });
     }
@@ -295,8 +306,12 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
           .eq('user_id', user.id)
           .eq('emoji', '👎');
         
-        if (error) throw error;
+        if (error) {
+          console.error('Delete dislike error:', error);
+          throw error;
+        }
       } else {
+        // Delete like if exists
         if (wasLiked) {
           const { error } = await supabase
             .from('room_post_reactions')
@@ -305,18 +320,25 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
             .eq('user_id', user.id)
             .eq('emoji', '👍');
           
-          if (error) throw error;
+          if (error) {
+            console.error('Delete like error:', error);
+            throw error;
+          }
         }
         
+        // Insert dislike reaction (upsert handles UNIQUE constraint automatically)
         const { error: insertError } = await supabase
           .from('room_post_reactions')
-          .insert([{
+          .insert({
             post_id: post.id,
             user_id: user.id,
             emoji: '👎'
-          }]);
+          });
         
-        if (insertError) throw insertError;
+        if (insertError) {
+          console.error('Insert dislike error:', insertError);
+          throw insertError;
+        }
       }
       
       // Only reload if there's a mismatch (for sync purposes, but don't override optimistic update)
@@ -331,7 +353,7 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
       loadLikes();
       toast({
         title: "Error",
-        description: "Failed to dislike post",
+        description: error.message || "Failed to dislike post",
         variant: "destructive"
       });
     }
@@ -371,7 +393,10 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Insert comment error:', error);
+        throw error;
+      }
 
       // Replace temp comment with real one
       if (data) {
@@ -404,7 +429,7 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
       setNewComment(commentContent); // Restore comment text
       toast({
         title: "Error",
-        description: error.message || "Failed to post comment",
+        description: error.message || error.details || "Failed to post comment",
         variant: "destructive"
       });
     } finally {

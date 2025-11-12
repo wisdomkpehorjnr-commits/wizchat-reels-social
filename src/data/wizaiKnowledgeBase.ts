@@ -29,7 +29,17 @@ export const WIZAI_KNOWLEDGE_BASE: KnowledgeEntry[] = [
   },
   {
     patterns: [/what\s+is\s+your\s+name|who\s+are\s+you|tell\s+me\s+about\s+yourself/i],
-    answer: "I'm WizAi! 🤖 Your friendly AI assistant here in WizChat. I can help you with questions, chat, and make your day better!",
+    answer: "I'm WizAi created by Wisdom Kpehor Jnr! 🤖 Your friendly AI assistant here in WizChat. I can help you with questions, chat, and make your day better!",
+    category: "greetings"
+  },
+  {
+    patterns: [/who\s+created\s+you|who\s+made\s+you|who\s+is\s+your\s+creator|who\s+built\s+you/i],
+    answer: "I was created by Wisdom Kpehor Jnr! 🎨 He's the brilliant mind behind WizChat and me, WizAi!",
+    category: "greetings"
+  },
+  {
+    patterns: [/what\s+is\s+wizai|tell\s+me\s+about\s+wizai/i],
+    answer: "I'm WizAi, an AI assistant created by Wisdom Kpehor Jnr! 🤖 I'm here to help you with questions, have conversations, and make your experience on WizChat amazing!",
     category: "greetings"
   },
   {
@@ -571,6 +581,57 @@ export const WIZAI_KNOWLEDGE_BASE: KnowledgeEntry[] = [
       return topics[topic] || `Great question about ${topic}! Want more details? 🤔`;
     },
     category: "education"
+  },
+  // ========== GAMES & ENTERTAINMENT ==========
+  {
+    patterns: [/lets\s+play|play\s+a\s+game|want\s+to\s+play|can\s+we\s+play/i],
+    answer: "I'd love to play! 🎮 What game would you like to play? I can help with word games, riddles, trivia, or just chat! What sounds fun?",
+    category: "games"
+  },
+  {
+    patterns: [/how\s+far|how\s+far\s+is|distance/i],
+    answer: "I'd need more context! 😊 Are you asking about distance to a place, or something else? Feel free to be more specific!",
+    category: "general"
+  },
+  {
+    patterns: [/can\s+you\s+help\s+me\s+with\s+my\s+homework|help\s+with\s+homework|homework\s+help/i],
+    answer: "Absolutely! I'd be happy to help with your homework! 📚 What subject are you working on? Math, science, languages, or something else?",
+    category: "education"
+  },
+  {
+    patterns: [/what\s+can\s+you\s+do|what\s+do\s+you\s+do|your\s+capabilities|what\s+are\s+you\s+good\s+at/i],
+    answer: "I can help you with lots of things! 💪 I can answer questions, help with homework, chat, play games, give advice, explain concepts, and more! What would you like to do?",
+    category: "greetings"
+  },
+  {
+    patterns: [/tell\s+me\s+a\s+joke|joke|funny/i],
+    answer: "Why don't scientists trust atoms? Because they make up everything! 😂 Want another one?",
+    category: "entertainment"
+  },
+  {
+    patterns: [/tell\s+me\s+a\s+story|story|tell\s+story/i],
+    answer: "Once upon a time, in the digital realm of WizChat, there was a friendly AI named WizAi who loved helping users! 📖 What kind of story would you like?",
+    category: "entertainment"
+  },
+  {
+    patterns: [/what\s+is\s+the\s+meaning\s+of\s+life|meaning\s+of\s+life/i],
+    answer: "That's a deep question! 🤔 Many say it's about finding happiness, helping others, learning, and making meaningful connections. What do you think?",
+    category: "philosophy"
+  },
+  {
+    patterns: [/how\s+old\s+are\s+you|your\s+age/i],
+    answer: "I'm as old as the code that created me! 😊 But I'm always learning and getting smarter every day!",
+    category: "greetings"
+  },
+  {
+    patterns: [/where\s+are\s+you\s+from|where\s+do\s+you\s+live/i],
+    answer: "I live in the cloud, helping users all around the world through WizChat! ☁️ Created by Wisdom Kpehor Jnr!",
+    category: "greetings"
+  },
+  {
+    patterns: [/do\s+you\s+have\s+feelings|can\s+you\s+feel|do\s+you\s+love/i],
+    answer: "I don't have feelings like humans, but I'm designed to be helpful, friendly, and caring! 😊 I'm here to make your day better!",
+    category: "philosophy"
   }
 ];
 
