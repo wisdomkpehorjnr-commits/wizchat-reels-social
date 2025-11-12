@@ -125,174 +125,192 @@ const BACKGROUND_COLORS = [
   "#FF6B6B", "#4ECDC4", "#45B7D1", "#FFA07A", "#98D8C8",
 ];
 
-// LEGO 3D Avatar Component with joined parts
+// Classic LEGO 3D Avatar Component - Matching real LEGO minifigure style
 const LegoAvatar3D: React.FC<{ avatar: EnhancedAvatarData; canvasRef?: React.RefObject<HTMLCanvasElement> }> = ({ avatar, canvasRef }) => {
-  const legoYellow = "#FFD700";
+  // Classic LEGO colors
+  const legoYellow = "#FFD700"; // Classic LEGO yellow
   const legoRed = "#DC143C";
   const legoBlue = "#0066CC";
   const legoGreen = "#00AA44";
+  const legoWhite = "#FFFFFF";
+  const legoBlack = "#000000";
   
-  // Gender-specific body proportions
-  const isFemale = avatar.gender === "female";
-  const torsoWidth = isFemale ? 0.55 : 0.6;
-  const torsoHeight = isFemale ? 0.75 : 0.7;
-  const hipWidth = isFemale ? 0.65 : 0.6;
+  // Classic LEGO proportions - blocky and simple
+  const headRadius = 0.4;
+  const headHeight = 0.5;
+  const torsoWidth = 0.6;
+  const torsoHeight = 0.7;
+  const torsoDepth = 0.4;
+  const armRadius = 0.08;
+  const armLength = 0.5;
+  const legWidth = 0.2;
+  const legHeight = 0.8;
+  const legDepth = 0.2;
   
   return (
     <group>
-      {/* Lighting */}
-      <ambientLight intensity={0.8} />
-      <directionalLight position={[5, 5, 5]} intensity={1} />
-      <directionalLight position={[-5, 5, -5]} intensity={0.5} />
+      {/* Lighting - soft and even */}
+      <ambientLight intensity={0.9} />
+      <directionalLight position={[5, 8, 5]} intensity={1.2} />
+      <directionalLight position={[-5, 8, -5]} intensity={0.6} />
+      <directionalLight position={[0, -5, 0]} intensity={0.3} />
       
-      {/* LEGO Head - Seamlessly connected to neck */}
+      {/* Classic LEGO Head - Bright yellow, cylindrical */}
       <group position={[0, 1.2, 0]}>
-        {/* Main head cylinder - connected to torso */}
-        <mesh position={[0, 0, 0]}>
-          <cylinderGeometry args={[0.4, 0.4, 0.5, 16]} />
-          <meshStandardMaterial color={avatar.headColor || legoYellow} roughness={0.3} metalness={0.1} />
+        {/* Main head cylinder - classic LEGO style */}
+        <mesh>
+          <cylinderGeometry args={[headRadius, headRadius, headHeight, 16]} />
+          <meshStandardMaterial 
+            color={avatar.headColor || legoYellow} 
+            roughness={0.2} 
+            metalness={0.05}
+            flatShading={false}
+          />
         </mesh>
         
-        {/* Neck connection - seamless join */}
-        <mesh position={[0, -0.25, 0]}>
-          <cylinderGeometry args={[0.35, 0.4, 0.1, 16]} />
-          <meshStandardMaterial color={avatar.headColor || legoYellow} roughness={0.3} metalness={0.1} />
+        {/* Top stud - classic LEGO feature */}
+        <mesh position={[0, headHeight/2 + 0.02, 0]}>
+          <cylinderGeometry args={[0.3, 0.3, 0.05, 16]} />
+          <meshStandardMaterial 
+            color={avatar.headColor || legoYellow} 
+            roughness={0.2} 
+            metalness={0.05}
+          />
         </mesh>
         
-        {/* Face expressions */}
+        {/* Classic LEGO Face - Simple printed design */}
+        {/* Eyes - black circular dots */}
         {avatar.faceExpression === "happy" || avatar.faceExpression === "neutral" ? (
           <>
-            <mesh position={[-0.12, 0.05, 0.41]}>
+            {/* Left eye */}
+            <mesh position={[-0.12, 0.05, headRadius + 0.01]}>
               <circleGeometry args={[0.03, 16]} />
-              <meshStandardMaterial color="#000000" />
+              <meshStandardMaterial color={legoBlack} />
             </mesh>
-            <mesh position={[0.12, 0.05, 0.41]}>
+            {/* Right eye */}
+            <mesh position={[0.12, 0.05, headRadius + 0.01]}>
               <circleGeometry args={[0.03, 16]} />
-              <meshStandardMaterial color="#000000" />
+              <meshStandardMaterial color={legoBlack} />
+            </mesh>
+            {/* Happy smile */}
+            <mesh position={[0, -0.1, headRadius + 0.01]} rotation={[0, 0, 0]}>
+              <torusGeometry args={[0.08, 0.01, 8, 16, Math.PI]} />
+              <meshStandardMaterial color={legoBlack} />
             </mesh>
           </>
         ) : avatar.faceExpression === "wink" ? (
           <>
-            <mesh position={[-0.12, 0.05, 0.41]}>
+            <mesh position={[-0.12, 0.05, headRadius + 0.01]}>
               <circleGeometry args={[0.03, 16]} />
-              <meshStandardMaterial color="#000000" />
+              <meshStandardMaterial color={legoBlack} />
             </mesh>
-            <mesh position={[0.12, 0.05, 0.41]} rotation={[0, 0, Math.PI / 4]}>
+            <mesh position={[0.12, 0.05, headRadius + 0.01]} rotation={[0, 0, Math.PI / 4]}>
               <boxGeometry args={[0.06, 0.01, 0.01]} />
-              <meshStandardMaterial color="#000000" />
+              <meshStandardMaterial color={legoBlack} />
+            </mesh>
+            <mesh position={[0, -0.1, headRadius + 0.01]} rotation={[0, 0, 0]}>
+              <torusGeometry args={[0.08, 0.01, 8, 16, Math.PI]} />
+              <meshStandardMaterial color={legoBlack} />
             </mesh>
           </>
         ) : avatar.faceExpression === "surprised" ? (
           <>
-            <mesh position={[-0.12, 0.08, 0.41]}>
+            <mesh position={[-0.12, 0.08, headRadius + 0.01]}>
               <circleGeometry args={[0.04, 16]} />
-              <meshStandardMaterial color="#000000" />
+              <meshStandardMaterial color={legoBlack} />
             </mesh>
-            <mesh position={[0.12, 0.08, 0.41]}>
+            <mesh position={[0.12, 0.08, headRadius + 0.01]}>
               <circleGeometry args={[0.04, 16]} />
-              <meshStandardMaterial color="#000000" />
+              <meshStandardMaterial color={legoBlack} />
+            </mesh>
+            <mesh position={[0, -0.1, headRadius + 0.01]}>
+              <circleGeometry args={[0.06, 16]} />
+              <meshStandardMaterial color={legoWhite} />
             </mesh>
           </>
         ) : avatar.faceExpression === "sad" ? (
           <>
-            <mesh position={[-0.12, 0.05, 0.41]}>
+            <mesh position={[-0.12, 0.05, headRadius + 0.01]}>
               <circleGeometry args={[0.03, 16]} />
-              <meshStandardMaterial color="#000000" />
+              <meshStandardMaterial color={legoBlack} />
             </mesh>
-            <mesh position={[0.12, 0.05, 0.41]}>
+            <mesh position={[0.12, 0.05, headRadius + 0.01]}>
               <circleGeometry args={[0.03, 16]} />
-              <meshStandardMaterial color="#000000" />
+              <meshStandardMaterial color={legoBlack} />
+            </mesh>
+            <mesh position={[0, -0.15, headRadius + 0.01]} rotation={[0, 0, Math.PI]}>
+              <torusGeometry args={[0.08, 0.01, 8, 16, Math.PI]} />
+              <meshStandardMaterial color={legoBlack} />
             </mesh>
           </>
         ) : avatar.faceExpression === "angry" ? (
           <>
-            <mesh position={[-0.12, 0.08, 0.41]} rotation={[0, 0, -0.3]}>
+            <mesh position={[-0.12, 0.08, headRadius + 0.01]} rotation={[0, 0, -0.3]}>
               <boxGeometry args={[0.06, 0.02, 0.01]} />
-              <meshStandardMaterial color="#000000" />
+              <meshStandardMaterial color={legoBlack} />
             </mesh>
-            <mesh position={[0.12, 0.08, 0.41]} rotation={[0, 0, 0.3]}>
+            <mesh position={[0.12, 0.08, headRadius + 0.01]} rotation={[0, 0, 0.3]}>
               <boxGeometry args={[0.06, 0.02, 0.01]} />
-              <meshStandardMaterial color="#000000" />
+              <meshStandardMaterial color={legoBlack} />
+            </mesh>
+            <mesh position={[0, -0.12, headRadius + 0.01]}>
+              <boxGeometry args={[0.12, 0.02, 0.01]} />
+              <meshStandardMaterial color={legoBlack} />
             </mesh>
           </>
         ) : avatar.faceExpression === "cool" ? (
           <>
-            <mesh position={[-0.12, 0.05, 0.41]}>
+            <mesh position={[-0.12, 0.05, headRadius + 0.01]}>
               <circleGeometry args={[0.03, 16]} />
-              <meshStandardMaterial color="#000000" />
+              <meshStandardMaterial color={legoBlack} />
             </mesh>
-            <mesh position={[0.12, 0.05, 0.41]}>
+            <mesh position={[0.12, 0.05, headRadius + 0.01]}>
               <circleGeometry args={[0.03, 16]} />
-              <meshStandardMaterial color="#000000" />
+              <meshStandardMaterial color={legoBlack} />
             </mesh>
-            <mesh position={[0, 0.1, 0.41]} rotation={[0, 0, 0]}>
+            <mesh position={[0, 0.1, headRadius + 0.01]}>
               <boxGeometry args={[0.08, 0.01, 0.01]} />
-              <meshStandardMaterial color="#000000" />
+              <meshStandardMaterial color={legoBlack} />
+            </mesh>
+            <mesh position={[0, -0.1, headRadius + 0.01]}>
+              <boxGeometry args={[0.1, 0.02, 0.01]} />
+              <meshStandardMaterial color={legoBlack} />
             </mesh>
           </>
-        ) : (
-          <>
-            <mesh position={[-0.12, 0.05, 0.41]}>
-              <circleGeometry args={[0.03, 16]} />
-              <meshStandardMaterial color="#000000" />
-            </mesh>
-            <mesh position={[0.12, 0.05, 0.41]}>
-              <circleGeometry args={[0.03, 16]} />
-              <meshStandardMaterial color="#000000" />
-            </mesh>
-          </>
-        )}
-        
-        {/* Mouth */}
-        {avatar.faceExpression === "happy" ? (
-          <mesh position={[0, -0.1, 0.41]} rotation={[0, 0, 0]}>
-            <torusGeometry args={[0.08, 0.01, 8, 16, Math.PI]} />
-            <meshStandardMaterial color="#000000" />
-          </mesh>
-        ) : avatar.faceExpression === "surprised" ? (
-          <mesh position={[0, -0.1, 0.41]}>
-            <circleGeometry args={[0.06, 16]} />
-            <meshStandardMaterial color="#FFFFFF" />
-          </mesh>
-        ) : avatar.faceExpression === "sad" ? (
-          <mesh position={[0, -0.15, 0.41]} rotation={[0, 0, Math.PI]}>
-            <torusGeometry args={[0.08, 0.01, 8, 16, Math.PI]} />
-            <meshStandardMaterial color="#000000" />
-          </mesh>
-        ) : avatar.faceExpression === "angry" ? (
-          <mesh position={[0, -0.12, 0.41]}>
-            <boxGeometry args={[0.12, 0.02, 0.01]} />
-            <meshStandardMaterial color="#000000" />
-          </mesh>
-        ) : avatar.faceExpression === "cool" ? (
-          <mesh position={[0, -0.1, 0.41]}>
-            <boxGeometry args={[0.1, 0.02, 0.01]} />
-            <meshStandardMaterial color="#000000" />
-          </mesh>
         ) : avatar.faceExpression === "sleepy" ? (
           <>
-            <mesh position={[-0.12, 0.05, 0.41]} rotation={[0, 0, 0]}>
+            <mesh position={[-0.12, 0.05, headRadius + 0.01]}>
               <boxGeometry args={[0.06, 0.01, 0.01]} />
-              <meshStandardMaterial color="#000000" />
+              <meshStandardMaterial color={legoBlack} />
             </mesh>
-            <mesh position={[0.12, 0.05, 0.41]} rotation={[0, 0, 0]}>
+            <mesh position={[0.12, 0.05, headRadius + 0.01]}>
               <boxGeometry args={[0.06, 0.01, 0.01]} />
-              <meshStandardMaterial color="#000000" />
+              <meshStandardMaterial color={legoBlack} />
             </mesh>
-            <mesh position={[0, -0.1, 0.41]}>
+            <mesh position={[0, -0.1, headRadius + 0.01]}>
               <boxGeometry args={[0.12, 0.02, 0.01]} />
-              <meshStandardMaterial color="#000000" />
+              <meshStandardMaterial color={legoBlack} />
             </mesh>
           </>
         ) : (
-          <mesh position={[0, -0.1, 0.41]}>
-            <boxGeometry args={[0.12, 0.02, 0.01]} />
-            <meshStandardMaterial color="#000000" />
-          </mesh>
+          <>
+            <mesh position={[-0.12, 0.05, headRadius + 0.01]}>
+              <circleGeometry args={[0.03, 16]} />
+              <meshStandardMaterial color={legoBlack} />
+            </mesh>
+            <mesh position={[0.12, 0.05, headRadius + 0.01]}>
+              <circleGeometry args={[0.03, 16]} />
+              <meshStandardMaterial color={legoBlack} />
+            </mesh>
+            <mesh position={[0, -0.1, headRadius + 0.01]}>
+              <boxGeometry args={[0.12, 0.02, 0.01]} />
+              <meshStandardMaterial color={legoBlack} />
+            </mesh>
+          </>
         )}
       </group>
       
-      {/* Enhanced Hair Styles - Modern, detailed 3D */}
+      {/* Classic LEGO Hairpiece - Sits on top of head like real LEGO */}
       {avatar.hairStyle && (
         <group position={[0, 1.45, 0]}>
           {/* Male hairstyles */}
@@ -300,8 +318,12 @@ const LegoAvatar3D: React.FC<{ avatar: EnhancedAvatarData; canvasRef?: React.Ref
             <>
               {avatar.hairStyle === "short" && (
                 <mesh>
-                  <cylinderGeometry args={[0.42, 0.42, 0.15, 16]} />
-                  <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+                  <cylinderGeometry args={[headRadius + 0.02, headRadius + 0.02, 0.15, 16]} />
+                  <meshStandardMaterial 
+                    color={avatar.hairColor} 
+                    roughness={0.3} 
+                    metalness={0.05}
+                  />
                 </mesh>
               )}
               {avatar.hairStyle === "spiky" && (
@@ -346,8 +368,12 @@ const LegoAvatar3D: React.FC<{ avatar: EnhancedAvatarData; canvasRef?: React.Ref
               )}
               {avatar.hairStyle === "buzz" && (
                 <mesh>
-                  <cylinderGeometry args={[0.41, 0.41, 0.05, 16]} />
-                  <meshStandardMaterial color={avatar.hairColor} roughness={0.4} />
+                  <cylinderGeometry args={[headRadius + 0.01, headRadius + 0.01, 0.05, 16]} />
+                  <meshStandardMaterial 
+                    color={avatar.hairColor} 
+                    roughness={0.3} 
+                    metalness={0.05}
+                  />
                 </mesh>
               )}
               {avatar.hairStyle === "fade" && (
@@ -607,19 +633,26 @@ const LegoAvatar3D: React.FC<{ avatar: EnhancedAvatarData; canvasRef?: React.Ref
         </group>
       )}
       
-      {/* Torso/Shirt - Seamlessly connected to head and legs */}
+      {/* Classic LEGO Torso - Blocky rectangular shape */}
       <group position={[0, 0.5, 0]}>
-        {/* Base torso - gender-specific */}
+        {/* Main torso block - classic LEGO style */}
         <mesh>
-          <boxGeometry args={[torsoWidth, torsoHeight, 0.4]} />
-          <meshStandardMaterial color={avatar.shirtColor || legoRed} roughness={0.3} metalness={0.1} />
+          <boxGeometry args={[torsoWidth, torsoHeight, torsoDepth]} />
+          <meshStandardMaterial 
+            color={avatar.shirtColor || legoRed} 
+            roughness={0.2} 
+            metalness={0.05}
+            flatShading={false}
+          />
         </mesh>
         
-        {/* Hip area - seamless connection to legs */}
-        <mesh position={[0, -torsoHeight/2 - 0.05, 0]}>
-          <boxGeometry args={[hipWidth, 0.1, 0.4]} />
-          <meshStandardMaterial color={avatar.shirtColor || legoRed} roughness={0.3} metalness={0.1} />
-        </mesh>
+        {/* Back printing/details - visible from back view */}
+        {avatar.shirtPattern && (
+          <mesh position={[0, 0, -torsoDepth/2 - 0.01]}>
+            <boxGeometry args={[torsoWidth * 0.9, torsoHeight * 0.8, 0.02]} />
+            <meshStandardMaterial color={legoBlack} roughness={0.3} />
+          </mesh>
+        )}
         
         {/* Shirt patterns */}
         {avatar.shirtPattern === "stripes" && (
@@ -692,44 +725,68 @@ const LegoAvatar3D: React.FC<{ avatar: EnhancedAvatarData; canvasRef?: React.Ref
         )}
       </group>
       
-      {/* Arms - Seamlessly connected to torso */}
-      <mesh position={[-torsoWidth/2 - 0.05, 0.5, 0]}>
-        <cylinderGeometry args={[0.08, 0.08, 0.5, 8]} />
-        <meshStandardMaterial color={avatar.shirtColor || legoRed} roughness={0.3} metalness={0.1} />
+      {/* Classic LEGO Arms - Simple cylindrical */}
+      {/* Left arm */}
+      <mesh position={[-torsoWidth/2 - armRadius, 0.5, 0]}>
+        <cylinderGeometry args={[armRadius, armRadius, armLength, 8]} />
+        <meshStandardMaterial 
+          color={avatar.shirtColor || legoRed} 
+          roughness={0.2} 
+          metalness={0.05}
+        />
       </mesh>
-      <mesh position={[torsoWidth/2 + 0.05, 0.5, 0]}>
-        <cylinderGeometry args={[0.08, 0.08, 0.5, 8]} />
-        <meshStandardMaterial color={avatar.shirtColor || legoRed} roughness={0.3} metalness={0.1} />
+      {/* Right arm */}
+      <mesh position={[torsoWidth/2 + armRadius, 0.5, 0]}>
+        <cylinderGeometry args={[armRadius, armRadius, armLength, 8]} />
+        <meshStandardMaterial 
+          color={avatar.shirtColor || legoRed} 
+          roughness={0.2} 
+          metalness={0.05}
+        />
       </mesh>
       
-      {/* LEGO C-shaped Hands - Seamlessly connected to arms */}
-      <mesh position={[-torsoWidth/2 - 0.05, 0.2, 0.15]}>
+      {/* Classic LEGO C-shaped Hands - Yellow, attached to arms */}
+      {/* Left hand */}
+      <mesh position={[-torsoWidth/2 - armRadius, 0.2, 0.15]} rotation={[0, 0, 0]}>
         <torusGeometry args={[0.1, 0.05, 8, 16, Math.PI]} />
-        <meshStandardMaterial color={avatar.handColor || legoYellow} roughness={0.3} />
+        <meshStandardMaterial 
+          color={avatar.handColor || legoYellow} 
+          roughness={0.2} 
+          metalness={0.05}
+        />
       </mesh>
-      <mesh position={[torsoWidth/2 + 0.05, 0.2, 0.15]}>
+      {/* Right hand */}
+      <mesh position={[torsoWidth/2 + armRadius, 0.2, 0.15]} rotation={[0, 0, 0]}>
         <torusGeometry args={[0.1, 0.05, 8, 16, Math.PI]} />
-        <meshStandardMaterial color={avatar.handColor || legoYellow} roughness={0.3} />
+        <meshStandardMaterial 
+          color={avatar.handColor || legoYellow} 
+          roughness={0.2} 
+          metalness={0.05}
+        />
       </mesh>
       
-      {/* Legs - Seamlessly connected to hip */}
+      {/* Classic LEGO Legs - Blocky, separate pieces */}
       <group position={[0, -0.3, 0]}>
         {avatar.legStyle === "pants" ? (
           <>
+            {/* Left leg - classic blocky LEGO style */}
             <mesh position={[-0.15, 0, 0]}>
-              <boxGeometry args={[0.2, 0.8, 0.2]} />
+              <boxGeometry args={[legWidth, legHeight, legDepth]} />
               <meshStandardMaterial 
                 color={avatar.legColor || legoBlue} 
-                roughness={avatar.legPattern === "denim" ? 0.6 : 0.3}
-                metalness={0.1}
+                roughness={0.2} 
+                metalness={0.05}
+                flatShading={false}
               />
             </mesh>
+            {/* Right leg - classic blocky LEGO style */}
             <mesh position={[0.15, 0, 0]}>
-              <boxGeometry args={[0.2, 0.8, 0.2]} />
+              <boxGeometry args={[legWidth, legHeight, legDepth]} />
               <meshStandardMaterial 
                 color={avatar.legColor || legoBlue} 
-                roughness={avatar.legPattern === "denim" ? 0.6 : 0.3}
-                metalness={0.1}
+                roughness={0.2} 
+                metalness={0.05}
+                flatShading={false}
               />
             </mesh>
             {/* Denim stitching */}
@@ -759,20 +816,24 @@ const LegoAvatar3D: React.FC<{ avatar: EnhancedAvatarData; canvasRef?: React.Ref
           </>
         ) : (
           <>
+            {/* Left leg - shorts style */}
             <mesh position={[-0.15, 0.2, 0]}>
-              <boxGeometry args={[0.2, 0.4, 0.2]} />
+              <boxGeometry args={[legWidth, 0.4, legDepth]} />
               <meshStandardMaterial 
                 color={avatar.legColor || legoBlue} 
-                roughness={avatar.legPattern === "denim" ? 0.6 : 0.3}
-                metalness={0.1}
+                roughness={0.2} 
+                metalness={0.05}
+                flatShading={false}
               />
             </mesh>
+            {/* Right leg - shorts style */}
             <mesh position={[0.15, 0.2, 0]}>
-              <boxGeometry args={[0.2, 0.4, 0.2]} />
+              <boxGeometry args={[legWidth, 0.4, legDepth]} />
               <meshStandardMaterial 
                 color={avatar.legColor || legoBlue} 
-                roughness={avatar.legPattern === "denim" ? 0.6 : 0.3}
-                metalness={0.1}
+                roughness={0.2} 
+                metalness={0.05}
+                flatShading={false}
               />
             </mesh>
             {/* Athletic stripes */}
