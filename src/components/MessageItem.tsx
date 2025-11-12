@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Edit2, Trash2, Check, X, Reply, Save, Forward, Pin, ThumbsUp, Laugh, Smile, Hands, Clap, Frown, Surprise, Heart } from 'lucide-react';
+import { Edit2, Trash2, Check, X, Reply, Save, Forward, Pin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -21,14 +21,14 @@ interface MessageItemProps {
 }
 
 const EMOJI_REACTIONS = [
-  { emoji: '👍', icon: ThumbsUp, name: 'thumbs' },
-  { emoji: '😂', icon: Laugh, name: 'laugh' },
-  { emoji: '😊', icon: Smile, name: 'smile' },
-  { emoji: '🙏', icon: Hands, name: 'pray' },
-  { emoji: '👏', icon: Clap, name: 'clap' },
-  { emoji: '😢', icon: Frown, name: 'cry' },
-  { emoji: '😮', icon: Surprise, name: 'surprise' },
-  { emoji: '😔', icon: Heart, name: 'sad' },
+  { emoji: '👍', name: 'thumbs' },
+  { emoji: '😂', name: 'laugh' },
+  { emoji: '😊', name: 'smile' },
+  { emoji: '🙏', name: 'pray' },
+  { emoji: '👏', name: 'clap' },
+  { emoji: '😢', name: 'cry' },
+  { emoji: '😮', name: 'surprise' },
+  { emoji: '😔', name: 'sad' },
 ];
 
 const MessageItem = ({ 
@@ -329,22 +329,20 @@ const MessageItem = ({
           
           {/* Emoji Reactions Popup */}
           {showReactions && (
-            <div className="absolute bottom-full left-0 mb-2 bg-background border border-border rounded-lg shadow-lg p-2 flex gap-1 z-50">
-              {EMOJI_REACTIONS.map((reaction) => {
-                const Icon = reaction.icon;
-                return (
-                  <button
-                    key={reaction.name}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleReaction(reaction.emoji);
-                    }}
-                    className="p-2 hover:bg-accent rounded transition-colors"
-                  >
-                    <Icon className="w-4 h-4 text-foreground" />
-                  </button>
-                );
-              })}
+            <div className="absolute bottom-full left-0 mb-2 bg-background border border-green-500 rounded-lg shadow-lg p-2 flex gap-1 z-50">
+              {EMOJI_REACTIONS.map((reaction) => (
+                <button
+                  key={reaction.name}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleReaction(reaction.emoji);
+                  }}
+                  className="p-2 hover:bg-accent rounded transition-colors text-lg"
+                  title={reaction.name}
+                >
+                  {reaction.emoji}
+                </button>
+              ))}
             </div>
           )}
         </div>
