@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ThumbsUp, MessageSquare, Share2, Send, Volume2, VolumeX, X, Download } from 'lucide-react';
+import { ThumbsUp, MessageSquare, Share2, Send, Volume2, VolumeX, X, Download, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Post } from '@/types';
@@ -11,6 +11,7 @@ import { dataService } from '@/services/dataService';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useDownload } from '@/hooks/useDownload';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface ReelCardProps {
   post: Post;
@@ -19,15 +20,18 @@ interface ReelCardProps {
   onShare: (post: Post) => void;
   isMuted: boolean;
   onMuteToggle: () => void;
+  isOwnProfile?: boolean;
+  onDelete?: (id: string) => void;
 }
 
-const ReelCard = ({ post, onLike, onUserClick, onShare, isMuted, onMuteToggle }: ReelCardProps) => {
+const ReelCard = ({ post, onLike, onUserClick, onShare, isMuted, onMuteToggle, isOwnProfile, onDelete }: ReelCardProps) => {
   const [isLiked, setIsLiked] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [comments, setComments] = useState(post.comments || []);
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
   const [showDownloadConfirm, setShowDownloadConfirm] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
   const { downloadMedia } = useDownload();
@@ -245,6 +249,60 @@ const ReelCard = ({ post, onLike, onUserClick, onShare, isMuted, onMuteToggle }:
           </button>
         </div>
       </div>
+
+      {isOwnProfile && (
+        <button
+          onClick={e => {
+            e.stopPropagation();
+            setShowDeleteDialog(true);
+          }}
+          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 hover:bg-red-600/80 backdrop-blur-sm rounded-full p-1.5 z-10"
+        >
+          <Trash2 className="w-3 h-3 text-white" />
+        </button>
+      )}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent className="bg-white dark:bg-gray-900 border border-green-500 rounded-2xl max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold text-green-700 dark:text-green-400 flex items-center justify-between">
+              <span>Delete Reel?</span>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowDeleteDialog(false)}
+                className="h-6 w-6 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-gray-700 dark:text-gray-300">
+              Are you sure you want to delete this reel? This action cannot be undone.
+            </p>
+          </div>
+          <div className="flex gap-3 justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteDialog(false)}
+              className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                if (onDelete) {
+                  await onDelete(post.id);
+                  setShowDeleteDialog(false);
+                }
+              }}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Delete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Comments Modal */}
       {showComments && (

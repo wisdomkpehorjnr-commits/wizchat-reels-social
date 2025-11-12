@@ -179,10 +179,8 @@ const Topics = () => {
             <CardContent className="p-6 pt-0 space-y-3">
               {loading ? (
                 <div className="flex justify-center items-center py-12">
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
-                    <p className="text-gray-600 dark:text-gray-300 font-medium">Loading...</p>
-                  </div>
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
+                  <span className="sr-only">Loading...</span>
                 </div>
               ) : rooms.length === 0 && dataLoaded ? (
                 <p className="text-center text-gray-600 dark:text-gray-300 py-8">

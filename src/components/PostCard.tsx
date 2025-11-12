@@ -491,20 +491,20 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
 
           {/* Actions */}
           <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between border border-black dark:border-white rounded-lg p-1">
+            <div className="flex items-center justify-between border border-black dark:border-white rounded-lg p-0.5 sm:p-1 overflow-hidden">
               <Button 
                 variant="ghost" 
                 size="sm" 
                 onClick={handleLikePost} 
-                className={`relative hover:text-green-500 transition-colors flex-1 ${isLiked ? 'text-green-500' : 'text-gray-600 dark:text-gray-400'} border-0`}
+                className={`relative hover:text-green-500 transition-colors flex-1 min-w-0 ${isLiked ? 'text-green-500' : 'text-gray-600 dark:text-gray-400'} border-0 px-1 sm:px-2`}
                 disabled={isOptimistic}
               >
                 <ThumbsUp 
-                  className={`mr-2 h-4 w-4 transition-all duration-300 ${isLiked ? 'fill-green-500 text-green-500' : ''} ${isAnimating ? 'scale-150 rotate-12' : 'scale-100 rotate-0'}`} 
+                  className={`mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0 transition-all duration-300 ${isLiked ? 'fill-green-500 text-green-500' : ''} ${isAnimating ? 'scale-150 rotate-12' : 'scale-100 rotate-0'}`} 
                 />
-                Like
+                <span className="text-xs sm:text-sm truncate">Like</span>
                 {likeCount > 0 && (
-                  <span className={`ml-1 transition-all duration-300 ${isAnimating ? 'scale-125 font-bold' : ''}`}>
+                  <span className={`ml-0.5 sm:ml-1 text-xs sm:text-sm flex-shrink-0 transition-all duration-300 ${isAnimating ? 'scale-125 font-bold' : ''}`}>
                     ({likeCount})
                   </span>
                 )}
@@ -512,28 +512,28 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
                   <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full animate-ping"></span>
                 )}
               </Button>
-              <div className="w-px h-6 bg-black dark:bg-white"></div>
+              <div className="w-px h-4 sm:h-6 bg-black dark:bg-white flex-shrink-0"></div>
               <Button 
                 variant="ghost" 
                 size="sm" 
                 onClick={() => setShowCommentModal(true)}
-                className="text-gray-600 dark:text-gray-400 border-0 flex-1"
+                className="text-gray-600 dark:text-gray-400 border-0 flex-1 min-w-0 px-1 sm:px-2"
                 disabled={isOptimistic}
               >
-                <MessageSquare className="mr-2 h-4 w-4" />
-                Comment
-                {comments.length > 0 && <span className="ml-1">({comments.length})</span>}
+                <MessageSquare className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                <span className="text-xs sm:text-sm truncate">Comment</span>
+                {comments.length > 0 && <span className="ml-0.5 sm:ml-1 text-xs sm:text-sm flex-shrink-0">({comments.length})</span>}
               </Button>
-              <div className="w-px h-6 bg-black dark:bg-white"></div>
+              <div className="w-px h-4 sm:h-6 bg-black dark:bg-white flex-shrink-0"></div>
               <Button 
                 variant="ghost" 
                 size="sm"
                 disabled={isOptimistic}
-                className="text-gray-600 dark:text-gray-400 border-0 flex-1"
+                className="text-gray-600 dark:text-gray-400 border-0 flex-1 min-w-0 px-1 sm:px-2"
                 onClick={() => setShowShareBoard(true)}
               >
-                <Share2 className="mr-2 h-4 w-4" />
-                Share
+                <Share2 className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                <span className="text-xs sm:text-sm truncate">Share</span>
               </Button>
             </div>
           </div>

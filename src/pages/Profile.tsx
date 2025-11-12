@@ -420,9 +420,8 @@ const Profile = () => {
                   {userReels.map(reel => (
                     <div
                       key={reel.id}
-                      className="aspect-[9/16] relative rounded overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
+                      className="aspect-[9/16] relative rounded overflow-hidden cursor-pointer hover:opacity-90 transition-opacity group"
                       onClick={() => {
-                        // Navigate to reels page or show full view
                         navigate('/reels');
                       }}
                     >
@@ -449,6 +448,18 @@ const Profile = () => {
                           <span className="text-[10px]">{reel.likes?.length || 0}</span>
                         </div>
                       </div>
+                      {isOwnProfile && (
+                        <button
+                          onClick={e => {
+                            e.stopPropagation();
+                            setPostToDelete(reel.id);
+                            setShowDeleteConfirm(true);
+                          }}
+                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 hover:bg-red-600/80 backdrop-blur-sm rounded-full p-1.5 z-10"
+                        >
+                          <Trash2 className="w-3 h-3 text-white" />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
