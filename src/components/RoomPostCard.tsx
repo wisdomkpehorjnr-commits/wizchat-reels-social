@@ -20,6 +20,7 @@ import ClickableUserInfo from './ClickableUserInfo';
 import ConfirmationDialog from './ui/confirmation-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import ShareBoard from './ShareBoard';
 
 interface RoomPostCardProps {
   post: any;
@@ -42,6 +43,7 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
   const [showImageModal, setShowImageModal] = useState(false);
   const [loadingComments, setLoadingComments] = useState(false);
   const [postingComment, setPostingComment] = useState(false);
+  const [showShareBoard, setShowShareBoard] = useState(false);
 
   // Load likes and dislikes
   useEffect(() => {
@@ -516,25 +518,7 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
             <Button 
               variant="ghost" 
               size="sm"
-              onClick={async () => {
-                try {
-                  if (navigator.share) {
-                    await navigator.share({
-                      title: 'WizChat Post',
-                      text: post.content || 'Check out this post on WizChat!',
-                      url: window.location.href
-                    });
-                  } else {
-                    await navigator.clipboard.writeText(window.location.href);
-                    toast({
-                      title: "Link Copied",
-                      description: "Post link copied to clipboard"
-                    });
-                  }
-                } catch (error) {
-                  console.error('Error sharing:', error);
-                }
-              }}
+              onClick={() => setShowShareBoard(true)}
               className="text-gray-600 dark:text-gray-400"
             >
               <Share2 className="mr-2 h-4 w-4" />
@@ -661,6 +645,12 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
           </div>
         </div>
       )}
+      
+      <ShareBoard
+        open={showShareBoard}
+        onOpenChange={setShowShareBoard}
+        post={post}
+      />
     </>
   );
 };

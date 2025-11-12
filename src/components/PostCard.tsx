@@ -25,6 +25,7 @@ import ThemeAwareDialog from './ThemeAwareDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import ShareBoard from './ShareBoard';
 
 interface PostCardProps {
   post: any;
@@ -50,6 +51,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
   const [loadingComments, setLoadingComments] = useState(false);
   const [postingComment, setPostingComment] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [showShareBoard, setShowShareBoard] = useState(false);
 
   // Load likes when component mounts
   useEffect(() => {
@@ -500,9 +502,10 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
                 <ThumbsUp 
                   className={`mr-2 h-4 w-4 transition-all duration-300 ${isLiked ? 'fill-green-500 text-green-500' : ''} ${isAnimating ? 'scale-150 rotate-12' : 'scale-100 rotate-0'}`} 
                 />
+                Like
                 {likeCount > 0 && (
-                  <span className={`transition-all duration-300 ${isAnimating ? 'scale-125 font-bold' : ''}`}>
-                    {likeCount}
+                  <span className={`ml-1 transition-all duration-300 ${isAnimating ? 'scale-125 font-bold' : ''}`}>
+                    ({likeCount})
                   </span>
                 )}
                 {isAnimating && (
@@ -527,25 +530,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
                 size="sm"
                 disabled={isOptimistic}
                 className="text-gray-600 dark:text-gray-400 border-0 flex-1"
-                onClick={async () => {
-                  try {
-                    if (navigator.share) {
-                      await navigator.share({
-                        title: 'WizChat Post',
-                        text: post.content || 'Check out this post on WizChat!',
-                        url: window.location.href
-                      });
-                    } else {
-                      await navigator.clipboard.writeText(window.location.href);
-                      toast({
-                        title: "Link Copied",
-                        description: "Post link copied to clipboard"
-                      });
-                    }
-                  } catch (error) {
-                    console.error('Error sharing:', error);
-                  }
-                }}
+                onClick={() => setShowShareBoard(true)}
               >
                 <Share2 className="mr-2 h-4 w-4" />
                 Share
@@ -593,6 +578,12 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
           }}
           confirmText="Get Premium"
           cancelText="Cancel"
+        />
+        
+        <ShareBoard
+          open={showShareBoard}
+          onOpenChange={setShowShareBoard}
+          post={post}
         />
       </Card>
 

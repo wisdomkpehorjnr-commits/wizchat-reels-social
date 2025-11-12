@@ -1226,6 +1226,43 @@ export const dataService = {
     return group;
   },
 
+  async getUserGroups(userId: string): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('group_members')
+      .select(`
+        group_id,
+        groups (
+          id,
+          name,
+          description,
+          is_private,
+          invite_code,
+          created_by,
+          member_count,
+          created_at,
+          updated_at
+        )
+      `)
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Error fetching user groups:', error);
+      throw error;
+    }
+
+    return data.map((item: any) => ({
+      id: item.groups.id,
+      name: item.groups.name,
+      description: item.groups.description,
+      isPrivate: item.groups.is_private,
+      inviteCode: item.groups.invite_code,
+      createdBy: item.groups.created_by,
+      memberCount: item.groups.member_count,
+      createdAt: new Date(item.groups.created_at),
+      updatedAt: new Date(item.groups.updated_at),
+    }));
+  },
+
   async joinTopicRoom(roomId: string): Promise<void> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');

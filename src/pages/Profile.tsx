@@ -6,12 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { dataService } from '@/services/dataService';
 import { ProfileService } from '@/services/profileService';
 import { Post, SavedPost, Follow } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
-import { Calendar, MapPin, Link as LinkIcon, Edit, MessageCircle, UserPlus, UserMinus, Bookmark, Users, UserCircle, Trash2, Heart, ThumbsUp } from 'lucide-react';
+import { Calendar, MapPin, Link as LinkIcon, Edit, MessageCircle, UserPlus, UserMinus, Bookmark, Users, UserCircle, Trash2, Heart, ThumbsUp, X } from 'lucide-react';
 import EditProfileDialog from '@/components/EditProfileDialog';
 import PostCard from '@/components/PostCard';
 import ReelCard from '@/components/ReelCard';
@@ -42,6 +43,9 @@ const Profile = () => {
   const [showAvatarStudio, setShowAvatarStudio] = useState(false);
   const [activeTab, setActiveTab] = useState('posts');
   const [deletePostId, setDeletePostId] = useState<string | null>(null);
+  const [userGroups, setUserGroups] = useState<any[]>([]);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [postToDelete, setPostToDelete] = useState<string | null>(null);
 
   // Determine if this is the current user's profile
   // Check both if there's no userIdentifier (own profile route) or if the profileUser matches current user
@@ -109,6 +113,15 @@ const Profile = () => {
         if (isOwnProfile) {
           const saved = await ProfileService.getSavedPosts().catch(() => []);
           setSavedPosts(saved);
+          
+          // Load user groups
+          try {
+            const groups = await dataService.getUserGroups(user.id);
+            setUserGroups(groups);
+          } catch (err) {
+            console.error('Error loading groups:', err);
+            setUserGroups([]);
+          }
         }
 
         const [followersList, followingList] = await Promise.all([
@@ -339,10 +352,11 @@ const Profile = () => {
         {/* Posts and Reels Section */}
         <Card className="backdrop-blur-md bg-white/10 border-white/20">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className={`grid ${isOwnProfile ? 'grid-cols-3' : 'grid-cols-2'} bg-white/5 backdrop-blur-sm`}>
+            <TabsList className={`grid ${isOwnProfile ? 'grid-cols-4' : 'grid-cols-2'} bg-white/5 backdrop-blur-sm`}>
               <TabsTrigger value="posts">Posts</TabsTrigger>
               <TabsTrigger value="reels">Reels</TabsTrigger>
               {isOwnProfile && <TabsTrigger value="saved"><Bookmark className="w-4 h-4 mr-1" />Saved</TabsTrigger>}
+              {isOwnProfile && <TabsTrigger value="groups"><Users className="w-4 h-4 mr-1" />Groups</TabsTrigger>}
             </TabsList>
 
             <TabsContent value="posts" className="p-2">
@@ -351,7 +365,7 @@ const Profile = () => {
                   {userPosts.map(post => (
                     <div
                       key={post.id}
-                      className="aspect-square relative rounded overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
+                      className="aspect-square relative rounded overflow-hidden cursor-pointer hover:opacity-90 transition-opacity group"
                       onClick={() => {
                         // Navigate to post or show full view
                         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -380,6 +394,18 @@ const Profile = () => {
                           <span className="text-[10px]">{post.likes?.length || 0}</span>
                         </div>
                       </div>
+                      {isOwnProfile && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPostToDelete(post.id);
+                            setShowDeleteConfirm(true);
+                          }}
+                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 hover:bg-red-600/80 backdrop-blur-sm rounded-full p-1.5 z-10"
+                        >
+                          <Trash2 className="w-3 h-3 text-white" />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -432,10 +458,42 @@ const Profile = () => {
             </TabsContent>
 
             {isOwnProfile && (
-              <TabsContent value="saved" className="p-4 space-y-4">
-                {savedPosts.length > 0 ? savedPosts.map(s => <PostCard key={s.id} post={s.post} onPostUpdate={() => {}} />) :
-                  <div className="text-center py-12 text-strong-contrast/60">No saved posts yet</div>}
-              </TabsContent>
+              <>
+                <TabsContent value="saved" className="p-4 space-y-4">
+                  {savedPosts.length > 0 ? savedPosts.map(s => <PostCard key={s.id} post={s.post} onPostUpdate={() => {}} />) :
+                    <div className="text-center py-12 text-strong-contrast/60">No saved posts yet</div>}
+                </TabsContent>
+                
+                <TabsContent value="groups" className="p-4">
+                  {userGroups.length > 0 ? (
+                    <div className="space-y-3">
+                      {userGroups.map((group) => (
+                        <Card key={group.id} className="backdrop-blur-md bg-white/10 border-white/20 hover:bg-white/20 transition-colors cursor-pointer">
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <h3 className="font-semibold text-strong-contrast flex items-center gap-2">
+                                  <Users className="w-4 h-4 text-green-600 dark:text-green-400" />
+                                  {group.name}
+                                </h3>
+                                {group.description && (
+                                  <p className="text-sm text-strong-contrast/70 mt-1">{group.description}</p>
+                                )}
+                                <div className="flex items-center gap-4 mt-2 text-xs text-strong-contrast/60">
+                                  <span>{group.memberCount || 0} members</span>
+                                  {group.isPrivate && <span className="text-orange-500">Private</span>}
+                                </div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 text-strong-contrast/60">No groups yet. Join or create a group to get started!</div>
+                  )}
+                </TabsContent>
+              </>
             )}
           </Tabs>
         </Card>
@@ -499,6 +557,63 @@ const Profile = () => {
             }
           }}
         />
+        
+        {/* Delete Post Confirmation Dialog */}
+        <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+          <DialogContent className="bg-white dark:bg-gray-900 border border-green-500 rounded-2xl max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-semibold text-green-700 dark:text-green-400 flex items-center justify-between">
+                <span>Delete Post</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    setShowDeleteConfirm(false);
+                    setPostToDelete(null);
+                  }}
+                  className="h-6 w-6 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <p className="text-gray-700 dark:text-gray-300">
+                Are you sure you want to delete this post? This action cannot be undone.
+              </p>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setPostToDelete(null);
+                }}
+                className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={async () => {
+                  if (postToDelete) {
+                    try {
+                      await dataService.deletePost(postToDelete);
+                      toast({ title: "Success", description: "Post deleted successfully" });
+                      setUserPosts(prev => prev.filter(p => p.id !== postToDelete));
+                      setShowDeleteConfirm(false);
+                      setPostToDelete(null);
+                    } catch (error) {
+                      toast({ title: "Error", description: "Failed to delete post", variant: "destructive" });
+                    }
+                  }
+                }}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                Delete
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
