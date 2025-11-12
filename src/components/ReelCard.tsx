@@ -238,7 +238,7 @@ const ReelCard = ({ post, onLike, onUserClick, onShare, isMuted, onMuteToggle }:
             onClick={() => onShare(post)}
             className="flex flex-col items-center text-white drop-shadow-lg"
           >
-            <div className="p-3 rounded-full backdrop-blur-sm bg-black/60 border border-white/20">
+            <div className="p-3 rounded-full backdrop-blur-sm bg-black/60 border border-green-500">
               <Share2 className="w-6 h-6 text-white" />
             </div>
             <span className="text-xs mt-1 font-semibold drop-shadow-md">Share</span>

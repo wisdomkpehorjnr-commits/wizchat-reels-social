@@ -11,20 +11,21 @@ import { useAuth } from '@/contexts/AuthContext';
 
 interface ChatListItemProps {
   friend: User;
-  unreadCount?: number;
   isPinned?: boolean;
   onClick: () => void;
   isWizAi?: boolean;
   onPinToggle?: () => void;
 }
 
-const ChatListItem = ({ friend, unreadCount, isPinned, onClick, isWizAi, onPinToggle }: ChatListItemProps) => {
+const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle }: ChatListItemProps) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const [pinned, setPinned] = useState(isPinned || false);
   const [showMenu, setShowMenu] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, height: 0 });
   const [lastMessage, setLastMessage] = useState<string>('');
+  const [lastMessageTime, setLastMessageTime] = useState<Date | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
   const isOnline = useOnlineStatus(friend.id);
 
   useEffect(() => {
@@ -34,39 +35,111 @@ const ChatListItem = ({ friend, unreadCount, isPinned, onClick, isWizAi, onPinTo
     }
     const fetchLastMessage = async () => {
       try {
-        // Find the chat between you and friend, both orderings
-        const { data: chat, error: chatError } = await supabase
+        // Find existing chat between users
+        const { data: chats } = await supabase
           .from('chats')
-          .select('*')
-          .or(`and(creator_id.eq.${user?.id},participant_id.eq.${friend.id}),and(creator_id.eq.${friend.id},participant_id.eq.${user?.id})`)
-          .limit(1)
-          .single();
-        if (chatError || !chat?.id) {
-          setLastMessage(""); // No chat yet: show blank
+          .select('id')
+          .eq('is_group', false)
+          .limit(10);
+        
+        if (!chats || chats.length === 0) {
+          setLastMessage("");
+          setLastMessageTime(null);
           return;
         }
-        // Get last message for this chat regardless of sender
-        const { data: msg, error: msgError } = await supabase
-          .from('messages')
-          .select('content')
-          .eq('chat_id', chat.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
-        if (msgError || !msg?.content) {
-          setLastMessage(""); // Chat exists, but no messages
-        } else {
-          const preview = msg.content.length > 30
-            ? msg.content.substring(0, 30) + '...'
-            : msg.content;
-          setLastMessage(preview);
+        
+        // Find chat where both users are participants
+        let foundChatId = null;
+        for (const chat of chats) {
+          const { data: participants } = await supabase
+            .from('chat_participants')
+            .select('user_id')
+            .eq('chat_id', chat.id);
+          
+          if (participants && participants.length === 2) {
+            const userIds = participants.map(p => p.user_id);
+            if (userIds.includes(user?.id || '') && userIds.includes(friend.id)) {
+              foundChatId = chat.id;
+              break;
+            }
+          }
         }
+        
+        if (!foundChatId) {
+          setLastMessage("");
+          setLastMessageTime(null);
+          return;
+        }
+        
+        // Get last message for this chat
+        const { data: messages, error: msgError } = await supabase
+          .from('messages')
+          .select('content, created_at, user_id, seen')
+          .eq('chat_id', foundChatId)
+          .order('created_at', { ascending: false })
+          .limit(1);
+        
+        if (msgError || !messages || messages.length === 0) {
+          setLastMessage("");
+          setLastMessageTime(null);
+          return;
+        }
+        
+        const msg = messages[0];
+        const preview = msg.content && msg.content.length > 30
+          ? msg.content.substring(0, 30) + '...'
+          : msg.content || 'Media';
+        setLastMessage(preview);
+        setLastMessageTime(new Date(msg.created_at));
+        
+        // Count unread messages (messages not seen by current user)
+        const { count } = await supabase
+          .from('messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('chat_id', foundChatId)
+          .eq('seen', false)
+          .neq('user_id', user?.id);
+        
+        setUnreadCount(count || 0);
       } catch (error) {
         setLastMessage("");
+        setLastMessageTime(null);
       }
     };
     fetchLastMessage();
+    
+    // Subscribe to new messages
+    const channel = supabase
+      .channel(`chat_${friend.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'messages',
+        filter: `user_id=eq.${friend.id}`
+      }, () => {
+        fetchLastMessage();
+      })
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [friend.id, user?.id, isWizAi]);
+  
+  const formatMessageTime = (date: Date | null) => {
+    if (!date) return '';
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+    
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return `${minutes}m`;
+    if (hours < 24) return `${hours}h`;
+    if (days < 7) return `${days}d`;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
 
   const handlePin = () => {
     setPinned(!pinned);
@@ -142,21 +215,30 @@ const ChatListItem = ({ friend, unreadCount, isPinned, onClick, isWizAi, onPinTo
           {!isWizAi && <OnlineStatusIndicator userId={friend.id} />}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <p className={`font-semibold truncate ${isWizAi ? 'text-primary' : ''}`}>
-              {friend.name}
-            </p>
-            {pinned && <Pin className="w-3 h-3 text-primary" />}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <p className={`font-semibold truncate ${isWizAi ? 'text-primary' : ''}`}>
+                {friend.name}
+              </p>
+              {pinned && <Pin className="w-3 h-3 text-primary flex-shrink-0" />}
+            </div>
+            {lastMessageTime && (
+              <span className="text-xs text-muted-foreground flex-shrink-0">
+                {formatMessageTime(lastMessageTime)}
+              </span>
+            )}
           </div>
-          <p className="text-sm text-muted-foreground truncate">
-            {lastMessage || 'No messages yet'}
-          </p>
+          <div className="flex items-center justify-between gap-2 mt-1">
+            <p className={`text-sm truncate flex-1 ${unreadCount > 0 ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+              {lastMessage || 'No messages yet'}
+            </p>
+            {unreadCount > 0 && (
+              <Badge variant="destructive" className="rounded-full min-w-[20px] h-5 flex-shrink-0 border border-green-500">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </Badge>
+            )}
+          </div>
         </div>
-        {unreadCount && unreadCount > 0 && (
-          <Badge variant="destructive" className="ml-2 rounded-full min-w-[20px] h-5">
-            {unreadCount > 99 ? '99+' : unreadCount}
-          </Badge>
-        )}
       </div>
 
       {/* Context Menu */}
