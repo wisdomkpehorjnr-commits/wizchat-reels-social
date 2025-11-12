@@ -198,52 +198,63 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
   const handleLikePost = async () => {
     if (!user) return;
 
-    try {
-      const wasLiked = isLiked;
-      const wasDisliked = isDisliked;
-      
-      // Optimistic update
-      if (isLiked) {
-        setIsLiked(false);
-        setLikeCount(prev => prev - 1);
-      } else {
-        if (isDisliked) {
-          setIsDisliked(false);
-          setDislikeCount(prev => prev - 1);
-        }
-        setIsLiked(true);
-        setLikeCount(prev => prev + 1);
+    const wasLiked = isLiked;
+    const wasDisliked = isDisliked;
+    
+    // Optimistic update
+    if (isLiked) {
+      setIsLiked(false);
+      setLikeCount(prev => Math.max(0, prev - 1));
+    } else {
+      if (isDisliked) {
+        setIsDisliked(false);
+        setDislikeCount(prev => Math.max(0, prev - 1));
       }
+      setIsLiked(true);
+      setLikeCount(prev => prev + 1);
+    }
 
+    try {
       // Use room_post_reactions for room posts
       if (wasLiked) {
-        await supabase
+        const { error } = await supabase
           .from('room_post_reactions')
           .delete()
           .eq('post_id', post.id)
           .eq('user_id', user.id)
           .eq('emoji', '👍');
+        
+        if (error) throw error;
       } else {
         if (wasDisliked) {
-          await supabase
+          const { error } = await supabase
             .from('room_post_reactions')
             .delete()
             .eq('post_id', post.id)
             .eq('user_id', user.id)
             .eq('emoji', '👎');
+          
+          if (error) throw error;
         }
-        await supabase
+        
+        const { error: insertError } = await supabase
           .from('room_post_reactions')
           .insert([{
             post_id: post.id,
             user_id: user.id,
             emoji: '👍'
           }]);
+        
+        if (insertError) throw insertError;
       }
       
-      loadLikes();
+      // Only reload if there's a mismatch (for sync purposes, but don't override optimistic update)
+      setTimeout(() => {
+        loadLikes();
+      }, 500);
     } catch (error: any) {
       console.error('Error liking post:', error);
+      // Revert optimistic update on error
       setIsLiked(wasLiked);
       setIsDisliked(wasDisliked);
       loadLikes();
@@ -258,52 +269,63 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
   const handleDislikePost = async () => {
     if (!user) return;
 
-    try {
-      const wasLiked = isLiked;
-      const wasDisliked = isDisliked;
-      
-      // Optimistic update
-      if (isDisliked) {
-        setIsDisliked(false);
-        setDislikeCount(prev => prev - 1);
-      } else {
-        if (isLiked) {
-          setIsLiked(false);
-          setLikeCount(prev => prev - 1);
-        }
-        setIsDisliked(true);
-        setDislikeCount(prev => prev + 1);
+    const wasLiked = isLiked;
+    const wasDisliked = isDisliked;
+    
+    // Optimistic update
+    if (isDisliked) {
+      setIsDisliked(false);
+      setDislikeCount(prev => Math.max(0, prev - 1));
+    } else {
+      if (isLiked) {
+        setIsLiked(false);
+        setLikeCount(prev => Math.max(0, prev - 1));
       }
+      setIsDisliked(true);
+      setDislikeCount(prev => prev + 1);
+    }
 
+    try {
       // Use room_post_reactions for room posts
       if (wasDisliked) {
-        await supabase
+        const { error } = await supabase
           .from('room_post_reactions')
           .delete()
           .eq('post_id', post.id)
           .eq('user_id', user.id)
           .eq('emoji', '👎');
+        
+        if (error) throw error;
       } else {
         if (wasLiked) {
-          await supabase
+          const { error } = await supabase
             .from('room_post_reactions')
             .delete()
             .eq('post_id', post.id)
             .eq('user_id', user.id)
             .eq('emoji', '👍');
+          
+          if (error) throw error;
         }
-        await supabase
+        
+        const { error: insertError } = await supabase
           .from('room_post_reactions')
           .insert([{
             post_id: post.id,
             user_id: user.id,
             emoji: '👎'
           }]);
+        
+        if (insertError) throw insertError;
       }
       
-      loadLikes();
+      // Only reload if there's a mismatch (for sync purposes, but don't override optimistic update)
+      setTimeout(() => {
+        loadLikes();
+      }, 500);
     } catch (error: any) {
       console.error('Error disliking post:', error);
+      // Revert optimistic update on error
       setIsLiked(wasLiked);
       setIsDisliked(wasDisliked);
       loadLikes();
@@ -318,26 +340,68 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
   const handleAddComment = async () => {
     if (!newComment.trim() || !user) return;
 
+    const commentContent = newComment.trim();
     setPostingComment(true);
+    
+    // Optimistic update - add comment immediately
+    const tempComment = {
+      id: `temp-${Date.now()}`,
+      content: commentContent,
+      createdAt: new Date(),
+      user: {
+        id: user.id,
+        name: user.name || '',
+        username: user.username || '',
+        email: user.email || '',
+        avatar: user.avatar || user.photoURL || '',
+      }
+    };
+    
+    setComments(prev => [...prev, tempComment]);
+    setNewComment('');
+
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('room_post_comments')
         .insert([{
           post_id: post.id,
           user_id: user.id,
-          content: newComment.trim()
-        }]);
+          content: commentContent
+        }])
+        .select()
+        .single();
 
       if (error) throw error;
 
-      setNewComment('');
-      await loadComments();
+      // Replace temp comment with real one
+      if (data) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        
+        setComments(prev => prev.map(c => 
+          c.id === tempComment.id 
+            ? {
+                id: data.id,
+                content: data.content,
+                createdAt: new Date(data.created_at),
+                user: profile || tempComment.user
+              }
+            : c
+        ));
+      }
+      
       toast({
         title: "Success",
         description: "Comment posted successfully"
       });
     } catch (error: any) {
       console.error('Error creating comment:', error);
+      // Remove optimistic comment on error
+      setComments(prev => prev.filter(c => c.id !== tempComment.id));
+      setNewComment(commentContent); // Restore comment text
       toast({
         title: "Error",
         description: error.message || "Failed to post comment",
@@ -480,50 +544,59 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
           )}
 
           {/* Actions */}
-          <div className="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
-            <div className="flex items-center gap-4">
+          <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between border border-black dark:border-white rounded-lg p-0.5 sm:p-1 overflow-hidden">
               <Button 
                 variant="ghost" 
                 size="sm" 
                 onClick={handleLikePost} 
-                className={`hover:text-blue-500 ${isLiked ? 'text-blue-500' : 'text-gray-600 dark:text-gray-400'}`}
+                className={`hover:text-blue-500 flex-1 min-w-0 ${isLiked ? 'text-blue-500' : 'text-gray-600 dark:text-gray-400'} border-0 px-1 sm:px-2`}
               >
                 <ThumbsUp 
-                  className={`mr-2 h-4 w-4 ${isLiked ? 'fill-blue-500 text-blue-500' : ''}`} 
+                  className={`mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0 ${isLiked ? 'fill-blue-500 text-blue-500' : ''}`} 
                 />
-                {likeCount > 0 && <span>{likeCount}</span>}
+                <span className="text-xs sm:text-sm truncate">Like</span>
+                {likeCount > 0 && (
+                  <span className="ml-0.5 sm:ml-1 text-xs sm:text-sm flex-shrink-0">({likeCount})</span>
+                )}
               </Button>
+              <div className="w-px h-4 sm:h-6 bg-black dark:bg-white flex-shrink-0"></div>
               <Button 
                 variant="ghost" 
                 size="sm" 
                 onClick={handleDislikePost} 
-                className={`hover:text-red-500 ${isDisliked ? 'text-red-500' : 'text-gray-600 dark:text-gray-400'}`}
+                className={`hover:text-red-500 flex-1 min-w-0 ${isDisliked ? 'text-red-500' : 'text-gray-600 dark:text-gray-400'} border-0 px-1 sm:px-2`}
               >
                 <ThumbsDown 
-                  className={`mr-2 h-4 w-4 ${isDisliked ? 'fill-red-500 text-red-500' : ''}`} 
+                  className={`mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0 ${isDisliked ? 'fill-red-500 text-red-500' : ''}`} 
                 />
-                {dislikeCount > 0 && <span>{dislikeCount}</span>}
+                <span className="text-xs sm:text-sm truncate">Dislike</span>
+                {dislikeCount > 0 && (
+                  <span className="ml-0.5 sm:ml-1 text-xs sm:text-sm flex-shrink-0">({dislikeCount})</span>
+                )}
               </Button>
+              <div className="w-px h-4 sm:h-6 bg-black dark:bg-white flex-shrink-0"></div>
               <Button 
                 variant="ghost" 
                 size="sm"
                 onClick={() => setShowCommentModal(true)}
-                className="text-gray-600 dark:text-gray-400"
+                className="text-gray-600 dark:text-gray-400 border-0 flex-1 min-w-0 px-1 sm:px-2"
               >
-                <MessageSquare className="mr-2 h-4 w-4" />
-                Comment
-                {comments.length > 0 && <span className="ml-1">({comments.length})</span>}
+                <MessageSquare className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                <span className="text-xs sm:text-sm truncate">Comment</span>
+                {comments.length > 0 && <span className="ml-0.5 sm:ml-1 text-xs sm:text-sm flex-shrink-0">({comments.length})</span>}
+              </Button>
+              <div className="w-px h-4 sm:h-6 bg-black dark:bg-white flex-shrink-0"></div>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => setShowShareBoard(true)}
+                className="text-gray-600 dark:text-gray-400 border-0 flex-1 min-w-0 px-1 sm:px-2"
+              >
+                <Share2 className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                <span className="text-xs sm:text-sm truncate">Share</span>
               </Button>
             </div>
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => setShowShareBoard(true)}
-              className="text-gray-600 dark:text-gray-400"
-            >
-              <Share2 className="mr-2 h-4 w-4" />
-              Share
-            </Button>
           </div>
         </CardContent>
         

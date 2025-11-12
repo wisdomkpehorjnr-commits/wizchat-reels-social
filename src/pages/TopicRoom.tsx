@@ -37,6 +37,7 @@ const TopicRoom = () => {
   const [roomName, setRoomName] = useState("");
   const [showFlash, setShowFlash] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingPosts, setLoadingPosts] = useState(true);
 
   useEffect(() => {
     if (roomId && user?.id) {
@@ -104,6 +105,7 @@ const TopicRoom = () => {
 
   const loadPosts = async () => {
     setRefreshing(true);
+    setLoadingPosts(true);
     try {
       // Fix: Use correct foreign key relationship syntax
       const { data, error } = await supabase
@@ -165,6 +167,7 @@ const TopicRoom = () => {
       toast({ title: 'Refresh failed', description: err.message || 'Failed to load posts', variant: 'destructive' });
     } finally {
       setRefreshing(false);
+      setLoadingPosts(false);
     }
   };
 
@@ -418,7 +421,16 @@ const TopicRoom = () => {
 
           {/* Posts Feed */}
           <div className="space-y-4">
-            {posts.length === 0 ? (
+            {loadingPosts ? (
+              <Card className="border-2 border-green-500 bg-white dark:bg-gray-800">
+                <CardContent className="p-8 text-center">
+                  <div className="flex flex-col items-center justify-center gap-3">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
+                    <p className="text-gray-600 dark:text-gray-300 font-medium">Loading posts...</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : posts.length === 0 ? (
               <Card className="border-2 border-green-500 bg-white dark:bg-gray-800">
                 <CardContent className="p-8 text-center">
                   <p className="text-gray-600 dark:text-gray-300">No posts yet. Be the first to post!</p>
