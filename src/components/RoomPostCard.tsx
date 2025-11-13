@@ -40,6 +40,7 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
   const [editedContent, setEditedContent] = useState(post.content);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [comments, setComments] = useState<any[]>([]);
+  const [commentCount, setCommentCount] = useState(0);
   const [showImageModal, setShowImageModal] = useState(false);
   const [loadingComments, setLoadingComments] = useState(false);
   const [postingComment, setPostingComment] = useState(false);
@@ -50,29 +51,76 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
     loadLikes();
   }, [post.id]);
 
-  // Load comments when modal opens and subscribe to real-time updates
+  // Load comment count initially and subscribe to real-time updates
+  useEffect(() => {
+    // Load initial comment count
+    const loadInitialCommentCount = async () => {
+      try {
+        const { count, error } = await supabase
+          .from('room_post_comments')
+          .select('*', { count: 'exact', head: true })
+          .eq('post_id', post.id);
+        
+        if (!error && count !== null) {
+          setCommentCount(count);
+        }
+      } catch (error) {
+        console.error('Error loading initial comment count:', error);
+      }
+    };
+    
+    loadInitialCommentCount();
+
+    // Subscribe to new comments for real-time count updates
+    const channel = supabase
+      .channel(`room_post_comments:${post.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'room_post_comments',
+        filter: `post_id=eq.${post.id}`
+      }, async () => {
+        if (showCommentModal) {
+          loadComments();
+        } else {
+          // Just reload count
+          const { count } = await supabase
+            .from('room_post_comments')
+            .select('*', { count: 'exact', head: true })
+            .eq('post_id', post.id);
+          if (count !== null) setCommentCount(count);
+        }
+      })
+      .on('postgres_changes', {
+        event: 'DELETE',
+        schema: 'public',
+        table: 'room_post_comments',
+        filter: `post_id=eq.${post.id}`
+      }, async () => {
+        if (showCommentModal) {
+          loadComments();
+        } else {
+          const { count } = await supabase
+            .from('room_post_comments')
+            .select('*', { count: 'exact', head: true })
+            .eq('post_id', post.id);
+          if (count !== null) setCommentCount(count);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [post.id]);
+
+  // Load full comments when modal opens
   useEffect(() => {
     if (showCommentModal) {
       loadComments();
-      
-      // Subscribe to new comments
-      const channel = supabase
-        .channel(`room_post_comments:${post.id}`)
-        .on('postgres_changes', {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'room_post_comments',
-          filter: `post_id=eq.${post.id}`
-        }, () => {
-          loadComments();
-        })
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
     }
-  }, [showCommentModal, post.id]);
+  }, [showCommentModal]);
 
   const loadLikes = async () => {
     try {
@@ -120,58 +168,25 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
   const loadComments = async () => {
     setLoadingComments(true);
     try {
-      // Try room_post_comments first
-      let data, error;
-      ({ data, error } = await supabase
+      // Fetch comments
+      const { data: commentsData, error } = await supabase
         .from('room_post_comments')
         .select('*')
         .eq('post_id', post.id)
-        .order('created_at', { ascending: true }));
+        .order('created_at', { ascending: true });
       
-      if (error || !data) {
-        // Manually fetch profiles if relationship query fails
-        const { data: commentsData } = await supabase
-          .from('room_post_comments')
-          .select('*')
-          .eq('post_id', post.id)
-          .order('created_at', { ascending: true });
-        
-        if (commentsData) {
-          // Manually fetch profiles for each comment
-          const commentsWithUsers = await Promise.all(
-            commentsData.map(async (comment: any) => {
-              const { data: profile } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', comment.user_id)
-                .single();
-              return {
-                id: comment.id,
-                content: comment.content,
-                createdAt: new Date(comment.created_at),
-                user: profile || null
-              };
-            })
-          );
-          setComments(commentsWithUsers);
-          return;
-        }
+      if (error) {
+        console.error('Error loading comments:', error);
+        setComments([]);
+        setCommentCount(0);
+        return;
       }
       
-      if (data) {
-        // If data has user profiles from relationship, use them
-        // Otherwise fetch manually
-        if (data[0]?.profiles || data[0]?.user) {
-          setComments(data.map((c: any) => ({
-            id: c.id,
-            content: c.content,
-            createdAt: new Date(c.created_at),
-            user: c.profiles || c.user || null
-          })));
-        } else {
-          // Fetch profiles manually
-          const commentsWithUsers = await Promise.all(
-            data.map(async (comment: any) => {
+      if (commentsData) {
+        // Fetch profiles for each comment
+        const commentsWithUsers = await Promise.all(
+          commentsData.map(async (comment: any) => {
+            try {
               const { data: profile } = await supabase
                 .from('profiles')
                 .select('*')
@@ -183,13 +198,26 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
                 createdAt: new Date(comment.created_at),
                 user: profile || null
               };
-            })
-          );
-          setComments(commentsWithUsers);
-        }
+            } catch (err) {
+              return {
+                id: comment.id,
+                content: comment.content,
+                createdAt: new Date(comment.created_at),
+                user: null
+              };
+            }
+          })
+        );
+        setComments(commentsWithUsers);
+        setCommentCount(commentsWithUsers.length);
+      } else {
+        setComments([]);
+        setCommentCount(0);
       }
     } catch (error) {
       console.error('Error loading comments:', error);
+      setComments([]);
+      setCommentCount(0);
     } finally {
       setLoadingComments(false);
     }
@@ -244,20 +272,39 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
           }
         }
         
-        // Insert like reaction (upsert handles UNIQUE constraint automatically)
-        const { error: insertError } = await supabase
+        // Check if reaction already exists (handle unique constraint)
+        const { data: existing } = await supabase
           .from('room_post_reactions')
-          .insert({
-            post_id: post.id,
-            user_id: user.id,
-            emoji: '👍'
-          });
+          .select('id')
+          .eq('post_id', post.id)
+          .eq('user_id', user.id)
+          .eq('emoji', '👍')
+          .maybeSingle();
         
-        if (insertError) {
-          console.error('Insert like error:', insertError);
-          throw insertError;
+        if (!existing) {
+          const { error: insertError } = await supabase
+            .from('room_post_reactions')
+            .insert({
+              post_id: post.id,
+              user_id: user.id,
+              emoji: '👍'
+            });
+          
+          if (insertError) {
+            // If it's a unique constraint error, it's okay - reaction already exists
+            if (insertError.code !== '23505') {
+              console.error('Insert like error:', insertError);
+              throw insertError;
+            }
+          }
         }
       }
+      
+      // Show success message
+      toast({
+        title: "Success! 👍",
+        description: wasLiked ? "Like removed" : "Post liked successfully"
+      });
       
       // Only reload if there's a mismatch (for sync purposes, but don't override optimistic update)
       setTimeout(() => {
@@ -268,6 +315,8 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
       // Revert optimistic update on error
       setIsLiked(wasLiked);
       setIsDisliked(wasDisliked);
+      setLikeCount(prev => wasLiked ? prev + 1 : prev - 1);
+      setDislikeCount(prev => wasDisliked ? prev + 1 : prev - 1);
       loadLikes();
       toast({
         title: "Error",
@@ -326,20 +375,39 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
           }
         }
         
-        // Insert dislike reaction (upsert handles UNIQUE constraint automatically)
-        const { error: insertError } = await supabase
+        // Check if reaction already exists (handle unique constraint)
+        const { data: existing } = await supabase
           .from('room_post_reactions')
-          .insert({
-            post_id: post.id,
-            user_id: user.id,
-            emoji: '👎'
-          });
+          .select('id')
+          .eq('post_id', post.id)
+          .eq('user_id', user.id)
+          .eq('emoji', '👎')
+          .maybeSingle();
         
-        if (insertError) {
-          console.error('Insert dislike error:', insertError);
-          throw insertError;
+        if (!existing) {
+          const { error: insertError } = await supabase
+            .from('room_post_reactions')
+            .insert({
+              post_id: post.id,
+              user_id: user.id,
+              emoji: '👎'
+            });
+          
+          if (insertError) {
+            // If it's a unique constraint error, it's okay - reaction already exists
+            if (insertError.code !== '23505') {
+              console.error('Insert dislike error:', insertError);
+              throw insertError;
+            }
+          }
         }
       }
+      
+      // Show success message
+      toast({
+        title: "Success! 👎",
+        description: wasDisliked ? "Dislike removed" : "Post disliked successfully"
+      });
       
       // Only reload if there's a mismatch (for sync purposes, but don't override optimistic update)
       setTimeout(() => {
@@ -350,6 +418,8 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
       // Revert optimistic update on error
       setIsLiked(wasLiked);
       setIsDisliked(wasDisliked);
+      setLikeCount(prev => wasLiked ? prev + 1 : prev - 1);
+      setDislikeCount(prev => wasDisliked ? prev + 1 : prev - 1);
       loadLikes();
       toast({
         title: "Error",
@@ -380,6 +450,7 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
     };
     
     setComments(prev => [...prev, tempComment]);
+    setCommentCount(prev => prev + 1);
     setNewComment('');
 
     try {
@@ -416,16 +487,18 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
               }
             : c
         ));
+        // Comment count already updated optimistically
       }
       
       toast({
-        title: "Success",
+        title: "Success! 💬",
         description: "Comment posted successfully"
       });
     } catch (error: any) {
       console.error('Error creating comment:', error);
       // Remove optimistic comment on error
       setComments(prev => prev.filter(c => c.id !== tempComment.id));
+      setCommentCount(prev => Math.max(0, prev - 1));
       setNewComment(commentContent); // Restore comment text
       toast({
         title: "Error",
@@ -537,7 +610,17 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
             </div>
           ) : (
             <div className="mb-4">
-              {post.content && <p className="text-gray-900 dark:text-white mb-4 whitespace-pre-wrap">{post.content}</p>}
+              {/* Text-only posts with glass background */}
+              {post.content && !post.image_url && !post.video_url && (
+                <div className="backdrop-blur-md bg-white/20 dark:bg-white/10 border border-white/30 dark:border-white/20 rounded-2xl p-6 shadow-xl mb-4">
+                  <p className="text-gray-900 dark:text-white whitespace-pre-wrap text-lg leading-relaxed">{post.content}</p>
+                </div>
+              )}
+              
+              {/* Text with media - show text above media */}
+              {post.content && (post.image_url || post.video_url) && (
+                <p className="text-gray-900 dark:text-white mb-4 whitespace-pre-wrap">{post.content}</p>
+              )}
               
               {/* Media content */}
               {post.image_url && (
@@ -609,7 +692,7 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
               >
                 <MessageSquare className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                 <span className="text-xs sm:text-sm truncate">Comment</span>
-                {comments.length > 0 && <span className="ml-0.5 sm:ml-1 text-xs sm:text-sm flex-shrink-0">({comments.length})</span>}
+                {commentCount > 0 && <span className="ml-0.5 sm:ml-1 text-xs sm:text-sm flex-shrink-0">({commentCount})</span>}
               </Button>
               <div className="w-px h-4 sm:h-6 bg-black dark:bg-white flex-shrink-0"></div>
               <Button 
@@ -642,7 +725,7 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
         <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col bg-white dark:bg-gray-800">
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-white">
-              Comments ({comments.length})
+              Comments ({commentCount})
             </DialogTitle>
           </DialogHeader>
           
@@ -747,7 +830,16 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
       <ShareBoard
         open={showShareBoard}
         onOpenChange={setShowShareBoard}
-        post={post}
+        post={{
+          id: post.id,
+          content: post.content,
+          imageUrl: post.image_url,
+          videoUrl: post.video_url,
+          user: post.user ? {
+            name: post.user.name || '',
+            username: post.user.username || ''
+          } : undefined
+        }}
       />
     </>
   );

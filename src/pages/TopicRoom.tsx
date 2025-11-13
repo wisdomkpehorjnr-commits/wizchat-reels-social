@@ -192,8 +192,12 @@ const TopicRoom = () => {
       let mediaUrl = null;
       if (mediaFile) {
         const fileName = `${Date.now()}.${mediaFile.name.split(".").pop()}`;
-        const { error } = await supabase.storage.from("room-media").upload(fileName, mediaFile);
-        if (!error) mediaUrl = supabase.storage.from("room-media").getPublicUrl(fileName).data.publicUrl;
+        const { error: uploadError } = await supabase.storage.from("room-media").upload(fileName, mediaFile);
+        if (uploadError) {
+          console.error('Upload error:', uploadError);
+          throw new Error('Failed to upload media');
+        }
+        mediaUrl = supabase.storage.from("room-media").getPublicUrl(fileName).data.publicUrl;
       }
 
       // Optimistic update - create temporary post
@@ -245,16 +249,27 @@ const TopicRoom = () => {
         }
       }
 
-      // Insert actual post
+      // Insert actual post - ensure both content and media are saved together
+      const insertData: any = {
+        room_id: roomId,
+        user_id: user?.id,
+        content: content.trim() || '', // Always include content, even if empty
+        media_type: mediaType || (content.trim() ? 'text' : 'text')
+      };
+      
+      // Add media URL if it exists
+      if (mediaUrl) {
+        if (mediaType === 'image') {
+          insertData.image_url = mediaUrl;
+        } else if (mediaType === 'video') {
+          insertData.video_url = mediaUrl;
+        }
+        insertData.media_type = mediaType;
+      }
+      
       const { data, error } = await supabase
         .from("room_posts")
-        .insert([{
-          room_id: roomId,
-          user_id: user?.id,
-          content: content.trim(),
-          [mediaType === 'image' ? 'image_url' : 'video_url']: mediaUrl,
-          media_type: mediaType || 'text'
-        }])
+        .insert([insertData])
         .select()
         .single();
 
