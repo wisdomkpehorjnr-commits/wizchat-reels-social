@@ -674,12 +674,8 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
                   </button>
                   <button
                     onClick={() => {
-                      if (confirm("Are you sure you want to clear this chat?")) {
-                        // Clear chat logic
-                        setMessages([]);
-                        setShowMenu(false);
-                        toast({ title: "Chat cleared" });
-                      }
+                      setShowClearChatDialog(true);
+                      setShowMenu(false);
                     }}
                     className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent text-foreground"
                   >
@@ -778,10 +774,28 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       )}
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-4">
-        <div className="space-y-4">
+      <ScrollArea 
+        ref={scrollAreaRef}
+        className="flex-1 p-4"
+      >
+        <div 
+          className="space-y-4"
+          onClick={(e) => {
+            // Close action buttons and emoji popup when clicking on empty space in messages area
+            const target = e.target as HTMLElement;
+            // Check if click is on empty space (not on a message item)
+            if (target.classList.contains('space-y-4') || 
+                (target.tagName === 'DIV' && !target.closest('[data-message-item]') && !target.closest('.message-bubble'))) {
+              if (selectedMessages.size > 0 || messageActions.reply || messageActions.save || messageActions.delete || messageActions.forward || messageActions.pin) {
+                setSelectedMessages(new Set());
+                setMessageActions({ reply: false, save: false, delete: false, forward: false, pin: false });
+                setReplyingTo(null);
+              }
+            }
+          }}
+        >
           {messages.map((message) => (
-            <div key={message.id} id={`message-${message.id}`}>
+            <div key={message.id} id={`message-${message.id}`} data-message-item>
               <MessageItem
                 message={message}
                 onEdit={handleEditMessage}
@@ -790,13 +804,14 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
                   setShowDeleteConfirm(true);
                 }}
                 onLongPress={(msg) => {
-                  // Long press now selects messages, but keep backward compatibility
-                  // If no messages are selected yet, start selection mode
-                  if (selectedMessages.size === 0) {
-                    const newSelected = new Set(selectedMessages);
+                  // Long press selects messages - don't set as replyingTo
+                  const newSelected = new Set(selectedMessages);
+                  if (newSelected.has(msg.id)) {
+                    newSelected.delete(msg.id);
+                  } else {
                     newSelected.add(msg.id);
-                    setSelectedMessages(newSelected);
                   }
+                  setSelectedMessages(newSelected);
                 }}
                 onSwipeReply={(msg) => {
                   setReplyingTo(msg);
@@ -811,7 +826,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
                   }
                   setSelectedMessages(newSelected);
                   
-                  // Clear message actions when selection changes
+                  // Clear message actions and close popups when selection changes
                   if (newSelected.size === 0) {
                     setMessageActions({ reply: false, save: false, delete: false, forward: false, pin: false });
                     setReplyingTo(null);
@@ -831,6 +846,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
                 }}
                 isSelected={selectedMessages.has(message.id)}
                 selectedCount={selectedMessages.size}
+                repliedToMessage={null} // TODO: Get replied message from message.replyToId when implemented
               />
             </div>
           ))}
@@ -982,6 +998,50 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         }}
         confirmText="Yes"
         cancelText="No"
+        variant="destructive"
+      />
+
+      {/* Clear Chat Confirmation Dialog */}
+      <ThemeConfirmationDialog
+        open={showClearChatDialog}
+        onOpenChange={setShowClearChatDialog}
+        title="Clear Chat"
+        description="Are you sure you want to clear all messages in this chat? This action cannot be undone."
+        onConfirm={async () => {
+          try {
+            // Delete all messages in the chat
+            if (chatId) {
+              const { error } = await supabase
+                .from('messages')
+                .delete()
+                .eq('chat_id', chatId)
+                .eq('user_id', user?.id); // Only delete own messages
+              
+              if (error) {
+                throw error;
+              }
+            }
+            
+            setMessages([]);
+            setSelectedMessages(new Set());
+            setReplyingTo(null);
+            setMessageActions({ reply: false, save: false, delete: false, forward: false, pin: false });
+            setShowClearChatDialog(false);
+            toast({ 
+              title: "Chat cleared", 
+              description: "All messages have been deleted" 
+            });
+          } catch (error) {
+            console.error('Error clearing chat:', error);
+            toast({ 
+              title: "Error", 
+              description: "Failed to clear chat", 
+              variant: "destructive" 
+            });
+          }
+        }}
+        confirmText="Clear"
+        cancelText="Cancel"
         variant="destructive"
       />
     </div>
