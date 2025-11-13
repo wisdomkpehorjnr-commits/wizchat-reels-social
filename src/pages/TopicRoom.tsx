@@ -89,7 +89,29 @@ const TopicRoom = () => {
             );
             return [{ ...newPost, user: profile || null }, ...filtered];
           });
-        }).subscribe();
+        })
+        .on('postgres_changes', {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'room_posts',
+          filter: `room_id=eq.${roomId}`
+        }, (payload) => {
+          // Remove deleted post from the list
+          setPosts(prev => prev.filter(p => p.id !== (payload.old as PostType).id));
+        })
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'room_posts',
+          filter: `room_id=eq.${roomId}`
+        }, async (payload) => {
+          const updatedPost = payload.new as PostType;
+          // Update the post in the list
+          setPosts(prev => prev.map(p => 
+            p.id === updatedPost.id ? { ...updatedPost, user: p.user } : p
+          ));
+        })
+        .subscribe();
 
       return () => { supabase.removeChannel(channel); };
     } else if (roomId) {

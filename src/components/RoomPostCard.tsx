@@ -49,6 +49,27 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
   // Load likes and dislikes
   useEffect(() => {
     loadLikes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [post.id, user?.id]);
+
+  // Subscribe to real-time reaction updates
+  useEffect(() => {
+    const reactionsChannel = supabase
+      .channel(`room_post_reactions:${post.id}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'room_post_reactions',
+        filter: `post_id=eq.${post.id}`
+      }, () => {
+        // Reload reactions when they change
+        loadLikes();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(reactionsChannel);
+    };
   }, [post.id]);
 
   // Load comment count initially and subscribe to real-time updates
@@ -306,10 +327,10 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
         description: wasLiked ? "Like removed" : "Post liked successfully"
       });
       
-      // Only reload if there's a mismatch (for sync purposes, but don't override optimistic update)
+      // Sync with server after a brief delay (real-time subscription will also update)
       setTimeout(() => {
         loadLikes();
-      }, 500);
+      }, 300);
     } catch (error: any) {
       console.error('Error liking post:', error);
       // Revert optimistic update on error
@@ -409,10 +430,10 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
         description: wasDisliked ? "Dislike removed" : "Post disliked successfully"
       });
       
-      // Only reload if there's a mismatch (for sync purposes, but don't override optimistic update)
+      // Sync with server after a brief delay (real-time subscription will also update)
       setTimeout(() => {
         loadLikes();
-      }, 500);
+      }, 300);
     } catch (error: any) {
       console.error('Error disliking post:', error);
       // Revert optimistic update on error
