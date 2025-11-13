@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { User } from '@/types';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
-import VerificationBadge from './VerificationBadge';
+import VerifiedBadge from './VerifiedBadge';
 import { supabase } from '@/integrations/supabase/client';
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -126,9 +126,9 @@ const ClickableUserInfo = ({
             <AvatarFallback>{user.name?.charAt(0) || user.email?.charAt(0) || 'U'}</AvatarFallback>
           </Avatar>
           {isVerified && (
-            <div className="absolute -bottom-1 -right-1">
-              <VerificationBadge isVerified={true} size="sm" />
-            </div>
+            <span className="absolute -bottom-1 -right-1">
+              <VerifiedBadge className="w-4 h-4" />
+            </span>
           )}
         </div>
       )}
@@ -138,7 +138,7 @@ const ClickableUserInfo = ({
             {user.name || user.email || 'Unknown User'}
           </span>
           {isVerified && (
-            <VerificationBadge isVerified={true} size="sm" showText />
+            <VerifiedBadge className="ml-1 w-4 h-4 align-middle" />
           )}
         </div>
       )}
