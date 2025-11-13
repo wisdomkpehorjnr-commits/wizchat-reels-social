@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Share2, Copy, MessageCircle, Mail, Link as LinkIcon, X } from 'lucide-react';
+import { Share2, Copy, MessageCircle, Mail, Link as LinkIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface ShareBoardProps {
@@ -107,18 +107,10 @@ const ShareBoard = ({ open, onOpenChange, post }: ShareBoardProps) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-white dark:bg-gray-900 border border-green-500 rounded-2xl max-w-md">
+      <DialogContent className="bg-white dark:bg-gray-900 border border-green-500 rounded-2xl max-w-md [&>button]:hidden">
         <DialogHeader>
-          <DialogTitle className="text-xl font-semibold text-green-700 dark:text-green-400 flex items-center justify-between">
-            <span>Share Post</span>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => onOpenChange(false)}
-              className="h-6 w-6 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-            >
-              <X className="h-4 w-4" />
-            </Button>
+          <DialogTitle className="text-xl font-semibold text-green-700 dark:text-green-400">
+            Share Post
           </DialogTitle>
         </DialogHeader>
 

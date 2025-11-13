@@ -319,7 +319,7 @@ const StoriesSection: React.FC = () => {
 
       {/* Story Viewer Dialog */}
       <Dialog open={!!viewingStories} onOpenChange={() => setViewingStories(null)}>
-        <DialogContent className="max-w-md p-0 bg-black/90 border-green-500/30">
+        <DialogContent className="max-w-md p-0 bg-black/90 border-green-500/30 [&>button]:hidden">
           {viewingStories && viewingStories[currentStoryIndex] && <div className="relative w-full h-96">
               {/* Story progress indicators */}
               <div className="absolute top-2 left-2 right-2 z-20 flex gap-1">
@@ -375,10 +375,6 @@ const StoriesSection: React.FC = () => {
                   <ChevronRight className="w-4 h-4" />
                 </Button>}
 
-              {/* Close Button */}
-              <Button variant="ghost" size="sm" className="absolute top-4 right-4 text-white hover:bg-white/20 z-20" onClick={() => setViewingStories(null)}>
-                <X className="w-4 h-4" />
-              </Button>
             </div>}
         </DialogContent>
       </Dialog>
