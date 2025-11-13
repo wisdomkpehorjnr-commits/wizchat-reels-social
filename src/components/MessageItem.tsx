@@ -19,7 +19,7 @@ interface MessageItemProps {
   onReaction?: (messageId: string, emoji: string) => void;
   isSelected?: boolean;
   selectedCount?: number;
-  repliedToMessage?: Message | null;
+  closeReactionsTrigger?: number;
 }
 
 const EMOJI_REACTIONS = [
@@ -43,7 +43,7 @@ const MessageItem = ({
   onReaction,
   isSelected = false,
   selectedCount = 0,
-  repliedToMessage = null
+  closeReactionsTrigger = 0
 }: MessageItemProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -58,6 +58,13 @@ const MessageItem = ({
   const touchStartX = useRef<number>(0);
   const touchStartY = useRef<number>(0);
   const messageRef = useRef<HTMLDivElement>(null);
+
+  // Close reactions when closeReactionsTrigger changes
+  useEffect(() => {
+    if (closeReactionsTrigger > 0) {
+      setShowReactions(false);
+    }
+  }, [closeReactionsTrigger]);
 
   // Load reactions on mount and subscribe to updates
   useEffect(() => {
@@ -186,20 +193,6 @@ const MessageItem = ({
     }
   };
 
-  // Close reactions when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (showReactions && messageRef.current && !messageRef.current.contains(e.target as Node)) {
-        setShowReactions(false);
-      }
-    };
-    
-    if (showReactions) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [showReactions]);
-
   const handleEdit = async () => {
     if (!editContent.trim()) return;
     
@@ -309,7 +302,7 @@ const MessageItem = ({
   return (
     <div 
       ref={messageRef}
-      className={`flex ${isOwn ? 'justify-end' : 'justify-start'} group relative message-bubble`}
+      className={`flex ${isOwn ? 'justify-end' : 'justify-start'} group relative`}
       onMouseDown={handleLongPressStart}
       onMouseUp={handleLongPressEnd}
       onMouseLeave={handleLongPressEnd}
@@ -345,19 +338,6 @@ const MessageItem = ({
             {isSelected && (
               <div className="absolute inset-0 bg-green-500/8 dark:bg-green-500/12 rounded-2xl pointer-events-none backdrop-blur-[0.5px]" />
             )}
-            
-            {/* Replied message preview (WhatsApp style) - lighter background */}
-            {repliedToMessage && (
-              <div className="mb-2 pb-2 border-l-4 border-green-500/60 dark:border-green-500/40 pl-2 bg-muted/40 dark:bg-muted/20 rounded-l-md">
-                <p className="text-xs font-semibold text-foreground/70 dark:text-foreground/60 mb-0.5">
-                  {repliedToMessage.user.name}
-                </p>
-                <p className="text-xs text-muted-foreground dark:text-muted-foreground/80 line-clamp-2">
-                  {repliedToMessage.content || (repliedToMessage.type === 'image' ? '📷 Image' : repliedToMessage.type === 'video' ? '🎥 Video' : repliedToMessage.type === 'voice' ? '🎤 Voice' : 'Media')}
-                </p>
-              </div>
-            )}
-            
             {message.type === 'text' ? (
               isEditing ? (
                 <div className="flex flex-col space-y-2">
