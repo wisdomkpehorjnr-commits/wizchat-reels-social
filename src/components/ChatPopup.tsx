@@ -221,8 +221,43 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
               mediaUrl: messageData.media_url,
               duration: messageData.duration,
               seen: messageData.seen,
-              timestamp: new Date(messageData.created_at)
+              timestamp: new Date(messageData.created_at),
+              replyToId: messageData.reply_to_id || undefined
             };
+            
+            // If message has a reply, fetch the replied-to message
+            if (messageData.reply_to_id) {
+              const { data: repliedMsg } = await supabase
+                .from('messages')
+                .select(`
+                  *,
+                  user:profiles!messages_user_id_fkey (
+                    id,
+                    name,
+                    username,
+                    avatar
+                  )
+                `)
+                .eq('id', messageData.reply_to_id)
+                .single();
+              
+              if (repliedMsg) {
+                newMsg.repliedToMessage = {
+                  id: repliedMsg.id,
+                  chatId: repliedMsg.chat_id,
+                  userId: repliedMsg.user_id,
+                  user: repliedMsg.user as User,
+                  content: repliedMsg.content,
+                  type: repliedMsg.type as 'text' | 'image' | 'video' | 'voice',
+                  mediaUrl: repliedMsg.media_url,
+                  duration: repliedMsg.duration,
+                  seen: repliedMsg.seen,
+                  timestamp: new Date(repliedMsg.created_at),
+                  replyToId: repliedMsg.reply_to_id || undefined
+                };
+              }
+            }
+            
             setMessages(prev => prev.some(m => m.id === newMsg.id) ? prev : [...prev, newMsg]);
           }
         }
@@ -330,13 +365,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
 
     try {
       // Send message with reply reference if replying
-      if (replyToId) {
-        // Include reply info in message content or as metadata
-        await dataService.sendMessage(chatId, messageContent);
-        // TODO: Add reply_to_id field to messages table if needed
-      } else {
-        await dataService.sendMessage(chatId, messageContent);
-      }
+      await dataService.sendMessage(chatId, messageContent, replyToId);
       
       // Update chat's last activity
       await supabase
@@ -675,12 +704,8 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
                   </button>
                   <button
                     onClick={() => {
-                      if (confirm("Are you sure you want to clear this chat?")) {
-                        // Clear chat logic
-                        setMessages([]);
-                        setShowMenu(false);
-                        toast({ title: "Chat cleared" });
-                      }
+                      setShowClearChatDialog(true);
+                      setShowMenu(false);
                     }}
                     className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent text-foreground"
                   >
@@ -1010,6 +1035,50 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         }}
         confirmText="Yes"
         cancelText="No"
+        variant="destructive"
+      />
+
+      {/* Clear Chat Confirmation Dialog */}
+      <ThemeConfirmationDialog
+        open={showClearChatDialog}
+        onOpenChange={setShowClearChatDialog}
+        title="Clear Chat"
+        description="Are you sure you want to clear all messages in this chat? This action cannot be undone."
+        onConfirm={async () => {
+          try {
+            // Delete all messages in the chat
+            if (chatId) {
+              const { error } = await supabase
+                .from('messages')
+                .delete()
+                .eq('chat_id', chatId)
+                .eq('user_id', user?.id); // Only delete own messages
+              
+              if (error) {
+                throw error;
+              }
+            }
+            
+            setMessages([]);
+            setSelectedMessages(new Set());
+            setReplyingTo(null);
+            setMessageActions({ reply: false, save: false, delete: false, forward: false, pin: false });
+            setShowClearChatDialog(false);
+            toast({ 
+              title: "Chat cleared", 
+              description: "All messages have been deleted" 
+            });
+          } catch (error) {
+            console.error('Error clearing chat:', error);
+            toast({ 
+              title: "Error", 
+              description: "Failed to clear chat", 
+              variant: "destructive" 
+            });
+          }
+        }}
+        confirmText="Clear"
+        cancelText="Cancel"
         variant="destructive"
       />
     </div>

@@ -798,7 +798,8 @@ export const dataService = {
   },
 
   async getMessages(chatId: string): Promise<Message[]> {
-    const { data, error } = await supabase
+    // First, get all messages with their reply_to_id
+    const { data: messagesData, error } = await supabase
       .from('messages')
       .select(`
         *,
@@ -817,32 +818,92 @@ export const dataService = {
       throw error;
     }
 
-    return data.map(msg => ({
-      id: msg.id,
-      chatId: msg.chat_id,
-      userId: msg.user_id,
-      user: msg.user as User,
-      content: msg.content,
-      type: msg.type as 'text' | 'voice' | 'image' | 'video',
-      mediaUrl: msg.media_url,
-      duration: msg.duration,
-      seen: msg.seen,
-      timestamp: new Date(msg.created_at)
-    }));
+    if (!messagesData || messagesData.length === 0) return [];
+
+    // Get all unique reply_to_ids
+    const replyToIds = messagesData
+      .map((msg: any) => msg.reply_to_id)
+      .filter((id): id is string => id !== null && id !== undefined);
+
+    // Fetch all replied-to messages in one query
+    let repliedToMessagesMap = new Map<string, any>();
+    if (replyToIds.length > 0) {
+      const { data: repliedMessages } = await supabase
+        .from('messages')
+        .select(`
+          *,
+          user:profiles!messages_user_id_fkey (
+            id,
+            name,
+            username,
+            avatar
+          )
+        `)
+        .in('id', replyToIds);
+
+      if (repliedMessages) {
+        repliedMessages.forEach((msg: any) => {
+          repliedToMessagesMap.set(msg.id, {
+            id: msg.id,
+            chatId: msg.chat_id,
+            userId: msg.user_id,
+            user: msg.user as User,
+            content: msg.content,
+            type: msg.type as 'text' | 'image' | 'video' | 'voice',
+            mediaUrl: msg.media_url,
+            duration: msg.duration,
+            seen: msg.seen,
+            timestamp: new Date(msg.created_at),
+            replyToId: msg.reply_to_id || undefined
+          } as Message);
+        });
+      }
+    }
+
+    // Map messages and attach replied-to messages
+    return messagesData.map((msg: any) => {
+      const message: Message = {
+        id: msg.id,
+        chatId: msg.chat_id,
+        userId: msg.user_id,
+        user: msg.user as User,
+        content: msg.content,
+        type: msg.type as 'text' | 'image' | 'video' | 'voice',
+        mediaUrl: msg.media_url,
+        duration: msg.duration,
+        seen: msg.seen,
+        timestamp: new Date(msg.created_at),
+        replyToId: msg.reply_to_id || undefined
+      };
+
+      // Attach replied-to message if it exists
+      if (msg.reply_to_id && repliedToMessagesMap.has(msg.reply_to_id)) {
+        message.repliedToMessage = repliedToMessagesMap.get(msg.reply_to_id);
+      }
+
+      return message;
+    });
   },
 
-  async sendMessage(chatId: string, content: string): Promise<Message> {
+  async sendMessage(chatId: string, content: string, replyToId?: string): Promise<Message> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
+    const insertData: any = {
+      chat_id: chatId,
+      user_id: user.id,
+      content: content,
+      type: 'text'
+    };
+
+    // Add reply_to_id if provided
+    if (replyToId) {
+      insertData.reply_to_id = replyToId;
+    }
+
     const { data, error } = await supabase
       .from('messages')
-      .insert({
-        chat_id: chatId,
-        user_id: user.id,
-        content: content,
-        type: 'text'
-      })
+      .insert(insertData)
       .select(`
         *,
         user:profiles!messages_user_id_fkey (
@@ -869,7 +930,8 @@ export const dataService = {
       mediaUrl: data.media_url,
       duration: data.duration,
       seen: data.seen,
-      timestamp: new Date(data.created_at)
+      timestamp: new Date(data.created_at),
+      replyToId: data.reply_to_id || undefined
     };
   },
 

@@ -338,6 +338,19 @@ const MessageItem = ({
             {isSelected && (
               <div className="absolute inset-0 bg-green-500/8 dark:bg-green-500/12 rounded-2xl pointer-events-none backdrop-blur-[0.5px]" />
             )}
+            
+            {/* Replied message preview (WhatsApp style) - lighter background */}
+            {message.repliedToMessage && (
+              <div className="mb-2 pb-2 border-l-4 border-green-500/60 dark:border-green-500/40 pl-2 bg-muted/40 dark:bg-muted/20 rounded-l-md">
+                <p className="text-xs font-semibold text-foreground/70 dark:text-foreground/60 mb-0.5">
+                  {message.repliedToMessage.user.name}
+                </p>
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground/80 line-clamp-2">
+                  {message.repliedToMessage.content || (message.repliedToMessage.type === 'image' ? '📷 Image' : message.repliedToMessage.type === 'video' ? '🎥 Video' : message.repliedToMessage.type === 'voice' ? '🎤 Voice' : 'Media')}
+                </p>
+              </div>
+            )}
+            
             {message.type === 'text' ? (
               isEditing ? (
                 <div className="flex flex-col space-y-2">
