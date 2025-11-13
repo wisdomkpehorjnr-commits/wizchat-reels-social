@@ -7,6 +7,7 @@ import { Message } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { dataService } from '@/services/dataService';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface MessageItemProps {
   message: Message;
@@ -47,13 +48,51 @@ const MessageItem = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(message.content);
   const [showReactions, setShowReactions] = useState(false);
-  const [reactions, setReactions] = useState<string[]>([]);
+  const [reactions, setReactions] = useState<{ emoji: string; userId: string }[]>([]);
+  const [userReaction, setUserReaction] = useState<string | null>(null);
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const touchStartX = useRef<number>(0);
   const touchStartY = useRef<number>(0);
   const messageRef = useRef<HTMLDivElement>(null);
+
+  // Load reactions on mount and subscribe to updates
+  useEffect(() => {
+    const loadReactions = async () => {
+      try {
+        const messageReactions = await dataService.getMessageReactions(message.id);
+        setReactions(messageReactions.map(r => ({ emoji: r.emoji, userId: r.userId })));
+        const currentUserReaction = messageReactions.find(r => r.userId === user?.id);
+        if (currentUserReaction) {
+          setUserReaction(currentUserReaction.emoji);
+        } else {
+          setUserReaction(null);
+        }
+      } catch (error) {
+        console.error('Error loading reactions:', error);
+      }
+    };
+    
+    loadReactions();
+
+    // Subscribe to reaction changes
+    const channel = supabase
+      .channel(`message_reactions:${message.id}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'message_reactions',
+        filter: `message_id=eq.${message.id}`
+      }, () => {
+        loadReactions();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [message.id, user?.id]);
   
   const isOwn = message.userId === user?.id;
   const messageAge = Date.now() - message.timestamp.getTime();
@@ -103,9 +142,10 @@ const MessageItem = ({
     const deltaX = currentX - touchStartX.current;
     const deltaY = Math.abs(currentY - touchStartY.current);
     
-    // Only allow swipe if horizontal movement is greater than vertical
-    if (deltaX > 0 && deltaX > deltaY && isOwn) {
-      setSwipeOffset(Math.min(deltaX, 100));
+    // Only allow swipe right (for reply) - works for both own and other messages
+    if (deltaX > 0 && deltaX > deltaY) {
+      const maxSwipe = 80;
+      setSwipeOffset(Math.min(deltaX, maxSwipe));
     }
     
     // Cancel long press if moved too much
@@ -178,11 +218,27 @@ const MessageItem = ({
     }
   };
 
-  const handleReaction = (emoji: string) => {
+  const handleReaction = async (emoji: string) => {
     if (onReaction) {
-      onReaction(message.id, emoji);
+      try {
+        await onReaction(message.id, emoji);
+        // If user already has a reaction, replace it
+        if (userReaction) {
+          setReactions(prev => prev.filter(r => r.userId !== user?.id));
+        }
+        // Add new reaction
+        if (user?.id) {
+          setReactions(prev => [...prev.filter(r => r.userId !== user.id), { emoji, userId: user.id }]);
+          setUserReaction(emoji);
+        }
+      } catch (error) {
+        // If reaction was removed (toggled off)
+        if (user?.id) {
+          setReactions(prev => prev.filter(r => r.userId !== user.id));
+          setUserReaction(null);
+        }
+      }
     }
-    setReactions([...reactions, emoji]);
     setShowReactions(false);
   };
 
@@ -242,8 +298,8 @@ const MessageItem = ({
       onClick={handleClick}
     >
       <div 
-        className={`flex items-end space-x-2 max-w-xs lg:max-w-md ${isOwn ? 'flex-row-reverse space-x-reverse' : ''}`}
-        style={{ transform: `translateX(${swipeOffset}px)` }}
+        className={`flex items-end space-x-2 max-w-xs lg:max-w-md ${isOwn ? 'flex-row-reverse space-x-reverse' : ''} transition-transform duration-200 ease-out`}
+        style={{ transform: `translateX(${isOwn ? -swipeOffset : swipeOffset}px)` }}
       >
         {!isOwn && (
           <Avatar className="w-6 h-6">
@@ -293,8 +349,14 @@ const MessageItem = ({
             {/* Reactions */}
             {reactions.length > 0 && (
               <div className="flex flex-wrap gap-1 mt-2">
-                {reactions.map((emoji, idx) => (
-                  <span key={idx} className="text-xs">{emoji}</span>
+                {reactions.map((reaction, idx) => (
+                  <span 
+                    key={idx} 
+                    className={`text-xs ${reaction.userId === user?.id ? 'ring-1 ring-green-500 rounded px-1' : ''}`}
+                    title={reaction.userId === user?.id ? 'Your reaction' : ''}
+                  >
+                    {reaction.emoji}
+                  </span>
                 ))}
               </div>
             )}

@@ -1019,25 +1019,48 @@ export const dataService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
-    // Check if user already reacted with this emoji
-    const { data: existing } = await supabase
+    // Check if user already has ANY reaction on this message (only one reaction per user per message)
+    const { data: existingReaction } = await supabase
       .from('message_reactions')
-      .select('id')
+      .select('id, emoji')
       .eq('message_id', messageId)
       .eq('user_id', user.id)
-      .eq('emoji', emoji)
       .maybeSingle();
 
-    if (existing) {
-      // Remove existing reaction (toggle off)
-      await supabase
-        .from('message_reactions')
-        .delete()
-        .eq('id', existing.id);
-      
-      throw new Error('Reaction removed');
+    if (existingReaction) {
+      if (existingReaction.emoji === emoji) {
+        // Same emoji - toggle off
+        await supabase
+          .from('message_reactions')
+          .delete()
+          .eq('id', existingReaction.id);
+        throw new Error('Reaction removed');
+      } else {
+        // Different emoji - replace it
+        await supabase
+          .from('message_reactions')
+          .update({ emoji: emoji })
+          .eq('id', existingReaction.id);
+        
+        const { data } = await supabase
+          .from('message_reactions')
+          .select('*')
+          .eq('id', existingReaction.id)
+          .single();
+
+        if (data) {
+          return {
+            id: data.id,
+            messageId: data.message_id,
+            userId: data.user_id,
+            emoji: data.emoji,
+            createdAt: new Date(data.created_at)
+          };
+        }
+      }
     }
 
+    // No existing reaction - insert new one
     const { data, error } = await supabase
       .from('message_reactions')
       .insert({
@@ -1060,6 +1083,28 @@ export const dataService = {
       emoji: data.emoji,
       createdAt: new Date(data.created_at)
     };
+  },
+
+  async blockUser(userId: string): Promise<void> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    // Update friend relationship to blocked status
+    const { error } = await supabase
+      .from('friends')
+      .update({ status: 'blocked' })
+      .or(`requester_id.eq.${user.id}.and.addressee_id.eq.${userId},requester_id.eq.${userId}.and.addressee_id.eq.${user.id}`);
+
+    if (error) {
+      // If no existing relationship, create one
+      await supabase
+        .from('friends')
+        .insert({
+          requester_id: user.id,
+          addressee_id: userId,
+          status: 'blocked'
+        });
+    }
   },
 
   async getMessageReactions(messageId: string): Promise<MessageReaction[]> {

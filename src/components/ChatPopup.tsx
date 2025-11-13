@@ -17,6 +17,8 @@ import OnlineStatusIndicator from './OnlineStatusIndicator';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import ThemeConfirmationDialog from './ui/theme-confirmation-dialog';
+import ConfirmationDialog from './ui/confirmation-dialog';
 
 interface ChatPopupProps {
   user: User;
@@ -40,8 +42,13 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isMuted, setIsMuted] = useState(false);
   const [disappearingMessages, setDisappearingMessages] = useState(false);
+  const [showDisappearingDialog, setShowDisappearingDialog] = useState(false);
+  const [showReportDialog, setShowReportDialog] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
   const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [pinnedMessages, setPinnedMessages] = useState<Message[]>([]);
   const [messageActions, setMessageActions] = useState<{ reply: boolean; save: boolean; delete: boolean; forward: boolean; pin: boolean }>({
     reply: false, save: false, delete: false, forward: false, pin: false
   });
@@ -50,6 +57,130 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
   useEffect(() => {
     initializeChat();
   }, []);
+
+  useEffect(() => {
+    if (chatId) {
+      loadPinnedMessages();
+      loadDisappearingMessagesSetting();
+    }
+  }, [chatId]);
+
+  // Load disappearing messages setting from chat (stored in localStorage for now)
+  const loadDisappearingMessagesSetting = async () => {
+    if (!chatId) return;
+    try {
+      // Try to load from database first (if column exists)
+      const { data } = await supabase
+        .from('chats')
+        .select('disappearing_messages')
+        .eq('id', chatId)
+        .single();
+      if (data?.disappearing_messages) {
+        setDisappearingMessages(true);
+        localStorage.setItem(`disappearing_${chatId}`, 'true');
+      } else {
+        // Fallback to localStorage
+        const stored = localStorage.getItem(`disappearing_${chatId}`);
+        if (stored === 'true') {
+          setDisappearingMessages(true);
+        }
+      }
+    } catch (error) {
+      // Column might not exist, use localStorage
+      const stored = localStorage.getItem(`disappearing_${chatId}`);
+      if (stored === 'true') {
+        setDisappearingMessages(true);
+      }
+    }
+  };
+
+  // Load pinned messages
+  const loadPinnedMessages = async () => {
+    if (!chatId) return;
+    try {
+      const { data } = await supabase
+        .from('pinned_messages')
+        .select(`
+          *,
+          message:messages(*)
+        `)
+        .eq('chat_id', chatId)
+        .order('pinned_at', { ascending: false });
+      
+      if (data) {
+        const pinned = await Promise.all(
+          data.map(async (pm: any) => {
+            const { data: messageData } = await supabase
+              .from('messages')
+              .select(`
+                *,
+                user:profiles!messages_user_id_fkey (
+                  id,
+                  name,
+                  username,
+                  avatar
+                )
+              `)
+              .eq('id', pm.message_id)
+              .single();
+            
+            if (messageData) {
+              return {
+                id: messageData.id,
+                chatId: messageData.chat_id,
+                userId: messageData.user_id,
+                user: messageData.user as User,
+                content: messageData.content,
+                type: messageData.type as 'text' | 'voice' | 'image' | 'video',
+                mediaUrl: messageData.media_url,
+                duration: messageData.duration,
+                seen: messageData.seen,
+                timestamp: new Date(messageData.created_at),
+                isPinned: true
+              } as Message;
+            }
+            return null;
+          })
+        );
+        setPinnedMessages(pinned.filter((m): m is Message => m !== null));
+      }
+    } catch (error) {
+      console.error('Error loading pinned messages:', error);
+    }
+  };
+
+  // Auto-delete messages after 24 hours if disappearing messages is enabled
+  useEffect(() => {
+    if (!disappearingMessages || !chatId) return;
+
+    const checkAndDeleteOldMessages = async () => {
+      try {
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        const { data: oldMessages } = await supabase
+          .from('messages')
+          .select('id')
+          .eq('chat_id', chatId)
+          .lt('created_at', twentyFourHoursAgo);
+
+        if (oldMessages && oldMessages.length > 0) {
+          for (const msg of oldMessages) {
+            await dataService.deleteMessage(msg.id);
+          }
+          setMessages(prev => prev.filter(m => 
+            m.timestamp.getTime() > Date.now() - 24 * 60 * 60 * 1000
+          ));
+        }
+      } catch (error) {
+        console.error('Error deleting old messages:', error);
+      }
+    };
+
+    // Check every hour
+    const interval = setInterval(checkAndDeleteOldMessages, 60 * 60 * 1000);
+    checkAndDeleteOldMessages(); // Initial check
+
+    return () => clearInterval(interval);
+  }, [disappearingMessages, chatId]);
 
   useEffect(() => {
     scrollToBottom();
@@ -370,16 +501,9 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
               <Button 
                 variant="ghost" 
                 size="sm" 
-                onClick={async () => {
-                  try {
-                    await dataService.deleteMessage(replyingTo.id);
-                    setMessages(prev => prev.filter(m => m.id !== replyingTo.id));
-                    setMessageActions({ reply: false, save: false, delete: false, forward: false, pin: false });
-                    setReplyingTo(null);
-                    toast({ title: "Message deleted" });
-                  } catch (error) {
-                    toast({ title: "Error", description: "Failed to delete message", variant: "destructive" });
-                  }
+                onClick={() => {
+                  setMessageToDelete(replyingTo.id);
+                  setShowDeleteConfirm(true);
                 }} 
                 className="text-foreground"
               >
@@ -406,12 +530,38 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
                 size="sm" 
                 onClick={async () => {
                   try {
-                    // Pin message logic
-                    await supabase.from('pinned_messages').insert({ message_id: replyingTo.id, chat_id: chatId, user_id: user?.id });
+                    if (!chatId || !user?.id) return;
+                    // Check if already pinned
+                    const { data: existing } = await supabase
+                      .from('pinned_messages')
+                      .select('id')
+                      .eq('chat_id', chatId)
+                      .eq('message_id', replyingTo.id)
+                      .maybeSingle();
+                    
+                    if (existing) {
+                      // Unpin
+                      await supabase
+                        .from('pinned_messages')
+                        .delete()
+                        .eq('id', existing.id);
+                      setPinnedMessages(prev => prev.filter(m => m.id !== replyingTo.id));
+                      toast({ title: "Message unpinned" });
+                    } else {
+                      // Pin message
+                      await supabase.from('pinned_messages').insert({ 
+                        message_id: replyingTo.id, 
+                        chat_id: chatId, 
+                        pinned_by: user.id 
+                      });
+                      setPinnedMessages(prev => [...prev, { ...replyingTo, isPinned: true }]);
+                      toast({ title: "Message pinned" });
+                    }
                     setMessageActions({ reply: false, save: false, delete: false, forward: false, pin: false });
                     setReplyingTo(null);
-                    toast({ title: "Message pinned" });
+                    loadPinnedMessages();
                   } catch (error) {
+                    console.error('Error pinning message:', error);
                     toast({ title: "Error", description: "Failed to pin message", variant: "destructive" });
                   }
                 }} 
@@ -465,18 +615,12 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
                     <span>{isMuted ? "Unmute notifications" : "Mute notifications"}</span>
                   </button>
                   <button
-                    onClick={() => { setDisappearingMessages(!disappearingMessages); setShowMenu(false); toast({ title: disappearingMessages ? "Disappearing messages off" : "Disappearing messages on" }); }}
+                    onClick={() => { setShowDisappearingDialog(true); setShowMenu(false); }}
                     className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent text-foreground"
                   >
                     <Timer className="w-4 h-4 text-foreground" />
-                    <span>{disappearingMessages ? "Disable disappearing messages" : "Enable disappearing messages"}</span>
-                  </button>
-                  <button
-                    onClick={() => { setShowMenu(false); toast({ title: "Wallpaper", description: "Choose a wallpaper" }); }}
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent text-foreground"
-                  >
-                    <ImageIcon className="w-4 h-4 text-foreground" />
-                    <span>Wallpaper</span>
+                    <span className="flex-1 text-left">Disappearing messages</span>
+                    <span className="text-sm text-muted-foreground">{disappearingMessages ? 'On' : 'Off'}</span>
                   </button>
                   <button
                     onClick={() => {
@@ -506,7 +650,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
                     <span>Block</span>
                   </button>
                   <button
-                    onClick={() => { setShowMenu(false); toast({ title: "Report submitted", description: "Thank you for reporting" }); }}
+                    onClick={() => { setShowReportDialog(true); setShowMenu(false); }}
                     className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent text-foreground"
                   >
                     <Flag className="w-4 h-4 text-foreground" />
@@ -543,39 +687,91 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         </DialogContent>
       </Dialog>
 
+      {/* Pinned Messages */}
+      {pinnedMessages.length > 0 && (
+        <div className="px-4 py-2 border-b border-border bg-muted/30">
+          <div className="flex items-center gap-2 mb-2">
+            <Pin className="w-4 h-4 text-green-500" />
+            <span className="text-sm font-semibold text-foreground">Pinned Messages</span>
+          </div>
+          <div className="space-y-2">
+            {pinnedMessages.map((message) => (
+              <div
+                key={message.id}
+                onClick={() => {
+                  // Scroll to message
+                  const messageElement = document.getElementById(`message-${message.id}`);
+                  if (messageElement) {
+                    messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    messageElement.classList.add('ring-2', 'ring-green-500');
+                    setTimeout(() => {
+                      messageElement.classList.remove('ring-2', 'ring-green-500');
+                    }, 2000);
+                  }
+                }}
+                className="p-2 rounded-lg hover:bg-accent cursor-pointer border border-green-500/30 bg-background"
+              >
+                <div className="flex items-center gap-2">
+                  <Avatar className="w-6 h-6">
+                    <AvatarImage src={message.user.avatar} />
+                    <AvatarFallback className="text-xs">{message.user.name.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-foreground truncate">{message.user.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{message.content || 'Media'}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Messages */}
       <ScrollArea className="flex-1 p-4">
         <div className="space-y-4">
           {messages.map((message) => (
-            <MessageItem
-              key={message.id}
-              message={message}
-              onEdit={handleEditMessage}
-              onDelete={handleDeleteMessage}
-              onLongPress={(msg) => {
-                setMessageActions({ reply: true, save: true, delete: true, forward: true, pin: true });
-                setReplyingTo(msg);
-              }}
-              onSwipeReply={(msg) => {
-                setReplyingTo(msg);
-                setMessageActions({ reply: true, save: false, delete: false, forward: false, pin: false });
-              }}
-              onSelect={(msgId, selected) => {
-                const newSelected = new Set(selectedMessages);
-                if (selected) {
-                  newSelected.add(msgId);
-                } else {
-                  newSelected.delete(msgId);
-                }
-                setSelectedMessages(newSelected);
-              }}
-              onReaction={(msgId, emoji) => {
-                // Add reaction logic
-                toast({ title: "Reaction added", description: emoji });
-              }}
-              isSelected={selectedMessages.has(message.id)}
-              selectedCount={selectedMessages.size}
-            />
+            <div key={message.id} id={`message-${message.id}`}>
+              <MessageItem
+                message={message}
+                onEdit={handleEditMessage}
+                onDelete={(msgId) => {
+                  setMessageToDelete(msgId);
+                  setShowDeleteConfirm(true);
+                }}
+                onLongPress={(msg) => {
+                  setMessageActions({ reply: true, save: true, delete: true, forward: true, pin: true });
+                  setReplyingTo(msg);
+                }}
+                onSwipeReply={(msg) => {
+                  setReplyingTo(msg);
+                  setMessageActions({ reply: true, save: false, delete: false, forward: false, pin: false });
+                }}
+                onSelect={(msgId, selected) => {
+                  const newSelected = new Set(selectedMessages);
+                  if (selected) {
+                    newSelected.add(msgId);
+                  } else {
+                    newSelected.delete(msgId);
+                  }
+                  setSelectedMessages(newSelected);
+                }}
+                onReaction={async (msgId, emoji) => {
+                  try {
+                    await dataService.addMessageReaction(msgId, emoji);
+                    toast({ title: "Reaction added", description: emoji });
+                  } catch (error: any) {
+                    if (error.message === 'Reaction removed') {
+                      toast({ title: "Reaction removed" });
+                    } else {
+                      toast({ title: "Error", description: "Failed to add reaction", variant: "destructive" });
+                    }
+                  }
+                }}
+                isSelected={selectedMessages.has(message.id)}
+                selectedCount={selectedMessages.size}
+              />
+            </div>
           ))}
           <div ref={messagesEndRef} />
         </div>
@@ -635,6 +831,98 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
           </Button>
         </div>
       </div>
+
+      {/* Disappearing Messages Dialog */}
+      <ThemeConfirmationDialog
+        open={showDisappearingDialog}
+        onOpenChange={setShowDisappearingDialog}
+        title="Disappearing Messages"
+        description={disappearingMessages 
+          ? "Turn off disappearing messages? Messages will no longer be deleted after 24 hours."
+          : "Turn on disappearing messages? Messages will be automatically deleted after 24 hours."
+        }
+        onConfirm={async () => {
+          const newValue = !disappearingMessages;
+          setDisappearingMessages(newValue);
+          if (chatId) {
+            try {
+              // Try to update database (if column exists)
+              await supabase
+                .from('chats')
+                .update({ disappearing_messages: newValue })
+                .eq('id', chatId);
+            } catch (error) {
+              // Column might not exist, that's okay
+            }
+            // Always store in localStorage as backup
+            localStorage.setItem(`disappearing_${chatId}`, newValue ? 'true' : 'false');
+            toast({ 
+              title: newValue ? "Disappearing messages enabled" : "Disappearing messages disabled",
+              description: newValue 
+                ? "Messages will be deleted after 24 hours" 
+                : "Messages will no longer be deleted automatically"
+            });
+          }
+        }}
+        confirmText={disappearingMessages ? "Turn Off" : "Turn On"}
+        cancelText="Cancel"
+      />
+
+      {/* Report/Block Dialog */}
+      <ThemeConfirmationDialog
+        open={showReportDialog}
+        onOpenChange={setShowReportDialog}
+        title="Report User"
+        description="Do you want to block this User?"
+        onConfirm={async () => {
+          try {
+            // Block user logic
+            await dataService.blockUser(chatUser.id);
+            toast({ 
+              title: "User blocked", 
+              description: "You won't receive messages from this user",
+              variant: "destructive" 
+            });
+            onClose();
+          } catch (error) {
+            console.error('Error blocking user:', error);
+            toast({ 
+              title: "Error", 
+              description: "Failed to block user", 
+              variant: "destructive" 
+            });
+          }
+        }}
+        confirmText="Yes"
+        cancelText="No"
+        variant="destructive"
+      />
+
+      {/* Delete Message Confirmation */}
+      <ConfirmationDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title="Delete Message"
+        description="Delete this message?"
+        onConfirm={async () => {
+          if (!messageToDelete) return;
+          try {
+            await dataService.deleteMessage(messageToDelete);
+            setMessages(prev => prev.filter(m => m.id !== messageToDelete));
+            if (replyingTo?.id === messageToDelete) {
+              setReplyingTo(null);
+              setMessageActions({ reply: false, save: false, delete: false, forward: false, pin: false });
+            }
+            toast({ title: "Message deleted" });
+          } catch (error) {
+            toast({ title: "Error", description: "Failed to delete message", variant: "destructive" });
+          }
+          setMessageToDelete(null);
+        }}
+        confirmText="Yes"
+        cancelText="No"
+        variant="destructive"
+      />
     </div>
   );
 };
