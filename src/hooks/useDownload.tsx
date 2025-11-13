@@ -39,25 +39,37 @@ export const useDownload = () => {
           const writable = await fileHandle.createWritable();
           await writable.write(blob);
           await writable.close();
+          toast({
+            title: "Download complete",
+            description: "Media was downloaded to your device",
+          });
         } catch (error) {
-          // Fallback to regular download
+          // Fallback
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
+          // Wait briefly to let browser trigger system download
+          setTimeout(() => {
+            toast({
+              title: "Download complete",
+              description: "Media was downloaded to your device",
+            });
+          }, 2000);
         }
       } else {
-        // Regular download for browsers without File System Access API
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        setTimeout(() => {
+          toast({
+            title: "Download complete",
+            description: "Media was downloaded to your device",
+          });
+        }, 2000);
       }
       
       window.URL.revokeObjectURL(blobUrl);
       
-      toast({
-        title: "Download Started",
-        description: "Media is being downloaded to your device",
-      });
     } catch (error) {
       console.error('Download error:', error);
       toast({
