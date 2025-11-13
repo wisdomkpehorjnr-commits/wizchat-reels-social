@@ -55,29 +55,21 @@ const Reels = () => {
       setReels(prevReels => 
         prevReels.map(reel => {
           if (reel.id === postId) {
-            const isLiked = reel.likes.includes(user.id);
+            const isLiked = reel.likes?.includes(user.id) || false;
+            const currentLikes = reel.likes || [];
             return {
               ...reel,
               likes: isLiked 
-                ? reel.likes.filter(id => id !== user.id)
-                : [...reel.likes, user.id]
+                ? currentLikes.filter((id: string) => id !== user.id)
+                : [...currentLikes, user.id]
             };
           }
           return reel;
         })
       );
-      
-      toast({
-        title: "Success",
-        description: "Like updated",
-      });
     } catch (error) {
       console.error('Error liking reel:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update like",
-        variant: "destructive"
-      });
+      throw error; // Re-throw so ReelCard can handle it
     }
   };
 

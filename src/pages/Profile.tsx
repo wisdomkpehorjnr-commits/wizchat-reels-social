@@ -471,7 +471,50 @@ const Profile = () => {
             {isOwnProfile && (
               <>
                 <TabsContent value="saved" className="p-4 space-y-4">
-                  {savedPosts.length > 0 ? savedPosts.map(s => <PostCard key={s.id} post={s.post} onPostUpdate={() => {}} />) :
+                  {savedPosts.length > 0 ? savedPosts.map(s => {
+                    // Check if it's a reel (video post)
+                    const isReel = s.post.videoUrl || s.post.isReel || s.post.mediaType === 'video';
+                    if (isReel) {
+                      return (
+                        <div key={s.id} className="aspect-[9/16] max-w-xs mx-auto">
+                          <ReelCard
+                            post={s.post}
+                            onLike={async (postId) => {
+                              try {
+                                await dataService.likePost(postId);
+                                // Refresh saved posts
+                                const saved = await ProfileService.getSavedPosts();
+                                setSavedPosts(saved);
+                              } catch (error) {
+                                console.error('Error liking saved reel:', error);
+                              }
+                            }}
+                            onUserClick={(user) => navigate(`/profile/${user.username || user.id}`)}
+                            onShare={async (post) => {
+                              try {
+                                if (navigator.share) {
+                                  await navigator.share({
+                                    title: `Check out this reel by ${post.user.name}`,
+                                    text: post.content || 'Check out this awesome reel!',
+                                    url: `${window.location.origin}/reel/${post.id}`
+                                  });
+                                } else {
+                                  await navigator.clipboard.writeText(`${window.location.origin}/reel/${post.id}`);
+                                  toast({ title: "Link copied", description: "Reel link copied to clipboard" });
+                                }
+                              } catch (error) {
+                                console.error('Error sharing:', error);
+                              }
+                            }}
+                            isMuted={true}
+                            onMuteToggle={() => {}}
+                            isOwnProfile={isOwnProfile}
+                          />
+                        </div>
+                      );
+                    }
+                    return <PostCard key={s.id} post={s.post} onPostUpdate={() => {}} />;
+                  }) :
                     <div className="text-center py-12 text-strong-contrast/60">No saved posts yet</div>}
                 </TabsContent>
                 
