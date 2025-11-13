@@ -26,6 +26,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import ShareBoard from './ShareBoard';
+import PremiumCodeVerification from './PremiumCodeVerification';
 
 interface PostCardProps {
   post: any;
@@ -52,6 +53,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
   const [postingComment, setPostingComment] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const [showShareBoard, setShowShareBoard] = useState(false);
+  const [showPinPremium, setShowPinPremium] = useState(false);
 
   // Load likes when component mounts
   useEffect(() => {
@@ -574,10 +576,21 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
           description="Get premium to pin this post to the top of your feed!"
           onConfirm={() => {
             setShowPinDialog(false);
-            navigate('/premium/wizboost');
+            setShowPinPremium(true);
           }}
           confirmText="Get Premium"
           cancelText="Cancel"
+        />
+        
+        <PremiumCodeVerification 
+          open={showPinPremium}
+          onOpenChange={setShowPinPremium}
+          featureName="Pin Post"
+          onVerified={async () => {
+            await dataService.pinPost(post.id);
+            toast({ title: 'Success 🎉', description: 'Post pinned for 24 hours!' });
+            onPostUpdate();
+          }}
         />
         
         <ShareBoard

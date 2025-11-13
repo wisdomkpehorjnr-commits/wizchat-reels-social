@@ -1228,6 +1228,29 @@ export const dataService = {
     });
   },
 
+  async pinPost(postId: string): Promise<void> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+    const now = new Date();
+    const { error } = await supabase
+      .from('pinned_posts')
+      .insert({
+        user_id: user.id,
+        post_id: postId,
+        pinned_at: now.toISOString(),
+      });
+    if (error) throw error;
+  },
+  async getActivePinnedPosts(): Promise<string[]> {
+    const now = new Date();
+    const since = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await supabase
+      .from('pinned_posts')
+      .select('post_id, pinned_at')
+      .gte('pinned_at', since);
+    if (error) throw error;
+    return data?.map(row => row.post_id) ?? [];
+  },
 
 
   async createGroup(groupData: { name: string; description: string; isPublic: boolean; members: string[] }): Promise<any> {

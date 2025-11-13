@@ -62,14 +62,20 @@ const Home = () => {
 
   const loadPosts = async () => {
     if (!user) return;
-
     try {
       setLoading(true);
-      const posts = await dataService.getPosts();
-      console.log('Loaded posts:', posts);
-      console.log('Posts with imageUrls:', posts.filter(p => p.imageUrls));
-      
-      setPosts(posts);
+      // Fetch all posts and active pinned post IDs
+      const [posts, pinnedIds] = await Promise.all([
+        dataService.getPosts(),
+        dataService.getActivePinnedPosts(),
+      ]);
+      // Pinned posts go at the top, ordered by their "pinned_at" timestamps.
+      const pinnedPosts = posts
+        .filter(post => pinnedIds.includes(post.id));
+      // Optionally, sort pinnedPosts by their pin time (add pinned_at to post and sort if needed)
+      const otherPosts = posts
+        .filter(post => !pinnedIds.includes(post.id));
+      setPosts([...pinnedPosts, ...otherPosts]);
     } catch (error) {
       console.error('Error fetching posts:', error);
       toast({
