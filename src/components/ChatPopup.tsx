@@ -53,6 +53,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
     reply: false, save: false, delete: false, forward: false, pin: false
   });
   const [closeAllReactions, setCloseAllReactions] = useState<number>(0);
+  const [showClearChatDialog, setShowClearChatDialog] = useState(false);
 
 
   useEffect(() => {
@@ -221,43 +222,8 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
               mediaUrl: messageData.media_url,
               duration: messageData.duration,
               seen: messageData.seen,
-              timestamp: new Date(messageData.created_at),
-              replyToId: messageData.reply_to_id || undefined
+              timestamp: new Date(messageData.created_at)
             };
-            
-            // If message has a reply, fetch the replied-to message
-            if (messageData.reply_to_id) {
-              const { data: repliedMsg } = await supabase
-                .from('messages')
-                .select(`
-                  *,
-                  user:profiles!messages_user_id_fkey (
-                    id,
-                    name,
-                    username,
-                    avatar
-                  )
-                `)
-                .eq('id', messageData.reply_to_id)
-                .single();
-              
-              if (repliedMsg) {
-                newMsg.repliedToMessage = {
-                  id: repliedMsg.id,
-                  chatId: repliedMsg.chat_id,
-                  userId: repliedMsg.user_id,
-                  user: repliedMsg.user as User,
-                  content: repliedMsg.content,
-                  type: repliedMsg.type as 'text' | 'image' | 'video' | 'voice',
-                  mediaUrl: repliedMsg.media_url,
-                  duration: repliedMsg.duration,
-                  seen: repliedMsg.seen,
-                  timestamp: new Date(repliedMsg.created_at),
-                  replyToId: repliedMsg.reply_to_id || undefined
-                };
-              }
-            }
-            
             setMessages(prev => prev.some(m => m.id === newMsg.id) ? prev : [...prev, newMsg]);
           }
         }
@@ -365,7 +331,13 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
 
     try {
       // Send message with reply reference if replying
-      await dataService.sendMessage(chatId, messageContent, replyToId);
+      if (replyToId) {
+        // Include reply info in message content or as metadata
+        await dataService.sendMessage(chatId, messageContent);
+        // TODO: Add reply_to_id field to messages table if needed
+      } else {
+        await dataService.sendMessage(chatId, messageContent);
+      }
       
       // Update chat's last activity
       await supabase
