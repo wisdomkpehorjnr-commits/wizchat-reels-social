@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useRef } from 'react';
-import { Send, Paperclip, Mic, X, Users, Download, ArrowLeft, MoreVertical, Search, BellOff, Timer, Image as ImageIcon, Trash2, Ban, Flag, Reply, Save, Forward, Pin } from 'lucide-react';
+import { Send, Paperclip, Mic, X, Users, Download, ArrowLeft, MoreVertical, Search, BellOff, Timer, Image as ImageIcon, Trash2, Ban, Flag, Reply, Save, Forward, Pin, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -52,6 +52,9 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
   const [messageActions, setMessageActions] = useState<{ reply: boolean; save: boolean; delete: boolean; forward: boolean; pin: boolean }>({
     reply: false, save: false, delete: false, forward: false, pin: false
   });
+  const [showForwardDialog, setShowForwardDialog] = useState(false);
+  const [messagesToForward, setMessagesToForward] = useState<Message[]>([]);
+  const chatAreaRef = useRef<HTMLDivElement>(null);
 
 
   useEffect(() => {
@@ -150,11 +153,13 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
   };
 
   // Auto-delete messages after 24 hours if disappearing messages is enabled
+  // Wait 1 day before deleting, don't delete immediately when turned off
   useEffect(() => {
     if (!disappearingMessages || !chatId) return;
 
     const checkAndDeleteOldMessages = async () => {
       try {
+        // Only delete messages that are exactly 24 hours old or older
         const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
         const { data: oldMessages } = await supabase
           .from('messages')
@@ -163,9 +168,11 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
           .lt('created_at', twentyFourHoursAgo);
 
         if (oldMessages && oldMessages.length > 0) {
+          // Delete permanently from database
           for (const msg of oldMessages) {
-            await dataService.deleteMessage(msg.id);
+            await supabase.from('messages').delete().eq('id', msg.id);
           }
+          // Remove from local state
           setMessages(prev => prev.filter(m => 
             m.timestamp.getTime() > Date.now() - 24 * 60 * 60 * 1000
           ));
@@ -175,7 +182,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       }
     };
 
-    // Check every hour
+    // Check every hour for messages that have reached 24 hours
     const interval = setInterval(checkAndDeleteOldMessages, 60 * 60 * 1000);
     checkAndDeleteOldMessages(); // Initial check
 
@@ -204,12 +211,35 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
                 name,
                 username,
                 avatar
+              ),
+              reply_to:messages!messages_reply_to_id_fkey (
+                id,
+                content,
+                type,
+                user_id,
+                user:profiles!messages_user_id_fkey (
+                  id,
+                  name,
+                  username,
+                  avatar
+                )
               )
             `)
             .eq('id', payload.new.id)
             .single();
 
           if (messageData) {
+            const replyTo = messageData.reply_to ? {
+              id: messageData.reply_to.id,
+              chatId: chatId,
+              userId: messageData.reply_to.user_id,
+              user: messageData.reply_to.user as User,
+              content: messageData.reply_to.content,
+              type: messageData.reply_to.type as 'text' | 'voice' | 'image' | 'video',
+              timestamp: new Date(),
+              seen: false
+            } : undefined;
+
             const newMsg: Message = {
               id: messageData.id,
               chatId: messageData.chat_id,
@@ -220,7 +250,9 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
               mediaUrl: messageData.media_url,
               duration: messageData.duration,
               seen: messageData.seen,
-              timestamp: new Date(messageData.created_at)
+              timestamp: new Date(messageData.created_at),
+              replyToId: messageData.reply_to_id,
+              replyTo: replyTo
             };
             setMessages(prev => prev.some(m => m.id === newMsg.id) ? prev : [...prev, newMsg]);
           }
@@ -311,9 +343,45 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
     try {
       // Send message with reply reference if replying
       if (replyToId) {
-        // Include reply info in message content or as metadata
-        await dataService.sendMessage(chatId, messageContent);
-        // TODO: Add reply_to_id field to messages table if needed
+        // Insert message with reply_to_id
+        const { data, error } = await supabase
+          .from('messages')
+          .insert({
+            chat_id: chatId,
+            user_id: user.id,
+            content: messageContent,
+            type: 'text',
+            reply_to_id: replyToId
+          })
+          .select(`
+            *,
+            user:profiles!messages_user_id_fkey (
+              id,
+              name,
+              username,
+              avatar
+            )
+          `)
+          .single();
+        
+        if (error) throw error;
+        
+        // Add to messages with reply reference
+        const newMsg: Message = {
+          id: data.id,
+          chatId: data.chat_id,
+          userId: data.user_id,
+          user: data.user as User,
+          content: data.content,
+          type: data.type as 'text',
+          mediaUrl: data.media_url,
+          duration: data.duration,
+          seen: data.seen,
+          timestamp: new Date(data.created_at),
+          replyToId: data.reply_to_id,
+          replyTo: replyingTo || undefined
+        };
+        setMessages(prev => [...prev, newMsg]);
       } else {
         await dataService.sendMessage(chatId, messageContent);
       }
@@ -428,13 +496,16 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
                 size="sm" 
                 onClick={async () => {
                   try {
+                    // Delete permanently from database
                     for (const msgId of selectedMessages) {
-                      await dataService.deleteMessage(msgId);
+                      await supabase.from('messages').delete().eq('id', msgId);
                     }
                     setMessages(prev => prev.filter(m => !selectedMessages.has(m.id)));
                     setSelectedMessages(new Set());
-                    toast({ title: "Messages deleted" });
+                    setMessageActions({ reply: false, save: false, delete: false, forward: false, pin: false });
+                    toast({ title: "Messages deleted permanently" });
                   } catch (error) {
+                    console.error('Error deleting messages:', error);
                     toast({ title: "Error", description: "Failed to delete messages", variant: "destructive" });
                   }
                 }} 
@@ -457,8 +528,10 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
                 variant="ghost" 
                 size="sm" 
                 onClick={() => {
-                  toast({ title: "Forward messages", description: "Select recipient" });
-                  setSelectedMessages(new Set());
+                  // Get selected messages
+                  const selectedMsgs = messages.filter(m => selectedMessages.has(m.id));
+                  setMessagesToForward(selectedMsgs);
+                  setShowForwardDialog(true);
                 }} 
                 className="text-foreground"
               >
@@ -515,7 +588,8 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
                 variant="ghost" 
                 size="sm" 
                 onClick={() => {
-                  toast({ title: "Forward message", description: "Select recipient" });
+                  setMessagesToForward([replyingTo]);
+                  setShowForwardDialog(true);
                   setMessageActions({ reply: false, save: false, delete: false, forward: false, pin: false });
                   setReplyingTo(null);
                 }} 
@@ -574,9 +648,14 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         ) : (
           // Normal header
           <div className="flex items-center space-x-3">
-            <Avatar>
+            <Avatar className="relative">
               <AvatarImage src={chatUser.avatar} />
               <AvatarFallback>{chatUser.name.charAt(0)}</AvatarFallback>
+              {disappearingMessages && (
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500/80 backdrop-blur-sm rounded-full flex items-center justify-center border border-background">
+                  <Timer className="w-2.5 h-2.5 text-white" />
+                </div>
+              )}
             </Avatar>
             <div>
               <h3 className="font-semibold text-foreground">{chatUser.name}</h3>
@@ -624,12 +703,9 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
                   </button>
                   <button
                     onClick={() => {
-                      if (confirm("Are you sure you want to clear this chat?")) {
-                        // Clear chat logic
-                        setMessages([]);
-                        setShowMenu(false);
-                        toast({ title: "Chat cleared" });
-                      }
+                      setShowMenu(false);
+                      setShowDeleteConfirm(true);
+                      setMessageToDelete('clear-chat'); // Special marker for clear chat
                     }}
                     className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent text-foreground"
                   >
@@ -728,7 +804,18 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       )}
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-4">
+      <ScrollArea 
+        ref={chatAreaRef}
+        className="flex-1 p-4"
+        onClick={(e) => {
+          // Close all popups when clicking on empty space
+          if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains('space-y-4')) {
+            setMessageActions({ reply: false, save: false, delete: false, forward: false, pin: false });
+            setReplyingTo(null);
+            setSelectedMessages(new Set());
+          }
+        }}
+      >
         <div className="space-y-4">
           {messages.map((message) => (
             <div key={message.id} id={`message-${message.id}`}>
@@ -740,8 +827,11 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
                   setShowDeleteConfirm(true);
                 }}
                 onLongPress={(msg) => {
-                  setMessageActions({ reply: true, save: true, delete: true, forward: true, pin: true });
-                  setReplyingTo(msg);
+                  // Enter selection mode - don't set reply, just select
+                  const newSelected = new Set(selectedMessages);
+                  newSelected.add(msg.id);
+                  setSelectedMessages(newSelected);
+                  setMessageActions({ reply: false, save: false, delete: false, forward: false, pin: false });
                 }}
                 onSwipeReply={(msg) => {
                   setReplyingTo(msg);
@@ -898,31 +988,214 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         variant="destructive"
       />
 
-      {/* Delete Message Confirmation */}
+      {/* Delete Message / Clear Chat Confirmation */}
       <ConfirmationDialog
         open={showDeleteConfirm}
         onOpenChange={setShowDeleteConfirm}
-        title="Delete Message"
-        description="Delete this message?"
+        title={messageToDelete === 'clear-chat' ? "Clear Chat" : "Delete Message"}
+        description={messageToDelete === 'clear-chat' 
+          ? "Are you sure you want to clear all messages in this chat? This action cannot be undone."
+          : "Are you sure you want to delete this message permanently? This action cannot be undone."}
         onConfirm={async () => {
           if (!messageToDelete) return;
           try {
-            await dataService.deleteMessage(messageToDelete);
-            setMessages(prev => prev.filter(m => m.id !== messageToDelete));
-            if (replyingTo?.id === messageToDelete) {
-              setReplyingTo(null);
-              setMessageActions({ reply: false, save: false, delete: false, forward: false, pin: false });
+            if (messageToDelete === 'clear-chat') {
+              // Delete all messages permanently from database
+              if (chatId) {
+                await supabase.from('messages').delete().eq('chat_id', chatId);
+                setMessages([]);
+                toast({ title: "Chat cleared", description: "All messages have been deleted permanently" });
+              }
+            } else {
+              // Delete single message permanently
+              await supabase.from('messages').delete().eq('id', messageToDelete);
+              setMessages(prev => prev.filter(m => m.id !== messageToDelete));
+              if (replyingTo?.id === messageToDelete) {
+                setReplyingTo(null);
+                setMessageActions({ reply: false, save: false, delete: false, forward: false, pin: false });
+              }
+              toast({ title: "Message deleted", description: "Message has been deleted permanently" });
             }
-            toast({ title: "Message deleted" });
           } catch (error) {
-            toast({ title: "Error", description: "Failed to delete message", variant: "destructive" });
+            console.error('Error deleting:', error);
+            toast({ title: "Error", description: "Failed to delete", variant: "destructive" });
           }
           setMessageToDelete(null);
         }}
-        confirmText="Yes"
-        cancelText="No"
+        confirmText={messageToDelete === 'clear-chat' ? "Clear Chat" : "Delete"}
+        cancelText="Cancel"
         variant="destructive"
       />
+
+      {/* Forward Messages Dialog */}
+      <Dialog open={showForwardDialog} onOpenChange={setShowForwardDialog}>
+        <DialogContent className="max-w-md max-h-[80vh] flex flex-col bg-background">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold text-foreground">
+              Forward {messagesToForward.length} {messagesToForward.length === 1 ? 'message' : 'messages'}
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Select recipients to forward to
+            </DialogDescription>
+          </DialogHeader>
+          
+          <ForwardRecipientsList
+            messages={messagesToForward}
+            onForward={async (recipientIds: string[]) => {
+              try {
+                for (const recipientId of recipientIds) {
+                  // Get or create chat with recipient
+                  const { data: chatId } = await supabase.rpc('get_or_create_direct_chat', {
+                    p_other_user_id: recipientId
+                  });
+                  
+                  if (chatId) {
+                    // Forward each message
+                    for (const msg of messagesToForward) {
+                      await supabase.from('messages').insert({
+                        chat_id: chatId,
+                        user_id: user?.id,
+                        content: msg.content,
+                        type: msg.type,
+                        media_url: msg.mediaUrl,
+                        duration: msg.duration
+                      });
+                    }
+                  }
+                }
+                
+                setShowForwardDialog(false);
+                setMessagesToForward([]);
+                setSelectedMessages(new Set());
+                setMessageActions({ reply: false, save: false, delete: false, forward: false, pin: false });
+                toast({ 
+                  title: "Messages forwarded", 
+                  description: `Forwarded ${messagesToForward.length} ${messagesToForward.length === 1 ? 'message' : 'messages'} to ${recipientIds.length} ${recipientIds.length === 1 ? 'recipient' : 'recipients'}` 
+                });
+              } catch (error) {
+                console.error('Error forwarding messages:', error);
+                toast({ 
+                  title: "Error", 
+                  description: "Failed to forward messages", 
+                  variant: "destructive" 
+                });
+              }
+            }}
+            onCancel={() => {
+              setShowForwardDialog(false);
+              setMessagesToForward([]);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+// Forward Recipients List Component
+const ForwardRecipientsList = ({ 
+  messages, 
+  onForward, 
+  onCancel 
+}: { 
+  messages: Message[]; 
+  onForward: (recipientIds: string[]) => void;
+  onCancel: () => void;
+}) => {
+  const { user } = useAuth();
+  const [friends, setFriends] = useState<User[]>([]);
+  const [selectedRecipients, setSelectedRecipients] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadFriends = async () => {
+      try {
+        const userFriends = await dataService.getFriends();
+        const acceptedFriends = userFriends.filter(f => f.status === 'accepted');
+        const friendsData = acceptedFriends.map(friend => 
+          friend.requester.id === user?.id ? friend.addressee : friend.requester
+        );
+        setFriends(friendsData);
+      } catch (error) {
+        console.error('Error loading friends:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    if (user) {
+      loadFriends();
+    }
+  }, [user]);
+
+  const toggleRecipient = (friendId: string) => {
+    const newSelected = new Set(selectedRecipients);
+    if (newSelected.has(friendId)) {
+      newSelected.delete(friendId);
+    } else {
+      newSelected.add(friendId);
+    }
+    setSelectedRecipients(newSelected);
+  };
+
+  return (
+    <div className="flex flex-col flex-1 min-h-0">
+      <ScrollArea className="flex-1 pr-4">
+        {loading ? (
+          <div className="flex justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
+          </div>
+        ) : friends.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            No friends to forward to
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {friends.map((friend) => (
+              <div
+                key={friend.id}
+                onClick={() => toggleRecipient(friend.id)}
+                className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
+                  selectedRecipients.has(friend.id)
+                    ? 'bg-green-500/20 border border-green-500'
+                    : 'hover:bg-accent'
+                }`}
+              >
+                <Avatar>
+                  <AvatarImage src={friend.avatar} />
+                  <AvatarFallback>{friend.name.charAt(0)}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1">
+                  <p className="font-medium text-foreground">{friend.name}</p>
+                  <p className="text-sm text-muted-foreground">@{friend.username}</p>
+                </div>
+                {selectedRecipients.has(friend.id) && (
+                  <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
+                    <Check className="w-3 h-3 text-white" />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </ScrollArea>
+      
+      <div className="flex gap-2 pt-4 border-t border-border">
+        <Button
+          variant="outline"
+          onClick={onCancel}
+          className="flex-1"
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={() => onForward(Array.from(selectedRecipients))}
+          disabled={selectedRecipients.size === 0}
+          className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+        >
+          Send ({selectedRecipients.size})
+        </Button>
+      </div>
     </div>
   );
 };

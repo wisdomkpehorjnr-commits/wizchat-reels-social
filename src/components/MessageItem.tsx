@@ -311,10 +311,20 @@ const MessageItem = ({
         )}
         
         <div className="relative">
+          {/* Reply Preview - Show on top of message */}
+          {message.replyTo && (
+            <div className="mb-1 px-3 py-1.5 rounded-lg bg-muted/50 border-l-2 border-green-500/50">
+              <p className="text-xs font-semibold text-muted-foreground">{message.replyTo.user.name}</p>
+              <p className="text-xs text-muted-foreground/70 truncate">
+                {message.replyTo.content || (message.replyTo.type !== 'text' ? `${message.replyTo.type}` : '')}
+              </p>
+            </div>
+          )}
+          
           <div
             className={`px-4 py-2 rounded-2xl transition-all ${
               isSelected 
-                ? 'ring-2 ring-green-500 bg-green-500/20' 
+                ? 'bg-green-500/30 backdrop-blur-sm border border-green-500/50' 
                 : isOwn
                   ? 'bg-primary text-primary-foreground'
                   : 'bg-muted'
@@ -346,13 +356,13 @@ const MessageItem = ({
               renderMediaContent()
             )}
             
-            {/* Reactions */}
+            {/* Reactions - Show full when selected, otherwise compact */}
             {reactions.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-2">
+              <div className={`flex flex-wrap gap-1 mt-2 ${isSelected ? 'text-base' : 'text-xs'}`}>
                 {reactions.map((reaction, idx) => (
                   <span 
                     key={idx} 
-                    className={`text-xs ${reaction.userId === user?.id ? 'ring-1 ring-green-500 rounded px-1' : ''}`}
+                    className={`${isSelected ? 'text-lg' : 'text-xs'} ${reaction.userId === user?.id ? 'ring-1 ring-green-500 rounded px-1' : ''}`}
                     title={reaction.userId === user?.id ? 'Your reaction' : ''}
                   >
                     {reaction.emoji}
@@ -389,9 +399,9 @@ const MessageItem = ({
             </div>
           </div>
           
-          {/* Emoji Reactions Popup */}
+          {/* Emoji Reactions Popup - Show full under selected message */}
           {showReactions && (
-            <div className="absolute bottom-full left-0 mb-2 bg-background border border-green-500 rounded-lg shadow-lg p-2 flex gap-1 z-50">
+            <div className={`absolute ${isSelected ? 'top-full mt-2' : 'bottom-full mb-2'} left-0 bg-background border border-green-500 rounded-lg shadow-lg p-2 flex gap-1 z-50`}>
               {EMOJI_REACTIONS.map((reaction) => (
                 <button
                   key={reaction.name}
