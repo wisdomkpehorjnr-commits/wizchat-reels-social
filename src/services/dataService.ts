@@ -807,18 +807,6 @@ export const dataService = {
           name,
           username,
           avatar
-        ),
-        reply_to:messages!messages_reply_to_id_fkey (
-          id,
-          content,
-          type,
-          user_id,
-          user:profiles!messages_user_id_fkey (
-            id,
-            name,
-            username,
-            avatar
-          )
         )
       `)
       .eq('chat_id', chatId)
@@ -829,33 +817,18 @@ export const dataService = {
       throw error;
     }
 
-    return data.map(msg => {
-      const replyTo = msg.reply_to ? {
-        id: msg.reply_to.id,
-        chatId: chatId,
-        userId: msg.reply_to.user_id,
-        user: msg.reply_to.user as User,
-        content: msg.reply_to.content,
-        type: msg.reply_to.type as 'text' | 'voice' | 'image' | 'video',
-        timestamp: new Date(),
-        seen: false
-      } : undefined;
-
-      return {
-        id: msg.id,
-        chatId: msg.chat_id,
-        userId: msg.user_id,
-        user: msg.user as User,
-        content: msg.content,
-        type: msg.type as 'text' | 'voice' | 'image' | 'video',
-        mediaUrl: msg.media_url,
-        duration: msg.duration,
-        seen: msg.seen,
-        timestamp: new Date(msg.created_at),
-        replyToId: msg.reply_to_id,
-        replyTo: replyTo
-      };
-    });
+    return data.map(msg => ({
+      id: msg.id,
+      chatId: msg.chat_id,
+      userId: msg.user_id,
+      user: msg.user as User,
+      content: msg.content,
+      type: msg.type as 'text' | 'voice' | 'image' | 'video',
+      mediaUrl: msg.media_url,
+      duration: msg.duration,
+      seen: msg.seen,
+      timestamp: new Date(msg.created_at)
+    }));
   },
 
   async sendMessage(chatId: string, content: string): Promise<Message> {
