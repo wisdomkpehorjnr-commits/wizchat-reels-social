@@ -19,6 +19,7 @@ import { dataService } from '@/services/dataService';
 import { useToast } from '@/hooks/use-toast';
 import ClickableUserInfo from './ClickableUserInfo';
 import ConfirmationDialog from './ui/confirmation-dialog';
+import ThemeConfirmationDialog from './ui/theme-confirmation-dialog';
 import { useDownload } from '@/hooks/useDownload';
 import ImageModal from './ImageModal';
 import ThemeAwareDialog from './ThemeAwareDialog';
@@ -54,6 +55,9 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
   const [isAnimating, setIsAnimating] = useState(false);
   const [showShareBoard, setShowShareBoard] = useState(false);
   const [showPinPremium, setShowPinPremium] = useState(false);
+  const [doubleTapCount, setDoubleTapCount] = useState(0);
+  const [lastDoubleTapTime, setLastDoubleTapTime] = useState(0);
+  const [showDoubleTapDeleteDialog, setShowDoubleTapDeleteDialog] = useState(false);
 
   // Load likes when component mounts
   useEffect(() => {
@@ -326,6 +330,52 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
     return formatDistanceToNow(date, { addSuffix: true });
   };
 
+  // Double-tap detection for delete (15 consecutive double-taps)
+  const handleDoubleTap = () => {
+    const now = Date.now();
+    const timeSinceLastTap = now - lastDoubleTapTime;
+    
+    // Reset counter if more than 1 second has passed since last tap
+    if (timeSinceLastTap > 1000) {
+      setDoubleTapCount(1);
+      setLastDoubleTapTime(now);
+      return;
+    }
+    
+    // Increment counter
+    const newCount = doubleTapCount + 1;
+    setDoubleTapCount(newCount);
+    setLastDoubleTapTime(now);
+    
+    // If 15 double-taps reached, show delete dialog
+    if (newCount >= 15) {
+      // Only show if user owns the post
+      if (user?.id === post.userId) {
+        setShowDoubleTapDeleteDialog(true);
+        setDoubleTapCount(0); // Reset counter
+      } else {
+        // Reset counter if user doesn't own the post
+        setDoubleTapCount(0);
+        toast({
+          title: "Access Denied",
+          description: "You can only delete your own posts",
+          variant: "destructive"
+        });
+      }
+    }
+  };
+
+  // Reset double-tap counter after timeout
+  useEffect(() => {
+    if (doubleTapCount > 0 && doubleTapCount < 15) {
+      const timer = setTimeout(() => {
+        setDoubleTapCount(0);
+      }, 1000); // Reset after 1 second of inactivity
+      
+      return () => clearTimeout(timer);
+    }
+  }, [doubleTapCount]);
+
   // Check if this is an optimistic post (temporary ID)
   const isOptimistic = post.id.startsWith('temp-');
 
@@ -334,6 +384,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
       <Card 
         className={`w-full border-2 border-green-500 bg-background ${isOptimistic ? 'opacity-75 animate-pulse' : ''}`}
         data-post-id={post.id}
+        onDoubleClick={handleDoubleTap}
       >
         <CardContent className="p-6">
           {/* Header */}
@@ -546,6 +597,17 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
           onOpenChange={setShowDeleteConfirm}
           title="Delete Post"
           description="Are you sure you want to delete this post? This action cannot be undone."
+          onConfirm={handleDeletePost}
+          confirmText="Delete"
+          cancelText="Cancel"
+          variant="destructive"
+        />
+        
+        <ThemeConfirmationDialog
+          open={showDoubleTapDeleteDialog}
+          onOpenChange={setShowDoubleTapDeleteDialog}
+          title="Delete Post"
+          description="Are you sure you want to delete this post permanently? This action cannot be undone."
           onConfirm={handleDeletePost}
           confirmText="Delete"
           cancelText="Cancel"
