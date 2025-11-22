@@ -61,16 +61,17 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
         schema: 'public',
         table: 'room_post_reactions',
         filter: `post_id=eq.${post.id}`
-      }, () => {
-        // Reload reactions when they change
-        loadLikes();
+      }, async () => {
+        // Reload reactions when they change for real-time count updates
+        await loadLikes();
       })
       .subscribe();
 
     return () => {
       supabase.removeChannel(reactionsChannel);
     };
-  }, [post.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [post.id, user?.id]);
 
   // Load comment count initially and subscribe to real-time updates
   useEffect(() => {
@@ -102,14 +103,16 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
         filter: `post_id=eq.${post.id}`
       }, async () => {
         if (showCommentModal) {
-          loadComments();
+          await loadComments();
         } else {
-          // Just reload count
-          const { count } = await supabase
+          // Just reload count for real-time updates
+          const { count, error } = await supabase
             .from('room_post_comments')
             .select('*', { count: 'exact', head: true })
             .eq('post_id', post.id);
-          if (count !== null) setCommentCount(count);
+          if (!error && count !== null) {
+            setCommentCount(count);
+          }
         }
       })
       .on('postgres_changes', {
@@ -119,13 +122,16 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
         filter: `post_id=eq.${post.id}`
       }, async () => {
         if (showCommentModal) {
-          loadComments();
+          await loadComments();
         } else {
-          const { count } = await supabase
+          // Just reload count for real-time updates
+          const { count, error } = await supabase
             .from('room_post_comments')
             .select('*', { count: 'exact', head: true })
             .eq('post_id', post.id);
-          if (count !== null) setCommentCount(count);
+          if (!error && count !== null) {
+            setCommentCount(count);
+          }
         }
       })
       .subscribe();
@@ -245,10 +251,19 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
   };
 
   const handleLikePost = async () => {
-    if (!user) return;
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to like posts",
+        variant: "destructive"
+      });
+      return;
+    }
 
     const wasLiked = isLiked;
     const wasDisliked = isDisliked;
+    const previousLikeCount = likeCount;
+    const previousDislikeCount = dislikeCount;
     
     // Optimistic update
     if (isLiked) {
@@ -264,6 +279,25 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
     }
 
     try {
+      // Ensure user is a room participant (required by RLS)
+      const { data: postData } = await supabase
+        .from('room_posts')
+        .select('room_id')
+        .eq('id', post.id)
+        .single();
+      
+      if (postData?.room_id) {
+        await supabase
+          .from('room_participants')
+          .upsert({
+            room_id: postData.room_id,
+            user_id: user.id,
+            joined_at: new Date().toISOString()
+          }, {
+            onConflict: 'room_id,user_id'
+          });
+      }
+
       // Use room_post_reactions for room posts
       if (wasLiked) {
         const { error } = await supabase
@@ -321,37 +355,55 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
         }
       }
       
-      // Show success message
+      // Reload to get accurate counts
+      await loadLikes();
+      
+      // Get the updated counts after reload
+      const { data: reactions } = await supabase
+        .from('room_post_reactions')
+        .select('emoji')
+        .eq('post_id', post.id);
+      
+      const updatedLikeCount = reactions?.filter((r: any) => r.emoji === '👍').length || 0;
+      const updatedDislikeCount = reactions?.filter((r: any) => r.emoji === '👎').length || 0;
+      
+      // Show success message with real-time count
       toast({
         title: "Success! 👍",
-        description: wasLiked ? "Like removed" : "Post liked successfully"
+        description: wasLiked 
+          ? `Like removed. Total likes: ${updatedLikeCount}` 
+          : `Post liked successfully! Total likes: ${updatedLikeCount}`
       });
-      
-      // Sync with server after a brief delay (real-time subscription will also update)
-      setTimeout(() => {
-        loadLikes();
-      }, 300);
     } catch (error: any) {
       console.error('Error liking post:', error);
       // Revert optimistic update on error
       setIsLiked(wasLiked);
       setIsDisliked(wasDisliked);
-      setLikeCount(prev => wasLiked ? prev + 1 : prev - 1);
-      setDislikeCount(prev => wasDisliked ? prev + 1 : prev - 1);
-      loadLikes();
+      setLikeCount(previousLikeCount);
+      setDislikeCount(previousDislikeCount);
+      await loadLikes();
       toast({
         title: "Error",
-        description: error.message || "Failed to like post",
+        description: error.message || error.details || "Failed to like post. Please try again.",
         variant: "destructive"
       });
     }
   };
 
   const handleDislikePost = async () => {
-    if (!user) return;
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to dislike posts",
+        variant: "destructive"
+      });
+      return;
+    }
 
     const wasLiked = isLiked;
     const wasDisliked = isDisliked;
+    const previousLikeCount = likeCount;
+    const previousDislikeCount = dislikeCount;
     
     // Optimistic update
     if (isDisliked) {
@@ -367,6 +419,25 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
     }
 
     try {
+      // Ensure user is a room participant (required by RLS)
+      const { data: postData } = await supabase
+        .from('room_posts')
+        .select('room_id')
+        .eq('id', post.id)
+        .single();
+      
+      if (postData?.room_id) {
+        await supabase
+          .from('room_participants')
+          .upsert({
+            room_id: postData.room_id,
+            user_id: user.id,
+            joined_at: new Date().toISOString()
+          }, {
+            onConflict: 'room_id,user_id'
+          });
+      }
+
       // Use room_post_reactions for room posts
       if (wasDisliked) {
         const { error } = await supabase
@@ -424,37 +495,56 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
         }
       }
       
-      // Show success message
+      // Reload to get accurate counts
+      await loadLikes();
+      
+      // Get the updated counts after reload
+      const { data: reactions } = await supabase
+        .from('room_post_reactions')
+        .select('emoji')
+        .eq('post_id', post.id);
+      
+      const updatedLikeCount = reactions?.filter((r: any) => r.emoji === '👍').length || 0;
+      const updatedDislikeCount = reactions?.filter((r: any) => r.emoji === '👎').length || 0;
+      
+      // Show success message with real-time count
       toast({
         title: "Success! 👎",
-        description: wasDisliked ? "Dislike removed" : "Post disliked successfully"
+        description: wasDisliked 
+          ? `Dislike removed. Total dislikes: ${updatedDislikeCount}` 
+          : `Post disliked successfully! Total dislikes: ${updatedDislikeCount}`
       });
-      
-      // Sync with server after a brief delay (real-time subscription will also update)
-      setTimeout(() => {
-        loadLikes();
-      }, 300);
     } catch (error: any) {
       console.error('Error disliking post:', error);
       // Revert optimistic update on error
       setIsLiked(wasLiked);
       setIsDisliked(wasDisliked);
-      setLikeCount(prev => wasLiked ? prev + 1 : prev - 1);
-      setDislikeCount(prev => wasDisliked ? prev + 1 : prev - 1);
-      loadLikes();
+      setLikeCount(previousLikeCount);
+      setDislikeCount(previousDislikeCount);
+      await loadLikes();
       toast({
         title: "Error",
-        description: error.message || "Failed to dislike post",
+        description: error.message || error.details || "Failed to dislike post. Please try again.",
         variant: "destructive"
       });
     }
   };
 
   const handleAddComment = async () => {
-    if (!newComment.trim() || !user) return;
+    if (!newComment.trim() || !user) {
+      if (!user) {
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to comment on posts",
+          variant: "destructive"
+        });
+      }
+      return;
+    }
 
     const commentContent = newComment.trim();
     setPostingComment(true);
+    const previousCommentCount = commentCount;
     
     // Optimistic update - add comment immediately
     const tempComment = {
@@ -475,6 +565,29 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
     setNewComment('');
 
     try {
+      // Ensure user is a room participant (required by RLS)
+      const { data: postData } = await supabase
+        .from('room_posts')
+        .select('room_id')
+        .eq('id', post.id)
+        .single();
+      
+      if (postData?.room_id) {
+        const { error: participantError } = await supabase
+          .from('room_participants')
+          .upsert({
+            room_id: postData.room_id,
+            user_id: user.id,
+            joined_at: new Date().toISOString()
+          }, {
+            onConflict: 'room_id,user_id'
+          });
+        
+        if (participantError) {
+          console.warn('Error ensuring participant status:', participantError);
+        }
+      }
+
       const { data, error } = await supabase
         .from('room_post_comments')
         .insert([{
@@ -490,7 +603,7 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
         throw error;
       }
 
-      // Replace temp comment with real one
+      // Replace temp comment with real one and reload to get accurate count
       if (data) {
         const { data: profile } = await supabase
           .from('profiles')
@@ -508,22 +621,31 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
               }
             : c
         ));
-        // Comment count already updated optimistically
       }
       
+      // Reload comments to get accurate count
+      await loadComments();
+      
+      // Get the updated comment count after reload
+      const { count: updatedCommentCount } = await supabase
+        .from('room_post_comments')
+        .select('*', { count: 'exact', head: true })
+        .eq('post_id', post.id);
+      
+      // Show success message with real-time count
       toast({
         title: "Success! 💬",
-        description: "Comment posted successfully"
+        description: `Comment posted successfully! Total comments: ${updatedCommentCount || commentCount}`
       });
     } catch (error: any) {
       console.error('Error creating comment:', error);
       // Remove optimistic comment on error
       setComments(prev => prev.filter(c => c.id !== tempComment.id));
-      setCommentCount(prev => Math.max(0, prev - 1));
+      setCommentCount(previousCommentCount);
       setNewComment(commentContent); // Restore comment text
       toast({
         title: "Error",
-        description: error.message || error.details || "Failed to post comment",
+        description: error.message || error.details || "Failed to post comment. Please try again.",
         variant: "destructive"
       });
     } finally {
