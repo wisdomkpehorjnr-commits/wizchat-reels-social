@@ -225,7 +225,20 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
               seen: messageData.seen,
               timestamp: new Date(messageData.created_at)
             };
-            setMessages(prev => prev.some(m => m.id === newMsg.id) ? prev : [...prev, newMsg]);
+            setMessages(prev => {
+              // If there's already a message with this id, do nothing
+              if (prev.some(m => m.id === newMsg.id)) return prev;
+
+              // If there's an optimistic temp message matching by content/user close in time, replace it
+              const tempIndex = prev.findIndex(m => typeof m.id === 'string' && m.id.startsWith('temp-') && m.userId === newMsg.userId && m.content === newMsg.content && Math.abs(newMsg.timestamp.getTime() - m.timestamp.getTime()) < 5000);
+              if (tempIndex !== -1) {
+                const copy = [...prev];
+                copy[tempIndex] = newMsg;
+                return copy;
+              }
+
+              return [...prev, newMsg];
+            });
           }
         }
       )
@@ -373,36 +386,65 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
 
   const sendMessage = async () => {
     if (!newMessage.trim() || !chatId || !user) return;
-
     const messageContent = newMessage.trim();
     const replyToId = replyingTo?.id;
-    setNewMessage(''); // Clear input immediately for better UX
-    setReplyingTo(null); // Clear reply
+
+    // Optimistic UI: insert a temporary message immediately
+    const tempId = `temp-${Date.now()}`;
+    const tempMsg: Message = {
+      id: tempId,
+      chatId,
+      userId: user.id,
+      user: {
+        id: user.id,
+        name: user.name || '',
+        username: (user as any).username || '',
+        email: user.email || '',
+        avatar: (user as any).avatar || (user as any).photoURL || ''
+      } as any,
+      content: messageContent,
+      type: 'text',
+      mediaUrl: undefined,
+      duration: undefined,
+      seen: false,
+      timestamp: new Date()
+    };
+
+    setMessages(prev => [...prev, tempMsg]);
+    scrollToBottom();
+
+    // Clear input for UX
+    setNewMessage('');
+    setReplyingTo(null);
     setMessageActions({ reply: false, save: false, delete: false, forward: false, pin: false });
 
     try {
       // Send message with reply reference if replying
-      await dataService.sendMessage(chatId, messageContent, replyToId);
-      
+      const sent = await dataService.sendMessage(chatId, messageContent, replyToId);
+
+      // Replace temp message with the real one if present
+      setMessages(prev => prev.map(m => m.id === tempId ? sent : m));
+
       // Update chat's last activity
       await supabase
         .from('chats')
         .update({ updated_at: new Date().toISOString() })
         .eq('id', chatId);
-      
+
       toast({
         title: "Message sent",
         description: "Your message has been delivered",
       });
     } catch (error) {
       console.error('Error sending message:', error);
+      // Remove temp message and restore input
+      setMessages(prev => prev.filter(m => m.id !== tempId));
+      setNewMessage(messageContent);
       toast({
         title: "Error",
         description: "Failed to send message. Please try again.",
         variant: "destructive"
       });
-      // Restore message content on error
-      setNewMessage(messageContent);
     }
   };
 
