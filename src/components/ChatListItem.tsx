@@ -26,8 +26,6 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle }: ChatL
   const [lastMessage, setLastMessage] = useState<string>('');
   const [lastMessageTime, setLastMessageTime] = useState<Date | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [chatId, setChatId] = useState<string | null>(null);
-  const [removed, setRemoved] = useState(false);
   const isOnline = useOnlineStatus(friend.id);
 
   useEffect(() => {
@@ -70,7 +68,6 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle }: ChatL
         if (!foundChatId) {
           setLastMessage("");
           setLastMessageTime(null);
-          setChatId(null);
           return;
         }
         
@@ -94,7 +91,6 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle }: ChatL
           : msg.content || 'Media';
         setLastMessage(preview);
         setLastMessageTime(new Date(msg.created_at));
-        setChatId(foundChatId);
         
         // Count unread messages (messages not seen by current user)
         const { count } = await supabase
@@ -112,63 +108,23 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle }: ChatL
     };
     fetchLastMessage();
     
-    return () => {
-      // cleanup handled by chatId subscription effect
-    };
-  }, [friend.id, user?.id, isWizAi]);
-
-  // Subscribe to changes for the resolved chat id for reliable realtime preview/unread updates
-  useEffect(() => {
-    if (!chatId) return;
-
-    const fetchAndUpdate = async () => {
-      try {
-        // Get last message and unread count for this chat
-        const { data: messages } = await supabase
-          .from('messages')
-          .select('content, created_at, user_id, seen')
-          .eq('chat_id', chatId)
-          .order('created_at', { ascending: false })
-          .limit(1);
-
-        if (messages && messages.length > 0) {
-          const msg = messages[0];
-          const preview = msg.content && msg.content.length > 30 ? msg.content.substring(0, 30) + '...' : msg.content || 'Media';
-          setLastMessage(preview);
-          setLastMessageTime(new Date(msg.created_at));
-        }
-
-        const { count } = await supabase
-          .from('messages')
-          .select('*', { count: 'exact', head: true })
-          .eq('chat_id', chatId)
-          .eq('seen', false)
-          .neq('user_id', user?.id);
-
-        setUnreadCount(count || 0);
-      } catch (err) {
-        console.error('Error in chat subscription fetch:', err);
-      }
-    };
-
-    fetchAndUpdate();
-
+    // Subscribe to new messages
     const channel = supabase
-      .channel(`chat_preview_${chatId}`)
+      .channel(`chat_${friend.id}`)
       .on('postgres_changes', {
-        event: '*',
+        event: 'INSERT',
         schema: 'public',
         table: 'messages',
-        filter: `chat_id=eq.${chatId}`
+        filter: `user_id=eq.${friend.id}`
       }, () => {
-        fetchAndUpdate();
+        fetchLastMessage();
       })
       .subscribe();
-
+    
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [chatId, user?.id]);
+  }, [friend.id, user?.id, isWizAi]);
   
   const formatMessageTime = (date: Date | null) => {
     if (!date) return '';
@@ -217,29 +173,10 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle }: ChatL
   };
 
   const handleDelete = () => {
-    (async () => {
-      if (!chatId) {
-        toast({ title: 'No conversation', description: 'No chat to delete' });
-        return;
-      }
-
-      try {
-        // Remove only this user's participation so the other user still retains the chat
-        const { error } = await supabase
-          .from('chat_participants')
-          .delete()
-          .eq('chat_id', chatId)
-          .eq('user_id', user?.id);
-
-        if (error) throw error;
-
-        setRemoved(true);
-        toast({ title: 'Chat removed', description: 'Conversation removed from your list' });
-      } catch (err) {
-        console.error('Error removing chat participant:', err);
-        toast({ title: 'Error', description: 'Failed to remove conversation', variant: 'destructive' });
-      }
-    })();
+    toast({
+      title: "Chat deleted",
+      description: "Conversation has been removed",
+    });
   };
 
   const handleArchive = () => {
@@ -256,8 +193,6 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle }: ChatL
       setShowMenu(true);
     }
   };
-
-  if (removed) return null;
 
   return (
     <>
