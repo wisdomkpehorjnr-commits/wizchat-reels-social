@@ -194,6 +194,13 @@ const ReelCard = ({ post, onLike, onUserClick, onShare, isMuted, onMuteToggle, i
 
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  // Format numbers like 1.2K, 3.4M for compact display
+  const formatCount = (n: number) => {
+    if (n >= 1000000) return `${(n / 1000000).toFixed(1).replace(/\.0$/, '')}M`;
+    if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, '')}K`;
+    return String(n);
+  };
+
   // Auto-play video when in view
   useEffect(() => {
     const video = videoRef.current;
@@ -298,263 +305,115 @@ const ReelCard = ({ post, onLike, onUserClick, onShare, isMuted, onMuteToggle, i
           </div>
         </div>
 
-        {/* Action Buttons - Modern White Filled */}
-        <div className="absolute bottom-4 right-2 sm:right-4 flex flex-col space-y-3 sm:space-y-4 z-10">
-          {/* Like Button */}
-          <button
-            onClick={async (e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              if (!user) return;
-              
-              const wasLiked = isLiked;
-              const wasDisliked = isDisliked;
-              
-              // Optimistic update
-              setIsLiked(!wasLiked);
-              setLikeCount(prev => wasLiked ? Math.max(0, prev - 1) : prev + 1);
-              setIsAnimating(true);
-              
-              // Remove dislike if exists
-              if (wasDisliked) {
-                setIsDisliked(false);
-                setDislikeCount(prev => Math.max(0, prev - 1));
-              }
-              
-              try {
-                await onLike(post.id);
-                
-                // Reload likes to get accurate count
-                const likes = await dataService.getLikes(post.id);
-                setLikeCount(likes.length);
-                setIsLiked(likes.some(l => l.userId === user.id));
-                
-                // Play sound effect
-                const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-                const oscillator = audioContext.createOscillator();
-                const gainNode = audioContext.createGain();
-                oscillator.connect(gainNode);
-                gainNode.connect(audioContext.destination);
-                oscillator.frequency.value = 800;
-                oscillator.type = 'sine';
-                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-                oscillator.start(audioContext.currentTime);
-                oscillator.stop(audioContext.currentTime + 0.1);
-                
-                // Remove dislike reaction if exists
+        {/* Modern Shorts-like vertical action bar */}
+        <div className="absolute right-4 top-1/3 z-20 flex flex-col items-center space-y-4 transform -translate-y-1/6">
+          {/* Creator avatar + follow */}
+          <div className="flex flex-col items-center space-y-2">
+            <button
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onUserClick(post.user); }}
+              className="w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-lg"
+            >
+              <Avatar className="w-12 h-12">
+                <AvatarImage src={post.user.avatar} />
+                <AvatarFallback>{post.user.name?.charAt(0)}</AvatarFallback>
+              </Avatar>
+            </button>
+            <button
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); /* future: follow action */ }}
+              className="px-2 py-1 text-xs font-semibold rounded-full bg-green-600 text-white shadow-sm"
+            >
+              + Follow
+            </button>
+          </div>
+
+          {/* Like */}
+          <div className="flex flex-col items-center">
+            <button
+              onClick={async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!user) return;
+
+                const wasLiked = isLiked;
+                const wasDisliked = isDisliked;
+
+                setIsLiked(!wasLiked);
+                setLikeCount(prev => wasLiked ? Math.max(0, prev - 1) : prev + 1);
+                setIsAnimating(true);
+
                 if (wasDisliked) {
-                  const { data: dislikeReaction } = await supabase
-                    .from('reactions')
-                    .select('id')
-                    .eq('post_id', post.id)
-                    .eq('user_id', user.id)
-                    .eq('emoji', '👎')
-                    .maybeSingle();
-                  
-                  if (dislikeReaction) {
-                    await supabase
-                      .from('reactions')
-                      .delete()
-                      .eq('id', dislikeReaction.id);
-                    loadDislikes();
-                  }
+                  setIsDisliked(false);
+                  setDislikeCount(prev => Math.max(0, prev - 1));
                 }
-              } catch (error) {
-                // Revert on error
-                setIsLiked(wasLiked);
-                setLikeCount(prev => wasLiked ? prev + 1 : Math.max(0, prev - 1));
-                setIsDisliked(wasDisliked);
-                setDislikeCount(prev => wasDisliked ? prev + 1 : Math.max(0, prev - 1));
-                console.error('Error liking reel:', error);
-              } finally {
-                setTimeout(() => setIsAnimating(false), 300);
-              }
-            }}
-            className="flex flex-col items-center text-white drop-shadow-lg transition-transform active:scale-95"
-          >
-            <div className={`relative p-2.5 sm:p-3 rounded-full bg-white transition-all duration-300 ${
-              isLiked ? 'bg-green-500 scale-110' : ''
-            } ${isAnimating ? 'animate-ping' : ''}`}>
-              <ThumbsUp className={`w-5 h-5 sm:w-6 sm:h-6 transition-all duration-300 ${
-                isLiked ? 'fill-green-600 text-green-600' : 'fill-gray-800 text-gray-800'
-              }`} />
-            </div>
-            <span className={`text-xs mt-1 font-semibold drop-shadow-md transition-all duration-300 ${
-              isAnimating ? 'scale-125 font-bold' : ''
-            }`}>{likeCount}</span>
-          </button>
 
-          {/* Dislike Button */}
-          <button
-            onClick={async (e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              if (!user) return;
-              
-              const wasDisliked = isDisliked;
-              const wasLiked = isLiked;
-              
-              // Optimistic update
-              setIsDisliked(!wasDisliked);
-              setDislikeCount(prev => wasDisliked ? Math.max(0, prev - 1) : prev + 1);
-              setIsDislikeAnimating(true);
-              
-              // Remove like if exists
-              if (wasLiked) {
-                setIsLiked(false);
-                setLikeCount(prev => Math.max(0, prev - 1));
-              }
-              
-              try {
-                // Remove like reaction if exists
-                if (wasLiked) {
-                  await onLike(post.id); // Toggle like off
+                try {
+                  await onLike(post.id);
+                  const likes = await dataService.getLikes(post.id);
+                  setLikeCount(likes.length);
+                  setIsLiked(likes.some(l => l.userId === user.id));
+                } catch (error) {
+                  setIsLiked(wasLiked);
+                  setLikeCount(prev => wasLiked ? prev + 1 : Math.max(0, prev - 1));
+                  setIsDisliked(wasDisliked);
+                  setDislikeCount(prev => wasDisliked ? prev + 1 : Math.max(0, prev - 1));
+                  console.error('Error liking reel:', error);
+                } finally {
+                  setTimeout(() => setIsAnimating(false), 300);
                 }
-                
-                // Handle dislike reaction
-                if (wasDisliked) {
-                  // Remove dislike
-                  const { data: dislikeReaction } = await supabase
-                    .from('reactions')
-                    .select('id')
-                    .eq('post_id', post.id)
-                    .eq('user_id', user.id)
-                    .eq('emoji', '👎')
-                    .maybeSingle();
-                  
-                  if (dislikeReaction) {
-                    await supabase
-                      .from('reactions')
-                      .delete()
-                      .eq('id', dislikeReaction.id);
-                  }
-                } else {
-                  // Add dislike
-                  const { data: existing } = await supabase
-                    .from('reactions')
-                    .select('id')
-                    .eq('post_id', post.id)
-                    .eq('user_id', user.id)
-                    .eq('emoji', '👎')
-                    .maybeSingle();
-                  
-                  if (!existing) {
-                    await supabase
-                      .from('reactions')
-                      .insert({
-                        post_id: post.id,
-                        user_id: user.id,
-                        emoji: '👎'
-                      });
-                  }
+              }}
+              className={`w-14 h-14 rounded-full flex items-center justify-center bg-white shadow-lg transition-transform ${isLiked ? 'scale-110 ring-2 ring-green-400' : ''}`}
+            >
+              <ThumbsUp className={`w-6 h-6 ${isLiked ? 'text-green-600' : 'text-gray-800'}`} />
+            </button>
+            <span className="text-xs text-white mt-1 font-semibold drop-shadow-md">{formatCount(likeCount)}</span>
+          </div>
+
+          {/* Comment */}
+          <div className="flex flex-col items-center">
+            <button
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowComments(true); }}
+              className="w-14 h-14 rounded-full flex items-center justify-center bg-white shadow-lg"
+            >
+              <MessageSquare className="w-6 h-6 text-gray-800" />
+            </button>
+            <span className="text-xs text-white mt-1 font-semibold drop-shadow-md">{formatCount(comments.length)}</span>
+          </div>
+
+          {/* Save */}
+          <div className="flex flex-col items-center">
+            <button
+              onClick={async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!user) return;
+
+                const wasSaved = isSaved;
+                setIsSaved(!wasSaved);
+
+                try {
+                  await ProfileService.savePost(post.id);
+                  toast({ title: wasSaved ? 'Unsaved' : 'Saved' });
+                } catch (error) {
+                  setIsSaved(wasSaved);
+                  console.error('Error saving reel:', error);
                 }
-                
-                // Play sound effect
-                const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-                const oscillator = audioContext.createOscillator();
-                const gainNode = audioContext.createGain();
-                oscillator.connect(gainNode);
-                gainNode.connect(audioContext.destination);
-                oscillator.frequency.value = 400;
-                oscillator.type = 'sine';
-                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-                oscillator.start(audioContext.currentTime);
-                oscillator.stop(audioContext.currentTime + 0.1);
-                
-                loadDislikes();
-              } catch (error) {
-                // Revert on error
-                setIsDisliked(wasDisliked);
-                setDislikeCount(prev => wasDisliked ? prev + 1 : Math.max(0, prev - 1));
-                setIsLiked(wasLiked);
-                setLikeCount(prev => wasLiked ? prev + 1 : Math.max(0, prev - 1));
-                console.error('Error disliking reel:', error);
-              } finally {
-                setTimeout(() => setIsDislikeAnimating(false), 300);
-              }
-            }}
-            className="flex flex-col items-center text-white drop-shadow-lg transition-transform active:scale-95"
-          >
-            <div className={`relative p-2.5 sm:p-3 rounded-full bg-white transition-all duration-300 ${
-              isDisliked ? 'bg-green-500 scale-110' : ''
-            } ${isDislikeAnimating ? 'animate-ping' : ''}`}>
-              <ThumbsDown className={`w-5 h-5 sm:w-6 sm:h-6 transition-all duration-300 ${
-                isDisliked ? 'fill-green-600 text-green-600' : 'fill-gray-800 text-gray-800'
-              }`} />
-            </div>
-            <span className={`text-xs mt-1 font-semibold drop-shadow-md transition-all duration-300 ${
-              isDislikeAnimating ? 'scale-125 font-bold' : ''
-            }`}>{dislikeCount}</span>
-          </button>
+              }}
+              className={`w-12 h-12 rounded-full flex items-center justify-center bg-white shadow-lg ${isSaved ? 'ring-2 ring-green-400' : ''}`}
+            >
+              <Bookmark className={`w-5 h-5 ${isSaved ? 'text-green-600' : 'text-gray-800'}`} />
+            </button>
+          </div>
 
-          {/* Comment Button */}
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setShowComments(true);
-            }}
-            className="flex flex-col items-center text-white drop-shadow-lg transition-transform active:scale-95"
-          >
-            <div className="p-2.5 sm:p-3 rounded-full bg-white">
-              <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6 fill-gray-800 text-gray-800" />
-            </div>
-            <span className="text-xs mt-1 font-semibold drop-shadow-md">{comments.length}</span>
-          </button>
-
-          {/* Save Button */}
-          <button
-            onClick={async (e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              if (!user) return;
-              
-              const wasSaved = isSaved;
-              setIsSaved(!wasSaved);
-              
-              try {
-                await ProfileService.savePost(post.id);
-                toast({
-                  title: wasSaved ? "Unsaved" : "Saved",
-                  description: wasSaved ? "Reel removed from saved" : "Reel saved successfully"
-                });
-              } catch (error) {
-                setIsSaved(wasSaved); // Revert on error
-                console.error('Error saving reel:', error);
-                toast({
-                  title: "Error",
-                  description: "Failed to save reel",
-                  variant: "destructive"
-                });
-              }
-            }}
-            className="flex flex-col items-center text-white drop-shadow-lg transition-transform active:scale-95"
-          >
-            <div className={`p-2.5 sm:p-3 rounded-full bg-white transition-all duration-300 ${
-              isSaved ? 'bg-green-500' : ''
-            }`}>
-              <Bookmark className={`w-5 h-5 sm:w-6 sm:h-6 transition-all duration-300 ${
-                isSaved ? 'fill-green-600 text-green-600' : 'fill-gray-800 text-gray-800'
-              }`} />
-            </div>
-          </button>
-
-          {/* Share Button */}
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onShare(post);
-            }}
-            className="flex flex-col items-center text-white drop-shadow-lg transition-transform active:scale-95"
-          >
-            <div className="p-2.5 sm:p-3 rounded-full bg-white border-2 border-green-500">
-              <Share2 className="w-5 h-5 sm:w-6 sm:h-6 fill-gray-800 text-gray-800" />
-            </div>
-            <span className="text-xs mt-1 font-semibold drop-shadow-md">Share</span>
-          </button>
+          {/* Share */}
+          <div className="flex flex-col items-center">
+            <button
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onShare(post); }}
+              className="w-12 h-12 rounded-full flex items-center justify-center bg-white shadow-lg border-2 border-green-500"
+            >
+              <Share2 className="w-5 h-5 text-gray-800" />
+            </button>
+            <span className="text-xs text-white mt-1 font-semibold drop-shadow-md">Share</span>
+          </div>
         </div>
       </div>
 
