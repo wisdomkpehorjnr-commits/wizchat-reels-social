@@ -57,8 +57,9 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
 
 
   useEffect(() => {
+    // Re-initialize when chatUser changes (ensures correct chat opens)
     initializeChat();
-  }, []);
+  }, [chatUser?.id]);
 
   useEffect(() => {
     if (chatId) {
@@ -297,35 +298,50 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       });
 
       if (chatError) {
-        console.error('Error getting or creating chat:', chatError);
-        throw chatError;
+        console.warn('RPC get_or_create_direct_chat returned error, will try fallback createChat:', chatError);
       }
 
       // rpcData can come back in different shapes depending on Postgres function
       // it may be a string (chat id), an object like { get_or_create_direct_chat: 'uuid' },
       // or an array. Normalize to a string id.
       let resolvedChatId: string | null = null;
-      if (!rpcData) {
-        throw new Error('RPC returned no data for chat id');
+      try {
+        console.debug('RPC response for get_or_create_direct_chat:', rpcData);
+
+        if (rpcData == null) {
+          resolvedChatId = null;
+        } else if (typeof rpcData === 'string') {
+          resolvedChatId = rpcData;
+        } else if (Array.isArray(rpcData) && rpcData.length > 0) {
+          const first = rpcData[0];
+          if (typeof first === 'string') resolvedChatId = first;
+          else if (typeof first === 'object' && first !== null) resolvedChatId = Object.values(first)[0] as string;
+        } else if (typeof rpcData === 'object') {
+          const vals = Object.values(rpcData);
+          if (vals.length === 1 && typeof vals[0] === 'string') resolvedChatId = vals[0] as string;
+          else if (typeof (rpcData as any).get_or_create_direct_chat === 'string') resolvedChatId = (rpcData as any).get_or_create_direct_chat;
+        }
+      } catch (err) {
+        console.error('Error normalizing RPC response:', err, rpcData);
       }
 
-      if (typeof rpcData === 'string') {
-        resolvedChatId = rpcData;
-      } else if (Array.isArray(rpcData) && rpcData.length > 0) {
-        // array of scalar(s)
-        const first = rpcData[0];
-        if (typeof first === 'string') resolvedChatId = first;
-        else if (typeof first === 'object' && first !== null) resolvedChatId = Object.values(first)[0] as string;
-      } else if (typeof rpcData === 'object') {
-        // object with a single value
-        const vals = Object.values(rpcData);
-        if (vals.length === 1 && typeof vals[0] === 'string') resolvedChatId = vals[0] as string;
-        else if (typeof (rpcData as any).get_or_create_direct_chat === 'string') resolvedChatId = (rpcData as any).get_or_create_direct_chat;
+      // If we couldn't resolve via RPC, fallback to creating the chat via dataService
+      if (!resolvedChatId) {
+        try {
+          console.debug('Falling back to dataService.createChat for users', user.id, chatUser.id);
+          const chatObj = await dataService.createChat([user.id, chatUser.id], false, undefined, undefined);
+          if (chatObj && chatObj.id) {
+            resolvedChatId = chatObj.id;
+          }
+        } catch (createErr) {
+          console.error('Fallback createChat failed:', createErr);
+          throw createErr;
+        }
       }
 
       if (!resolvedChatId) {
-        console.error('Unable to resolve chat id from RPC response:', rpcData);
-        throw new Error('Failed to resolve chat id');
+        console.error('Unable to resolve or create chat id. RPC response:', rpcData);
+        throw new Error('Failed to resolve or create chat id');
       }
 
       setChatId(resolvedChatId);
