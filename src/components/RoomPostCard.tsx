@@ -50,6 +50,8 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
   const [lastDoubleTapTime, setLastDoubleTapTime] = useState(0);
   const [showDoubleTapDeleteDialog, setShowDoubleTapDeleteDialog] = useState(false);
 
+  const isOptimistic = typeof post.id === 'string' && post.id.startsWith('temp-');
+
   // Load likes and dislikes
   useEffect(() => {
     loadLikes();
@@ -255,6 +257,11 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
   };
 
   const handleLikePost = async () => {
+    // Prevent actions on optimistic temporary posts
+    if (typeof post.id === 'string' && post.id.startsWith('temp-')) {
+      toast({ title: 'Please wait', description: 'This post is still being posted. Try again in a moment.' });
+      return;
+    }
     if (!user) {
       toast({
         title: "Authentication Required",
@@ -395,6 +402,11 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
   };
 
   const handleDislikePost = async () => {
+    // Prevent actions on optimistic temporary posts
+    if (typeof post.id === 'string' && post.id.startsWith('temp-')) {
+      toast({ title: 'Please wait', description: 'This post is still being posted. Try again in a moment.' });
+      return;
+    }
     if (!user) {
       toast({
         title: "Authentication Required",
@@ -535,6 +547,11 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
   };
 
   const handleAddComment = async () => {
+    // Prevent commenting on optimistic temporary posts
+    if (typeof post.id === 'string' && post.id.startsWith('temp-')) {
+      toast({ title: 'Please wait', description: 'This post is still being posted. Try again in a moment.' });
+      return;
+    }
     if (!newComment.trim() || !user) {
       if (!user) {
         toast({
@@ -854,6 +871,7 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
                 variant="ghost" 
                 size="sm" 
                 onClick={handleLikePost} 
+                disabled={isOptimistic}
                 className={`hover:text-blue-500 flex-1 min-w-0 ${isLiked ? 'text-blue-500' : 'text-gray-600 dark:text-gray-400'} border-0 px-1 sm:px-2`}
               >
                 <ThumbsUp 
@@ -869,6 +887,7 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
                 variant="ghost" 
                 size="sm" 
                 onClick={handleDislikePost} 
+                disabled={isOptimistic}
                 className={`hover:text-red-500 flex-1 min-w-0 ${isDisliked ? 'text-red-500' : 'text-gray-600 dark:text-gray-400'} border-0 px-1 sm:px-2`}
               >
                 <ThumbsDown 
@@ -884,6 +903,7 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
                 variant="ghost" 
                 size="sm"
                 onClick={() => setShowCommentModal(true)}
+                disabled={isOptimistic}
                 className="text-gray-600 dark:text-gray-400 border-0 flex-1 min-w-0 px-1 sm:px-2"
               >
                 <MessageSquare className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
@@ -895,6 +915,7 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
                 variant="ghost" 
                 size="sm"
                 onClick={() => setShowShareBoard(true)}
+                disabled={isOptimistic}
                 className="text-gray-600 dark:text-gray-400 border-0 flex-1 min-w-0 px-1 sm:px-2"
               >
                 <Share2 className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
@@ -995,7 +1016,7 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
               />
               <Button 
                 onClick={handleAddComment} 
-                disabled={!newComment.trim() || postingComment}
+                disabled={!newComment.trim() || postingComment || isOptimistic}
                 className="bg-green-600 hover:bg-green-700 text-white"
               >
                 {postingComment ? (
