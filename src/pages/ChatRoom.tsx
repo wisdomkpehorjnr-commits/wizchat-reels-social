@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Layout from '@/components/Layout';
@@ -9,24 +8,29 @@ import { Card, CardContent } from '@/components/ui/card';
 import { dataService } from '@/services/dataService';
 import { Message, Chat } from '@/types';
 import { Send, ArrowLeft, Users } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 const ChatRoom = () => {
-  const { chatId } = useParams<{ chatId: string }>();
   const [messages, setMessages] = useState<Message[]>([]);
   const [chat, setChat] = useState<Chat | null>(null);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuth();
+  const [sending, setSending] = useState(false);
+  const channelRef = useRef<any>(null);
 
   useEffect(() => {
+    // Load chat and messages once we have the chatId and authenticated user
     const loadChatData = async () => {
-      if (!chatId) return;
-      
+      if (!chatId || !user?.id) return;
+
       try {
         const chats = await dataService.getChats();
         const currentChat = chats.find(c => c.id === chatId);
         setChat(currentChat || null);
-        
+
         if (currentChat) {
           const chatMessages = await dataService.getMessages(chatId);
           setMessages(chatMessages);
@@ -39,21 +43,90 @@ const ChatRoom = () => {
     };
 
     loadChatData();
-  }, [chatId]);
+  }, [chatId, user?.id]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Subscribe to realtime message inserts for this chat so incoming messages appear immediately
+  useEffect(() => {
+    if (!chatId) return;
+    // Remove existing channel if any
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+
+    const channel = supabase
+      .channel(`messages:${chatId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `chat_id=eq.${chatId}` }, async (payload) => {
+        try {
+          // Fetch the inserted message with user relation to ensure we have user info
+          const newMsgId = payload.new.id;
+          const { data: fetched } = await supabase
+            .from('messages')
+            .select(`
+              *,
+              user:profiles!messages_user_id_fkey (id, name, username, avatar)
+            `)
+            .eq('id', newMsgId)
+            .maybeSingle();
+
+          if (fetched) {
+            const mapped: Message = {
+              id: fetched.id,
+              chatId: fetched.chat_id,
+              userId: fetched.user_id,
+              user: fetched.user || null,
+              content: fetched.content,
+              type: fetched.type as any,
+              mediaUrl: fetched.media_url,
+              duration: fetched.duration,
+              seen: fetched.seen,
+              timestamp: new Date(fetched.created_at),
+              replyTo: null
+            };
+
+            setMessages(prev => {
+              // avoid duplicates
+              if (prev.some(m => m.id === mapped.id)) return prev;
+              return [...prev, mapped];
+            });
+          }
+        } catch (err) {
+          console.warn('Realtime message fetch failed, refetching all messages', err);
+          try { const all = await dataService.getMessages(chatId); setMessages(all); } catch(e){}
+        }
+      })
+      .subscribe();
+
+    channelRef.current = channel;
+
+    return () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
+  }, [chatId]);
+
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !chat) return;
+    setSending(true);
 
     try {
       const message = await dataService.sendMessage(chat.id, newMessage);
-      setMessages(prev => [...prev, message]);
+      // Append the returned message (if realtime hasn't already added it)
+      setMessages(prev => {
+        if (prev.some(m => m.id === message.id)) return prev;
+        return [...prev, message];
+      });
       setNewMessage('');
     } catch (error) {
       console.error('Error sending message:', error);
+    } finally {
+      setSending(false);
     }
   };
 
@@ -90,9 +163,10 @@ const ChatRoom = () => {
     );
   }
 
+  const currentUserId = user?.id;
   const chatTitle = chat.isGroup 
     ? chat.name 
-    : chat.participants.find(p => p.id !== 'current-user')?.name;
+    : chat.participants?.[0]?.name || chat.name || 'Chat';
 
   return (
     <Layout>
@@ -114,9 +188,9 @@ const ChatRoom = () => {
                   </div>
                 ) : (
                   <Avatar>
-                    <AvatarImage src={chat.participants.find(p => p.id !== 'current-user')?.photoURL} />
+                    <AvatarImage src={chat.participants?.[0]?.photoURL} />
                     <AvatarFallback>
-                      {chat.participants.find(p => p.id !== 'current-user')?.name.charAt(0)}
+                      {chat.participants?.[0]?.name?.charAt(0) || '?'}
                     </AvatarFallback>
                   </Avatar>
                 )}
@@ -125,7 +199,7 @@ const ChatRoom = () => {
                   <h2 className="font-semibold">{chatTitle}</h2>
                   {chat.isGroup && (
                     <p className="text-sm text-muted-foreground">
-                      {chat.participants.length} participants
+                      {chat.participants?.length || 0} participants
                     </p>
                   )}
                 </div>
@@ -139,7 +213,7 @@ const ChatRoom = () => {
           <CardContent className="flex-1 p-4 overflow-y-auto">
             <div className="space-y-4">
               {messages.map((message) => {
-                const isOwn = message.userId === 'current-user';
+                const isOwn = message.userId === currentUserId;
                 return (
                   <div
                     key={message.id}
@@ -148,9 +222,9 @@ const ChatRoom = () => {
                     <div className={`flex items-end space-x-2 max-w-xs lg:max-w-md ${isOwn ? 'flex-row-reverse space-x-reverse' : ''}`}>
                       {!isOwn && (
                         <Avatar className="w-6 h-6">
-                          <AvatarImage src={message.user.photoURL} />
+                          <AvatarImage src={message.user?.photoURL} />
                           <AvatarFallback className="text-xs">
-                            {message.user.name.charAt(0)}
+                            {message.user?.name?.charAt(0) || '?'}
                           </AvatarFallback>
                         </Avatar>
                       )}
@@ -164,7 +238,7 @@ const ChatRoom = () => {
                       >
                         {chat.isGroup && !isOwn && (
                           <p className="text-xs font-medium mb-1">
-                            {message.user.name}
+                            {message.user?.name}
                           </p>
                         )}
                         <p className="text-sm">{message.content}</p>
@@ -187,12 +261,12 @@ const ChatRoom = () => {
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 placeholder="Type a message..."
-                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
                 className="flex-1"
               />
               <Button 
                 onClick={handleSendMessage}
-                disabled={!newMessage.trim()}
+                disabled={!newMessage.trim() || sending}
                 size="sm"
               >
                 <Send className="w-4 h-4" />
