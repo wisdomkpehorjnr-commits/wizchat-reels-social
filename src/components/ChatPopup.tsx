@@ -292,7 +292,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       setLoading(true);
       
       // Use the new database function for reliable chat retrieval/creation
-      const { data: chatId, error: chatError } = await supabase.rpc('get_or_create_direct_chat', {
+      const { data: rpcData, error: chatError } = await supabase.rpc('get_or_create_direct_chat', {
         p_other_user_id: chatUser.id
       });
 
@@ -300,11 +300,46 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         console.error('Error getting or creating chat:', chatError);
         throw chatError;
       }
-      
-      setChatId(chatId);
-      
+
+      // rpcData can come back in different shapes depending on Postgres function
+      // it may be a string (chat id), an object like { get_or_create_direct_chat: 'uuid' },
+      // or an array. Normalize to a string id.
+      let resolvedChatId: string | null = null;
+      if (!rpcData) {
+        throw new Error('RPC returned no data for chat id');
+      }
+
+      if (typeof rpcData === 'string') {
+        resolvedChatId = rpcData;
+      } else if (Array.isArray(rpcData) && rpcData.length > 0) {
+        // array of scalar(s)
+        const first = rpcData[0];
+        if (typeof first === 'string') resolvedChatId = first;
+        else if (typeof first === 'object' && first !== null) resolvedChatId = Object.values(first)[0] as string;
+      } else if (typeof rpcData === 'object') {
+        // object with a single value
+        const vals = Object.values(rpcData);
+        if (vals.length === 1 && typeof vals[0] === 'string') resolvedChatId = vals[0] as string;
+        else if (typeof (rpcData as any).get_or_create_direct_chat === 'string') resolvedChatId = (rpcData as any).get_or_create_direct_chat;
+      }
+
+      if (!resolvedChatId) {
+        console.error('Unable to resolve chat id from RPC response:', rpcData);
+        throw new Error('Failed to resolve chat id');
+      }
+
+      setChatId(resolvedChatId);
+
       // Load messages for this chat - only get messages that haven't been deleted
-      const chatMessages = await dataService.getMessages(chatId);
+      let chatMessages: Message[] = [];
+      try {
+        chatMessages = await dataService.getMessages(resolvedChatId);
+      } catch (err) {
+        console.error('Error fetching messages for chat', resolvedChatId, err);
+        // Surface a friendly error to the user
+        throw err;
+      }
+
       // Filter out any messages that might have been deleted (defensive programming)
       // The database should already handle this, but we ensure it here too
       setMessages(chatMessages.filter(msg => msg !== null && msg.id !== undefined));

@@ -314,20 +314,36 @@ const Profile = () => {
                         if (!targetUser?.id || !user?.id) return;
                         try {
                           // Get or create chat with the user
-                          const { data: chatId, error } = await supabase.rpc('get_or_create_direct_chat', {
+                          const { data: rpcData, error } = await supabase.rpc('get_or_create_direct_chat', {
                             p_other_user_id: targetUser.id
                           });
-                          
+
                           if (error) throw error;
-                          
+
+                          // Normalize possible shapes returned by RPC
+                          let resolvedChatId: string | null = null;
+                          if (typeof rpcData === 'string') resolvedChatId = rpcData;
+                          else if (Array.isArray(rpcData) && rpcData.length > 0) {
+                            const first = rpcData[0];
+                            if (typeof first === 'string') resolvedChatId = first;
+                            else if (typeof first === 'object' && first !== null) resolvedChatId = Object.values(first)[0] as string;
+                          } else if (rpcData && typeof rpcData === 'object') {
+                            const vals = Object.values(rpcData);
+                            if (vals.length === 1 && typeof vals[0] === 'string') resolvedChatId = vals[0] as string;
+                            else if (typeof (rpcData as any).get_or_create_direct_chat === 'string') resolvedChatId = (rpcData as any).get_or_create_direct_chat;
+                          }
+
+                          if (!resolvedChatId) {
+                            console.warn('Could not resolve chat id from RPC response', rpcData);
+                          }
+
                           // Navigate to chat page
                           navigate('/chat');
-                          
+
                           // After navigation, trigger opening the chat with this user
-                          // We'll use a custom event or URL parameter
                           setTimeout(() => {
-                            window.dispatchEvent(new CustomEvent('openChatWithUser', { 
-                              detail: { userId: targetUser.id, chatId } 
+                            window.dispatchEvent(new CustomEvent('openChatWithUser', {
+                              detail: { userId: targetUser.id, chatId: resolvedChatId }
                             }));
                           }, 300);
                         } catch (error) {
