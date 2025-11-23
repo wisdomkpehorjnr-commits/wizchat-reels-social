@@ -58,6 +58,7 @@ const MessageItem = ({
   const touchStartX = useRef<number>(0);
   const touchStartY = useRef<number>(0);
   const messageRef = useRef<HTMLDivElement>(null);
+  const lastTapRef = useRef<number>(0);
 
   // Close reactions when closeReactionsTrigger changes
   useEffect(() => {
@@ -102,6 +103,13 @@ const MessageItem = ({
       supabase.removeChannel(channel);
     };
   }, [message.id, user?.id]);
+  
+  // Auto-close reactions popup after a short timeout for snappy UX
+  useEffect(() => {
+    if (!showReactions) return;
+    const t = setTimeout(() => setShowReactions(false), 3500);
+    return () => clearTimeout(t);
+  }, [showReactions]);
   
   const isOwn = message.userId === user?.id;
   const messageAge = Date.now() - message.timestamp.getTime();
@@ -169,13 +177,29 @@ const MessageItem = ({
 
   const handleTouchEnd = () => {
     handleLongPressEnd();
-    
+    // Double-tap detection for touch devices
+    const now = Date.now();
+    if (now - (lastTapRef.current || 0) < 300) {
+      // Detected double-tap — open reactions
+      setShowReactions(true);
+      lastTapRef.current = 0;
+      setSwipeOffset(0);
+      setIsSwiping(false);
+      return;
+    }
+    lastTapRef.current = now;
+
     if (swipeOffset > 50 && onSwipeReply) {
       onSwipeReply(message);
     }
     
     setSwipeOffset(0);
     setIsSwiping(false);
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowReactions(true);
   };
 
   const handleClick = (e: React.MouseEvent) => {
@@ -233,6 +257,12 @@ const MessageItem = ({
   };
 
   const handleReaction = async (emoji: string) => {
+    // Prevent reacting to optimistic messages
+    if (message.id && message.id.startsWith && message.id.startsWith('temp-')) {
+      toast({ title: 'Please wait', description: 'Message is still sending', variant: 'default' });
+      return;
+    }
+
     if (onReaction) {
       try {
         await onReaction(message.id, emoji);
@@ -310,6 +340,7 @@ const MessageItem = ({
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
     >
       <div 
         className={`flex items-end space-x-2 max-w-xs lg:max-w-md ${isOwn ? 'flex-row-reverse space-x-reverse' : ''} transition-transform duration-200 ease-out`}
@@ -358,7 +389,20 @@ const MessageItem = ({
                   </div>
                 </div>
               ) : (
-                <p className="text-sm">{message.content}</p>
+                <>
+                  {message.replyTo && (
+                    <div className="mb-2 p-2 rounded-md bg-background/60 border border-border text-xs">
+                      <div className="flex items-center gap-2">
+                        <Reply className="w-3 h-3 text-green-500" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-xs truncate">{message.replyTo.user?.name || 'Unknown'}</p>
+                          <p className="text-xs text-muted-foreground truncate">{message.replyTo.content || 'Media'}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  <p className="text-sm">{message.content}</p>
+                </>
               )
             ) : (
               renderMediaContent()

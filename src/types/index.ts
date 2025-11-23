@@ -127,6 +127,7 @@ export interface Message {
   seen: boolean;
   reactions?: MessageReaction[];
   isPinned?: boolean;
+  replyTo?: { id: string; userId?: string; user?: User; content?: string } | null;
 }
 
 export interface VoiceCall {

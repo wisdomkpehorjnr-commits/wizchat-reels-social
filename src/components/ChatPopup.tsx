@@ -331,13 +331,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
 
     try {
       // Send message with reply reference if replying
-      if (replyToId) {
-        // Include reply info in message content or as metadata
-        await dataService.sendMessage(chatId, messageContent);
-        // TODO: Add reply_to_id field to messages table if needed
-      } else {
-        await dataService.sendMessage(chatId, messageContent);
-      }
+      await dataService.sendMessage(chatId, messageContent, replyToId);
       
       // Update chat's last activity
       await supabase
@@ -1020,15 +1014,13 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
           try {
             // Delete all messages in the chat
             if (chatId) {
+              // Permanently delete all messages in this chat for all participants
               const { error } = await supabase
                 .from('messages')
                 .delete()
-                .eq('chat_id', chatId)
-                .eq('user_id', user?.id); // Only delete own messages
-              
-              if (error) {
-                throw error;
-              }
+                .eq('chat_id', chatId);
+
+              if (error) throw error;
             }
             
             setMessages([]);

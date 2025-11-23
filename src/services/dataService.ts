@@ -802,6 +802,7 @@ export const dataService = {
       .from('messages')
       .select(`
         *,
+        reply_to_id,
         user:profiles!messages_user_id_fkey (
           id,
           name,
@@ -817,34 +818,67 @@ export const dataService = {
       throw error;
     }
 
-    return data.map(msg => ({
-      id: msg.id,
-      chatId: msg.chat_id,
-      userId: msg.user_id,
-      user: msg.user as User,
-      content: msg.content,
-      type: msg.type as 'text' | 'voice' | 'image' | 'video',
-      mediaUrl: msg.media_url,
-      duration: msg.duration,
-      seen: msg.seen,
-      timestamp: new Date(msg.created_at)
+    // Attach a small replyTo object for messages that reference another message
+    return await Promise.all(data.map(async (msg: any) => {
+      let replyTo = null;
+      if (msg.reply_to_id) {
+        try {
+          const { data: replyMsg } = await supabase
+            .from('messages')
+            .select(`
+              *,
+              user:profiles!messages_user_id_fkey (id, name, username, avatar)
+            `)
+            .eq('id', msg.reply_to_id)
+            .maybeSingle();
+
+          if (replyMsg) {
+            replyTo = {
+              id: replyMsg.id,
+              userId: replyMsg.user_id,
+              user: replyMsg.user as User,
+              content: replyMsg.content
+            };
+          }
+        } catch (err) {
+          // ignore reply fetch errors
+        }
+      }
+
+      return {
+        id: msg.id,
+        chatId: msg.chat_id,
+        userId: msg.user_id,
+        user: msg.user as User,
+        content: msg.content,
+        type: msg.type as 'text' | 'voice' | 'image' | 'video',
+        mediaUrl: msg.media_url,
+        duration: msg.duration,
+        seen: msg.seen,
+        timestamp: new Date(msg.created_at),
+        replyTo
+      } as Message;
     }));
   },
 
-  async sendMessage(chatId: string, content: string): Promise<Message> {
+  async sendMessage(chatId: string, content: string, replyToId?: string): Promise<Message> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
+    const insertPayload: any = {
+      chat_id: chatId,
+      user_id: user.id,
+      content: content,
+      type: 'text'
+    };
+    if (replyToId) insertPayload.reply_to_id = replyToId;
+
     const { data, error } = await supabase
       .from('messages')
-      .insert({
-        chat_id: chatId,
-        user_id: user.id,
-        content: content,
-        type: 'text'
-      })
+      .insert(insertPayload)
       .select(`
         *,
+        reply_to_id,
         user:profiles!messages_user_id_fkey (
           id,
           name,
@@ -859,6 +893,23 @@ export const dataService = {
       throw error;
     }
 
+    let replyTo = null;
+    if (data.reply_to_id) {
+      try {
+        const { data: replyMsg } = await supabase
+          .from('messages')
+          .select(`*, user:profiles!messages_user_id_fkey (id, name, username, avatar)`)
+          .eq('id', data.reply_to_id)
+          .maybeSingle();
+
+        if (replyMsg) {
+          replyTo = { id: replyMsg.id, userId: replyMsg.user_id, user: replyMsg.user as User, content: replyMsg.content };
+        }
+      } catch (err) {
+        // ignore
+      }
+    }
+
     return {
       id: data.id,
       chatId: data.chat_id,
@@ -869,8 +920,9 @@ export const dataService = {
       mediaUrl: data.media_url,
       duration: data.duration,
       seen: data.seen,
-      timestamp: new Date(data.created_at)
-    };
+      timestamp: new Date(data.created_at),
+      replyTo
+    } as Message;
   },
 
   async createVoiceMessage(chatId: string, audioUrl: string, duration: number): Promise<Message> {
