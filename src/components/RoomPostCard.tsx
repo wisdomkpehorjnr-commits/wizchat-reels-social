@@ -298,7 +298,7 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
         .single();
       
       if (postData?.room_id) {
-        await supabase
+        const { error: participantError } = await supabase
           .from('room_participants')
           .upsert({
             room_id: postData.room_id,
@@ -307,6 +307,12 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
           }, {
             onConflict: 'room_id,user_id'
           });
+
+        if (participantError) {
+          // If participant upsert fails, log and throw to surface to caller
+          console.warn('Participant upsert error:', participantError);
+          throw participantError;
+        }
       }
 
       // Use room_post_reactions for room posts
@@ -368,21 +374,31 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
       
       // Reload to get accurate counts
       await loadLikes();
-      
-      // Get the updated counts after reload
-      const { data: reactions } = await supabase
+
+      // Use count queries to get accurate numbers (avoids mapping large arrays)
+      const likeCountRes = await supabase
         .from('room_post_reactions')
-        .select('emoji')
-        .eq('post_id', post.id);
-      
-      const updatedLikeCount = reactions?.filter((r: any) => r.emoji === '👍').length || 0;
-      const updatedDislikeCount = reactions?.filter((r: any) => r.emoji === '👎').length || 0;
-      
+        .select('id', { count: 'exact', head: true })
+        .eq('post_id', post.id)
+        .eq('emoji', '👍');
+      const dislikeCountRes = await supabase
+        .from('room_post_reactions')
+        .select('id', { count: 'exact', head: true })
+        .eq('post_id', post.id)
+        .eq('emoji', '👎');
+
+      const updatedLikeCount = likeCountRes.count ?? 0;
+      const updatedDislikeCount = dislikeCountRes.count ?? 0;
+
+      // Ensure local state is in sync
+      setLikeCount(updatedLikeCount);
+      setDislikeCount(updatedDislikeCount);
+
       // Show success message with real-time count
       toast({
         title: "Success! 👍",
-        description: wasLiked 
-          ? `Like removed. Total likes: ${updatedLikeCount}` 
+        description: wasLiked
+          ? `Like removed. Total likes: ${updatedLikeCount}`
           : `Post liked successfully! Total likes: ${updatedLikeCount}`
       });
     } catch (error: any) {
@@ -443,7 +459,7 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
         .single();
       
       if (postData?.room_id) {
-        await supabase
+        const { error: participantError } = await supabase
           .from('room_participants')
           .upsert({
             room_id: postData.room_id,
@@ -452,6 +468,11 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
           }, {
             onConflict: 'room_id,user_id'
           });
+
+        if (participantError) {
+          console.warn('Participant upsert error:', participantError);
+          throw participantError;
+        }
       }
 
       // Use room_post_reactions for room posts
@@ -513,21 +534,30 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
       
       // Reload to get accurate counts
       await loadLikes();
-      
-      // Get the updated counts after reload
-      const { data: reactions } = await supabase
+
+      const likeCountRes = await supabase
         .from('room_post_reactions')
-        .select('emoji')
-        .eq('post_id', post.id);
-      
-      const updatedLikeCount = reactions?.filter((r: any) => r.emoji === '👍').length || 0;
-      const updatedDislikeCount = reactions?.filter((r: any) => r.emoji === '👎').length || 0;
-      
+        .select('id', { count: 'exact', head: true })
+        .eq('post_id', post.id)
+        .eq('emoji', '👍');
+      const dislikeCountRes = await supabase
+        .from('room_post_reactions')
+        .select('id', { count: 'exact', head: true })
+        .eq('post_id', post.id)
+        .eq('emoji', '👎');
+
+      const updatedLikeCount = likeCountRes.count ?? 0;
+      const updatedDislikeCount = dislikeCountRes.count ?? 0;
+
+      // Ensure local state is in sync
+      setLikeCount(updatedLikeCount);
+      setDislikeCount(updatedDislikeCount);
+
       // Show success message with real-time count
       toast({
         title: "Success! 👎",
-        description: wasDisliked 
-          ? `Dislike removed. Total dislikes: ${updatedDislikeCount}` 
+        description: wasDisliked
+          ? `Dislike removed. Total dislikes: ${updatedDislikeCount}`
           : `Post disliked successfully! Total dislikes: ${updatedDislikeCount}`
       });
     } catch (error: any) {
@@ -603,9 +633,10 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
           }, {
             onConflict: 'room_id,user_id'
           });
-        
+
         if (participantError) {
           console.warn('Error ensuring participant status:', participantError);
+          throw participantError;
         }
       }
 
@@ -644,19 +675,21 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
         ));
       }
       
-      // Reload comments to get accurate count
+      // Reload comments to get accurate count and sync state
       await loadComments();
-      
-      // Get the updated comment count after reload
-      const { count: updatedCommentCount } = await supabase
+
+      const countRes = await supabase
         .from('room_post_comments')
         .select('*', { count: 'exact', head: true })
         .eq('post_id', post.id);
-      
+
+      const updatedCommentCount = countRes.count ?? 0;
+      setCommentCount(updatedCommentCount);
+
       // Show success message with real-time count
       toast({
         title: "Success! 💬",
-        description: `Comment posted successfully! Total comments: ${updatedCommentCount || commentCount}`
+        description: `Comment posted successfully! Total comments: ${updatedCommentCount}`
       });
     } catch (error: any) {
       console.error('Error creating comment:', error);
