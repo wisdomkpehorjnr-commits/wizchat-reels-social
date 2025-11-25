@@ -410,18 +410,18 @@ const Reels = () => {
       >
         <ArrowLeft className="w-6 h-6" />
       </Button>
-
+      
       {/* Reels container */}
-      <div
-        ref={containerRef}
+          <div 
+            ref={containerRef}
         className="w-full h-full overflow-y-scroll snap-y snap-mandatory"
-        onScroll={handleScroll}
+            onScroll={handleScroll}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        style={{
-          scrollBehavior: 'smooth',
-          scrollSnapType: 'y mandatory',
+            style={{ 
+              scrollBehavior: 'smooth',
+              scrollSnapType: 'y mandatory',
           overscrollBehavior: 'contain',
           WebkitOverflowScrolling: 'touch'
         }}
@@ -431,10 +431,10 @@ const Reels = () => {
             key={reel.id}
             post={reel}
             isActive={index === currentIndex}
-            onLike={handleLike}
+                onLike={handleLike}
             onFollow={handleFollow}
             onComment={handleComment}
-            onShare={handleShare}
+                onShare={handleShare}
             onSave={handleSave}
             onDownload={(postId) => {
               if (reel.videoUrl) {
@@ -455,8 +455,8 @@ const Reels = () => {
             onView={handleView}
             musicTitle={reel.music?.title}
             musicArtist={reel.music?.artist}
-          />
-        ))}
+              />
+            ))}
       </div>
     </div>
   );

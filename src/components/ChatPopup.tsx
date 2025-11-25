@@ -112,44 +112,44 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       
       // Also try to load from server if online
       if (isNetworkOnline) {
-        const { data } = await supabase
-          .from('pinned_messages')
-          .select(`
-            *,
-            message:messages(*)
-          `)
-          .eq('chat_id', chatId)
-          .order('pinned_at', { ascending: false });
-        
+      const { data } = await supabase
+        .from('pinned_messages')
+        .select(`
+          *,
+          message:messages(*)
+        `)
+        .eq('chat_id', chatId)
+        .order('pinned_at', { ascending: false });
+      
         if (data && data.length > 0) {
-          const pinned = await Promise.all(
-            data.map(async (pm: any) => {
-              const { data: messageData } = await supabase
-                .from('messages')
-                .select(`
-                  *,
-                  user:profiles!messages_user_id_fkey (
-                    id,
-                    name,
-                    username,
-                    avatar
-                  )
-                `)
-                .eq('id', pm.message_id)
-                .single();
-              
-              if (messageData) {
+        const pinned = await Promise.all(
+          data.map(async (pm: any) => {
+            const { data: messageData } = await supabase
+              .from('messages')
+              .select(`
+                *,
+                user:profiles!messages_user_id_fkey (
+                  id,
+                  name,
+                  username,
+                  avatar
+                )
+              `)
+              .eq('id', pm.message_id)
+              .single();
+            
+            if (messageData) {
                 const msg: LocalMessage = {
-                  id: messageData.id,
-                  chatId: messageData.chat_id,
-                  userId: messageData.user_id,
-                  user: messageData.user as User,
-                  content: messageData.content,
-                  type: messageData.type as 'text' | 'voice' | 'image' | 'video',
-                  mediaUrl: messageData.media_url,
-                  duration: messageData.duration,
-                  seen: messageData.seen,
-                  timestamp: new Date(messageData.created_at),
+                id: messageData.id,
+                chatId: messageData.chat_id,
+                userId: messageData.user_id,
+                user: messageData.user as User,
+                content: messageData.content,
+                type: messageData.type as 'text' | 'voice' | 'image' | 'video',
+                mediaUrl: messageData.media_url,
+                duration: messageData.duration,
+                seen: messageData.seen,
+                timestamp: new Date(messageData.created_at),
                   isPinned: true,
                   status: (messageData.seen ? 'read' : 'delivered') as MessageStatus,
                   synced: true
@@ -157,10 +157,10 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
                 // Save to local storage
                 await localMessageService.saveMessage(msg);
                 return msg;
-              }
-              return null;
-            })
-          );
+            }
+            return null;
+          })
+        );
           const validPinned = pinned.filter((m): m is Message => m !== null);
           if (validPinned.length > 0) {
             setPinnedMessages(validPinned);
@@ -522,8 +522,8 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
             ? { ...serverMessage, status: 'sent' as MessageStatus }
             : m
         ));
-      } catch (error) {
-        console.error('Error sending message:', error);
+    } catch (error) {
+      console.error('Error sending message:', error);
         // Message stays in outbox, will retry when online
       }
     }
@@ -556,8 +556,8 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
 
     // Try to upload and send if online
     if (isNetworkOnline) {
-      try {
-        const audioUrl = await MediaService.uploadChatMedia(new File([audioBlob], 'voice.webm', { type: 'audio/webm' }));
+    try {
+      const audioUrl = await MediaService.uploadChatMedia(new File([audioBlob], 'voice.webm', { type: 'audio/webm' }));
         const serverMessage = await dataService.createVoiceMessage(chatId, audioUrl, duration);
         
         // Update with server data
@@ -575,14 +575,14 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
             ? { ...serverMessage, status: 'sent' as MessageStatus }
             : m
         ));
-        
-        toast({
-          title: "Success",
-          description: "Voice message sent"
-        });
-      } catch (error) {
-        console.error('Error sending voice message:', error);
-        toast({
+      
+      toast({
+        title: "Success",
+        description: "Voice message sent"
+      });
+    } catch (error) {
+      console.error('Error sending voice message:', error);
+      toast({
           title: "Queued",
           description: "Voice message will be sent when online"
         });
@@ -626,8 +626,8 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
 
     // Try to upload and send if online
     if (isNetworkOnline) {
-      try {
-        const mediaUrl = await MediaService.uploadChatMedia(file);
+    try {
+      const mediaUrl = await MediaService.uploadChatMedia(file);
         const serverMessage = await dataService.createMediaMessage(chatId, mediaUrl, mediaType);
         
         // Update with server data
@@ -653,9 +653,9 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
           title: "Success",
           description: "File uploaded successfully"
         });
-      } catch (error) {
-        console.error('Error uploading file:', error);
-        toast({
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      toast({
           title: "Queued",
           description: "File will be uploaded when online"
         });
@@ -880,24 +880,24 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
                       // Also pin on server if online
                       if (isNetworkOnline) {
                         try {
-                          const { data: existing } = await supabase
-                            .from('pinned_messages')
-                            .select('id')
-                            .eq('chat_id', chatId)
-                            .maybeSingle();
-                          
-                          if (existing) {
-                            await supabase
-                              .from('pinned_messages')
-                              .delete()
-                              .eq('id', existing.id);
+                    const { data: existing } = await supabase
+                      .from('pinned_messages')
+                      .select('id')
+                      .eq('chat_id', chatId)
+                      .maybeSingle();
+                    
+                    if (existing) {
+                      await supabase
+                        .from('pinned_messages')
+                        .delete()
+                        .eq('id', existing.id);
                           }
                           
-                          await supabase.from('pinned_messages').insert({ 
-                            message_id: replyingTo.id, 
-                            chat_id: chatId, 
-                            pinned_by: user.id 
-                          });
+                      await supabase.from('pinned_messages').insert({ 
+                        message_id: replyingTo.id, 
+                        chat_id: chatId, 
+                        pinned_by: user.id 
+                      });
                         } catch (error) {
                           console.error('Error pinning on server:', error);
                           // Continue anyway, local pin is saved

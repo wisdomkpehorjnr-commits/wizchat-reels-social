@@ -381,9 +381,9 @@ const MessageItem = ({
             
             <div className="flex items-center justify-between mt-1">
               <div className="flex items-center gap-1">
-                <p className={`text-xs ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                  {formatTime(message.timestamp)}
-                </p>
+              <p className={`text-xs ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                {formatTime(message.timestamp)}
+              </p>
                 {/* Message Status Indicators (only for own messages) */}
                 {isOwn && message.status && (
                   <span className="text-xs">
