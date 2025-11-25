@@ -1,5 +1,5 @@
-import { lazy, Suspense, useEffect } from "react";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { lazy, Suspense } from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { Toaster } from "@/components/ui/toaster";
@@ -9,17 +9,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { ScrollPositionProvider } from "./contexts/ScrollPositionContext";
-import { TabManagerProvider, useTabManager } from "./contexts/TabManagerContext";
-import { useTabPreloader } from "./hooks/useTabPreloader";
 
 import Login from "./pages/Login";
 import Home from "./pages/Home";
 import ProtectedRoute from "./components/ProtectedRoute";
-import TabView from "./components/TabView";
-import ChatSkeleton from "./components/tabs/ChatSkeleton";
-import FriendsSkeleton from "./components/tabs/FriendsSkeleton";
-import ReelsSkeleton from "./components/tabs/ReelsSkeleton";
-import TopicsSkeleton from "./components/tabs/TopicsSkeleton";
 
 // ✅ Lazy load non-critical pages
 const Reels = lazy(() => import("./pages/Reels"));
@@ -32,7 +25,6 @@ const Friends = lazy(() => import("./pages/Friends"));
 const Admin = lazy(() => import("./pages/Admin"));
 const Settings = lazy(() => import("./pages/Settings"));
 const NotFound = lazy(() => import("./pages/NotFound"));
-
 
 // ✅ Avatar customization page
 const AvatarStudio = lazy(() => import("./components/AvatarStudio"));
@@ -66,65 +58,6 @@ const PageLoader = () => (
   </div>
 );
 
-// Preloaded tabs component - renders all main tabs simultaneously
-const PreloadedTabs = () => {
-  const location = useLocation();
-  const { preloadTab, isTabPreloaded } = useTabManager();
-  
-  // Preload tab data in background
-  useTabPreloader();
-
-  // Preload skeletons on mount
-  useEffect(() => {
-    if (!isTabPreloaded('/chat')) {
-      preloadTab('/chat');
-    }
-    if (!isTabPreloaded('/friends')) {
-      preloadTab('/friends');
-    }
-    if (!isTabPreloaded('/reels')) {
-      preloadTab('/reels');
-    }
-    if (!isTabPreloaded('/topics')) {
-      preloadTab('/topics');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return (
-    <div className="relative" style={{ minHeight: '100vh' }}>
-      {/* Render all main tabs simultaneously, only show active one */}
-      <TabView path="/">
-        <Home />
-      </TabView>
-      
-      <TabView path="/chat">
-        <Suspense fallback={<ChatSkeleton />}>
-          <Chat />
-        </Suspense>
-      </TabView>
-      
-      <TabView path="/friends">
-        <Suspense fallback={<FriendsSkeleton />}>
-          <Friends />
-        </Suspense>
-      </TabView>
-      
-      <TabView path="/reels">
-        <Suspense fallback={<ReelsSkeleton />}>
-          <Reels />
-        </Suspense>
-      </TabView>
-      
-      <TabView path="/topics">
-        <Suspense fallback={<TopicsSkeleton />}>
-          <Topics />
-        </Suspense>
-      </TabView>
-    </div>
-  );
-};
-
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
@@ -133,19 +66,18 @@ const App = () => (
         <Sonner />
         <AuthProvider>
           <BrowserRouter>
-            <TabManagerProvider>
-              <ScrollPositionProvider>
-                <Suspense fallback={<PageLoader />}>
-                  <Routes>
+            <ScrollPositionProvider>
+              <Suspense fallback={<PageLoader />}>
+                <Routes>
                 {/* Public routes */}
                 <Route path="/login" element={<Login />} />
 
-                {/* Protected routes - Main tabs use TabView for instant switching */}
+                {/* Protected routes */}
                 <Route
                   path="/"
                   element={
                     <ProtectedRoute>
-                      <PreloadedTabs />
+                      <Home />
                     </ProtectedRoute>
                   }
                 />
@@ -153,7 +85,7 @@ const App = () => (
                   path="/reels"
                   element={
                     <ProtectedRoute>
-                      <PreloadedTabs />
+                      <Reels />
                     </ProtectedRoute>
                   }
                 />
@@ -161,23 +93,7 @@ const App = () => (
                   path="/chat"
                   element={
                     <ProtectedRoute>
-                      <PreloadedTabs />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/friends"
-                  element={
-                    <ProtectedRoute>
-                      <PreloadedTabs />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/topics"
-                  element={
-                    <ProtectedRoute>
-                      <PreloadedTabs />
+                      <Chat />
                     </ProtectedRoute>
                   }
                 />
@@ -186,6 +102,14 @@ const App = () => (
                   element={
                     <ProtectedRoute>
                       <ChatRoom />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/topics"
+                  element={
+                    <ProtectedRoute>
+                      <Topics />
                     </ProtectedRoute>
                   }
                 />
@@ -210,6 +134,14 @@ const App = () => (
                   element={
                     <ProtectedRoute>
                       <Profile />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/friends"
+                  element={
+                    <ProtectedRoute>
+                      <Friends />
                     </ProtectedRoute>
                   }
                 />
@@ -308,10 +240,9 @@ const App = () => (
 
                 {/* Catch-all route */}
                 <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </Suspense>
-              </ScrollPositionProvider>
-            </TabManagerProvider>
+                </Routes>
+              </Suspense>
+            </ScrollPositionProvider>
           </BrowserRouter>
         </AuthProvider>
       </TooltipProvider>

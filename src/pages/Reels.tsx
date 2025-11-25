@@ -7,7 +7,6 @@ import { dataService } from '@/services/dataService';
 import { ProfileService } from '@/services/profileService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { useTabManager } from '@/contexts/TabManagerContext';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 
@@ -25,14 +24,8 @@ const Reels = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { getCachedData, setCachedData } = useTabManager();
-  
-  // Check TabManager cache first for instant loading
-  const tabCache = getCachedData('/reels');
-  const initialReels = tabCache?.reels || [];
-  
-  const [reels, setReels] = useState<Post[]>(initialReels);
-  const [loading, setLoading] = useState(!initialReels.length);
+  const [reels, setReels] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [preloadedVideos, setPreloadedVideos] = useState<Set<string>>(new Set());
@@ -50,25 +43,13 @@ const Reels = () => {
   }, []);
 
   const loadReels = async () => {
-    // Show cached data immediately if available
-    if (initialReels.length > 0) {
-      setLoading(false);
-      // Preload first video if available
-      if (initialReels[0]?.videoUrl) {
-        preloadVideo(initialReels[0].id, initialReels[0].videoUrl);
-      }
-    } else {
-      setLoading(true);
-    }
-    
-    // Fetch fresh data in background
     try {
+      setLoading(true);
       const allPosts = await dataService.getPosts();
       const videoReels = allPosts.filter(post => 
         post.videoUrl || post.isReel || post.mediaType === 'video'
       );
       setReels(videoReels);
-      setCachedData('/reels', { reels: videoReels });
       
       // Preload first video
       if (videoReels.length > 0) {
@@ -76,13 +57,11 @@ const Reels = () => {
       }
     } catch (error) {
       console.error('Error loading reels:', error);
-      if (reels.length === 0) {
-        toast({
-          title: "Error",
-          description: "Failed to load reels",
-          variant: "destructive"
-        });
-      }
+      toast({
+        title: "Error",
+        description: "Failed to load reels",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
