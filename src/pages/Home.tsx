@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Layout from '@/components/Layout';
 import CreatePost from '@/components/CreatePost';
 import PostCard from '@/components/PostCard';
@@ -10,17 +10,57 @@ import { RefreshCw } from 'lucide-react';
 import { dataService } from '@/services/dataService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useScrollPosition } from '@/contexts/ScrollPositionContext';
+import { useLocation } from 'react-router-dom';
 
 const Home = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [posts, setPosts] = useState([]);
+  const location = useLocation();
+  const { saveScrollPosition, getScrollPosition, getCachedData, clearScrollPosition } = useScrollPosition();
+  const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const hasLoadedRef = useRef(false);
+  const isRestoringScrollRef = useRef(false);
+  const scrollRestoredRef = useRef(false);
 
+  // Check if we have cached data and scroll position on mount
   useEffect(() => {
-    loadPosts();
+    const cachedPosts = getCachedData('/');
+    const savedScroll = getScrollPosition('/');
     
+    if (cachedPosts && cachedPosts.length > 0 && !hasLoadedRef.current) {
+      // Restore cached posts immediately
+      setPosts(cachedPosts);
+      setLoading(false);
+      hasLoadedRef.current = true;
+      
+      // Restore scroll position after a brief delay to ensure DOM is ready
+      if (savedScroll !== null && savedScroll > 0) {
+        isRestoringScrollRef.current = true;
+        // Use multiple requestAnimationFrame calls to ensure DOM is fully rendered
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              window.scrollTo({ top: savedScroll, behavior: 'instant' });
+              scrollRestoredRef.current = true;
+              isRestoringScrollRef.current = false;
+            });
+          });
+        });
+      } else {
+        scrollRestoredRef.current = true;
+      }
+    } else if (!hasLoadedRef.current) {
+      // No cache, load from server
+      loadPosts();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Load posts from server (only if no cache)
+  useEffect(() => {
     // Listen for home refresh events
     const handleRefreshHome = () => {
       refreshFeed();
@@ -59,23 +99,43 @@ const Home = () => {
       window.removeEventListener('refreshHome', handleRefreshHome);
     };
   }, []);
+  
+  // Save posts to cache whenever they change (scroll position is saved automatically by context)
+  useEffect(() => {
+    if (posts.length > 0 && !isRestoringScrollRef.current && scrollRestoredRef.current) {
+      // Update cache with current posts (scroll position is handled by ScrollPositionContext)
+      const currentScroll = window.scrollY;
+      saveScrollPosition('/', currentScroll, posts);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [posts]);
 
-  const loadPosts = async () => {
+  const loadPosts = async (skipCache = false) => {
     if (!user) return;
     try {
       setLoading(true);
       // Fetch all posts and active pinned post IDs
-      const [posts, pinnedIds] = await Promise.all([
+      const [postsData, pinnedIds] = await Promise.all([
         dataService.getPosts(),
         dataService.getActivePinnedPosts(),
       ]);
       // Pinned posts go at the top, ordered by their "pinned_at" timestamps.
-      const pinnedPosts = posts
+      const pinnedPosts = postsData
         .filter(post => pinnedIds.includes(post.id));
       // Optionally, sort pinnedPosts by their pin time (add pinned_at to post and sort if needed)
-      const otherPosts = posts
+      const otherPosts = postsData
         .filter(post => !pinnedIds.includes(post.id));
-      setPosts([...pinnedPosts, ...otherPosts]);
+      const sortedPosts = [...pinnedPosts, ...otherPosts];
+      
+      setPosts(sortedPosts);
+      
+      // Cache the posts
+      if (!skipCache) {
+        const currentScroll = window.scrollY;
+        saveScrollPosition('/', currentScroll, sortedPosts);
+      }
+      
+      hasLoadedRef.current = true;
     } catch (error) {
       console.error('Error fetching posts:', error);
       toast({
@@ -92,11 +152,15 @@ const Home = () => {
     try {
       await dataService.likePost(postId);
       // Optimistically update the UI
-      setPosts(currentPosts =>
-        currentPosts.map(post =>
+      setPosts(currentPosts => {
+        const updated = currentPosts.map(post =>
           post.id === postId ? { ...post, likes: post.likes.includes(user?.id) ? post.likes.filter(id => id !== user?.id) : [...post.likes, user?.id] } : post
-        )
-      );
+        );
+        // Update cache
+        const currentScroll = window.scrollY;
+        saveScrollPosition('/', currentScroll, updated);
+        return updated;
+      });
     } catch (error) {
       console.error('Error liking post:', error);
       toast({
@@ -148,11 +212,27 @@ const Home = () => {
   const refreshFeed = async () => {
     setRefreshing(true);
     try {
-      const freshPosts = await dataService.getPosts();
-      setPosts(freshPosts);
+      // Clear cached data and scroll position
+      clearScrollPosition('/');
+      scrollRestoredRef.current = false;
+      
+      // Fetch fresh posts
+      const [freshPosts, pinnedIds] = await Promise.all([
+        dataService.getPosts(),
+        dataService.getActivePinnedPosts(),
+      ]);
+      
+      const pinnedPosts = freshPosts.filter(post => pinnedIds.includes(post.id));
+      const otherPosts = freshPosts.filter(post => !pinnedIds.includes(post.id));
+      const sortedPosts = [...pinnedPosts, ...otherPosts];
+      
+      setPosts(sortedPosts);
       
       // Scroll to top
       window.scrollTo({ top: 0, behavior: 'smooth' });
+      
+      // Cache the new posts with scroll at 0
+      saveScrollPosition('/', 0, sortedPosts);
       
       toast({
         title: "Feed Refreshed",
@@ -203,11 +283,19 @@ const Home = () => {
                 console.log('Post created successfully:', createdPost.id);
                 
                 // Add the real post to the top of the feed
-                setPosts(prevPosts => [createdPost, ...prevPosts]);
+                setPosts(prevPosts => {
+                  const updated = [createdPost, ...prevPosts];
+                  // Update cache with new post
+                  const currentScroll = window.scrollY;
+                  saveScrollPosition('/', currentScroll, updated);
+                  return updated;
+                });
                 
                 // Scroll to top to show the new post
                 setTimeout(() => {
                   window.scrollTo({ top: 0, behavior: 'smooth' });
+                  // Update cache with scroll at top
+                  saveScrollPosition('/', 0, [createdPost, ...posts]);
                 }, 100);
                 
                 toast({

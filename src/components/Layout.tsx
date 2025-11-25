@@ -58,12 +58,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   const handleHomeClick = (e: React.MouseEvent) => {
-    if (location.pathname === '/') {
-      e.preventDefault();
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      // Trigger a custom event for home refresh
-      window.dispatchEvent(new CustomEvent('refreshHome'));
-    }
+    // Only prevent default and scroll to top if we want to refresh
+    // For now, let normal navigation happen - scroll position will be preserved
+    // If user wants to refresh, they can use the Refresh button
   };
 
   return (

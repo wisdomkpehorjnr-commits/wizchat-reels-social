@@ -8,6 +8,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 
 import { AuthProvider } from "./contexts/AuthContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { ScrollPositionProvider } from "./contexts/ScrollPositionContext";
 
 import Login from "./pages/Login";
 import Home from "./pages/Home";
@@ -65,8 +66,9 @@ const App = () => (
         <Sonner />
         <AuthProvider>
           <BrowserRouter>
-            <Suspense fallback={<PageLoader />}>
-              <Routes>
+            <ScrollPositionProvider>
+              <Suspense fallback={<PageLoader />}>
+                <Routes>
                 {/* Public routes */}
                 <Route path="/login" element={<Login />} />
 
@@ -238,8 +240,9 @@ const App = () => (
 
                 {/* Catch-all route */}
                 <Route path="*" element={<NotFound />} />
-              </Routes>
-            </Suspense>
+                </Routes>
+              </Suspense>
+            </ScrollPositionProvider>
           </BrowserRouter>
         </AuthProvider>
       </TooltipProvider>
