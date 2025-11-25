@@ -7,6 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { MessageCircle, Users, Flame } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useTabManager } from "@/contexts/TabManagerContext";
+import TopicsSkeleton from "@/components/tabs/TopicsSkeleton";
 
 interface TopicRoomType {
   id: string;
@@ -19,8 +21,14 @@ interface TopicRoomType {
 const Topics = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [rooms, setRooms] = useState<TopicRoomType[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { getCachedData, setCachedData } = useTabManager();
+  
+  // Check TabManager cache first for instant loading
+  const tabCache = getCachedData('/topics');
+  const initialRooms = tabCache?.rooms || [];
+  
+  const [rooms, setRooms] = useState<TopicRoomType[]>(initialRooms);
+  const [loading, setLoading] = useState(!initialRooms.length);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [joiningRoomId, setJoiningRoomId] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -51,10 +59,27 @@ const Topics = () => {
   }, [user?.id]);
 
   const loadRooms = async () => {
+    // Show cached data immediately if available
+    if (initialRooms.length > 0) {
+      setLoading(false);
+      setDataLoaded(true);
+    } else {
+      setLoading(true);
+      setDataLoaded(false);
+    }
+    
+    // Fetch fresh data in background
     try {
       const { data, error } = await supabase.from("topic_rooms").select("*");
       if (error) {
         console.error("Error fetching rooms:", error);
+        if (rooms.length === 0) {
+          toast({
+            title: "Error",
+            description: "Failed to load topics",
+            variant: "destructive"
+          });
+        }
       } else {
         // Fetch participant counts and check if user has joined
         const roomsWithCounts = await Promise.all(
@@ -83,6 +108,7 @@ const Topics = () => {
           })
         );
         setRooms(roomsWithCounts);
+        setCachedData('/topics', { rooms: roomsWithCounts });
       }
       setDataLoaded(true);
     } finally {
@@ -151,6 +177,15 @@ const Topics = () => {
     e.stopPropagation();
     navigate(`/topic-room/${roomId}`);
   };
+
+  // Show skeleton immediately if loading and no cache
+  if (loading && rooms.length === 0) {
+    return (
+      <Layout>
+        <TopicsSkeleton />
+      </Layout>
+    );
+  }
 
   return (
     <Layout>

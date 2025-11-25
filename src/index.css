@@ -224,3 +224,25 @@ button {
 .animate-marquee:hover {
   animation-play-state: paused;
 }
+
+/* Instant tab switching - no white flash */
+.tab-view {
+  will-change: opacity;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
+/* Smooth fade transition between tabs */
+.tab-view[style*="opacity: 0"] {
+  pointer-events: none;
+}
+
+.tab-view[style*="opacity: 100"] {
+  pointer-events: auto;
+}
+
+/* Prevent flash of unstyled content */
+.tab-view {
+  min-height: 100vh;
+  background-color: hsl(var(--background));
+}

@@ -25,21 +25,28 @@ import { ProfileService } from '@/services/profileService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useCache } from '@/hooks/useCache';
+import { useTabManager } from '@/contexts/TabManagerContext';
 import ConfirmationDialog from '@/components/ui/confirmation-dialog';
+import FriendsSkeleton from '@/components/tabs/FriendsSkeleton';
 
 
 const Friends = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { getCachedData, setCachedData } = useTabManager();
   const { cachedData: cachedFriends, setCache: setCachedFriends, isStale } = useCache<Friend[]>({ 
     key: 'friends-list',
     ttl: 2 * 60 * 1000 // 2 minutes cache
   });
   
-  const [friends, setFriends] = useState<Friend[]>(cachedFriends || []);
+  // Check TabManager cache first for instant loading
+  const tabCache = getCachedData('/friends');
+  const initialFriends = tabCache?.friends || cachedFriends || [];
+  
+  const [friends, setFriends] = useState<Friend[]>(initialFriends);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<User[]>([]);
-  const [loading, setLoading] = useState(!cachedFriends);
+  const [loading, setLoading] = useState(!initialFriends.length);
   const [searchLoading, setSearchLoading] = useState(false);
   const [confirmUnfriend, setConfirmUnfriend] = useState<string | null>(null);
   const [followingStates, setFollowingStates] = useState<Record<string, boolean>>({});
@@ -66,18 +73,23 @@ const Friends = () => {
   const loadFriends = async () => {
     if (!user) return;
     
+    // Show cached data immediately if available
+    if (!isStale && cachedFriends && cachedFriends.length > 0) {
+      setFriends(cachedFriends);
+      setCachedData('/friends', { friends: cachedFriends });
+      setLoading(false);
+    } else if (initialFriends.length > 0) {
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+    
+    // Fetch fresh data in background
     try {
-      // Show cached data immediately if available
-      if (!isStale && cachedFriends) {
-        setFriends(cachedFriends);
-        setLoading(false);
-      } else {
-        setLoading(true);
-      }
-      
       const userFriends = await dataService.getFriends();
       setFriends(userFriends);
-      setCachedFriends(userFriends); // Update cache
+      setCachedFriends(userFriends); // Update cache hook
+      setCachedData('/friends', { friends: userFriends }); // Update TabManager cache
       
       // Load following states for all friends
       const states: Record<string, boolean> = {};
@@ -89,11 +101,13 @@ const Friends = () => {
       setFollowingStates(states);
     } catch (error) {
       console.error('Error loading friends:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load friends",
-        variant: "destructive"
-      });
+      if (friends.length === 0) {
+        toast({
+          title: "Error",
+          description: "Failed to load friends",
+          variant: "destructive"
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -214,6 +228,15 @@ const Friends = () => {
   const sentRequests = friends.filter(f => 
     f.status === 'pending' && f.requester.id === user?.id
   );
+
+  // Show skeleton immediately if loading and no cache
+  if (loading && friends.length === 0) {
+    return (
+      <Layout>
+        <FriendsSkeleton />
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
