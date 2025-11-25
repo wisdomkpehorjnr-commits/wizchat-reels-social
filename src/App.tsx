@@ -9,12 +9,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { ScrollPositionProvider } from "./contexts/ScrollPositionContext";
-import { TabManagerProvider } from "./contexts/TabManagerContext";
 
 import Login from "./pages/Login";
 import Home from "./pages/Home";
 import ProtectedRoute from "./components/ProtectedRoute";
-import MainTabsContainer from "./components/MainTabsContainer";
 
 // ✅ Lazy load non-critical pages
 const Reels = lazy(() => import("./pages/Reels"));
@@ -69,85 +67,84 @@ const App = () => (
         <AuthProvider>
           <BrowserRouter>
             <ScrollPositionProvider>
-              <TabManagerProvider>
-                <Suspense fallback={<PageLoader />}>
-                  <Routes>
-                  {/* Public routes */}
-                  <Route path="/login" element={<Login />} />
+              <Suspense fallback={<PageLoader />}>
+                <Routes>
+                {/* Public routes */}
+                <Route path="/login" element={<Login />} />
 
-                  {/* Protected routes - Main tabs use pre-rendered container */}
-                  <Route
-                    path="/"
-                    element={
-                      <ProtectedRoute>
-                        <MainTabsContainer />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/reels"
-                    element={
-                      <ProtectedRoute>
-                        <MainTabsContainer />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/chat"
-                    element={
-                      <ProtectedRoute>
-                        <MainTabsContainer />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/chat/:chatId"
-                    element={
-                      <ProtectedRoute>
-                        <ChatRoom />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/topics"
-                    element={
-                      <ProtectedRoute>
-                        <MainTabsContainer />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/topic-room/:roomId"
-                    element={
-                      <ProtectedRoute>
-                        <TopicRoom />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/profile"
-                    element={
-                      <ProtectedRoute>
-                        <Profile />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/profile/:userIdentifier"
-                    element={
-                      <ProtectedRoute>
-                        <Profile />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/friends"
-                    element={
-                      <ProtectedRoute>
-                        <MainTabsContainer />
-                      </ProtectedRoute>
-                    }
-                  />
+                {/* Protected routes */}
+                <Route
+                  path="/"
+                  element={
+                    <ProtectedRoute>
+                      <Home />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/reels"
+                  element={
+                    <ProtectedRoute>
+                      <Reels />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/chat"
+                  element={
+                    <ProtectedRoute>
+                      <Chat />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/chat/:chatId"
+                  element={
+                    <ProtectedRoute>
+                      <ChatRoom />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/topics"
+                  element={
+                    <ProtectedRoute>
+                      <Topics />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/topic-room/:roomId"
+                  element={
+                    <ProtectedRoute>
+                      <TopicRoom />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/profile"
+                  element={
+                    <ProtectedRoute>
+                      <Profile />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/profile/:userIdentifier"
+                  element={
+                    <ProtectedRoute>
+                      <Profile />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/friends"
+                  element={
+                    <ProtectedRoute>
+                      <Friends />
+                    </ProtectedRoute>
+                  }
+                />
                 <Route
                   path="/admin"
                   element={

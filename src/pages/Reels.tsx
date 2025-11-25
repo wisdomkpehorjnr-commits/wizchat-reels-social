@@ -7,7 +7,6 @@ import { dataService } from '@/services/dataService';
 import { ProfileService } from '@/services/profileService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { useTabManager } from '@/contexts/TabManagerContext';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 
@@ -25,14 +24,8 @@ const Reels = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { getCachedData, setCachedData } = useTabManager();
-  
-  // Check TabManager cache first for instant loading
-  const tabCache = getCachedData('/reels');
-  const initialReels = tabCache?.reels || [];
-  
-  const [reels, setReels] = useState<Post[]>(initialReels);
-  const [loading, setLoading] = useState(!initialReels.length);
+  const [reels, setReels] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [preloadedVideos, setPreloadedVideos] = useState<Set<string>>(new Set());
@@ -57,7 +50,6 @@ const Reels = () => {
         post.videoUrl || post.isReel || post.mediaType === 'video'
       );
       setReels(videoReels);
-      setCachedData('/reels', { reels: videoReels }); // Update TabManager cache
       
       // Preload first video
       if (videoReels.length > 0) {
@@ -410,18 +402,18 @@ const Reels = () => {
       >
         <ArrowLeft className="w-6 h-6" />
       </Button>
-      
+
       {/* Reels container */}
-          <div 
-            ref={containerRef}
+      <div
+        ref={containerRef}
         className="w-full h-full overflow-y-scroll snap-y snap-mandatory"
-            onScroll={handleScroll}
+        onScroll={handleScroll}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-            style={{ 
-              scrollBehavior: 'smooth',
-              scrollSnapType: 'y mandatory',
+        style={{
+          scrollBehavior: 'smooth',
+          scrollSnapType: 'y mandatory',
           overscrollBehavior: 'contain',
           WebkitOverflowScrolling: 'touch'
         }}
@@ -431,10 +423,10 @@ const Reels = () => {
             key={reel.id}
             post={reel}
             isActive={index === currentIndex}
-                onLike={handleLike}
+            onLike={handleLike}
             onFollow={handleFollow}
             onComment={handleComment}
-                onShare={handleShare}
+            onShare={handleShare}
             onSave={handleSave}
             onDownload={(postId) => {
               if (reel.videoUrl) {
@@ -455,8 +447,8 @@ const Reels = () => {
             onView={handleView}
             musicTitle={reel.music?.title}
             musicArtist={reel.music?.artist}
-              />
-            ))}
+          />
+        ))}
       </div>
     </div>
   );
