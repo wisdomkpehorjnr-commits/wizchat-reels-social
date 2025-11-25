@@ -12,6 +12,7 @@ import { dataService } from '@/services/dataService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useCache } from '@/hooks/useCache';
+import { useTabManager } from '@/contexts/TabManagerContext';
 import { supabase } from '@/integrations/supabase/client';
 
 const WIZAI_USER: User = {
@@ -31,15 +32,20 @@ const WIZAI_USER: User = {
 const Chat = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { getCachedData, setCachedData } = useTabManager();
   const { cachedData: cachedFriends, setCache: setCachedFriends, isStale } = useCache<Friend[]>({ 
     key: 'chat-friends-list',
     ttl: 2 * 60 * 1000 // 2 minutes cache
   });
   
-  const [friends, setFriends] = useState<Friend[]>(cachedFriends || []);
+  // Check TabManager cache first for instant loading
+  const tabCache = getCachedData('/chat');
+  const initialFriends = tabCache?.friends || cachedFriends || [];
+  
+  const [friends, setFriends] = useState<Friend[]>(initialFriends);
   const [selectedFriend, setSelectedFriend] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [loading, setLoading] = useState(!cachedFriends);
+  const [loading, setLoading] = useState(!initialFriends.length);
   const [pinnedFriends, setPinnedFriends] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -116,7 +122,8 @@ const Chat = () => {
       
       const userFriends = await dataService.getFriends();
       setFriends(userFriends);
-      setCachedFriends(userFriends); // Update cache
+      setCachedFriends(userFriends); // Update useCache
+      setCachedData('/chat', { friends: userFriends }); // Update TabManager cache
     } catch (error) {
       console.error('Error loading friends:', error);
       toast({

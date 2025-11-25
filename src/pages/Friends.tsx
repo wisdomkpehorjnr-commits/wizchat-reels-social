@@ -25,21 +25,27 @@ import { ProfileService } from '@/services/profileService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useCache } from '@/hooks/useCache';
+import { useTabManager } from '@/contexts/TabManagerContext';
 import ConfirmationDialog from '@/components/ui/confirmation-dialog';
 
 
 const Friends = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { getCachedData, setCachedData } = useTabManager();
   const { cachedData: cachedFriends, setCache: setCachedFriends, isStale } = useCache<Friend[]>({ 
     key: 'friends-list',
     ttl: 2 * 60 * 1000 // 2 minutes cache
   });
   
-  const [friends, setFriends] = useState<Friend[]>(cachedFriends || []);
+  // Check TabManager cache first for instant loading
+  const tabCache = getCachedData('/friends');
+  const initialFriends = tabCache?.friends || cachedFriends || [];
+  
+  const [friends, setFriends] = useState<Friend[]>(initialFriends);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<User[]>([]);
-  const [loading, setLoading] = useState(!cachedFriends);
+  const [loading, setLoading] = useState(!initialFriends.length);
   const [searchLoading, setSearchLoading] = useState(false);
   const [confirmUnfriend, setConfirmUnfriend] = useState<string | null>(null);
   const [followingStates, setFollowingStates] = useState<Record<string, boolean>>({});
@@ -77,7 +83,8 @@ const Friends = () => {
       
       const userFriends = await dataService.getFriends();
       setFriends(userFriends);
-      setCachedFriends(userFriends); // Update cache
+      setCachedFriends(userFriends); // Update useCache
+      setCachedData('/friends', { friends: userFriends }); // Update TabManager cache
       
       // Load following states for all friends
       const states: Record<string, boolean> = {};
