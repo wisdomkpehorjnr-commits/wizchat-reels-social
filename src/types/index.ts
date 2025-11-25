@@ -114,6 +114,8 @@ export interface MessageReaction {
   createdAt: Date;
 }
 
+export type MessageStatus = 'pending' | 'sent' | 'delivered' | 'read';
+
 export interface Message {
   id: string;
   chatId: string;
@@ -127,6 +129,9 @@ export interface Message {
   seen: boolean;
   reactions?: MessageReaction[];
   isPinned?: boolean;
+  status?: MessageStatus; // Message delivery status
+  localId?: string; // Temporary ID for unsent messages
+  synced?: boolean; // Whether message has been synced to server
 }
 
 export interface VoiceCall {

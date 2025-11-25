@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { localMessageService } from '@/services/localMessageService';
 
 interface ChatListItemProps {
   friend: User;
@@ -33,7 +34,8 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle }: ChatL
       setLastMessage("Ask me anything — I'm here to help!");
       return;
     }
-    const fetchLastMessage = async () => {
+    
+    const fetchChatData = async () => {
       try {
         // Find existing chat between users
         const { data: chats } = await supabase
@@ -45,6 +47,7 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle }: ChatL
         if (!chats || chats.length === 0) {
           setLastMessage("");
           setLastMessageTime(null);
+          setUnreadCount(0);
           return;
         }
         
@@ -68,61 +71,150 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle }: ChatL
         if (!foundChatId) {
           setLastMessage("");
           setLastMessageTime(null);
+          setUnreadCount(0);
           return;
         }
         
-        // Get last message for this chat
-        const { data: messages, error: msgError } = await supabase
-          .from('messages')
-          .select('content, created_at, user_id, seen')
-          .eq('chat_id', foundChatId)
-          .order('created_at', { ascending: false })
-          .limit(1);
+        // Load from local cache first (offline-first)
+        const localMessages = await localMessageService.getMessages(foundChatId);
+        const metadata = await localMessageService.getChatMetadata(foundChatId);
         
-        if (msgError || !messages || messages.length === 0) {
-          setLastMessage("");
-          setLastMessageTime(null);
-          return;
+        if (localMessages.length > 0) {
+          const lastMsg = localMessages[localMessages.length - 1];
+          const preview = lastMsg.type === 'image' 
+            ? '📷 Photo'
+            : lastMsg.type === 'video'
+            ? '🎥 Video'
+            : lastMsg.type === 'voice'
+            ? '🎤 Voice message'
+            : lastMsg.content && lastMsg.content.length > 30
+            ? lastMsg.content.substring(0, 30) + '...'
+            : lastMsg.content || 'Media';
+          
+          setLastMessage(preview);
+          setLastMessageTime(lastMsg.timestamp);
+        } else if (metadata) {
+          setLastMessage(metadata.lastMessagePreview || '');
+          setLastMessageTime(metadata.lastMessageTime || null);
         }
         
-        const msg = messages[0];
-        const preview = msg.content && msg.content.length > 30
-          ? msg.content.substring(0, 30) + '...'
-          : msg.content || 'Media';
-        setLastMessage(preview);
-        setLastMessageTime(new Date(msg.created_at));
+        // Calculate unread count from local messages
+        const unread = localMessages.filter(
+          m => m.userId !== user?.id && !m.seen
+        ).length;
+        setUnreadCount(unread);
         
-        // Count unread messages (messages not seen by current user)
-        const { count } = await supabase
-          .from('messages')
-          .select('*', { count: 'exact', head: true })
-          .eq('chat_id', foundChatId)
-          .eq('seen', false)
-          .neq('user_id', user?.id);
-        
-        setUnreadCount(count || 0);
+        // Also try to get from server if online (for sync)
+        if (navigator.onLine) {
+          try {
+            const { data: messages, error: msgError } = await supabase
+              .from('messages')
+              .select('content, created_at, user_id, seen, type')
+              .eq('chat_id', foundChatId)
+              .order('created_at', { ascending: false })
+              .limit(1);
+            
+            if (!msgError && messages && messages.length > 0) {
+              const msg = messages[0];
+              const preview = msg.type === 'image'
+                ? '📷 Photo'
+                : msg.type === 'video'
+                ? '🎥 Video'
+                : msg.type === 'voice'
+                ? '🎤 Voice message'
+                : msg.content && msg.content.length > 30
+                ? msg.content.substring(0, 30) + '...'
+                : msg.content || 'Media';
+              
+              setLastMessage(preview);
+              setLastMessageTime(new Date(msg.created_at));
+              
+              // Update metadata - get the full message first
+              const { data: fullMessage } = await supabase
+                .from('messages')
+                .select('*')
+                .eq('id', msg.id)
+                .single();
+              
+              if (fullMessage) {
+                const localMsg: LocalMessage = {
+                  id: fullMessage.id,
+                  chatId: fullMessage.chat_id,
+                  userId: fullMessage.user_id,
+                  user: friend as any, // Simplified
+                  content: fullMessage.content,
+                  type: fullMessage.type as any,
+                  mediaUrl: fullMessage.media_url,
+                  duration: fullMessage.duration,
+                  timestamp: new Date(fullMessage.created_at),
+                  seen: fullMessage.seen,
+                  status: (fullMessage.seen ? 'read' : 'delivered') as any,
+                  synced: true
+                };
+                await localMessageService.updateChatMetadataFromMessage(foundChatId, localMsg);
+              }
+            }
+            
+            // Count unread from server
+            const { count } = await supabase
+              .from('messages')
+              .select('*', { count: 'exact', head: true })
+              .eq('chat_id', foundChatId)
+              .eq('seen', false)
+              .neq('user_id', user?.id);
+            
+            if (count !== null) {
+              setUnreadCount(count);
+              await localMessageService.updateUnreadCount(foundChatId, count);
+            }
+          } catch (error) {
+            console.error('Error fetching from server:', error);
+            // Continue with local data
+          }
+        }
       } catch (error) {
+        console.error('Error fetching chat data:', error);
         setLastMessage("");
         setLastMessageTime(null);
+        setUnreadCount(0);
       }
     };
-    fetchLastMessage();
     
-    // Subscribe to new messages
+    fetchChatData();
+    
+    // Subscribe to new messages (both local and server)
     const channel = supabase
       .channel(`chat_${friend.id}`)
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
-        table: 'messages',
-        filter: `user_id=eq.${friend.id}`
+        table: 'messages'
       }, () => {
-        fetchLastMessage();
+        fetchChatData();
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'messages'
+      }, () => {
+        fetchChatData();
       })
       .subscribe();
     
+    // Also listen for storage events (when local storage updates)
+    const handleStorageChange = () => {
+      fetchChatData();
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Poll for local storage updates (since IndexedDB doesn't have events)
+    const pollInterval = setInterval(fetchChatData, 2000);
+    
     return () => {
       supabase.removeChannel(channel);
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(pollInterval);
     };
   }, [friend.id, user?.id, isWizAi]);
   

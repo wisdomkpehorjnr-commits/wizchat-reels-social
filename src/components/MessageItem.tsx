@@ -380,9 +380,28 @@ const MessageItem = ({
             )}
             
             <div className="flex items-center justify-between mt-1">
-              <p className={`text-xs ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                {formatTime(message.timestamp)}
-              </p>
+              <div className="flex items-center gap-1">
+                <p className={`text-xs ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                  {formatTime(message.timestamp)}
+                </p>
+                {/* Message Status Indicators (only for own messages) */}
+                {isOwn && message.status && (
+                  <span className="text-xs">
+                    {message.status === 'pending' && (
+                      <span className="text-muted-foreground" title="Sending...">🕒</span>
+                    )}
+                    {message.status === 'sent' && (
+                      <span className="text-green-500" title="Sent">✓</span>
+                    )}
+                    {message.status === 'delivered' && (
+                      <span className="text-blue-500" title="Delivered">✓✓</span>
+                    )}
+                    {message.status === 'read' && (
+                      <span className="text-blue-600" title="Read">✓✓</span>
+                    )}
+                  </span>
+                )}
+              </div>
               
               {canEdit && message.type === 'text' && !isEditing && selectedCount === 0 && (
                 <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">

@@ -7,16 +7,18 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { User, Message } from '@/types';
+import { User, Message, MessageStatus } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { dataService } from '@/services/dataService';
 import { MediaService } from '@/services/mediaService';
+import { localMessageService, LocalMessage } from '@/services/localMessageService';
 import VoiceRecorder from './VoiceRecorder';
 import MessageItem from './MessageItem';
 import OnlineStatusIndicator from './OnlineStatusIndicator';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import ThemeConfirmationDialog from './ui/theme-confirmation-dialog';
 import ConfirmationDialog from './ui/confirmation-dialog';
 
@@ -35,6 +37,8 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isOnline = useOnlineStatus(chatUser.id);
+  const isNetworkOnline = useNetworkStatus();
+  const syncInProgressRef = useRef(false);
   
   // Menu and message selection states
   const [showMenu, setShowMenu] = useState(false);
@@ -100,51 +104,68 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
   const loadPinnedMessages = async () => {
     if (!chatId) return;
     try {
-      const { data } = await supabase
-        .from('pinned_messages')
-        .select(`
-          *,
-          message:messages(*)
-        `)
-        .eq('chat_id', chatId)
-        .order('pinned_at', { ascending: false });
+      // Load from local storage first
+      const localPinned = await localMessageService.getPinnedMessage(chatId);
+      if (localPinned) {
+        setPinnedMessages([localPinned]);
+      }
       
-      if (data) {
-        const pinned = await Promise.all(
-          data.map(async (pm: any) => {
-            const { data: messageData } = await supabase
-              .from('messages')
-              .select(`
-                *,
-                user:profiles!messages_user_id_fkey (
-                  id,
-                  name,
-                  username,
-                  avatar
-                )
-              `)
-              .eq('id', pm.message_id)
-              .single();
-            
-            if (messageData) {
-              return {
-                id: messageData.id,
-                chatId: messageData.chat_id,
-                userId: messageData.user_id,
-                user: messageData.user as User,
-                content: messageData.content,
-                type: messageData.type as 'text' | 'voice' | 'image' | 'video',
-                mediaUrl: messageData.media_url,
-                duration: messageData.duration,
-                seen: messageData.seen,
-                timestamp: new Date(messageData.created_at),
-                isPinned: true
-              } as Message;
-            }
-            return null;
-          })
-        );
-        setPinnedMessages(pinned.filter((m): m is Message => m !== null));
+      // Also try to load from server if online
+      if (isNetworkOnline) {
+        const { data } = await supabase
+          .from('pinned_messages')
+          .select(`
+            *,
+            message:messages(*)
+          `)
+          .eq('chat_id', chatId)
+          .order('pinned_at', { ascending: false });
+        
+        if (data && data.length > 0) {
+          const pinned = await Promise.all(
+            data.map(async (pm: any) => {
+              const { data: messageData } = await supabase
+                .from('messages')
+                .select(`
+                  *,
+                  user:profiles!messages_user_id_fkey (
+                    id,
+                    name,
+                    username,
+                    avatar
+                  )
+                `)
+                .eq('id', pm.message_id)
+                .single();
+              
+              if (messageData) {
+                const msg: LocalMessage = {
+                  id: messageData.id,
+                  chatId: messageData.chat_id,
+                  userId: messageData.user_id,
+                  user: messageData.user as User,
+                  content: messageData.content,
+                  type: messageData.type as 'text' | 'voice' | 'image' | 'video',
+                  mediaUrl: messageData.media_url,
+                  duration: messageData.duration,
+                  seen: messageData.seen,
+                  timestamp: new Date(messageData.created_at),
+                  isPinned: true,
+                  status: (messageData.seen ? 'read' : 'delivered') as MessageStatus,
+                  synced: true
+                };
+                // Save to local storage
+                await localMessageService.saveMessage(msg);
+                return msg;
+              }
+              return null;
+            })
+          );
+          const validPinned = pinned.filter((m): m is Message => m !== null);
+          if (validPinned.length > 0) {
+            setPinnedMessages(validPinned);
+          }
+        }
       }
     } catch (error) {
       console.error('Error loading pinned messages:', error);
@@ -188,6 +209,14 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
     scrollToBottom();
   }, [messages]);
 
+  // Sync when network comes online
+  useEffect(() => {
+    if (isNetworkOnline && chatId && !syncInProgressRef.current) {
+      syncMessagesWithServer(chatId);
+      processOutbox(chatId);
+    }
+  }, [isNetworkOnline, chatId]);
+
   useEffect(() => {
     if (!chatId) return;
 
@@ -212,7 +241,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
             .single();
 
           if (messageData) {
-            const newMsg: Message = {
+            const newMsg: LocalMessage = {
               id: messageData.id,
               chatId: messageData.chat_id,
               userId: messageData.user_id,
@@ -222,8 +251,15 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
               mediaUrl: messageData.media_url,
               duration: messageData.duration,
               seen: messageData.seen,
-              timestamp: new Date(messageData.created_at)
+              timestamp: new Date(messageData.created_at),
+              status: (messageData.seen ? 'read' : 'delivered') as MessageStatus,
+              synced: true
             };
+            
+            // Save to local storage
+            await localMessageService.saveMessage(newMsg);
+            
+            // Update UI
             setMessages(prev => prev.some(m => m.id === newMsg.id) ? prev : [...prev, newMsg]);
           }
         }
@@ -231,8 +267,25 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'messages', filter: `chat_id=eq.${chatId}` },
-        (payload) => {
+        async (payload) => {
           const updated: any = payload.new;
+          
+          // Update local storage
+          const existing = await localMessageService.getMessages(chatId);
+          const msg = existing.find(m => m.id === updated.id);
+          if (msg) {
+            await localMessageService.saveMessage({
+              ...msg,
+              content: updated.content ?? msg.content,
+              mediaUrl: updated.media_url ?? msg.mediaUrl,
+              type: updated.type ?? msg.type,
+              duration: updated.duration ?? msg.duration,
+              seen: updated.seen ?? msg.seen,
+              status: (updated.seen ? 'read' : 'delivered') as MessageStatus
+            });
+          }
+          
+          // Update UI
           setMessages(prev =>
             prev.map(m =>
               m.id === updated.id
@@ -243,6 +296,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
                     type: updated.type ?? m.type,
                     duration: updated.duration ?? m.duration,
                     seen: updated.seen ?? m.seen,
+                    status: (updated.seen ? 'read' : 'delivered') as MessageStatus
                   }
                 : m
             )
@@ -252,9 +306,13 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       .on(
         'postgres_changes',
         { event: 'DELETE', schema: 'public', table: 'messages', filter: `chat_id=eq.${chatId}` },
-        (payload) => {
+        async (payload) => {
           const removed: any = payload.old;
-          // Permanently remove deleted message from state - it should never reappear
+          
+          // Permanently delete from local storage
+          await localMessageService.deleteMessage(removed.id, chatId);
+          
+          // Remove from state
           setMessages(prev => {
             const filtered = prev.filter(m => m.id !== removed.id);
             return filtered;
@@ -303,11 +361,25 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       
       setChatId(chatId);
       
-      // Load messages for this chat - only get messages that haven't been deleted
-      const chatMessages = await dataService.getMessages(chatId);
-      // Filter out any messages that might have been deleted (defensive programming)
-      // The database should already handle this, but we ensure it here too
-      setMessages(chatMessages.filter(msg => msg !== null && msg.id !== undefined));
+      // Load messages from local storage first (offline-first)
+      const localMessages = await localMessageService.getMessages(chatId);
+      
+      // Convert LocalMessage to Message format
+      const convertedMessages: Message[] = localMessages.map(msg => ({
+        ...msg,
+        status: msg.status,
+        synced: msg.synced
+      }));
+      
+      setMessages(convertedMessages);
+      
+      // If online, sync with server
+      if (isNetworkOnline) {
+        await syncMessagesWithServer(chatId);
+      }
+      
+      // Load pinned message
+      await loadPinnedMessages();
     } catch (error) {
       console.error('Error initializing chat:', error);
       toast({
@@ -320,6 +392,83 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
     }
   };
 
+  // Sync local messages with server
+  const syncMessagesWithServer = async (chatId: string) => {
+    if (syncInProgressRef.current) return;
+    syncInProgressRef.current = true;
+
+    try {
+      // Get server messages
+      const serverMessages = await dataService.getMessages(chatId);
+      
+      // Save all server messages to local storage
+      const localMessages: LocalMessage[] = serverMessages.map(msg => ({
+        ...msg,
+        status: (msg.seen ? 'read' : 'delivered') as MessageStatus,
+        synced: true
+      }));
+      
+      await localMessageService.saveMessages(localMessages);
+      
+      // Update local state
+      setMessages(prev => {
+        const serverIds = new Set(serverMessages.map(m => m.id));
+        const localOnly = prev.filter(m => !serverIds.has(m.id) && m.status === 'pending');
+        return [...serverMessages.map(msg => ({
+          ...msg,
+          status: (msg.seen ? 'read' : 'delivered') as MessageStatus
+        })), ...localOnly].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+      });
+
+      // Process outbox (send pending messages)
+      await processOutbox(chatId);
+    } catch (error) {
+      console.error('Error syncing messages:', error);
+    } finally {
+      syncInProgressRef.current = false;
+    }
+  };
+
+  // Process outbox - send pending messages
+  const processOutbox = async (chatId: string) => {
+    try {
+      const outboxMessages = await localMessageService.getOutboxMessages();
+      const chatOutbox = outboxMessages.filter(m => m.chatId === chatId);
+
+      for (const localMsg of chatOutbox) {
+        try {
+          // Send to server
+          const serverMessage = await dataService.sendMessage(chatId, localMsg.content);
+          
+          // Update local message with server ID and status
+          await localMessageService.saveMessage({
+            ...localMsg,
+            id: serverMessage.id,
+            status: 'sent',
+            synced: true
+          });
+          
+          // Remove from outbox
+          if (localMsg.localId) {
+            await localMessageService.removeFromOutbox(localMsg.localId);
+          }
+          
+          // Update UI
+          setMessages(prev => prev.map(m => 
+            m.localId === localMsg.localId 
+              ? { ...serverMessage, status: 'sent' as MessageStatus }
+              : m
+          ));
+        } catch (error) {
+          console.error('Error sending message from outbox:', error);
+          // Keep in outbox, will retry later
+        }
+      }
+    } catch (error) {
+      console.error('Error processing outbox:', error);
+    }
+  };
+
   const sendMessage = async () => {
     if (!newMessage.trim() || !chatId || !user) return;
 
@@ -329,82 +478,198 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
     setReplyingTo(null); // Clear reply
     setMessageActions({ reply: false, save: false, delete: false, forward: false, pin: false });
 
-    try {
-      // Send message with reply reference if replying
-      if (replyToId) {
-        // Include reply info in message content or as metadata
-        await dataService.sendMessage(chatId, messageContent);
-        // TODO: Add reply_to_id field to messages table if needed
-      } else {
-        await dataService.sendMessage(chatId, messageContent);
+    // Create temporary message ID
+    const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const tempMessage: LocalMessage = {
+      id: tempId,
+      chatId,
+      userId: user.id,
+      user,
+      content: messageContent,
+      type: 'text',
+      timestamp: new Date(),
+      seen: false,
+      status: 'pending',
+      synced: false,
+      localId: tempId
+    };
+
+    // Add to UI immediately with pending status
+    setMessages(prev => [...prev, tempMessage]);
+
+    // Save to local storage and outbox
+    await localMessageService.addToOutbox(tempMessage);
+
+    // Try to send immediately if online
+    if (isNetworkOnline) {
+      try {
+        const serverMessage = await dataService.sendMessage(chatId, messageContent);
+        
+        // Update message with server ID and status
+        await localMessageService.saveMessage({
+          ...tempMessage,
+          id: serverMessage.id,
+          status: 'sent',
+          synced: true
+        });
+        
+        // Remove from outbox
+        await localMessageService.removeFromOutbox(tempId);
+        
+        // Update UI
+        setMessages(prev => prev.map(m => 
+          m.localId === tempId 
+            ? { ...serverMessage, status: 'sent' as MessageStatus }
+            : m
+        ));
+      } catch (error) {
+        console.error('Error sending message:', error);
+        // Message stays in outbox, will retry when online
       }
-      
-      // Update chat's last activity
-      await supabase
-        .from('chats')
-        .update({ updated_at: new Date().toISOString() })
-        .eq('id', chatId);
-      
-      toast({
-        title: "Message sent",
-        description: "Your message has been delivered",
-      });
-    } catch (error) {
-      console.error('Error sending message:', error);
-      toast({
-        title: "Error",
-        description: "Failed to send message. Please try again.",
-        variant: "destructive"
-      });
-      // Restore message content on error
-      setNewMessage(messageContent);
     }
+    // If offline, message stays in outbox and will be sent when connection is restored
   };
 
   const handleVoiceMessage = async (audioBlob: Blob, duration: number) => {
-    if (!chatId) return;
+    if (!chatId || !user) return;
     
-    try {
-      const audioUrl = await MediaService.uploadChatMedia(new File([audioBlob], 'voice.webm', { type: 'audio/webm' }));
-      await dataService.createVoiceMessage(chatId, audioUrl, duration);
-      
+    const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const tempMessage: LocalMessage = {
+      id: tempId,
+      chatId,
+      userId: user.id,
+      user,
+      content: '',
+      type: 'voice',
+      mediaUrl: URL.createObjectURL(audioBlob), // Temporary local URL
+      duration,
+      timestamp: new Date(),
+      seen: false,
+      status: 'pending',
+      synced: false,
+      localId: tempId
+    };
+
+    // Add to UI immediately
+    setMessages(prev => [...prev, tempMessage]);
+    await localMessageService.addToOutbox(tempMessage);
+
+    // Try to upload and send if online
+    if (isNetworkOnline) {
+      try {
+        const audioUrl = await MediaService.uploadChatMedia(new File([audioBlob], 'voice.webm', { type: 'audio/webm' }));
+        const serverMessage = await dataService.createVoiceMessage(chatId, audioUrl, duration);
+        
+        // Update with server data
+        await localMessageService.saveMessage({
+          ...tempMessage,
+          id: serverMessage.id,
+          mediaUrl: audioUrl,
+          status: 'sent',
+          synced: true
+        });
+        
+        await localMessageService.removeFromOutbox(tempId);
+        setMessages(prev => prev.map(m => 
+          m.localId === tempId 
+            ? { ...serverMessage, status: 'sent' as MessageStatus }
+            : m
+        ));
+        
+        toast({
+          title: "Success",
+          description: "Voice message sent"
+        });
+      } catch (error) {
+        console.error('Error sending voice message:', error);
+        toast({
+          title: "Queued",
+          description: "Voice message will be sent when online"
+        });
+      }
+    } else {
       toast({
-        title: "Success",
-        description: "Voice message sent"
-      });
-    } catch (error) {
-      console.error('Error sending voice message:', error);
-      toast({
-        title: "Error",
-        description: "Failed to send voice message",
-        variant: "destructive"
+        title: "Queued",
+        description: "Voice message will be sent when online"
       });
     }
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !chatId) return;
+    if (!file || !chatId || !user) return;
 
-    try {
-      const mediaUrl = await MediaService.uploadChatMedia(file);
-      const mediaType = MediaService.getMediaType(file);
-      
-      if (mediaType === 'image' || mediaType === 'video') {
-        await dataService.createMediaMessage(chatId, mediaUrl, mediaType);
+    const mediaType = MediaService.getMediaType(file);
+    if (mediaType !== 'image' && mediaType !== 'video') return;
+
+    const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const localUrl = URL.createObjectURL(file);
+    
+    const tempMessage: LocalMessage = {
+      id: tempId,
+      chatId,
+      userId: user.id,
+      user,
+      content: '',
+      type: mediaType,
+      mediaUrl: localUrl, // Temporary local URL
+      timestamp: new Date(),
+      seen: false,
+      status: 'pending',
+      synced: false,
+      localId: tempId
+    };
+
+    // Add to UI immediately
+    setMessages(prev => [...prev, tempMessage]);
+    await localMessageService.addToOutbox(tempMessage);
+
+    // Try to upload and send if online
+    if (isNetworkOnline) {
+      try {
+        const mediaUrl = await MediaService.uploadChatMedia(file);
+        const serverMessage = await dataService.createMediaMessage(chatId, mediaUrl, mediaType);
+        
+        // Update with server data
+        await localMessageService.saveMessage({
+          ...tempMessage,
+          id: serverMessage.id,
+          mediaUrl: mediaUrl,
+          status: 'sent',
+          synced: true
+        });
+        
+        await localMessageService.removeFromOutbox(tempId);
+        setMessages(prev => prev.map(m => 
+          m.localId === tempId 
+            ? { ...serverMessage, status: 'sent' as MessageStatus }
+            : m
+        ));
+        
+        // Clean up local URL
+        URL.revokeObjectURL(localUrl);
         
         toast({
           title: "Success",
           description: "File uploaded successfully"
         });
+      } catch (error) {
+        console.error('Error uploading file:', error);
+        toast({
+          title: "Queued",
+          description: "File will be uploaded when online"
+        });
       }
-    } catch (error) {
-      console.error('Error uploading file:', error);
+    } else {
       toast({
-        title: "Error",
-        description: "Failed to upload file",
-        variant: "destructive"
+        title: "Queued",
+        description: "File will be uploaded when online"
       });
+    }
+    
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -448,24 +713,32 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
                 variant="ghost" 
                 size="sm" 
                 onClick={async () => {
-                  if (selectedMessages.size === 0) return;
+                  if (selectedMessages.size === 0 || !chatId) return;
                   
                   try {
-                    // Delete all selected messages immediately
-                    const deletePromises = Array.from(selectedMessages).map(msgId => 
-                      dataService.deleteMessage(msgId).catch(err => {
-                        console.error(`Error deleting message ${msgId}:`, err);
-                        return null; // Continue with other deletions even if one fails
-                      })
-                    );
+                    const deletedCount = selectedMessages.size;
+                    const messageIds = Array.from(selectedMessages);
                     
-                    await Promise.all(deletePromises);
+                    // Permanently delete from local storage first
+                    for (const msgId of messageIds) {
+                      await localMessageService.deleteMessage(msgId, chatId);
+                    }
                     
-                    // Remove deleted messages from state immediately
+                    // Remove from UI immediately
                     setMessages(prev => prev.filter(m => !selectedMessages.has(m.id)));
                     
+                    // Try to delete from server if online (fire and forget)
+                    if (isNetworkOnline) {
+                      Promise.all(
+                        messageIds.map(msgId => 
+                          dataService.deleteMessage(msgId).catch(err => {
+                            console.error(`Error deleting message ${msgId} from server:`, err);
+                          })
+                        )
+                      );
+                    }
+                    
                     // Clear selection
-                    const deletedCount = selectedMessages.size;
                     setSelectedMessages(new Set());
                     
                     // Clear any reply reference if it was deleted
@@ -583,31 +856,53 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
                 onClick={async () => {
                   try {
                     if (!chatId || !user?.id) return;
-                    // Check if already pinned
-                    const { data: existing } = await supabase
-                      .from('pinned_messages')
-                      .select('id')
-                      .eq('chat_id', chatId)
-                      .eq('message_id', replyingTo.id)
-                      .maybeSingle();
                     
-                    if (existing) {
+                    const currentPinned = await localMessageService.getPinnedMessage(chatId);
+                    const isCurrentlyPinned = currentPinned?.id === replyingTo.id;
+                    
+                    if (isCurrentlyPinned) {
                       // Unpin
-                      await supabase
-                        .from('pinned_messages')
-                        .delete()
-                        .eq('id', existing.id);
-                      setPinnedMessages(prev => prev.filter(m => m.id !== replyingTo.id));
+                      await localMessageService.unpinMessage(replyingTo.id, chatId);
+                      setPinnedMessages([]);
                       toast({ title: "Message unpinned" });
                     } else {
-                      // Pin message
-                      await supabase.from('pinned_messages').insert({ 
-                        message_id: replyingTo.id, 
-                        chat_id: chatId, 
-                        pinned_by: user.id 
-                      });
-                      setPinnedMessages(prev => [...prev, { ...replyingTo, isPinned: true }]);
+                      // Pin message - convert to LocalMessage format
+                      const localMsg: LocalMessage = {
+                        ...replyingTo,
+                        status: (replyingTo.status || 'delivered') as MessageStatus,
+                        synced: replyingTo.synced !== false
+                      };
+                      
+                      await localMessageService.pinMessage(replyingTo.id, chatId, localMsg);
+                      setPinnedMessages([{ ...replyingTo, isPinned: true }]);
                       toast({ title: "Message pinned" });
+                      
+                      // Also pin on server if online
+                      if (isNetworkOnline) {
+                        try {
+                          const { data: existing } = await supabase
+                            .from('pinned_messages')
+                            .select('id')
+                            .eq('chat_id', chatId)
+                            .maybeSingle();
+                          
+                          if (existing) {
+                            await supabase
+                              .from('pinned_messages')
+                              .delete()
+                              .eq('id', existing.id);
+                          }
+                          
+                          await supabase.from('pinned_messages').insert({ 
+                            message_id: replyingTo.id, 
+                            chat_id: chatId, 
+                            pinned_by: user.id 
+                          });
+                        } catch (error) {
+                          console.error('Error pinning on server:', error);
+                          // Continue anyway, local pin is saved
+                        }
+                      }
                     }
                     setMessageActions({ reply: false, save: false, delete: false, forward: false, pin: false });
                     setReplyingTo(null);
@@ -991,15 +1286,26 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         title="Delete Message"
         description="Delete this message?"
         onConfirm={async () => {
-          if (!messageToDelete) return;
+          if (!messageToDelete || !chatId) return;
           try {
-            await dataService.deleteMessage(messageToDelete);
+            // Permanently delete from local storage
+            await localMessageService.deleteMessage(messageToDelete, chatId);
+            
+            // Remove from UI
             setMessages(prev => prev.filter(m => m.id !== messageToDelete));
+            
+            // Try to delete from server if online
+            if (isNetworkOnline) {
+              dataService.deleteMessage(messageToDelete).catch(err => {
+                console.error('Error deleting from server:', err);
+              });
+            }
+            
             if (replyingTo?.id === messageToDelete) {
               setReplyingTo(null);
               setMessageActions({ reply: false, save: false, delete: false, forward: false, pin: false });
             }
-            toast({ title: "Message deleted" });
+            toast({ title: "Message deleted permanently" });
           } catch (error) {
             toast({ title: "Error", description: "Failed to delete message", variant: "destructive" });
           }
