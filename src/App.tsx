@@ -13,6 +13,7 @@ import { ScrollPositionProvider } from "./contexts/ScrollPositionContext";
 import Login from "./pages/Login";
 import Home from "./pages/Home";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { NetworkStatusBanner } from "./components/NetworkStatusBanner";
 
 // ✅ Lazy load non-critical pages
 const Reels = lazy(() => import("./pages/Reels"));
@@ -51,10 +52,13 @@ const queryClient = new QueryClient({
   },
 });
 
-// ✅ Simple fallback loader
+// ✅ Ultra-fast page loader (80ms transition)
 const PageLoader = () => (
   <div className="min-h-screen flex items-center justify-center bg-background">
-    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+    {/* Skeleton loader instead of spinner */}
+    <div className="animate-pulse">
+      <div className="h-12 w-12 bg-primary/20 rounded-lg"></div>
+    </div>
   </div>
 );
 

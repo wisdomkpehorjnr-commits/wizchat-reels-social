@@ -18,6 +18,7 @@ import Logo from './Logo';
 import ThemeToggle from './ThemeToggle';
 import NotificationSystem from './NotificationSystem';
 import LogoutButton from './LogoutButton';
+import { NetworkStatusBanner } from './NetworkStatusBanner';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -67,6 +68,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          {/* Network Status Banner */}
+          <NetworkStatusBanner />
+
         <div className="container flex h-16 items-center justify-between px-4">
           <div className="flex items-center gap-6">
             <Link to="/" className="flex items-center gap-2">

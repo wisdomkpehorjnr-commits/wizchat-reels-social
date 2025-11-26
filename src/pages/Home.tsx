@@ -12,6 +12,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useScrollPosition } from '@/contexts/ScrollPositionContext';
 import { useLocation } from 'react-router-dom';
+import { useTabCache } from '@/hooks/useTabCache';
+import { FeedSkeleton, PostCardSkeleton } from '@/components/SkeletonLoaders';
 
 const Home = () => {
   const { user } = useAuth();
@@ -24,6 +26,18 @@ const Home = () => {
   const hasLoadedRef = useRef(false);
   const isRestoringScrollRef = useRef(false);
   const scrollRestoredRef = useRef(false);
+
+  // Tab caching for instant content on tab switch
+  const { 
+    cachedData: cachedPosts, 
+    cacheStatus, 
+    isCached, 
+    cacheData, 
+    refreshFromNetwork 
+  } = useTabCache({
+    tabId: 'home-feed',
+    ttl: 30 * 60 * 1000, // 30 minutes
+  });
 
   // Check if we have cached data and scroll position on mount
   useEffect(() => {
@@ -323,6 +337,12 @@ const Home = () => {
 
           {/* Posts Feed - Show all posts except reels */}
           <div className="space-y-6">
+                       {/* Show skeleton loaders while loading */}
+                       {loading && posts.length === 0 && (
+                         <FeedSkeleton />
+                       )}
+
+                       {/* Show actual posts */}
             {posts
               .filter(post => !post.isReel)
               .map((post, index) => {
