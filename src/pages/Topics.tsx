@@ -7,6 +7,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { MessageCircle, Users, Flame } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useTabCache } from "@/hooks/useTabCache";
+import { TopicRoomSkeleton, ListSkeleton } from "@/components/SkeletonLoaders";
+import { SmartLoading } from "@/components/SmartLoading";
 
 interface TopicRoomType {
   id: string;
@@ -19,11 +22,23 @@ interface TopicRoomType {
 const Topics = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [rooms, setRooms] = useState<TopicRoomType[]>([]);
-  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  // Persistent room cache (won't reload on tab revisit)
+  const { cachedData: cachedRooms, cacheData: cacheRooms, cacheStatus } = useTabCache({
+    tabId: 'topics-rooms',
+    enabled: true,
+    ttl: 30 * 60 * 1000, // 30 minutes - rooms don't change often
+    onStatusChange: (status) => {
+      console.debug(`[Topics] Cache status: ${status}`);
+    },
+  });
+
+  const [rooms, setRooms] = useState<TopicRoomType[]>(cachedRooms || []);
+  const [loading, setLoading] = useState(!cachedRooms);
+  const [error, setError] = useState<Error | null>(null);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [joiningRoomId, setJoiningRoomId] = useState<string | null>(null);
-  const navigate = useNavigate();
 
   useEffect(() => {
     if (user?.id) {
@@ -52,9 +67,11 @@ const Topics = () => {
 
   const loadRooms = async () => {
     try {
+      setError(null);
       const { data, error } = await supabase.from("topic_rooms").select("*");
       if (error) {
         console.error("Error fetching rooms:", error);
+        throw error;
       } else {
         // Fetch participant counts and check if user has joined
         const roomsWithCounts = await Promise.all(
@@ -63,7 +80,7 @@ const Topics = () => {
               .from('room_participants')
               .select('*', { count: 'exact', head: true })
               .eq('room_id', room.id);
-            
+
             let isJoined = false;
             if (user?.id) {
               const { data: participant } = await supabase
@@ -74,7 +91,7 @@ const Topics = () => {
                 .single();
               isJoined = !!participant;
             }
-            
+
             return {
               ...room,
               participant_count: count || 0,
@@ -83,8 +100,18 @@ const Topics = () => {
           })
         );
         setRooms(roomsWithCounts);
+        await cacheRooms(roomsWithCounts); // Persist in cache
       }
       setDataLoaded(true);
+    } catch (err) {
+      console.error('Error loading rooms:', err);
+      const error = err instanceof Error ? err : new Error('Failed to load rooms');
+      setError(error);
+      toast({
+        title: "Error",
+        description: "Failed to load topic rooms",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }

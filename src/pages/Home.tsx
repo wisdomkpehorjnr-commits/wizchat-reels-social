@@ -11,35 +11,44 @@ import { dataService } from '@/services/dataService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useScrollPosition } from '@/contexts/ScrollPositionContext';
-import { useLocation } from 'react-router-dom';
+import { useTabCache } from '@/hooks/useTabCache';
+import { FeedSkeleton, PostCardSkeleton } from '@/components/SkeletonLoaders';
+import { SmartLoading } from '@/components/SmartLoading';
 
 const Home = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const location = useLocation();
   const { saveScrollPosition, getScrollPosition, getCachedData, clearScrollPosition } = useScrollPosition();
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
   const hasLoadedRef = useRef(false);
   const isRestoringScrollRef = useRef(false);
   const scrollRestoredRef = useRef(false);
 
-  // Check if we have cached data and scroll position on mount
+  // Use tab cache for persistent feed caching (15 minutes TTL)
+  const { cachedData, cacheStatus, isCached, cacheData, refreshFromNetwork, clearCache } = useTabCache({
+    tabId: 'home-feed',
+    enabled: true,
+    ttl: 15 * 60 * 1000,
+    onStatusChange: (status) => {
+      console.debug(`[Home] Cache status: ${status}`);
+    },
+  });
+
+  // Initialize: restore from cache or load from server
   useEffect(() => {
     const cachedPosts = getCachedData('/');
     const savedScroll = getScrollPosition('/');
-    
+
     if (cachedPosts && cachedPosts.length > 0 && !hasLoadedRef.current) {
-      // Restore cached posts immediately
       setPosts(cachedPosts);
       setLoading(false);
       hasLoadedRef.current = true;
-      
-      // Restore scroll position after a brief delay to ensure DOM is ready
+
       if (savedScroll !== null && savedScroll > 0) {
         isRestoringScrollRef.current = true;
-        // Use multiple requestAnimationFrame calls to ensure DOM is fully rendered
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
@@ -53,91 +62,76 @@ const Home = () => {
         scrollRestoredRef.current = true;
       }
     } else if (!hasLoadedRef.current) {
-      // No cache, load from server
       loadPosts();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load posts from server (only if no cache)
+  // Setup event listeners and URL handling
   useEffect(() => {
-    // Listen for home refresh events
-    const handleRefreshHome = () => {
-      refreshFeed();
-    };
-    
+    const handleRefreshHome = () => refreshFeed();
     window.addEventListener('refreshHome', handleRefreshHome);
-    
-    // Check for post ID in URL (from notifications)
+
     const urlParams = new URLSearchParams(window.location.search);
     const postId = urlParams.get('post');
     if (postId) {
-      // Wait for posts to load, then scroll to post
       const scrollToPost = () => {
         const postElement = document.querySelector(`[data-post-id="${postId}"]`);
         if (postElement) {
           postElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          // Highlight the post briefly
           postElement.classList.add('ring-4', 'ring-green-500', 'ring-offset-2', 'transition-all');
           setTimeout(() => {
             postElement.classList.remove('ring-4', 'ring-green-500', 'ring-offset-2');
           }, 2000);
         } else {
-          // If post not found yet, try again after a delay
           setTimeout(scrollToPost, 500);
         }
       };
-      
-      // Clean up URL immediately
+
       window.history.replaceState({}, '', '/');
-      
-      // Try scrolling after posts load
       setTimeout(scrollToPost, 1000);
     }
-    
+
     return () => {
       window.removeEventListener('refreshHome', handleRefreshHome);
     };
   }, []);
-  
-  // Save posts to cache whenever they change (scroll position is saved automatically by context)
+
+  // Save posts to cache whenever they change
   useEffect(() => {
     if (posts.length > 0 && !isRestoringScrollRef.current && scrollRestoredRef.current) {
-      // Update cache with current posts (scroll position is handled by ScrollPositionContext)
       const currentScroll = window.scrollY;
       saveScrollPosition('/', currentScroll, posts);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [posts]);
 
   const loadPosts = async (skipCache = false) => {
     if (!user) return;
     try {
       setLoading(true);
-      // Fetch all posts and active pinned post IDs
+      setError(null);
+
       const [postsData, pinnedIds] = await Promise.all([
         dataService.getPosts(),
         dataService.getActivePinnedPosts(),
       ]);
-      // Pinned posts go at the top, ordered by their "pinned_at" timestamps.
-      const pinnedPosts = postsData
-        .filter(post => pinnedIds.includes(post.id));
-      // Optionally, sort pinnedPosts by their pin time (add pinned_at to post and sort if needed)
-      const otherPosts = postsData
-        .filter(post => !pinnedIds.includes(post.id));
+
+      const pinnedPosts = postsData.filter(post => pinnedIds.includes(post.id));
+      const otherPosts = postsData.filter(post => !pinnedIds.includes(post.id));
       const sortedPosts = [...pinnedPosts, ...otherPosts];
-      
+
       setPosts(sortedPosts);
-      
-      // Cache the posts
+
       if (!skipCache) {
         const currentScroll = window.scrollY;
         saveScrollPosition('/', currentScroll, sortedPosts);
+        await cacheData(sortedPosts);
       }
-      
+
       hasLoadedRef.current = true;
     } catch (error) {
       console.error('Error fetching posts:', error);
+      const err = error instanceof Error ? error : new Error('Failed to fetch posts');
+      setError(err);
       toast({
         title: "Error",
         description: "Failed to load posts",
@@ -151,12 +145,17 @@ const Home = () => {
   const handleLikePost = async (postId: string) => {
     try {
       await dataService.likePost(postId);
-      // Optimistically update the UI
       setPosts(currentPosts => {
         const updated = currentPosts.map(post =>
-          post.id === postId ? { ...post, likes: post.likes.includes(user?.id) ? post.likes.filter(id => id !== user?.id) : [...post.likes, user?.id] } : post
+          post.id === postId 
+            ? { 
+                ...post, 
+                likes: post.likes.includes(user?.id) 
+                  ? post.likes.filter(id => id !== user?.id) 
+                  : [...post.likes, user?.id] 
+              } 
+            : post
         );
-        // Update cache
         const currentScroll = window.scrollY;
         saveScrollPosition('/', currentScroll, updated);
         return updated;
@@ -211,35 +210,35 @@ const Home = () => {
 
   const refreshFeed = async () => {
     setRefreshing(true);
+    setError(null);
     try {
-      // Clear cached data and scroll position
       clearScrollPosition('/');
+      await clearCache();
       scrollRestoredRef.current = false;
-      
-      // Fetch fresh posts
-      const [freshPosts, pinnedIds] = await Promise.all([
-        dataService.getPosts(),
-        dataService.getActivePinnedPosts(),
-      ]);
-      
-      const pinnedPosts = freshPosts.filter(post => pinnedIds.includes(post.id));
-      const otherPosts = freshPosts.filter(post => !pinnedIds.includes(post.id));
-      const sortedPosts = [...pinnedPosts, ...otherPosts];
-      
-      setPosts(sortedPosts);
-      
-      // Scroll to top
+
+      const freshPosts = await refreshFromNetwork(async () => {
+        const [posts, pinnedIds] = await Promise.all([
+          dataService.getPosts(),
+          dataService.getActivePinnedPosts(),
+        ]);
+
+        const pinnedPosts = posts.filter(post => pinnedIds.includes(post.id));
+        const otherPosts = posts.filter(post => !pinnedIds.includes(post.id));
+        return [...pinnedPosts, ...otherPosts];
+      });
+
+      setPosts(freshPosts || []);
       window.scrollTo({ top: 0, behavior: 'smooth' });
-      
-      // Cache the new posts with scroll at 0
-      saveScrollPosition('/', 0, sortedPosts);
-      
+      saveScrollPosition('/', 0, freshPosts || []);
+
       toast({
         title: "Feed Refreshed",
         description: "Your feed has been updated with the latest posts"
       });
     } catch (error) {
       console.error('Error refreshing feed:', error);
+      const err = error instanceof Error ? error : new Error('Failed to refresh feed');
+      setError(err);
       toast({
         title: "Error",
         description: "Failed to refresh feed",
@@ -276,28 +275,20 @@ const Home = () => {
           <div className="mb-6">
             <CreatePost onPostCreated={async (postData) => {
               try {
-                console.log('Creating post:', postData);
-                
-                // Create the post in database
                 const createdPost = await dataService.createPost(postData);
-                console.log('Post created successfully:', createdPost.id);
-                
-                // Add the real post to the top of the feed
+
                 setPosts(prevPosts => {
                   const updated = [createdPost, ...prevPosts];
-                  // Update cache with new post
                   const currentScroll = window.scrollY;
                   saveScrollPosition('/', currentScroll, updated);
                   return updated;
                 });
-                
-                // Scroll to top to show the new post
+
                 setTimeout(() => {
                   window.scrollTo({ top: 0, behavior: 'smooth' });
-                  // Update cache with scroll at top
                   saveScrollPosition('/', 0, [createdPost, ...posts]);
                 }, 100);
-                
+
                 toast({
                   title: "Success",
                   description: "Post created successfully!",
@@ -321,51 +312,47 @@ const Home = () => {
             </div>
           )}
 
-          {/* Posts Feed - Show all posts except reels */}
-          <div className="space-y-6">
-            {posts
-              .filter(post => !post.isReel)
-              .map((post, index) => {
-                console.log('Rendering post:', {
-                  id: post.id,
-                  content: post.content,
-                  imageUrls: post.imageUrls,
-                  imageUrl: post.imageUrl,
-                  mediaType: post.mediaType,
-                  hasImages: !!(post.imageUrls?.length || post.imageUrl)
-                });
-                
-                // Show friends suggestion card after every 60 posts
-                const shouldShowSuggestion = (index + 1) % 60 === 0;
-                
-                return (
-                  <div key={post.id}>
-                    <PostCard
-                      post={post}
-                      onPostUpdate={loadPosts}
-                    />
-                    {shouldShowSuggestion && (
-                      <FriendsSuggestionCard />
-                    )}
-                  </div>
-                );
-              })
+          {/* Posts Feed with SmartLoading */}
+          <SmartLoading
+            isLoading={loading && posts.length === 0}
+            isError={error !== null && !isCached}
+            isEmpty={!loading && posts.length === 0}
+            error={error}
+            loadingFallback={<FeedSkeleton />}
+            errorFallback={(retry) => (
+              <div className="text-center py-12 space-y-4">
+                <p className="text-red-600 dark:text-red-400">Failed to load feed</p>
+                <Button onClick={retry} variant="outline">Try Again</Button>
+              </div>
+            )}
+            emptyFallback={
+              <div className="text-center py-12">
+                <p className="text-gray-600 dark:text-slate-400">No posts yet. Start following people to see their posts!</p>
+              </div>
             }
-          </div>
+            onRetry={() => loadPosts()}
+          >
+            <div className="space-y-6">
+              {posts
+                .filter(post => !post.isReel)
+                .map((post, index) => {
+                  const shouldShowSuggestion = (index + 1) % 60 === 0;
 
-          {/* Loading State */}
-          {loading && (
-            <div className="text-center py-4">
-              Loading posts...
+                  return (
+                    <div key={post.id}>
+                      <PostCard
+                        post={post}
+                        onPostUpdate={loadPosts}
+                      />
+                      {shouldShowSuggestion && (
+                        <FriendsSuggestionCard />
+                      )}
+                    </div>
+                  );
+                })
+              }
             </div>
-          )}
-
-          {/* Empty State */}
-          {!loading && posts.length === 0 && (
-            <div className="text-center py-4">
-              No posts yet. Start following people to see their posts!
-            </div>
-          )}
+          </SmartLoading>
         </div>
       </div>
     </Layout>
