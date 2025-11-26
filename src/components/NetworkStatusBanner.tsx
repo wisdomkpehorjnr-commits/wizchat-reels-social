@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { WiFi, WifiOff, AlertCircle, Loader } from 'lucide-react';
+import { Wifi, WifiOff, AlertCircle, Loader } from 'lucide-react';
 import { networkStatusManager, ConnectionStatus, ConnectionSpeed } from '@/services/networkStatusManager';
 import { useTheme } from '@/contexts/ThemeContext';
 
@@ -69,7 +69,7 @@ export function NetworkStatusBanner() {
           bg: isDark ? 'bg-green-900/30' : 'bg-green-100',
           border: 'border-green-500/30',
           text: 'text-green-600 dark:text-green-400',
-          icon: WiFi,
+          icon: Wifi,
           message: 'Back Online – Updating content…',
           color: '#22c55e',
         };
