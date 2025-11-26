@@ -52,18 +52,11 @@ const Topics = () => {
 
   const loadRooms = async () => {
     try {
-      // Try cached rooms first for instant UX
-      const cached = await import('@/services/cacheService').then(m => m.cacheService.get<any[]>('topics_rooms')).catch(() => null);
-      if (cached && cached.length > 0) {
-        setRooms(cached);
-        setDataLoaded(true);
-        setLoading(false);
-      }
-
       const { data, error } = await supabase.from("topic_rooms").select("*");
       if (error) {
         console.error("Error fetching rooms:", error);
       } else {
+        // Fetch participant counts and check if user has joined
         const roomsWithCounts = await Promise.all(
           (data || []).map(async (room) => {
             const { count } = await supabase
@@ -90,16 +83,7 @@ const Topics = () => {
           })
         );
         setRooms(roomsWithCounts);
-
-        // Cache the rooms for offline use
-        try {
-          const { cacheService } = await import('@/services/cacheService');
-          await cacheService.set('topics_rooms', roomsWithCounts, 60 * 60 * 1000); // 1 hour
-        } catch (err) {
-          console.debug('Failed to cache topic rooms', err);
-        }
       }
-
       setDataLoaded(true);
     } finally {
       setLoading(false);
