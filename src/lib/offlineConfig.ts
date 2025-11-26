@@ -3,10 +3,10 @@
  * Central place to configure all offline-first features
  */
 
-import { cacheService } from './cacheService';
-import { networkStatusManager } from './networkStatusManager';
-import { offlineService } from './offlineService';
-import { offlineDataManager } from './offlineDataManager';
+import { cacheService } from '@/services/cacheService';
+import { networkStatusManager } from '@/services/networkStatusManager';
+import { offlineService } from '@/services/offlineService';
+import { offlineDataManager } from '@/services/offlineDataManager';
 
 /**
  * Offline configuration constants
