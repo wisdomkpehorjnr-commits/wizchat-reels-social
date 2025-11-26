@@ -8,6 +8,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Notification } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
+import { cacheService } from '@/services/cacheService';
+import { networkStatusManager } from '@/services/networkStatusManager';
 
 const NotificationCenter: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -16,22 +18,58 @@ const NotificationCenter: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    loadNotifications();
-    
-    // Subscribe to real-time notifications
-    const channel = supabase
-      .channel('notifications-updates')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'notifications'
-      }, () => {
-        loadNotifications();
-      })
-      .subscribe();
+    let channel: any = null;
+    let mounted = true;
+
+    const keyForUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      return user ? `notifications_user_${user.id}` : 'notifications_user_anonymous';
+    };
+
+    (async () => {
+      const cacheKey = await keyForUser();
+
+      // Try to load cached notifications first
+      try {
+        const cached = await cacheService.get<Notification[]>(cacheKey);
+        if (cached && mounted) {
+          setNotifications(cached);
+          setUnreadCount(cached.filter(n => !n.isRead).length);
+          setLoading(false);
+        }
+      } catch (err) {
+        console.debug('No cached notifications or cache failed', err);
+      }
+
+      // Subscribe to realtime updates and load fresh
+      channel = supabase
+        .channel('notifications-updates')
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'notifications'
+        }, () => {
+          loadNotifications().catch(console.error);
+        })
+        .subscribe();
+
+      // Refresh from network if online
+      if (networkStatusManager.isOnline()) {
+        await loadNotifications();
+      }
+    })();
+
+    // Refresh quietly when connection restored
+    const unsubNetwork = networkStatusManager.subscribe((status) => {
+      if (status === 'online') {
+        loadNotifications().catch(console.error);
+      }
+    });
 
     return () => {
-      supabase.removeChannel(channel);
+      mounted = false;
+      if (channel) supabase.removeChannel(channel);
+      if (unsubNetwork) unsubNetwork();
     };
   }, []);
 
@@ -39,13 +77,12 @@ const NotificationCenter: React.FC = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(50);
 
       if (error) throw error;
 
@@ -62,6 +99,13 @@ const NotificationCenter: React.FC = () => {
 
       setNotifications(mappedNotifications);
       setUnreadCount(mappedNotifications.filter(n => !n.isRead).length);
+
+      // Persist to cache for offline use
+      try {
+        await cacheService.set(`notifications_user_${user.id}`, mappedNotifications, 24 * 60 * 60 * 1000);
+      } catch (err) {
+        console.debug('Failed to cache notifications', err);
+      }
     } catch (error) {
       console.error('Error loading notifications:', error);
     } finally {

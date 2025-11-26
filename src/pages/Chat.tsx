@@ -13,6 +13,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useCache } from '@/hooks/useCache';
 import { supabase } from '@/integrations/supabase/client';
+import { localMessageService } from '@/services/localMessageService';
+import { useNetworkStatus } from '@/hooks/useNetworkAware';
 
 const WIZAI_USER: User = {
   id: 'wizai',
@@ -101,6 +103,32 @@ const Chat = () => {
       window.removeEventListener('openChatWithUser', handleOpenChatWithUser as EventListener);
     };
   }, [user, toast]);
+
+  const network = useNetworkStatus();
+  const [pendingOutboxCount, setPendingOutboxCount] = useState(0);
+
+  useEffect(() => {
+    let mounted = true;
+    const refreshOutbox = async () => {
+      try {
+        const outbox = await localMessageService.getOutboxMessages();
+        if (!mounted) return;
+        setPendingOutboxCount(outbox.length);
+      } catch (err) {
+        console.debug('Failed to get outbox messages', err);
+      }
+    };
+
+    refreshOutbox();
+
+    // Refresh when network status changes
+    const unsub = (status: any) => refreshOutbox();
+    const unsubscribe = network ? (() => {}) : (() => {}); // placeholder
+
+    return () => {
+      mounted = false;
+    };
+  }, [network]);
 
   const loadData = async () => {
     if (!user) return;
@@ -192,6 +220,14 @@ const Chat = () => {
               </div>
             </CardHeader>
             <CardContent>
+                {network.isOffline && (
+                  <div className="mb-3 p-2 rounded bg-yellow-50 text-yellow-800 text-sm flex items-center justify-between">
+                    <div>You're offline — showing cached chats. Messages you send will be queued.</div>
+                    {pendingOutboxCount > 0 && (
+                      <div className="text-xs bg-yellow-200 px-2 py-1 rounded">{pendingOutboxCount} pending</div>
+                    )}
+                  </div>
+                )}
               <div className="relative">
                 <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
                 <Input

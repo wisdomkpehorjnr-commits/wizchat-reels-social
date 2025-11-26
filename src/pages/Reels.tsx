@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
+import { ReelCardSkeleton } from '@/components/SkeletonLoaders';
 
 interface ReelAnalytics {
   reelId: string;
@@ -43,14 +44,38 @@ const Reels = () => {
   }, []);
 
   const loadReels = async () => {
+    // Try a quick local cache first so UX is instant on tab open
+    const CACHE_KEY = 'cached_reels_v1';
     try {
-      setLoading(true);
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        try {
+          const parsed: Post[] = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setReels(parsed);
+            // show cached content immediately while we revalidate in background
+            setLoading(false);
+          }
+        } catch (_) {
+          // ignore parse errors and continue to network fetch
+        }
+      } else {
+        setLoading(true);
+      }
+
       const allPosts = await dataService.getPosts();
       const videoReels = allPosts.filter(post => 
         post.videoUrl || post.isReel || post.mediaType === 'video'
       );
+
+      // Update UI and cache
       setReels(videoReels);
-      
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify(videoReels));
+      } catch (_) {
+        // ignore localStorage quota errors
+      }
+
       // Preload first video
       if (videoReels.length > 0) {
         preloadVideo(videoReels[0].id, videoReels[0].videoUrl);
@@ -369,8 +394,14 @@ const Reels = () => {
 
   if (loading) {
     return (
-      <div className="fixed inset-0 bg-black flex items-center justify-center">
-        <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin" />
+      <div className="fixed inset-0 bg-black">
+        <div className="w-full h-full flex items-center justify-center">
+          <div className="w-full max-w-2xl p-4 space-y-6">
+            <ReelCardSkeleton />
+            <ReelCardSkeleton />
+            <ReelCardSkeleton />
+          </div>
+        </div>
       </div>
     );
   }

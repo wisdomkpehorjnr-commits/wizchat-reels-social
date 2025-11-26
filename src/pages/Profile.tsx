@@ -21,6 +21,8 @@ import AvatarStudio, { EnhancedAvatarData } from '@/components/AvatarStudio';
 import { useToast } from '@/components/ui/use-toast';
 import { useNavigate, useParams } from 'react-router-dom';
 import VerificationBadge from '@/components/VerificationBadge';
+import { cacheService } from '@/services/cacheService';
+import { useNetworkStatus } from '@/hooks/useNetworkAware';
 
 const Profile = () => {
   const { user } = useAuth();
@@ -51,6 +53,7 @@ const Profile = () => {
   // Check both if there's no userIdentifier (own profile route) or if the profileUser matches current user
   const isOwnProfile = !userIdentifier || (profileUser && user && profileUser.id === user.id);
   const targetUser = profileUser || user;
+  const network = useNetworkStatus();
 
   /** Fetch profile data */
   useEffect(() => {
@@ -60,6 +63,21 @@ const Profile = () => {
       setError(null);
 
       try {
+        const targetId = userIdentifier || user.id;
+
+        // Try to load cached profile and posts first for instant offline UX
+        try {
+          const cachedProfile = await cacheService.get(`profile_${targetId}`);
+          const cachedPosts = await cacheService.get(`profile_posts_${targetId}`);
+          if (cachedProfile) setProfileUser(cachedProfile);
+          if (cachedPosts) {
+            setUserPosts((cachedPosts as any[]).filter((p: any) => !p.isReel));
+            setUserReels((cachedPosts as any[]).filter((p: any) => p.isReel));
+          }
+        } catch (err) {
+          console.debug('No cached profile/posts or failed to load', err);
+        }
+
         let currentUserId = user.id;
         let currentUser = user;
 
@@ -134,6 +152,14 @@ const Profile = () => {
         if (!isOwnProfile && currentUserId !== user?.id) {
           const following = await ProfileService.isFollowing(currentUserId);
           setIsFollowing(following);
+        }
+
+        // Cache profile and posts locally for offline use
+        try {
+          await cacheService.set(`profile_${currentUserId}`, currentUser, 24 * 60 * 60 * 1000);
+          await cacheService.set(`profile_posts_${currentUserId}`, filteredPosts, 24 * 60 * 60 * 1000);
+        } catch (err) {
+          console.debug('Failed to cache profile or posts', err);
         }
 
       } catch (err: any) {
@@ -277,6 +303,11 @@ const Profile = () => {
                       <VerificationBadge isVerified={true} size="lg" showText />
                     )}
                   </div>
+                  {network.isOffline && (
+                    <div className="mt-2 inline-flex items-center gap-2 px-2 py-1 bg-yellow-50 text-yellow-800 rounded text-sm">
+                      Offline
+                    </div>
+                  )}
                   <p className="text-strong-contrast/80">@{targetUser?.username}</p>
                   {targetUser?.bio && <p className="text-strong-contrast/90 mt-2">{targetUser.bio}</p>}
                 </div>

@@ -9,6 +9,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { dataService } from '@/services/dataService';
 import { Message, Chat } from '@/types';
 import { Send, ArrowLeft, Users } from 'lucide-react';
+import { localMessageService } from '@/services/localMessageService';
+import { useNetworkStatus } from '@/hooks/useNetworkAware';
+import useOfflineSync from '@/hooks/useOfflineSync';
 
 const ChatRoom = () => {
   const { chatId } = useParams<{ chatId: string }>();
@@ -18,6 +21,11 @@ const ChatRoom = () => {
   const [loading, setLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const network = useNetworkStatus();
+
+  // Start offline sync (flush outbox when online)
+  useOfflineSync();
+
   useEffect(() => {
     const loadChatData = async () => {
       if (!chatId) return;
@@ -26,10 +34,30 @@ const ChatRoom = () => {
         const chats = await dataService.getChats();
         const currentChat = chats.find(c => c.id === chatId);
         setChat(currentChat || null);
-        
-        if (currentChat) {
+
+        // Load messages from local IndexedDB first for instant UI
+        try {
+          const localMessages = await localMessageService.getMessages(chatId);
+          if (localMessages && localMessages.length > 0) {
+            setMessages(localMessages as Message[]);
+          }
+        } catch (err) {
+          console.debug('No local messages or failed to load local messages', err);
+        }
+
+        // If online, fetch latest messages from server and merge
+        if (!network.isOffline) {
           const chatMessages = await dataService.getMessages(chatId);
           setMessages(chatMessages);
+          // Persist server messages locally for offline use
+          try {
+            // Convert messages to local format and save
+            // localMessageService.saveMessages expects LocalMessage[] but Message fields align sufficiently
+            // We wrap minimal fields
+            await localMessageService.saveMessages(chatMessages.map(m => ({ ...m, status: 'sent', synced: true })) as any);
+          } catch (err) {
+            console.debug('Failed to save messages locally', err);
+          }
         }
       } catch (error) {
         console.error('Error loading chat data:', error);
@@ -49,6 +77,31 @@ const ChatRoom = () => {
     if (!newMessage.trim() || !chat) return;
 
     try {
+      if (network.isOffline) {
+        // Create a local pending message and add to outbox
+        const localMsg: any = {
+          id: `local_${Date.now()}`,
+          chatId: chat.id,
+          userId: 'current-user',
+          user: { id: 'current-user', name: 'You', avatar: '' },
+          content: newMessage,
+          type: 'text',
+          mediaUrl: undefined,
+          duration: undefined,
+          timestamp: new Date(),
+          status: 'pending',
+          synced: false
+        };
+
+        // Save locally and add to outbox
+        await localMessageService.addToOutbox(localMsg as any);
+        await localMessageService.saveMessage(localMsg as any);
+
+        setMessages(prev => [...prev, localMsg]);
+        setNewMessage('');
+        return;
+      }
+
       const message = await dataService.sendMessage(chat.id, newMessage);
       setMessages(prev => [...prev, message]);
       setNewMessage('');

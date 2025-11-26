@@ -14,6 +14,7 @@ import { useScrollPosition } from '@/contexts/ScrollPositionContext';
 import { useLocation } from 'react-router-dom';
 import { useTabCache } from '@/hooks/useTabCache';
 import { FeedSkeleton, PostCardSkeleton } from '@/components/SkeletonLoaders';
+import { useNetworkStatus } from '@/hooks/useNetworkAware';
 
 const Home = () => {
   const { user } = useAuth();
@@ -123,6 +124,35 @@ const Home = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [posts]);
+
+  const network = useNetworkStatus();
+
+  // Persist posts to persistent tab cache so they are available offline
+  useEffect(() => {
+    if (posts && posts.length > 0) {
+      try {
+        cacheData(posts);
+      } catch (err) {
+        console.debug('Failed to cache home posts via useTabCache', err);
+      }
+    }
+  }, [posts, cacheData]);
+
+  // When connection is restored, refresh from network in background
+  useEffect(() => {
+    if (!network.isOffline) {
+      // background refresh, silently update cache
+      refreshFromNetwork(async () => {
+        const [freshPosts, pinnedIds] = await Promise.all([
+          dataService.getPosts(),
+          dataService.getActivePinnedPosts()
+        ]);
+        const pinnedPosts = freshPosts.filter(post => pinnedIds.includes(post.id));
+        const otherPosts = freshPosts.filter(post => !pinnedIds.includes(post.id));
+        return [...pinnedPosts, ...otherPosts];
+      }).catch(err => console.debug('Background refresh failed', err));
+    }
+  }, [network.isOffline, refreshFromNetwork]);
 
   const loadPosts = async (skipCache = false) => {
     if (!user) return;
