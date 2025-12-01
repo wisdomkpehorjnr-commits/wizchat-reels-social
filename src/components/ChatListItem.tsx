@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { localMessageService } from '@/services/localMessageService';
+import { localMessageService, LocalMessage } from '@/services/localMessageService';
 
 interface ChatListItemProps {
   friend: User;
@@ -109,7 +109,7 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle }: ChatL
           try {
             const { data: messages, error: msgError } = await supabase
               .from('messages')
-              .select('content, created_at, user_id, seen, type')
+              .select('id, content, created_at, user_id, seen, type')
               .eq('chat_id', foundChatId)
               .order('created_at', { ascending: false })
               .limit(1);
@@ -133,7 +133,7 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle }: ChatL
               const { data: fullMessage } = await supabase
                 .from('messages')
                 .select('*')
-                .eq('id', msg.id)
+                .eq('id', messages[0].id)
                 .single();
               
               if (fullMessage) {
@@ -141,14 +141,14 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle }: ChatL
                   id: fullMessage.id,
                   chatId: fullMessage.chat_id,
                   userId: fullMessage.user_id,
-                  user: friend as any, // Simplified
+                  user: friend,
                   content: fullMessage.content,
-                  type: fullMessage.type as any,
+                  type: fullMessage.type as 'text' | 'voice' | 'image' | 'video',
                   mediaUrl: fullMessage.media_url,
                   duration: fullMessage.duration,
                   timestamp: new Date(fullMessage.created_at),
                   seen: fullMessage.seen,
-                  status: (fullMessage.seen ? 'read' : 'delivered') as any,
+                  status: fullMessage.seen ? 'read' : 'delivered',
                   synced: true
                 };
                 await localMessageService.updateChatMetadataFromMessage(foundChatId, localMsg);
