@@ -40,7 +40,7 @@ class OfflineDataManager {
    * Generate cache key from parameters
    */
   private generateKey(cacheKey: CacheKey): string {
-    const parts = [cacheKey.domain];
+    const parts = [cacheKey.domain as string];
     if (cacheKey.scope) parts.push(cacheKey.scope);
     if (cacheKey.identifier) parts.push(cacheKey.identifier);
     return `cache-${parts.join('-')}`;
@@ -50,11 +50,11 @@ class OfflineDataManager {
    * Cache feed/posts data
    */
   async cacheFeed(posts: any[], ttl = DEFAULT_TTL) {
-    return this.set('feed', 'all', posts, ttl);
+    return this.set('feed' as const, 'all', posts, ttl);
   }
 
   async getCachedFeed() {
-    return this.get('feed', 'all');
+    return this.get('feed' as const, 'all');
   }
 
   /**
@@ -138,7 +138,7 @@ class OfflineDataManager {
    * Generic set with metadata tracking
    */
   private async set(
-    domain: string,
+    domain: CacheKey['domain'],
     scope: string,
     data: any,
     ttl: number
@@ -172,7 +172,7 @@ class OfflineDataManager {
   /**
    * Generic get with metadata tracking
    */
-  private async get(domain: string, scope: string): Promise<any> {
+  private async get(domain: CacheKey['domain'], scope: string): Promise<any> {
     try {
       const key = `cache-${domain}-${scope}`;
 

@@ -41,8 +41,8 @@ export const FullscreenVideoPlayer: React.FC<FullscreenVideoPlayerProps> = ({
   }, [isActive, isPlaying]);
 
   const handlePlayPauseClick = async () => {
-    const newState = await togglePlayPause();
-    onTogglePlayPause?.(newState);
+    await togglePlayPause();
+    onTogglePlayPause?.(isPlaying);
     setShowPlayPause(true);
     setTimeout(() => setShowPlayPause(false), 1000);
   };
@@ -83,11 +83,10 @@ export const FullscreenVideoPlayer: React.FC<FullscreenVideoPlayerProps> = ({
 
       {/* Play/Pause Overlay */}
       <motion.div
-        className="absolute inset-0 flex items-center justify-center"
+        className="absolute inset-0 flex items-center justify-center pointer-events-none"
         initial={{ opacity: 0 }}
         animate={{ opacity: showPlayPause ? 1 : 0 }}
         transition={{ duration: 0.3 }}
-        pointerEvents="none"
       >
         <motion.div
           className="flex items-center justify-center w-16 h-16 rounded-full bg-white/30 backdrop-blur-md"

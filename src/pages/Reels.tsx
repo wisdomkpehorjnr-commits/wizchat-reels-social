@@ -428,7 +428,7 @@ const Reels = () => {
             onComment={handleComment}
             onShare={handleShare}
             onSave={handleSave}
-            onDownload={(postId) => {
+            onDownload={async (postId) => {
               if (reel.videoUrl) {
                 const link = document.createElement('a');
                 link.href = reel.videoUrl;
@@ -436,7 +436,7 @@ const Reels = () => {
                 link.click();
               }
             }}
-            onReport={(postId) => {
+            onReport={async (postId) => {
               toast({
                 title: "Report submitted",
                 description: "Thank you for reporting. We'll review this shortly."

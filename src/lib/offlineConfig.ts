@@ -128,12 +128,15 @@ export async function initializeOfflineMode() {
       }
     }
 
-    // 6. Enable periodic sync
-    if ('serviceWorker' in navigator && 'SyncManager' in window && OFFLINE_CONFIG.sync.enabled) {
+    // 6. Enable periodic sync (if supported)
+    if ('serviceWorker' in navigator && OFFLINE_CONFIG.sync.enabled) {
       try {
         const registration = await navigator.serviceWorker.ready;
-        await registration.sync.register('sync-offline-queue');
-        console.log('[Offline] Periodic sync registered');
+        // Check if SyncManager is available
+        if ('sync' in registration) {
+          await (registration as any).sync.register('sync-offline-queue');
+          console.log('[Offline] Periodic sync registered');
+        }
       } catch (error) {
         console.debug('[Offline] Periodic sync not available:', error);
       }

@@ -7,7 +7,7 @@
  */
 
 import { networkStatusManager } from './networkStatusManager';
-import { performanceUtils } from '@/lib/performanceUtils';
+import { retryWithBackoff } from '@/lib/performanceUtils';
 
 export interface FetchOptions {
   priority?: 'critical' | 'high' | 'normal' | 'low';
@@ -56,7 +56,7 @@ class NetworkAwareFetcher {
     }
 
     // Standard fetch with retry
-    return performanceUtils.retryWithBackoff(
+    return retryWithBackoff(
       async () => {
         return this.fetchWithTimeout<T>(url, adjustedTimeout);
       },
@@ -107,7 +107,7 @@ class NetworkAwareFetcher {
 
     for (const [key, batch] of batchEntries) {
       try {
-        const result = await performanceUtils.retryWithBackoff(
+        const result = await retryWithBackoff(
           async () => {
             return this.fetchWithTimeout(batch.url, timeout);
           },

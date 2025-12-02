@@ -211,7 +211,6 @@ export const CommentsBottomSheet: React.FC<CommentsBottomSheetProps> = ({
                       backgroundColor: theme.colors.surfaceVariant,
                       color: theme.colors.text,
                       borderColor: theme.colors.border,
-                      focusRingColor: theme.colors.primary,
                     }}
                   />
 

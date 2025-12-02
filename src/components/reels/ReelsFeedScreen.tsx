@@ -206,7 +206,6 @@ const InnerReelsFeedScreen: React.FC<InnerReelsFeedScreenProps> = ({ theme }) =>
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        onScrollEnd={handleScrollEnd}
         className="w-full h-full overflow-y-scroll snap-y snap-mandatory"
         style={{
           scrollSnapType: 'y mandatory',
