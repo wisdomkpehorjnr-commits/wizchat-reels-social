@@ -1,32 +1,72 @@
 import { useState, useEffect, useRef } from 'react';
-import { Check, CheckCheck, Clock, Smile } from 'lucide-react';
+import { Check, CheckCheck, Clock } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Message } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import MessageContextMenu from './chat/MessageContextMenu';
+import DeleteMessageDialog from './chat/DeleteMessageDialog';
+import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 
 interface ChatMessageProps {
   message: Message;
   onReaction: (emoji: string) => void;
+  onEdit?: (messageId: string, newContent: string) => void;
+  onDelete?: (messageId: string, deleteForEveryone: boolean) => void;
+  onReply?: (message: Message) => void;
+  onForward?: (message: Message) => void;
+  onPin?: (messageId: string) => void;
 }
 
 const REACTION_EMOJIS = ['❤️', '👍', '😂', '😮', '😢', '🙏', '🔥', '👏'];
 
-const ChatMessage = ({ message, onReaction }: ChatMessageProps) => {
+const ChatMessage = ({ 
+  message, 
+  onReaction,
+  onEdit,
+  onDelete,
+  onReply,
+  onForward,
+  onPin
+}: ChatMessageProps) => {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const navigate = useNavigate();
   const [showReactions, setShowReactions] = useState(false);
+  const [showContextMenu, setShowContextMenu] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [tapCount, setTapCount] = useState(0);
   const tapTimerRef = useRef<NodeJS.Timeout>();
+  const longPressTimerRef = useRef<NodeJS.Timeout>();
   const isOwn = message.userId === user?.id;
+  
+  const messageAge = Date.now() - message.timestamp.getTime();
+  const canEdit = isOwn && messageAge < 2 * 60 * 1000; // 2 minutes
 
   useEffect(() => {
     return () => {
       if (tapTimerRef.current) {
         clearTimeout(tapTimerRef.current);
       }
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+      }
     };
   }, []);
+
+  const handleTouchStart = () => {
+    longPressTimerRef.current = setTimeout(() => {
+      setShowContextMenu(true);
+    }, 500);
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+    }
+  };
 
   const handleDoubleTap = () => {
     setTapCount(prev => prev + 1);
@@ -36,11 +76,9 @@ const ChatMessage = ({ message, onReaction }: ChatMessageProps) => {
     }
 
     if (tapCount === 1) {
-      // Double tap detected
       setShowReactions(true);
       setTapCount(0);
     } else {
-      // Wait for second tap
       tapTimerRef.current = setTimeout(() => {
         setTapCount(0);
       }, 300);
@@ -50,6 +88,21 @@ const ChatMessage = ({ message, onReaction }: ChatMessageProps) => {
   const handleReactionSelect = (emoji: string) => {
     onReaction(emoji);
     setShowReactions(false);
+  };
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(message.content);
+    toast({
+      title: "Copied",
+      description: "Message copied to clipboard"
+    });
+  };
+
+  const handleForwardToChats = () => {
+    if (onForward) {
+      onForward(message);
+    }
+    navigate('/chat');
   };
 
   const formatTime = (date: Date) => {
@@ -79,11 +132,18 @@ const ChatMessage = ({ message, onReaction }: ChatMessageProps) => {
   };
 
   return (
-    <div 
-      className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-2 group relative`}
-      onClick={handleDoubleTap}
-    >
-      <div className={`flex items-end space-x-2 max-w-xs lg:max-w-md ${isOwn ? 'flex-row-reverse space-x-reverse' : ''}`}>
+    <>
+      <div 
+        className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-2 group relative`}
+        onClick={handleDoubleTap}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          setShowContextMenu(true);
+        }}
+      >
+        <div className={`flex items-end space-x-2 max-w-xs lg:max-w-md ${isOwn ? 'flex-row-reverse space-x-reverse' : ''}`}>
         {!isOwn && (
           <Avatar className="w-6 h-6 flex-shrink-0">
             <AvatarImage src={message.user.avatar} />
@@ -175,8 +235,40 @@ const ChatMessage = ({ message, onReaction }: ChatMessageProps) => {
             )}
           </AnimatePresence>
         </div>
+        </div>
       </div>
-    </div>
+
+      {/* Context Menu */}
+      {showContextMenu && (
+        <MessageContextMenu
+          message={message}
+          isOwn={isOwn}
+          canEdit={canEdit}
+          onPin={() => onPin && onPin(message.id)}
+          onCopy={handleCopy}
+          onForward={handleForwardToChats}
+          onReply={() => onReply && onReply(message)}
+          onDelete={() => setShowDeleteDialog(true)}
+          onEdit={() => {
+            // Handle edit - you can implement inline editing or a dialog
+            toast({
+              title: "Edit message",
+              description: "Editing coming soon"
+            });
+          }}
+          onClose={() => setShowContextMenu(false)}
+        />
+      )}
+
+      {/* Delete Dialog */}
+      <DeleteMessageDialog
+        isOpen={showDeleteDialog}
+        onClose={() => setShowDeleteDialog(false)}
+        onDeleteForMe={() => onDelete && onDelete(message.id, false)}
+        onDeleteForEveryone={() => onDelete && onDelete(message.id, true)}
+        isOwn={isOwn}
+      />
+    </>
   );
 };
 
