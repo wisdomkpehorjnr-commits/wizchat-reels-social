@@ -48,9 +48,9 @@ const AttachmentMenu = ({
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 20, opacity: 0 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed bottom-20 left-4 right-4 bg-background border-2 border-primary/20 rounded-2xl shadow-xl p-4 z-50"
+            className="fixed bottom-20 left-2 right-2 sm:left-4 sm:right-4 bg-background border-2 border-primary/20 rounded-2xl shadow-xl p-3 sm:p-4 z-50 max-w-md mx-auto"
           >
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-3 gap-3 sm:gap-4">
               {attachments.map((item, index) => (
                 <motion.div
                   key={index}
@@ -60,16 +60,16 @@ const AttachmentMenu = ({
                 >
                   <Button
                     variant="ghost"
-                    className="flex flex-col items-center gap-2 h-auto py-4"
+                    className="flex flex-col items-center gap-1.5 sm:gap-2 h-auto py-3 sm:py-4"
                     onClick={() => {
                       item.action();
                       onClose();
                     }}
                   >
-                    <div className={`w-12 h-12 rounded-full ${item.color} flex items-center justify-center`}>
-                      <item.icon className="w-6 h-6 text-white" />
+                    <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full ${item.color} flex items-center justify-center`}>
+                      <item.icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                     </div>
-                    <span className="text-xs">{item.label}</span>
+                    <span className="text-[10px] sm:text-xs">{item.label}</span>
                   </Button>
                 </motion.div>
               ))}

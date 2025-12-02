@@ -25,7 +25,7 @@ const DeleteMessageDialog = ({
 }: DeleteMessageDialogProps) => {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md border-2 border-primary/20">
+      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-md border-2 border-primary/20">
         <motion.div
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}

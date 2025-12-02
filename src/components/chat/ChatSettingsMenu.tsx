@@ -59,7 +59,7 @@ const ChatSettingsMenu = ({
             </div>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuContent align="end" className="w-56 max-w-[calc(100vw-2rem)]">
           <DropdownMenuItem onClick={() => setMuteDialog(true)}>
             <BellOff className="w-4 h-4 mr-2" />
             Mute Messages
@@ -99,7 +99,7 @@ const ChatSettingsMenu = ({
 
       {/* Mute Dialog */}
       <Dialog open={muteDialog} onOpenChange={setMuteDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Mute Messages</DialogTitle>
           </DialogHeader>
@@ -124,7 +124,7 @@ const ChatSettingsMenu = ({
 
       {/* Disappearing Messages Dialog */}
       <Dialog open={disappearingDialog} onOpenChange={setDisappearingDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Message Timer</DialogTitle>
           </DialogHeader>
