@@ -77,7 +77,7 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
     // Load initial comment count
     const loadInitialCommentCount = async () => {
       try {
-        const { count, error } = await supabase
+        const { count, error } = await (supabase as any)
           .from('room_post_comments')
           .select('*', { count: 'exact', head: true })
           .eq('post_id', post.id);
@@ -105,7 +105,7 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
           loadComments();
         } else {
           // Just reload count
-          const { count } = await supabase
+          const { count } = await (supabase as any)
             .from('room_post_comments')
             .select('*', { count: 'exact', head: true })
             .eq('post_id', post.id);
@@ -121,7 +121,7 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
         if (showCommentModal) {
           loadComments();
         } else {
-          const { count } = await supabase
+          const { count } = await (supabase as any)
             .from('room_post_comments')
             .select('*', { count: 'exact', head: true })
             .eq('post_id', post.id);
@@ -146,7 +146,7 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
   const loadLikes = async () => {
     try {
       // Try room_post_reactions first (for room posts)
-      const { data: roomReactions, error: roomError } = await supabase
+      const { data: roomReactions, error: roomError } = await (supabase as any)
         .from('room_post_reactions')
         .select('*')
         .eq('post_id', post.id);
@@ -190,7 +190,7 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
     setLoadingComments(true);
     try {
       // Fetch comments
-      const { data: commentsData, error } = await supabase
+      const { data: commentsData, error } = await (supabase as any)
         .from('room_post_comments')
         .select('*')
         .eq('post_id', post.id)
@@ -266,7 +266,7 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
     try {
       // Use room_post_reactions for room posts
       if (wasLiked) {
-        const { error } = await supabase
+        const { error } = await (supabase as any)
           .from('room_post_reactions')
           .delete()
           .eq('post_id', post.id)
@@ -280,7 +280,7 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
       } else {
         // Delete dislike if exists
         if (wasDisliked) {
-          const { error } = await supabase
+          const { error } = await (supabase as any)
             .from('room_post_reactions')
             .delete()
             .eq('post_id', post.id)
@@ -294,7 +294,7 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
         }
         
         // Check if reaction already exists (handle unique constraint)
-        const { data: existing } = await supabase
+        const { data: existing } = await (supabase as any)
           .from('room_post_reactions')
           .select('id')
           .eq('post_id', post.id)
@@ -303,7 +303,7 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
           .maybeSingle();
         
         if (!existing) {
-          const { error: insertError } = await supabase
+          const { error: insertError } = await (supabase as any)
             .from('room_post_reactions')
             .insert({
               post_id: post.id,
@@ -369,7 +369,7 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
     try {
       // Use room_post_reactions for room posts
       if (wasDisliked) {
-        const { error } = await supabase
+        const { error } = await (supabase as any)
           .from('room_post_reactions')
           .delete()
           .eq('post_id', post.id)
@@ -383,7 +383,7 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
       } else {
         // Delete like if exists
         if (wasLiked) {
-          const { error } = await supabase
+          const { error } = await (supabase as any)
             .from('room_post_reactions')
             .delete()
             .eq('post_id', post.id)
@@ -397,7 +397,7 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
         }
         
         // Check if reaction already exists (handle unique constraint)
-        const { data: existing } = await supabase
+        const { data: existing } = await (supabase as any)
           .from('room_post_reactions')
           .select('id')
           .eq('post_id', post.id)
@@ -406,7 +406,7 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
           .maybeSingle();
         
         if (!existing) {
-          const { error: insertError } = await supabase
+          const { error: insertError } = await (supabase as any)
             .from('room_post_reactions')
             .insert({
               post_id: post.id,
@@ -475,7 +475,7 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
     setNewComment('');
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('room_post_comments')
         .insert([{
           post_id: post.id,
@@ -502,8 +502,8 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
           c.id === tempComment.id 
             ? {
                 id: data.id,
-                content: data.content,
-                createdAt: new Date(data.created_at),
+                content: (data as any).content,
+                createdAt: new Date((data as any).created_at),
                 user: profile || tempComment.user
               }
             : c

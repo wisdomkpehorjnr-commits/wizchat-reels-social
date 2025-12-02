@@ -169,7 +169,7 @@ class OfflineService {
     try {
       const response = await this.executeSyncOperation(item);
 
-      if (response.conflict) {
+      if (response.conflict && response.remoteData) {
         // Handle conflict
         await this.handleConflict(item, response.remoteData);
       } else {
@@ -200,7 +200,7 @@ class OfflineService {
   /**
    * Execute the actual sync operation (delegated to specific services)
    */
-  private executeSyncOperation = async (item: SyncQueueItem) => {
+  private executeSyncOperation = async (item: SyncQueueItem): Promise<{ success: boolean; conflict: boolean; remoteData?: any }> => {
     // This would be implemented by delegating to actual API services
     // For now, return a mock successful response
     return { success: true, conflict: false };

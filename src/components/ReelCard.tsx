@@ -175,7 +175,9 @@ const ReelCard = ({ post, onLike, onUserClick, onShare, isMuted, onMuteToggle, i
         },
         async (payload) => {
           // Only reload if it's a dislike emoji
-          if (payload.new?.emoji === '👎' || payload.old?.emoji === '👎') {
+          const newEmoji = (payload.new as any)?.emoji;
+          const oldEmoji = (payload.old as any)?.emoji;
+          if (newEmoji === '👎' || oldEmoji === '👎') {
             loadDislikes();
           }
         }

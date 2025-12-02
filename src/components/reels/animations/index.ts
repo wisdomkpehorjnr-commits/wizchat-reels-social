@@ -1,151 +1,137 @@
-import { keyframes, css } from '@emotion/react';
-
-// Heart animation for double-tap likes
-export const floatingHeartKeyframes = keyframes`
-  0% {
-    opacity: 1;
-    transform: translateY(0px) scale(1);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-100px) scale(0.8);
-  }
-`;
-
-// Button scale bounce animation
-export const buttonBounceKeyframes = keyframes`
-  0% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.15);
-  }
-  100% {
-    transform: scale(1);
+// Keyframes for animations
+export const floatingHeartKeyframes = `
+  @keyframes floatingHeart {
+    0% {
+      opacity: 1;
+      transform: translateY(0px) scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-100px) scale(0.8);
+    }
   }
 `;
 
-// Ripple effect for audio icon
-export const rippleKeyframes = keyframes`
-  0% {
-    opacity: 1;
-    transform: scale(0.8);
-  }
-  100% {
-    opacity: 0;
-    transform: scale(1.6);
-  }
-`;
-
-// Shimmer loading animation
-export const shimmerKeyframes = keyframes`
-  0% {
-    background-position: -1000px 0;
-  }
-  100% {
-    background-position: 1000px 0;
+export const buttonBounceKeyframes = `
+  @keyframes buttonBounce {
+    0% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.15);
+    }
+    100% {
+      transform: scale(1);
+    }
   }
 `;
 
-// Smooth fade in animation
-export const fadeInKeyframes = keyframes`
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-`;
-
-// Smooth fade out animation
-export const fadeOutKeyframes = keyframes`
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
+export const rippleKeyframes = `
+  @keyframes ripple {
+    0% {
+      opacity: 1;
+      transform: scale(0.8);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(1.6);
+    }
   }
 `;
 
-// Slide up animation for bottom sheet
-export const slideUpKeyframes = keyframes`
-  from {
-    transform: translateY(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-`;
-
-// Slide down animation for bottom sheet exit
-export const slideDownKeyframes = keyframes`
-  from {
-    transform: translateY(0);
-    opacity: 1;
-  }
-  to {
-    transform: translateY(100%);
-    opacity: 0;
+export const shimmerKeyframes = `
+  @keyframes shimmer {
+    0% {
+      background-position: -1000px 0;
+    }
+    100% {
+      background-position: 1000px 0;
+    }
   }
 `;
 
-// Marquee animation for scrolling text
-export const marqueeKeyframes = keyframes`
-  0% {
-    transform: translateX(100%);
-  }
-  100% {
-    transform: translateX(-100%);
-  }
-`;
-
-// Pulse animation for highlights
-export const pulseKeyframes = keyframes`
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
+export const fadeInKeyframes = `
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 `;
 
-// CSS animation objects for easy reuse
+export const fadeOutKeyframes = `
+  @keyframes fadeOut {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+`;
+
+export const slideUpKeyframes = `
+  @keyframes slideUp {
+    from {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+`;
+
+export const slideDownKeyframes = `
+  @keyframes slideDown {
+    from {
+      transform: translateY(0);
+      opacity: 1;
+    }
+    to {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+  }
+`;
+
+export const marqueeKeyframes = `
+  @keyframes marquee {
+    0% {
+      transform: translateX(100%);
+    }
+    100% {
+      transform: translateX(-100%);
+    }
+  }
+`;
+
+export const pulseKeyframes = `
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+  }
+`;
+
+// CSS animation classes
 export const animations = {
-  floatingHeart: css`
-    animation: ${floatingHeartKeyframes} 1.5s ease-out forwards;
-  `,
-  buttonBounce: css`
-    animation: ${buttonBounceKeyframes} 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-  `,
-  ripple: css`
-    animation: ${rippleKeyframes} 0.8s ease-out forwards;
-  `,
-  shimmer: css`
-    animation: ${shimmerKeyframes} 2s infinite;
-    background-size: 1000px 100%;
-  `,
-  fadeIn: css`
-    animation: ${fadeInKeyframes} 0.3s ease-in;
-  `,
-  fadeOut: css`
-    animation: ${fadeOutKeyframes} 0.3s ease-out;
-  `,
-  slideUp: css`
-    animation: ${slideUpKeyframes} 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-  `,
-  slideDown: css`
-    animation: ${slideDownKeyframes} 0.3s ease-in;
-  `,
-  marquee: css`
-    animation: ${marqueeKeyframes} 10s linear infinite;
-    white-space: nowrap;
-    overflow: hidden;
-  `,
-  pulse: css`
-    animation: ${pulseKeyframes} 2s ease-in-out infinite;
-  `,
+  floatingHeart: 'animate-[floatingHeart_1.5s_ease-out_forwards]',
+  buttonBounce: 'animate-[buttonBounce_0.4s_cubic-bezier(0.34,1.56,0.64,1)]',
+  ripple: 'animate-[ripple_0.8s_ease-out_forwards]',
+  shimmer: 'animate-[shimmer_2s_infinite]',
+  fadeIn: 'animate-[fadeIn_0.3s_ease-in]',
+  fadeOut: 'animate-[fadeOut_0.3s_ease-out]',
+  slideUp: 'animate-[slideUp_0.4s_cubic-bezier(0.34,1.56,0.64,1)]',
+  slideDown: 'animate-[slideDown_0.3s_ease-in]',
+  marquee: 'animate-[marquee_10s_linear_infinite]',
+  pulse: 'animate-[pulse_2s_ease-in-out_infinite]',
 };
 
 // Transition utilities
