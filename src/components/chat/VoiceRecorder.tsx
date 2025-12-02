@@ -18,6 +18,7 @@ const VoiceRecorder = ({ onSend, onCancel }: VoiceRecorderProps) => {
   const startPosRef = useRef({ x: 0, y: 0 });
   const canceledRef = useRef(false);
   const sendSoundRef = useRef<HTMLAudioElement | null>(null);
+  const durationRef = useRef(0); // Track duration in ref for accurate capture
 
   useEffect(() => {
     // Initialize send sound
@@ -37,53 +38,96 @@ const VoiceRecorder = ({ onSend, onCancel }: VoiceRecorderProps) => {
   const startRecording = async () => {
     canceledRef.current = false;
     setIsCanceling(false);
+    durationRef.current = 0; // Reset duration ref
+    setDuration(0); // Reset duration state
     
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 44100
+        } 
+      });
+      
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
+      });
+      
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
       mediaRecorder.ondataavailable = (event) => {
-        audioChunksRef.current.push(event.data);
+        if (event.data && event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
       };
 
       mediaRecorder.onstop = async () => {
         stream.getTracks().forEach((track) => track.stop());
         
-        if (!canceledRef.current && duration > 0) {
-          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        // Use ref value for accurate duration
+        const finalDuration = durationRef.current;
+        
+        if (!canceledRef.current && finalDuration >= 0 && audioChunksRef.current.length > 0) {
+          const audioBlob = new Blob(audioChunksRef.current, { 
+            type: mediaRecorder.mimeType || 'audio/webm' 
+          });
+          
           // Play send sound immediately
           if (sendSoundRef.current) {
             sendSoundRef.current.play().catch(() => {});
           }
-          // Send the voice message
-          onSend(audioBlob, duration);
+          
+          // Send the voice message with actual duration
+          onSend(audioBlob, finalDuration);
         }
         
+        durationRef.current = 0;
         setDuration(0);
         setIsRecording(false);
+        audioChunksRef.current = [];
       };
 
-      mediaRecorder.start();
-      setIsRecording(true);
+      mediaRecorder.onerror = (event) => {
+        console.error('MediaRecorder error:', event);
+        cancelRecording();
+      };
 
+      // Start recording immediately
+      mediaRecorder.start(100); // Collect data every 100ms for better quality
+      setIsRecording(true);
+      
+      // Show 0:00 immediately
+      durationRef.current = 0;
+      setDuration(0);
+
+      // Start timer immediately - update both state and ref
       timerRef.current = setInterval(() => {
-        setDuration((prev) => prev + 1);
+        durationRef.current += 1;
+        setDuration(durationRef.current);
       }, 1000);
     } catch (error) {
       console.error('Error accessing microphone:', error);
+      setIsRecording(false);
+      setDuration(0);
       onCancel();
     }
   };
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
+      // Stop the timer first to capture final duration
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
-      mediaRecorderRef.current.stop();
+      
+      // Stop recording - onstop will handle sending
+      if (mediaRecorderRef.current.state === 'recording') {
+        mediaRecorderRef.current.stop();
+      }
     }
   };
 
@@ -97,21 +141,28 @@ const VoiceRecorder = ({ onSend, onCancel }: VoiceRecorderProps) => {
     }
     
     if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
+      if (mediaRecorderRef.current.state === 'recording') {
+        mediaRecorderRef.current.stop();
+      }
     }
     
+    durationRef.current = 0;
     setDuration(0);
     audioChunksRef.current = [];
+    setIsRecording(false);
     onCancel();
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     startPosRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     startRecording();
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isRecording) return;
+    e.preventDefault();
     
     const currentY = e.touches[0].clientY;
     const deltaY = startPosRef.current.y - currentY;
@@ -125,18 +176,30 @@ const VoiceRecorder = ({ onSend, onCancel }: VoiceRecorderProps) => {
     }
   };
 
-  const handleTouchEnd = () => {
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (isRecording && !canceledRef.current) {
       stopRecording();
     }
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     startPosRef.current = { x: e.clientX, y: e.clientY };
     startRecording();
   };
 
-  const handleMouseUp = () => {
+  const handleMouseUp = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (isRecording && !canceledRef.current) {
+      stopRecording();
+    }
+  };
+  
+  const handleMouseLeave = (e: React.MouseEvent) => {
     if (isRecording && !canceledRef.current) {
       stopRecording();
     }
@@ -152,13 +215,15 @@ const VoiceRecorder = ({ onSend, onCancel }: VoiceRecorderProps) => {
     <div className="relative">
       <Button
         size="icon"
-        className="rounded-full bg-primary hover:bg-primary/90"
+        className="rounded-full bg-primary hover:bg-primary/90 active:bg-primary/80 touch-none"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
+        type="button"
       >
         <Mic className="w-5 h-5" />
       </Button>

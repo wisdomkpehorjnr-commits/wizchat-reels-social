@@ -301,15 +301,23 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         // Send message with reply reference if exists
         let serverMessage: Message;
         if (currentReplyingTo) {
+          const insertData: any = {
+            chat_id: chatId,
+            user_id: user.id,
+            content: messageContent,
+            type: 'text'
+          };
+          
+          // Only add reply_to_id if column exists
+          try {
+            insertData.reply_to_id = currentReplyingTo.id;
+          } catch (e) {
+            console.log('reply_to_id column not available');
+          }
+          
           const { data: messageData, error: messageError } = await supabase
             .from('messages')
-            .insert({
-              chat_id: chatId,
-              user_id: user.id,
-              content: messageContent,
-              type: 'text',
-              reply_to_id: currentReplyingTo.id
-            })
+            .insert(insertData)
             .select(`
               *,
               user:profiles!messages_user_id_fkey (
@@ -446,16 +454,16 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         toast({ title: "Messages deleted", description: `${messageIds.length} messages deleted` });
       } else {
         // Single message deletion
-        if (deleteForEveryone) {
-          await supabase.from('messages').delete().eq('id', messageId);
-        }
-        
-        setMessages(prev => prev.filter(m => m.id !== messageId));
-        await localMessageService.deleteMessage(messageId, chatId);
-        
-        if (pinnedMessage?.id === messageId) setPinnedMessage(null);
-        
-        toast({ title: "Message deleted", description: deleteForEveryone ? "Deleted for everyone" : "Deleted for you" });
+      if (deleteForEveryone) {
+        await supabase.from('messages').delete().eq('id', messageId);
+      }
+      
+      setMessages(prev => prev.filter(m => m.id !== messageId));
+      await localMessageService.deleteMessage(messageId, chatId);
+      
+      if (pinnedMessage?.id === messageId) setPinnedMessage(null);
+      
+      toast({ title: "Message deleted", description: deleteForEveryone ? "Deleted for everyone" : "Deleted for you" });
       }
     } catch (error) {
       console.error('Error deleting message:', error);
@@ -601,16 +609,28 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
 
       // Create message with media
       const messageContent = caption || '';
+      const insertData: any = {
+        chat_id: chatId,
+        user_id: currentUser.id,
+        content: messageContent,
+        type: mediaType,
+        media_url: publicUrl
+      };
+      
+      // Only add reply_to_id if replyingTo exists (column may not exist in schema)
+      if (replyingTo?.id) {
+        try {
+          // Try to add reply reference - if column doesn't exist, it will be ignored
+          insertData.reply_to_id = replyingTo.id;
+        } catch (e) {
+          // Column doesn't exist, continue without it
+          console.log('reply_to_id column not available');
+        }
+      }
+      
       const { data: messageData, error: messageError } = await supabase
         .from('messages')
-        .insert({
-          chat_id: chatId,
-          user_id: currentUser.id,
-          content: messageContent,
-          type: mediaType,
-          media_url: publicUrl,
-          reply_to_id: replyingTo?.id || null
-        })
+        .insert(insertData)
         .select(`
           *,
           user:profiles!messages_user_id_fkey (
@@ -713,17 +733,27 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       }
 
       // Create voice message
+      const insertData: any = {
+        chat_id: chatId,
+        user_id: currentUser.id,
+        content: '',
+        type: 'voice',
+        media_url: publicUrl,
+        duration: duration
+      };
+      
+      // Only add reply_to_id if replyingTo exists (column may not exist in schema)
+      if (replyingTo?.id) {
+        try {
+          insertData.reply_to_id = replyingTo.id;
+        } catch (e) {
+          console.log('reply_to_id column not available');
+        }
+      }
+      
       const { data: messageData, error: messageError } = await supabase
         .from('messages')
-        .insert({
-          chat_id: chatId,
-          user_id: currentUser.id,
-          content: '',
-          type: 'voice',
-          media_url: publicUrl,
-          duration: duration,
-          reply_to_id: replyingTo?.id || null
-        })
+        .insert(insertData)
         .select(`
           *,
           user:profiles!messages_user_id_fkey (
@@ -876,28 +906,28 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
                   undefined;
               
               return (
-                <ChatMessage
-                  key={message.id || message.localId}
-                  message={message}
-                  onReaction={(emoji) => handleReaction(message.id, emoji)}
-                  onEdit={handleEditMessage}
-                  onDelete={handleDeleteMessage}
-                  onReply={setReplyingTo}
-                  onForward={(msg) => {
-                    toast({ title: "Forward message", description: "Select chats to forward to" });
-                    navigate('/chat');
-                  }}
-                  onPin={handlePinMessage}
-                  onSelect={handleSelectMessage}
-                  isSelected={selectedMessages.has(message.id)}
-                  selectedCount={selectedMessages.size}
-                  isPinned={pinnedMessage?.id === message.id}
+              <ChatMessage
+                key={message.id || message.localId}
+                message={message}
+                onReaction={(emoji) => handleReaction(message.id, emoji)}
+                onEdit={handleEditMessage}
+                onDelete={handleDeleteMessage}
+                onReply={setReplyingTo}
+                onForward={(msg) => {
+                  toast({ title: "Forward message", description: "Select chats to forward to" });
+                  navigate('/chat');
+                }}
+                onPin={handlePinMessage}
+                onSelect={handleSelectMessage}
+                isSelected={selectedMessages.has(message.id)}
+                selectedCount={selectedMessages.size}
+                isPinned={pinnedMessage?.id === message.id}
                   replyToMessage={replyToMsg}
                   selectedMessages={selectedMessages}
                   messages={messages}
                   onDeleteMultiple={handleDeleteMultiple}
                   onCopyMultiple={handleCopyMultiple}
-                />
+              />
               );
             })}
             <div ref={messagesEndRef} />

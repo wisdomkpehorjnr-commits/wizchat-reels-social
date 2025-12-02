@@ -68,7 +68,7 @@ const MessageContextMenu = ({
           animate={{ y: 0, opacity: 1, scale: 1 }}
           exit={{ y: -20, opacity: 0, scale: 0.95 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="fixed top-2 left-1/2 -translate-x-1/2 bg-background/95 backdrop-blur-md border-2 border-primary/20 rounded-2xl shadow-xl p-1 sm:p-1.5 flex items-center justify-center gap-0 sm:gap-0.5 z-50 max-w-[calc(100vw-1rem)] overflow-x-auto"
+          className="fixed top-3 left-3 sm:top-2 sm:left-1/2 sm:-translate-x-1/2 bg-background/95 backdrop-blur-md border-2 border-primary/20 rounded-2xl shadow-xl p-1.5 sm:p-1.5 flex items-center justify-center gap-1 sm:gap-0.5 z-[60] max-w-[calc(100vw-1.5rem)] sm:max-w-none overflow-x-auto"
           onClick={(e) => e.stopPropagation()}
           style={{ 
             WebkitOverflowScrolling: 'touch',
