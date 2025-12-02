@@ -5,6 +5,17 @@
 @tailwind utilities;
 
 @layer base {
+  /* Hide scrollbars but keep functionality */
+  .overflow-x-auto::-webkit-scrollbar,
+  .overflow-y-auto::-webkit-scrollbar {
+    display: none;
+  }
+  .overflow-x-auto,
+  .overflow-y-auto {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
   :root {
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;

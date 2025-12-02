@@ -132,8 +132,14 @@ const ChatMessage = ({
   const handleDragEnd = (event: any, info: PanInfo) => {
     if (info.offset.x > 50 && onReply) {
       onReply(message);
+      // Smooth return animation
+      setTimeout(() => {
+        setSwipeOffset(0);
+      }, 200);
+    } else {
+      // Smooth return if not enough swipe
+      setSwipeOffset(0);
     }
-    setSwipeOffset(0);
   };
 
   const formatTime = (date: Date) => {
@@ -170,7 +176,8 @@ const ChatMessage = ({
         className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-2 group relative`}
         drag="x"
         dragConstraints={{ left: 0, right: 80 }}
-        dragElastic={0.1}
+        dragElastic={0.2}
+        dragMomentum={false}
         onDrag={handleDrag}
         onDragEnd={handleDragEnd}
         onClick={handleTap}
@@ -184,6 +191,8 @@ const ChatMessage = ({
             setShowContextMenu(true);
           }
         }}
+        animate={{ x: isOwn ? -swipeOffset : swipeOffset }}
+        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
       >
         {/* Swipe reply indicator */}
         <AnimatePresence>
@@ -210,14 +219,16 @@ const ChatMessage = ({
           )}
 
           <div className="relative">
-            {/* Selection overlay */}
+            {/* Selection overlay - transparent green glass effect */}
             {isSelected && (
-              <div className="absolute inset-0 bg-primary/10 rounded-2xl pointer-events-none z-10 border-2 border-primary/30" />
+              <div className="absolute inset-0 bg-green-500/20 dark:bg-green-500/15 backdrop-blur-[2px] rounded-2xl pointer-events-none z-10 border-2 border-green-500/40 dark:border-green-500/30" />
             )}
 
             <div
-              className={`px-4 py-2 rounded-2xl ${
-                isOwn
+              className={`px-4 py-2 rounded-2xl transition-all ${
+                isSelected
+                  ? 'bg-green-500/10 dark:bg-green-500/8'
+                  : isOwn
                   ? 'bg-primary text-primary-foreground'
                   : 'bg-muted'
               }`}
@@ -225,11 +236,11 @@ const ChatMessage = ({
               {/* Reply reference */}
               {replyToMessage && (
                 <div className={`mb-2 pb-2 border-b ${isOwn ? 'border-primary-foreground/20' : 'border-border'}`}>
-                  <p className={`text-xs ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                  <p className={`text-xs font-medium ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
                     ↩ {replyToMessage.user.name}
                   </p>
                   <p className={`text-xs truncate ${isOwn ? 'text-primary-foreground/80' : 'text-foreground/80'}`}>
-                    {replyToMessage.content.substring(0, 50)}...
+                    {replyToMessage.content.substring(0, 50)}{replyToMessage.content.length > 50 ? '...' : ''}
                   </p>
                 </div>
               )}
@@ -293,9 +304,15 @@ const ChatMessage = ({
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.8, y: 10 }}
                     transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-                    className={`absolute ${isOwn ? 'right-0' : 'left-0'} bottom-full mb-2 z-50`}
+                    className={`fixed ${isOwn ? 'right-2 sm:right-auto sm:left-auto' : 'left-2 sm:left-auto'} bottom-20 sm:bottom-auto sm:absolute sm:${isOwn ? 'right-0' : 'left-0'} sm:bottom-full sm:mb-2 z-50`}
                   >
-                    <div className="flex items-center gap-1 p-2 bg-background rounded-full shadow-lg border-2 border-primary/20">
+                    <div className="flex items-center gap-1 p-2 bg-background/95 backdrop-blur-md rounded-full shadow-lg border-2 border-primary/20 max-w-[calc(100vw-4rem)] sm:max-w-none overflow-x-auto"
+                      style={{ 
+                        WebkitOverflowScrolling: 'touch',
+                        scrollbarWidth: 'none',
+                        msOverflowStyle: 'none'
+                      }}
+                    >
                       {REACTION_EMOJIS.map((emoji) => (
                         <Button
                           key={emoji}
@@ -305,7 +322,7 @@ const ChatMessage = ({
                             e.stopPropagation();
                             handleReactionSelect(emoji);
                           }}
-                          className="h-8 w-8 p-0 text-lg hover:scale-125 transition-transform hover:bg-secondary"
+                          className="h-10 w-10 sm:h-8 sm:w-8 p-0 text-xl sm:text-lg hover:scale-125 transition-transform hover:bg-secondary flex-shrink-0"
                         >
                           {emoji}
                         </Button>

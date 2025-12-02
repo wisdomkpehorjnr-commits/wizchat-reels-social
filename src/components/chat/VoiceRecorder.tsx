@@ -48,16 +48,17 @@ const VoiceRecorder = ({ onSend, onCancel }: VoiceRecorderProps) => {
         audioChunksRef.current.push(event.data);
       };
 
-      mediaRecorder.onstop = () => {
+      mediaRecorder.onstop = async () => {
         stream.getTracks().forEach((track) => track.stop());
         
         if (!canceledRef.current && duration > 0) {
           const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-          onSend(audioBlob, duration);
-          // Play send sound
+          // Play send sound immediately
           if (sendSoundRef.current) {
             sendSoundRef.current.play().catch(() => {});
           }
+          // Send the voice message
+          onSend(audioBlob, duration);
         }
         
         setDuration(0);

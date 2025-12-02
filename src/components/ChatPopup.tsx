@@ -14,6 +14,7 @@ import ChatSettingsMenu from './chat/ChatSettingsMenu';
 import AttachmentMenu from './chat/AttachmentMenu';
 import VoiceRecorder from './chat/VoiceRecorder';
 import LoadingDots from './chat/LoadingDots';
+import MediaPreview from './chat/MediaPreview';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
@@ -36,6 +37,8 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [pinnedMessage, setPinnedMessage] = useState<Message | null>(null);
   const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
+  const [previewFile, setPreviewFile] = useState<File | null>(null);
+  const [showMediaPreview, setShowMediaPreview] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isNetworkOnline = useNetworkStatus();
   const syncInProgressRef = useRef(false);
@@ -267,6 +270,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
 
     const messageContent = newMessage.trim();
     setNewMessage('');
+    const currentReplyingTo = replyingTo;
     setReplyingTo(null);
 
     const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -281,7 +285,8 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       seen: false,
       status: 'pending',
       localId: tempId,
-      synced: false
+      synced: false,
+      replyToMessage: currentReplyingTo || undefined
     };
 
     setMessages(prev => [...prev, tempMessage]);
@@ -292,7 +297,55 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
 
     if (isNetworkOnline) {
       try {
-        const serverMessage = await dataService.sendMessage(chatId, messageContent);
+        // Send message with reply reference if exists
+        let serverMessage: Message;
+        if (currentReplyingTo) {
+          const { data: messageData, error: messageError } = await supabase
+            .from('messages')
+            .insert({
+              chat_id: chatId,
+              user_id: user.id,
+              content: messageContent,
+              type: 'text',
+              reply_to_id: currentReplyingTo.id
+            })
+            .select(`
+              *,
+              user:profiles!messages_user_id_fkey (
+                id,
+                name,
+                username,
+                avatar
+              )
+            `)
+            .single();
+
+          if (messageError) throw messageError;
+
+          serverMessage = {
+            id: messageData.id,
+            chatId: messageData.chat_id,
+            userId: messageData.user_id,
+            user: {
+              ...messageData.user,
+              photoURL: messageData.user.avatar || '',
+              createdAt: new Date(messageData.user.created_at),
+              followerCount: messageData.user.follower_count || 0,
+              followingCount: messageData.user.following_count || 0,
+              profileViews: messageData.user.profile_views || 0
+            } as unknown as User,
+            content: messageContent,
+            type: 'text',
+            timestamp: new Date(messageData.created_at),
+            seen: false,
+            status: 'sent',
+            synced: true,
+            replyToMessage: currentReplyingTo
+          };
+        } else {
+          serverMessage = await dataService.sendMessage(chatId, messageContent);
+        }
+        
         processedMessageIds.current.add(serverMessage.id);
         
         setMessages(prev => prev.map(m => m.localId === tempId ? { ...serverMessage, status: 'sent' } : m));
@@ -416,8 +469,109 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
   };
 
   const handleAttachment = async (file: File, type: string) => {
-    toast({ title: `${type} selected`, description: file.name });
-    // TODO: Upload file and send as message
+    // Show preview for images, videos, and documents
+    if (file.type.startsWith('image/') || file.type.startsWith('video/') || 
+        file.type.includes('pdf') || file.type.includes('document') || 
+        file.type.includes('text') || file.type.includes('sheet') || 
+        file.type.includes('presentation')) {
+      setPreviewFile(file);
+      setShowMediaPreview(true);
+    } else {
+      // For other files, send directly
+      await handleSendMedia(file);
+    }
+  };
+
+  const handleSendMedia = async (file: File, caption?: string) => {
+    if (!chatId || !user) return;
+
+    try {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) throw new Error('Not authenticated');
+
+      // Upload file to Supabase storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${currentUser.id}/${Date.now()}.${fileExt}`;
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('chat-media')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('chat-media')
+        .getPublicUrl(fileName);
+
+      // Determine media type
+      let mediaType: 'image' | 'video' | 'text' = 'text';
+      if (file.type.startsWith('image/')) mediaType = 'image';
+      else if (file.type.startsWith('video/')) mediaType = 'video';
+
+      // Create message with media
+      const messageContent = caption || '';
+      const { data: messageData, error: messageError } = await supabase
+        .from('messages')
+        .insert({
+          chat_id: chatId,
+          user_id: currentUser.id,
+          content: messageContent,
+          type: mediaType,
+          media_url: publicUrl,
+          reply_to_id: replyingTo?.id || null
+        })
+        .select(`
+          *,
+          user:profiles!messages_user_id_fkey (
+            id,
+            name,
+            username,
+            avatar
+          )
+        `)
+        .single();
+
+      if (messageError) throw messageError;
+
+      const newMessage: Message = {
+        id: messageData.id,
+        chatId: messageData.chat_id,
+        userId: messageData.user_id,
+        user: {
+          ...messageData.user,
+          photoURL: messageData.user.avatar || '',
+          createdAt: new Date(messageData.user.created_at),
+          followerCount: messageData.user.follower_count || 0,
+          followingCount: messageData.user.following_count || 0,
+          profileViews: messageData.user.profile_views || 0
+        } as unknown as User,
+        content: messageContent,
+        type: mediaType,
+        mediaUrl: publicUrl,
+        timestamp: new Date(messageData.created_at),
+        seen: false,
+        status: 'sent',
+        synced: true,
+        replyToMessage: replyingTo || undefined
+      };
+
+      setMessages(prev => [...prev, newMessage]);
+      setReplyingTo(null);
+      setPreviewFile(null);
+      setShowMediaPreview(false);
+      
+      if (sendSound.current) sendSound.current.play().catch(() => {});
+      
+      toast({ title: "Media sent", description: "Your media has been sent successfully" });
+      scrollToBottom();
+    } catch (error) {
+      console.error('Error sending media:', error);
+      toast({ 
+        title: "Error", 
+        description: "Failed to send media", 
+        variant: "destructive" 
+      });
+    }
   };
 
   const handleVoiceSend = async (audioBlob: Blob, duration: number) => {
@@ -516,41 +670,54 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
           <LoadingDots />
         ) : (
           <div className="space-y-1">
-            {messages.map((message) => (
-              <ChatMessage
-                key={message.id || message.localId}
-                message={message}
-                onReaction={(emoji) => handleReaction(message.id, emoji)}
-                onEdit={handleEditMessage}
-                onDelete={handleDeleteMessage}
-                onReply={setReplyingTo}
-                onForward={(msg) => {
-                  toast({ title: "Forward message", description: "Select chats to forward to" });
-                  navigate('/chat');
-                }}
-                onPin={handlePinMessage}
-                onSelect={handleSelectMessage}
-                isSelected={selectedMessages.has(message.id)}
-                selectedCount={selectedMessages.size}
-                isPinned={pinnedMessage?.id === message.id}
-              />
-            ))}
+            {messages.map((message) => {
+              // Find reply-to message if exists
+              const replyToMsg = message.replyToMessage || 
+                (message as any).reply_to_id ? 
+                  messages.find(m => m.id === (message as any).reply_to_id) : 
+                  undefined;
+              
+              return (
+                <ChatMessage
+                  key={message.id || message.localId}
+                  message={message}
+                  onReaction={(emoji) => handleReaction(message.id, emoji)}
+                  onEdit={handleEditMessage}
+                  onDelete={handleDeleteMessage}
+                  onReply={setReplyingTo}
+                  onForward={(msg) => {
+                    toast({ title: "Forward message", description: "Select chats to forward to" });
+                    navigate('/chat');
+                  }}
+                  onPin={handlePinMessage}
+                  onSelect={handleSelectMessage}
+                  isSelected={selectedMessages.has(message.id)}
+                  selectedCount={selectedMessages.size}
+                  isPinned={pinnedMessage?.id === message.id}
+                  replyToMessage={replyToMsg}
+                />
+              );
+            })}
             <div ref={messagesEndRef} />
           </div>
         )}
       </ScrollArea>
 
+      {/* Reply Preview - Show at top when replying */}
+      {replyingTo && (
+        <div className="px-4 py-2 bg-primary/10 border-b border-primary/20 flex items-center gap-2">
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium text-primary">Replying to {replyingTo.user.name}</p>
+            <p className="text-sm truncate text-muted-foreground">{replyingTo.content}</p>
+          </div>
+          <Button variant="ghost" size="icon" className="h-6 w-6 flex-shrink-0" onClick={() => setReplyingTo(null)}>
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
+
       {/* Input */}
       <div className="p-4 border-t-2 border-primary/20">
-        {replyingTo && (
-          <div className="mb-2 p-2 bg-muted rounded-lg flex items-center justify-between">
-            <div className="flex-1">
-              <p className="text-xs text-muted-foreground">Replying to {replyingTo.user.name}</p>
-              <p className="text-sm truncate">{replyingTo.content}</p>
-            </div>
-            <Button variant="ghost" size="sm" onClick={() => setReplyingTo(null)}>✕</Button>
-          </div>
-        )}
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" onClick={() => setShowAttachmentMenu(true)} className="flex-shrink-0">
             <Plus className="w-5 h-5" />
@@ -592,6 +759,19 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         onAudio={(file) => handleAttachment(file, 'Audio')}
         onVideo={(file) => handleAttachment(file, 'Video')}
       />
+
+      {/* Media Preview */}
+      {previewFile && (
+        <MediaPreview
+          file={previewFile}
+          isOpen={showMediaPreview}
+          onSend={handleSendMedia}
+          onCancel={() => {
+            setPreviewFile(null);
+            setShowMediaPreview(false);
+          }}
+        />
+      )}
     </div>
   );
 };

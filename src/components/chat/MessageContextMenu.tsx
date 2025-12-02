@@ -32,7 +32,7 @@ const MessageContextMenu = ({
   onEdit,
   onClose,
 }: MessageContextMenuProps) => {
-  // For multiple selection, only show copy, forward, delete
+  // For multiple selection, only show copy, forward, delete (hide pin and reply)
   const isMultipleSelected = selectedCount > 1;
   
   const menuItems = isMultipleSelected
@@ -60,12 +60,17 @@ const MessageContextMenu = ({
         onClick={onClose}
       >
         <motion.div
-          initial={{ y: -20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: -20, opacity: 0 }}
+          initial={{ y: -20, opacity: 0, scale: 0.95 }}
+          animate={{ y: 0, opacity: 1, scale: 1 }}
+          exit={{ y: -20, opacity: 0, scale: 0.95 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="fixed top-2 left-1/2 -translate-x-1/2 bg-background border-2 border-primary/20 rounded-2xl shadow-xl p-1.5 flex items-center gap-0.5 z-50"
+          className="fixed top-2 left-1/2 -translate-x-1/2 bg-background/95 backdrop-blur-md border-2 border-primary/20 rounded-2xl shadow-xl p-1.5 flex items-center gap-0.5 z-50 max-w-[calc(100vw-1rem)] overflow-x-auto"
           onClick={(e) => e.stopPropagation()}
+          style={{ 
+            WebkitOverflowScrolling: 'touch',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none'
+          }}
         >
           {menuItems.map((item, index) => (
             <Button
@@ -76,10 +81,10 @@ const MessageContextMenu = ({
                 item.action();
                 onClose();
               }}
-              className={`flex flex-col items-center gap-0.5 h-auto py-1.5 px-2 min-w-[44px] ${item.color}`}
+              className={`flex flex-col items-center gap-0.5 h-auto py-2 px-2.5 min-w-[50px] sm:min-w-[44px] flex-shrink-0 ${item.color}`}
             >
-              <item.icon className="w-4 h-4" />
-              <span className="text-[9px] whitespace-nowrap">{item.label}</span>
+              <item.icon className="w-4 h-4 sm:w-4 sm:h-4" />
+              <span className="text-[10px] sm:text-[9px] whitespace-nowrap font-medium">{item.label}</span>
             </Button>
           ))}
         </motion.div>

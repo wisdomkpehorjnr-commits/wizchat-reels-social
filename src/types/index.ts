@@ -132,6 +132,7 @@ export interface Message {
   status?: MessageStatus; // Message delivery status
   localId?: string; // Temporary ID for unsent messages
   synced?: boolean; // Whether message has been synced to server
+  replyToMessage?: Message; // Message being replied to
 }
 
 export interface VoiceCall {
