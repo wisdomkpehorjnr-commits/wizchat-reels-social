@@ -16,6 +16,8 @@ interface MessageContextMenuProps {
   onDelete: () => void;
   onEdit: () => void;
   onClose: () => void;
+  onDeleteMultiple?: () => void;
+  onCopyMultiple?: () => void;
 }
 
 const MessageContextMenu = ({
@@ -31,15 +33,17 @@ const MessageContextMenu = ({
   onDelete,
   onEdit,
   onClose,
+  onDeleteMultiple,
+  onCopyMultiple,
 }: MessageContextMenuProps) => {
   // For multiple selection, only show copy, forward, delete (hide pin and reply)
   const isMultipleSelected = selectedCount > 1;
   
   const menuItems = isMultipleSelected
     ? [
-        { icon: Copy, label: 'Copy', action: onCopy, color: 'text-foreground' },
+        { icon: Copy, label: 'Copy', action: onCopyMultiple || onCopy, color: 'text-foreground' },
         { icon: Forward, label: 'Forward', action: onForward, color: 'text-foreground' },
-        { icon: Trash2, label: 'Delete', action: onDelete, color: 'text-destructive' },
+        { icon: Trash2, label: 'Delete', action: onDeleteMultiple || onDelete, color: 'text-destructive' },
       ]
     : [
         { icon: isPinned ? PinOff : Pin, label: isPinned ? 'Unpin' : 'Pin', action: onPin, color: 'text-foreground' },
@@ -64,7 +68,7 @@ const MessageContextMenu = ({
           animate={{ y: 0, opacity: 1, scale: 1 }}
           exit={{ y: -20, opacity: 0, scale: 0.95 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="fixed top-2 left-1/2 -translate-x-1/2 bg-background/95 backdrop-blur-md border-2 border-primary/20 rounded-2xl shadow-xl p-1.5 flex items-center gap-0.5 z-50 max-w-[calc(100vw-1rem)] overflow-x-auto"
+          className="fixed top-2 left-1/2 -translate-x-1/2 bg-background/95 backdrop-blur-md border-2 border-primary/20 rounded-2xl shadow-xl p-1 sm:p-1.5 flex items-center justify-center gap-0 sm:gap-0.5 z-50 max-w-[calc(100vw-1rem)] overflow-x-auto"
           onClick={(e) => e.stopPropagation()}
           style={{ 
             WebkitOverflowScrolling: 'touch',
@@ -81,10 +85,10 @@ const MessageContextMenu = ({
                 item.action();
                 onClose();
               }}
-              className={`flex flex-col items-center gap-0.5 h-auto py-2 px-2.5 min-w-[50px] sm:min-w-[44px] flex-shrink-0 ${item.color}`}
+              className={`flex flex-col items-center gap-0.5 h-auto py-1.5 sm:py-2 px-1.5 sm:px-2.5 min-w-[45px] sm:min-w-[50px] flex-shrink-0 ${item.color}`}
             >
-              <item.icon className="w-4 h-4 sm:w-4 sm:h-4" />
-              <span className="text-[10px] sm:text-[9px] whitespace-nowrap font-medium">{item.label}</span>
+              <item.icon className="w-4 h-4" />
+              <span className="text-[9px] sm:text-[10px] whitespace-nowrap font-medium leading-tight">{item.label}</span>
             </Button>
           ))}
         </motion.div>

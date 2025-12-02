@@ -8,6 +8,7 @@ import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import MessageContextMenu from './chat/MessageContextMenu';
 import DeleteMessageDialog from './chat/DeleteMessageDialog';
 import EditMessageDialog from './chat/EditMessageDialog';
+import VoiceMessagePlayer from './chat/VoiceMessagePlayer';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 
@@ -24,6 +25,10 @@ interface ChatMessageProps {
   selectedCount?: number;
   isPinned?: boolean;
   replyToMessage?: Message;
+  selectedMessages?: Set<string>;
+  messages?: Message[];
+  onDeleteMultiple?: () => void;
+  onCopyMultiple?: () => void;
 }
 
 const REACTION_EMOJIS = ['❤️', '👍', '😂', '😮', '😢', '🙏', '🔥', '👏'];
@@ -41,6 +46,10 @@ const ChatMessage = ({
   selectedCount = 0,
   isPinned = false,
   replyToMessage,
+  selectedMessages,
+  messages,
+  onDeleteMultiple,
+  onCopyMultiple,
 }: ChatMessageProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -80,10 +89,17 @@ const ChatMessage = ({
     if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
   };
 
-  const handleTap = () => {
+  const handleTap = (e: React.MouseEvent) => {
     // If in selection mode, toggle selection
     if (selectedCount > 0 && onSelect) {
       onSelect(message.id);
+      e.stopPropagation();
+      return;
+    }
+
+    // Don't trigger tap if clicking on interactive elements
+    const target = e.target as HTMLElement;
+    if (target.closest('audio, video, button, [role="button"]')) {
       return;
     }
 
@@ -233,26 +249,77 @@ const ChatMessage = ({
                   : 'bg-muted'
               }`}
             >
-              {/* Reply reference */}
+              {/* Reply reference - WhatsApp style */}
               {replyToMessage && (
-                <div className={`mb-2 pb-2 border-b ${isOwn ? 'border-primary-foreground/20' : 'border-border'}`}>
-                  <p className={`text-xs font-medium ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                    ↩ {replyToMessage.user.name}
+                <div className={`mb-2 pb-2 border-l-4 ${isOwn ? 'border-primary-foreground/40' : 'border-primary/40'} pl-2 pr-2 bg-black/5 dark:bg-white/5 rounded-l-md`}>
+                  <p className={`text-xs font-semibold mb-0.5 ${isOwn ? 'text-primary-foreground/90' : 'text-primary'}`}>
+                    {replyToMessage.user.name}
                   </p>
-                  <p className={`text-xs truncate ${isOwn ? 'text-primary-foreground/80' : 'text-foreground/80'}`}>
-                    {replyToMessage.content.substring(0, 50)}{replyToMessage.content.length > 50 ? '...' : ''}
-                  </p>
+                  {replyToMessage.type === 'text' ? (
+                    <p className={`text-xs line-clamp-2 ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                      {replyToMessage.content}
+                    </p>
+                  ) : replyToMessage.type === 'image' ? (
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-4 h-4 rounded bg-primary/20 flex items-center justify-center">
+                        <span className="text-[8px]">📷</span>
+                      </div>
+                      <p className={`text-xs ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                        Photo
+                      </p>
+                    </div>
+                  ) : replyToMessage.type === 'video' ? (
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-4 h-4 rounded bg-primary/20 flex items-center justify-center">
+                        <span className="text-[8px]">🎥</span>
+                      </div>
+                      <p className={`text-xs ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                        Video
+                      </p>
+                    </div>
+                  ) : replyToMessage.type === 'voice' ? (
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-4 h-4 rounded bg-primary/20 flex items-center justify-center">
+                        <span className="text-[8px]">🎤</span>
+                      </div>
+                      <p className={`text-xs ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                        Voice message
+                      </p>
+                    </div>
+                  ) : null}
                 </div>
               )}
 
               {message.type === 'text' ? (
                 <p className="text-sm whitespace-pre-wrap break-words">{displayContent}</p>
               ) : message.type === 'image' ? (
-                <img src={message.mediaUrl} alt="Shared" className="max-w-full rounded-lg" />
+                <div className="relative">
+                  <img 
+                    src={message.mediaUrl} 
+                    alt="Shared" 
+                    className="max-w-[250px] sm:max-w-[300px] rounded-xl object-cover cursor-pointer hover:opacity-90 transition-opacity" 
+                  />
+                  {message.content && (
+                    <p className="text-sm mt-2 whitespace-pre-wrap break-words">{message.content}</p>
+                  )}
+                </div>
               ) : message.type === 'video' ? (
-                <video src={message.mediaUrl} controls className="max-w-full rounded-lg" />
+                <div className="relative">
+                  <video 
+                    src={message.mediaUrl} 
+                    controls 
+                    className="max-w-[250px] sm:max-w-[300px] rounded-xl" 
+                  />
+                  {message.content && (
+                    <p className="text-sm mt-2 whitespace-pre-wrap break-words">{message.content}</p>
+                  )}
+                </div>
               ) : message.type === 'voice' ? (
-                <audio src={message.mediaUrl} controls />
+                <VoiceMessagePlayer 
+                  audioUrl={message.mediaUrl || ''} 
+                  duration={message.duration || 0}
+                  isOwn={isOwn}
+                />
               ) : null}
 
               <div className="flex items-center justify-end gap-1 mt-1">
@@ -347,12 +414,14 @@ const ChatMessage = ({
           onPin={() => {
             if (onPin) onPin(message.id);
           }}
-          onCopy={handleCopy}
+          onCopy={selectedCount > 1 ? (onCopyMultiple || handleCopy) : handleCopy}
           onForward={handleForwardToChats}
           onReply={() => onReply && onReply(message)}
-          onDelete={() => setShowDeleteDialog(true)}
+          onDelete={selectedCount > 1 ? (onDeleteMultiple || (() => setShowDeleteDialog(true))) : () => setShowDeleteDialog(true)}
           onEdit={() => setShowEditDialog(true)}
           onClose={() => setShowContextMenu(false)}
+          onDeleteMultiple={onDeleteMultiple}
+          onCopyMultiple={onCopyMultiple}
         />
       )}
 

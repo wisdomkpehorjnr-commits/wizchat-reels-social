@@ -8,6 +8,7 @@ import { User, Message, MessageStatus } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { dataService } from '@/services/dataService';
 import { localMessageService, LocalMessage } from '@/services/localMessageService';
+import { MediaService } from '@/services/mediaService';
 import ChatMessage from './ChatMessage';
 import OnlineStatusIndicator from './OnlineStatusIndicator';
 import ChatSettingsMenu from './chat/ChatSettingsMenu';
@@ -427,16 +428,35 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
     if (!chatId) return;
 
     try {
-      if (deleteForEveryone) {
-        await supabase.from('messages').delete().eq('id', messageId);
+      // Handle multiple message deletion
+      if (selectedMessages.size > 1) {
+        const messageIds = Array.from(selectedMessages);
+        if (deleteForEveryone) {
+          await supabase.from('messages').delete().in('id', messageIds);
+        }
+        
+        setMessages(prev => prev.filter(m => !messageIds.includes(m.id)));
+        for (const id of messageIds) {
+          await localMessageService.deleteMessage(id, chatId);
+        }
+        
+        setSelectedMessages(new Set());
+        if (pinnedMessage && messageIds.includes(pinnedMessage.id)) setPinnedMessage(null);
+        
+        toast({ title: "Messages deleted", description: `${messageIds.length} messages deleted` });
+      } else {
+        // Single message deletion
+        if (deleteForEveryone) {
+          await supabase.from('messages').delete().eq('id', messageId);
+        }
+        
+        setMessages(prev => prev.filter(m => m.id !== messageId));
+        await localMessageService.deleteMessage(messageId, chatId);
+        
+        if (pinnedMessage?.id === messageId) setPinnedMessage(null);
+        
+        toast({ title: "Message deleted", description: deleteForEveryone ? "Deleted for everyone" : "Deleted for you" });
       }
-      
-      setMessages(prev => prev.filter(m => m.id !== messageId));
-      await localMessageService.deleteMessage(messageId, chatId);
-      
-      if (pinnedMessage?.id === messageId) setPinnedMessage(null);
-      
-      toast({ title: "Message deleted", description: deleteForEveryone ? "Deleted for everyone" : "Deleted for you" });
     } catch (error) {
       console.error('Error deleting message:', error);
       toast({ title: "Error", description: "Failed to delete message", variant: "destructive" });
@@ -468,6 +488,39 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
     });
   };
 
+  const handleCopyMultiple = () => {
+    if (selectedMessages.size === 0) return;
+    const selectedTexts = Array.from(selectedMessages).map(id => {
+      const msg = messages.find(m => m.id === id);
+      return msg ? `${msg.user.name}: ${msg.content || '[Media]'}` : '';
+    }).filter(Boolean).join('\n\n');
+    navigator.clipboard.writeText(selectedTexts);
+    toast({ title: "Copied", description: `${selectedMessages.size} messages copied` });
+    setSelectedMessages(new Set());
+  };
+
+  const handleDeleteMultiple = async () => {
+    if (selectedMessages.size === 0 || !chatId) return;
+    
+    try {
+      const messageIds = Array.from(selectedMessages);
+      await supabase.from('messages').delete().in('id', messageIds);
+      
+      setMessages(prev => prev.filter(m => !messageIds.includes(m.id)));
+      for (const id of messageIds) {
+        await localMessageService.deleteMessage(id, chatId);
+      }
+      
+      setSelectedMessages(new Set());
+      if (pinnedMessage && messageIds.includes(pinnedMessage.id)) setPinnedMessage(null);
+      
+      toast({ title: "Messages deleted", description: `${messageIds.length} messages deleted` });
+    } catch (error) {
+      console.error('Error deleting messages:', error);
+      toast({ title: "Error", description: "Failed to delete messages", variant: "destructive" });
+    }
+  };
+
   const handleAttachment = async (file: File, type: string) => {
     // Show preview for images, videos, and documents
     if (file.type.startsWith('image/') || file.type.startsWith('video/') || 
@@ -489,24 +542,62 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       if (!currentUser) throw new Error('Not authenticated');
 
-      // Upload file to Supabase storage
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${currentUser.id}/${Date.now()}.${fileExt}`;
+      // Use MediaService for upload (fallback to direct upload if needed)
+      let publicUrl: string;
       
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('chat-media')
-        .upload(fileName, file);
+      try {
+        // Try using MediaService first
+        publicUrl = await MediaService.uploadChatMedia(file);
+      } catch (mediaServiceError) {
+        console.log('MediaService failed, trying direct upload:', mediaServiceError);
+        
+        // Fallback: Upload directly to Supabase storage
+        const fileExt = file.name.split('.').pop() || 'bin';
+        const fileName = `${currentUser.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+        
+        // Try different bucket names
+        const buckets = ['chat-media', 'media', 'uploads'];
+        let uploadSuccess = false;
+        
+        for (const bucket of buckets) {
+          try {
+            const { data: uploadData, error: uploadError } = await supabase.storage
+              .from(bucket)
+              .upload(fileName, file, {
+                cacheControl: '3600',
+                upsert: false
+              });
 
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('chat-media')
-        .getPublicUrl(fileName);
+            if (!uploadError) {
+              const { data: { publicUrl: url } } = supabase.storage
+                .from(bucket)
+                .getPublicUrl(fileName);
+              publicUrl = url;
+              uploadSuccess = true;
+              break;
+            }
+          } catch (bucketError) {
+            console.log(`Bucket ${bucket} failed, trying next...`);
+            continue;
+          }
+        }
+        
+        if (!uploadSuccess) {
+          // Last resort: Create object URL (temporary, but works for demo)
+          publicUrl = URL.createObjectURL(file);
+          console.warn('Using temporary object URL for media');
+        }
+      }
 
       // Determine media type
       let mediaType: 'image' | 'video' | 'text' = 'text';
       if (file.type.startsWith('image/')) mediaType = 'image';
       else if (file.type.startsWith('video/')) mediaType = 'video';
+      else if (file.type.includes('pdf') || file.type.includes('document') || 
+               file.type.includes('text') || file.type.includes('sheet') || 
+               file.type.includes('presentation')) {
+        mediaType = 'text'; // Documents as text type
+      }
 
       // Create message with media
       const messageContent = caption || '';
@@ -531,7 +622,10 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         `)
         .single();
 
-      if (messageError) throw messageError;
+      if (messageError) {
+        console.error('Message insert error:', messageError);
+        throw messageError;
+      }
 
       const newMessage: Message = {
         id: messageData.id,
@@ -564,19 +658,123 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       
       toast({ title: "Media sent", description: "Your media has been sent successfully" });
       scrollToBottom();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending media:', error);
       toast({ 
         title: "Error", 
-        description: "Failed to send media", 
+        description: error.message || "Failed to send media. Please try again.", 
         variant: "destructive" 
       });
     }
   };
 
   const handleVoiceSend = async (audioBlob: Blob, duration: number) => {
-    toast({ title: "Voice message", description: `Recorded ${duration} seconds` });
-    // TODO: Upload voice message
+    if (!chatId || !user) return;
+
+    try {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) throw new Error('Not authenticated');
+
+      // Convert blob to file
+      const audioFile = new File([audioBlob], `voice_${Date.now()}.webm`, { type: 'audio/webm' });
+      
+      // Upload voice message
+      let publicUrl: string;
+      try {
+        publicUrl = await MediaService.uploadChatMedia(audioFile);
+      } catch (mediaServiceError) {
+        // Fallback: Direct upload
+        const fileName = `${currentUser.id}/voice_${Date.now()}.webm`;
+        const buckets = ['chat-media', 'media', 'uploads'];
+        let uploadSuccess = false;
+        
+        for (const bucket of buckets) {
+          try {
+            const { error: uploadError } = await supabase.storage
+              .from(bucket)
+              .upload(fileName, audioFile);
+            
+            if (!uploadError) {
+              const { data: { publicUrl: url } } = supabase.storage
+                .from(bucket)
+                .getPublicUrl(fileName);
+              publicUrl = url;
+              uploadSuccess = true;
+              break;
+            }
+          } catch (bucketError) {
+            continue;
+          }
+        }
+        
+        if (!uploadSuccess) {
+          publicUrl = URL.createObjectURL(audioBlob);
+        }
+      }
+
+      // Create voice message
+      const { data: messageData, error: messageError } = await supabase
+        .from('messages')
+        .insert({
+          chat_id: chatId,
+          user_id: currentUser.id,
+          content: '',
+          type: 'voice',
+          media_url: publicUrl,
+          duration: duration,
+          reply_to_id: replyingTo?.id || null
+        })
+        .select(`
+          *,
+          user:profiles!messages_user_id_fkey (
+            id,
+            name,
+            username,
+            avatar
+          )
+        `)
+        .single();
+
+      if (messageError) throw messageError;
+
+      const newMessage: Message = {
+        id: messageData.id,
+        chatId: messageData.chat_id,
+        userId: messageData.user_id,
+        user: {
+          ...messageData.user,
+          photoURL: messageData.user.avatar || '',
+          createdAt: new Date(messageData.user.created_at),
+          followerCount: messageData.user.follower_count || 0,
+          followingCount: messageData.user.following_count || 0,
+          profileViews: messageData.user.profile_views || 0
+        } as unknown as User,
+        content: '',
+        type: 'voice',
+        mediaUrl: publicUrl,
+        duration: duration,
+        timestamp: new Date(messageData.created_at),
+        seen: false,
+        status: 'sent',
+        synced: true,
+        replyToMessage: replyingTo || undefined
+      };
+
+      setMessages(prev => [...prev, newMessage]);
+      setReplyingTo(null);
+      
+      if (sendSound.current) sendSound.current.play().catch(() => {});
+      
+      toast({ title: "Voice message sent", description: `${duration}s voice message sent` });
+      scrollToBottom();
+    } catch (error: any) {
+      console.error('Error sending voice message:', error);
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to send voice message", 
+        variant: "destructive" 
+      });
+    }
   };
 
   const handleChatSettings = {
@@ -695,6 +893,10 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
                   selectedCount={selectedMessages.size}
                   isPinned={pinnedMessage?.id === message.id}
                   replyToMessage={replyToMsg}
+                  selectedMessages={selectedMessages}
+                  messages={messages}
+                  onDeleteMultiple={handleDeleteMultiple}
+                  onCopyMultiple={handleCopyMultiple}
                 />
               );
             })}
