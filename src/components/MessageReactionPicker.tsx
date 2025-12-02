@@ -22,15 +22,15 @@ const MessageReactionPicker = ({ onReactionSelect, children }: MessageReactionPi
       <PopoverTrigger asChild>
         {children}
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-2" align="start">
-        <div className="flex gap-1">
+      <PopoverContent className="w-auto p-2 max-w-[calc(100vw-2rem)]" align="center" side="top">
+        <div className="grid grid-cols-4 sm:flex gap-1">
           {quickReactions.map((emoji) => (
             <Button
               key={emoji}
               variant="ghost"
               size="sm"
               onClick={() => handleReactionClick(emoji)}
-              className="text-xl hover:bg-secondary h-10 w-10 p-0"
+              className="text-lg sm:text-xl hover:bg-secondary h-9 w-9 sm:h-10 sm:w-10 p-0"
             >
               {emoji}
             </Button>

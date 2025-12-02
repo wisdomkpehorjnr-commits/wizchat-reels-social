@@ -51,7 +51,7 @@ const MessageContextMenu = ({
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: -20, opacity: 0 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="fixed top-4 left-1/2 -translate-x-1/2 bg-background border-2 border-primary/20 rounded-2xl shadow-xl p-2 flex gap-1"
+          className="fixed top-2 left-2 right-2 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:top-4 bg-background border-2 border-primary/20 rounded-2xl shadow-xl p-2 grid grid-cols-3 sm:flex gap-1 max-w-[calc(100vw-1rem)] sm:max-w-none"
           onClick={(e) => e.stopPropagation()}
         >
           {menuItems.map((item, index) => (
@@ -63,10 +63,10 @@ const MessageContextMenu = ({
                 item.action();
                 onClose();
               }}
-              className={`flex flex-col items-center gap-1 h-auto py-2 px-3 ${item.color}`}
+              className={`flex flex-col items-center gap-0.5 h-auto py-2 px-2 sm:px-3 ${item.color} text-[10px] sm:text-xs`}
             >
-              <item.icon className="w-5 h-5" />
-              <span className="text-xs">{item.label}</span>
+              <item.icon className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="text-[10px] sm:text-xs whitespace-nowrap">{item.label}</span>
             </Button>
           ))}
         </motion.div>
