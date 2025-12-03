@@ -1,4 +1,4 @@
-import { Pin, Copy, Forward, Reply, Trash2, Edit3 } from 'lucide-react';
+import { Pin, Copy, Forward, Reply, Trash2, Edit3, PinOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Message } from '@/types';
@@ -7,6 +7,8 @@ interface MessageContextMenuProps {
   message: Message;
   isOwn: boolean;
   canEdit: boolean;
+  isPinned?: boolean;
+  selectedCount?: number;
   onPin: () => void;
   onCopy: () => void;
   onForward: () => void;
@@ -20,6 +22,8 @@ const MessageContextMenu = ({
   message,
   isOwn,
   canEdit,
+  isPinned = false,
+  selectedCount = 1,
   onPin,
   onCopy,
   onForward,
@@ -28,14 +32,23 @@ const MessageContextMenu = ({
   onEdit,
   onClose,
 }: MessageContextMenuProps) => {
-  const menuItems = [
-    { icon: Pin, label: 'Pin', action: onPin, color: 'text-foreground' },
-    { icon: Copy, label: 'Copy', action: onCopy, color: 'text-foreground' },
-    { icon: Forward, label: 'Forward', action: onForward, color: 'text-foreground' },
-    { icon: Reply, label: 'Reply', action: onReply, color: 'text-foreground' },
-    ...(isOwn && canEdit ? [{ icon: Edit3, label: 'Edit', action: onEdit, color: 'text-foreground' }] : []),
-    { icon: Trash2, label: 'Delete', action: onDelete, color: 'text-destructive' },
-  ];
+  // For multiple selection, only show copy, forward, delete
+  const isMultipleSelected = selectedCount > 1;
+  
+  const menuItems = isMultipleSelected
+    ? [
+        { icon: Copy, label: 'Copy', action: onCopy, color: 'text-foreground' },
+        { icon: Forward, label: 'Forward', action: onForward, color: 'text-foreground' },
+        { icon: Trash2, label: 'Delete', action: onDelete, color: 'text-destructive' },
+      ]
+    : [
+        { icon: isPinned ? PinOff : Pin, label: isPinned ? 'Unpin' : 'Pin', action: onPin, color: 'text-foreground' },
+        { icon: Copy, label: 'Copy', action: onCopy, color: 'text-foreground' },
+        { icon: Forward, label: 'Forward', action: onForward, color: 'text-foreground' },
+        { icon: Reply, label: 'Reply', action: onReply, color: 'text-foreground' },
+        ...(isOwn && canEdit ? [{ icon: Edit3, label: 'Edit', action: onEdit, color: 'text-foreground' }] : []),
+        { icon: Trash2, label: 'Delete', action: onDelete, color: 'text-destructive' },
+      ];
 
   return (
     <AnimatePresence>
@@ -51,22 +64,22 @@ const MessageContextMenu = ({
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: -20, opacity: 0 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="fixed top-2 left-2 right-2 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:top-4 bg-background border-2 border-primary/20 rounded-2xl shadow-xl p-2 grid grid-cols-3 sm:flex gap-1 max-w-[calc(100vw-1rem)] sm:max-w-none"
+          className="fixed top-2 left-1/2 -translate-x-1/2 bg-background border-2 border-primary/20 rounded-2xl shadow-xl p-1.5 flex items-center gap-0.5 z-50"
           onClick={(e) => e.stopPropagation()}
         >
           {menuItems.map((item, index) => (
             <Button
               key={index}
               variant="ghost"
-              size="icon"
+              size="sm"
               onClick={() => {
                 item.action();
                 onClose();
               }}
-              className={`flex flex-col items-center gap-0.5 h-auto py-2 px-2 sm:px-3 ${item.color} text-[10px] sm:text-xs`}
+              className={`flex flex-col items-center gap-0.5 h-auto py-1.5 px-2 min-w-[44px] ${item.color}`}
             >
-              <item.icon className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="text-[10px] sm:text-xs whitespace-nowrap">{item.label}</span>
+              <item.icon className="w-4 h-4" />
+              <span className="text-[9px] whitespace-nowrap">{item.label}</span>
             </Button>
           ))}
         </motion.div>
