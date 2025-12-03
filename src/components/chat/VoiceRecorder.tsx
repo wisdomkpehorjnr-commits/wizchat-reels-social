@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Mic, X } from 'lucide-react';
+import { Mic } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -11,14 +11,33 @@ interface VoiceRecorderProps {
 const VoiceRecorder = ({ onSend, onCancel }: VoiceRecorderProps) => {
   const [isRecording, setIsRecording] = useState(false);
   const [duration, setDuration] = useState(0);
-  const [amplitude, setAmplitude] = useState(0);
+  const [isCanceling, setIsCanceling] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const startPosRef = useRef({ x: 0, y: 0 });
-  const [touchPos, setTouchPos] = useState({ x: 0, y: 0 });
+  const canceledRef = useRef(false);
+  const sendSoundRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    // Initialize send sound
+    sendSoundRef.current = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSl+zPDTgjMGHm7A7+OZSA0PVavk8LJiHAdEo+Hzu2ohBSl+zPDTgjMGHm7A7+OZSA0PVavk8LJiHAc=');
+    sendSoundRef.current.volume = 0.3;
+    
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+      if (mediaRecorderRef.current && isRecording) {
+        mediaRecorderRef.current.stop();
+      }
+    };
+  }, [isRecording]);
 
   const startRecording = async () => {
+    canceledRef.current = false;
+    setIsCanceling(false);
+    
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
@@ -30,20 +49,26 @@ const VoiceRecorder = ({ onSend, onCancel }: VoiceRecorderProps) => {
       };
 
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        if (duration > 0) {
-          onSend(audioBlob, duration);
-        }
         stream.getTracks().forEach((track) => track.stop());
+        
+        if (!canceledRef.current && duration > 0) {
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          onSend(audioBlob, duration);
+          // Play send sound
+          if (sendSoundRef.current) {
+            sendSoundRef.current.play().catch(() => {});
+          }
+        }
+        
+        setDuration(0);
+        setIsRecording(false);
       };
 
       mediaRecorder.start();
       setIsRecording(true);
 
-      // Start timer
       timerRef.current = setInterval(() => {
         setDuration((prev) => prev + 1);
-        setAmplitude(Math.random() * 100);
       }, 1000);
     } catch (error) {
       console.error('Error accessing microphone:', error);
@@ -53,16 +78,27 @@ const VoiceRecorder = ({ onSend, onCancel }: VoiceRecorderProps) => {
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
       if (timerRef.current) {
         clearInterval(timerRef.current);
+        timerRef.current = null;
       }
+      mediaRecorderRef.current.stop();
     }
   };
 
   const cancelRecording = () => {
-    stopRecording();
+    canceledRef.current = true;
+    setIsCanceling(true);
+    
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+    }
+    
     setDuration(0);
     audioChunksRef.current = [];
     onCancel();
@@ -70,30 +106,39 @@ const VoiceRecorder = ({ onSend, onCancel }: VoiceRecorderProps) => {
 
   const handleTouchStart = (e: React.TouchEvent) => {
     startPosRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    setTouchPos({ x: e.touches[0].clientX, y: e.touches[0].clientY });
     startRecording();
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    const currentX = e.touches[0].clientX;
+    if (!isRecording) return;
+    
     const currentY = e.touches[0].clientY;
-    setTouchPos({ x: currentX, y: currentY });
-
     const deltaY = startPosRef.current.y - currentY;
-    const deltaX = startPosRef.current.x - currentX;
+
+    // Show cancel hint when swiping up
+    setIsCanceling(deltaY > 50);
 
     // Swipe up to cancel
-    if (deltaY > 100) {
-      cancelRecording();
-    }
-    // Swipe left to cancel
-    if (deltaX > 100) {
+    if (deltaY > 80) {
       cancelRecording();
     }
   };
 
   const handleTouchEnd = () => {
-    stopRecording();
+    if (isRecording && !canceledRef.current) {
+      stopRecording();
+    }
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    startPosRef.current = { x: e.clientX, y: e.clientY };
+    startRecording();
+  };
+
+  const handleMouseUp = () => {
+    if (isRecording && !canceledRef.current) {
+      stopRecording();
+    }
   };
 
   const formatDuration = (seconds: number) => {
@@ -101,17 +146,6 @@ const VoiceRecorder = ({ onSend, onCancel }: VoiceRecorderProps) => {
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
-
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-      if (mediaRecorderRef.current && isRecording) {
-        mediaRecorderRef.current.stop();
-      }
-    };
-  }, [isRecording]);
 
   return (
     <div className="relative">
@@ -121,70 +155,57 @@ const VoiceRecorder = ({ onSend, onCancel }: VoiceRecorderProps) => {
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        onMouseDown={(e) => {
-          startPosRef.current = { x: e.clientX, y: e.clientY };
-          startRecording();
-        }}
-        onMouseUp={stopRecording}
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
       >
         <Mic className="w-5 h-5" />
       </Button>
 
       <AnimatePresence>
         {isRecording && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/50 z-40"
-            />
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              className="fixed inset-x-4 bottom-24 bg-background border-2 border-primary rounded-2xl shadow-xl p-6 z-50"
-            >
-              <div className="flex flex-col items-center gap-4">
-                <div className="text-sm text-muted-foreground">
-                  Swipe up or left to cancel
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            className="fixed bottom-20 left-4 right-4 z-50"
+          >
+            <div className={`bg-background border-2 ${isCanceling ? 'border-destructive' : 'border-primary'} rounded-xl shadow-lg p-3 mx-auto max-w-xs`}>
+              <p className={`text-xs text-center mb-2 ${isCanceling ? 'text-destructive' : 'text-muted-foreground'}`}>
+                {isCanceling ? '↑ Release to cancel' : '↑ Swipe up to cancel'}
+              </p>
+              
+              <div className="flex items-center justify-center gap-3">
+                <div className={`w-10 h-10 rounded-full ${isCanceling ? 'bg-destructive/20' : 'bg-primary/20'} flex items-center justify-center`}>
+                  <motion.div
+                    animate={{ scale: [1, 1.2, 1] }}
+                    transition={{ duration: 1, repeat: Infinity }}
+                  >
+                    <Mic className={`w-5 h-5 ${isCanceling ? 'text-destructive' : 'text-primary'}`} />
+                  </motion.div>
                 </div>
                 
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center animate-pulse">
-                    <Mic className="w-8 h-8 text-destructive" />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-2xl font-bold">{formatDuration(duration)}</span>
-                    <span className="text-xs text-muted-foreground">Recording...</span>
-                  </div>
+                <div className="flex flex-col">
+                  <span className="text-lg font-semibold">{formatDuration(duration)}</span>
+                  <span className="text-[10px] text-muted-foreground">Recording...</span>
                 </div>
-
-                {/* Waveform visualization */}
-                <div className="flex items-center gap-1 h-12">
-                  {[...Array(20)].map((_, i) => (
+                
+                {/* Mini waveform */}
+                <div className="flex items-center gap-0.5 h-6">
+                  {[...Array(8)].map((_, i) => (
                     <motion.div
                       key={i}
-                      className="w-1 bg-primary rounded-full"
+                      className={`w-0.5 ${isCanceling ? 'bg-destructive' : 'bg-primary'} rounded-full`}
                       animate={{
-                        height: Math.random() * amplitude + 10,
+                        height: [4, Math.random() * 16 + 8, 4],
                       }}
-                      transition={{ duration: 0.1 }}
+                      transition={{ duration: 0.5, repeat: Infinity, delay: i * 0.1 }}
                     />
                   ))}
                 </div>
-
-                <Button
-                  variant="outline"
-                  className="border-destructive text-destructive"
-                  onClick={cancelRecording}
-                >
-                  <X className="w-4 h-4 mr-2" />
-                  Cancel
-                </Button>
               </div>
-            </motion.div>
-          </>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

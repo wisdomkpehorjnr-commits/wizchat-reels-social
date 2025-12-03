@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, ArrowLeft, Plus, Phone, Video } from 'lucide-react';
+import { Send, ArrowLeft, Plus, Phone, Video, Pin, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -13,6 +13,7 @@ import OnlineStatusIndicator from './OnlineStatusIndicator';
 import ChatSettingsMenu from './chat/ChatSettingsMenu';
 import AttachmentMenu from './chat/AttachmentMenu';
 import VoiceRecorder from './chat/VoiceRecorder';
+import LoadingDots from './chat/LoadingDots';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
@@ -33,6 +34,8 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
   const [loading, setLoading] = useState(true);
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [pinnedMessage, setPinnedMessage] = useState<Message | null>(null);
+  const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isNetworkOnline = useNetworkStatus();
   const syncInProgressRef = useRef(false);
@@ -40,7 +43,6 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
   const sendSound = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    // Initialize send sound
     sendSound.current = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSl+zPDTgjMGHm7A7+OZSA0PVavk8LJiHAdEo+Hzu2ohBSl+zPDTgjMGHm7A7+OZSA0PVavk8LJiHAc=');
     sendSound.current.volume = 0.3;
   }, []);
@@ -69,28 +71,12 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages', filter: `chat_id=eq.${chatId}` },
         async (payload) => {
-          if (processedMessageIds.current.has(payload.new.id)) {
-            return;
-          }
+          if (processedMessageIds.current.has(payload.new.id)) return;
           processedMessageIds.current.add(payload.new.id);
 
           const { data: messageData } = await supabase
             .from('messages')
-            .select(`
-              *,
-              user:profiles!messages_user_id_fkey (
-                id,
-                name,
-                username,
-                avatar,
-                email,
-                bio,
-                follower_count,
-                following_count,
-                profile_views,
-                created_at
-              )
-            `)
+            .select(`*, user:profiles!messages_user_id_fkey (*)`)
             .eq('id', payload.new.id)
             .single();
 
@@ -105,8 +91,9 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
                 createdAt: new Date(messageData.user.created_at),
                 followerCount: messageData.user.follower_count || 0,
                 followingCount: messageData.user.following_count || 0,
-                profileViews: messageData.user.profile_views || 0
-              } as User,
+                profileViews: messageData.user.profile_views || 0,
+                birthday: messageData.user.birthday ? new Date(messageData.user.birthday) : undefined
+              } as unknown as User,
               content: messageData.content,
               type: messageData.type as 'text' | 'voice' | 'image' | 'video',
               mediaUrl: messageData.media_url,
@@ -132,16 +119,10 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         { event: 'UPDATE', schema: 'public', table: 'messages', filter: `chat_id=eq.${chatId}` },
         async (payload) => {
           const updated: any = payload.new;
-          
           setMessages(prev =>
             prev.map(m =>
               m.id === updated.id
-                ? {
-                    ...m,
-                    content: updated.content ?? m.content,
-                    seen: updated.seen ?? m.seen,
-                    status: updated.seen ? 'read' : m.status
-                  }
+                ? { ...m, content: updated.content ?? m.content, seen: updated.seen ?? m.seen, status: updated.seen ? 'read' : m.status }
                 : m
             )
           );
@@ -149,8 +130,22 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       )
       .subscribe();
 
+    // Subscribe to reactions
+    const reactionsChannel = supabase
+      .channel(`message_reactions:${chatId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'message_reactions' },
+        async () => {
+          // Refresh messages to get updated reactions
+          if (chatId) await syncMessagesWithServer(chatId);
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(reactionsChannel);
     };
   }, [chatId, user?.id]);
 
@@ -168,15 +163,11 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         p_other_user_id: chatUser.id
       });
 
-      if (chatError) {
-        console.error('Error getting or creating chat:', chatError);
-        throw chatError;
-      }
+      if (chatError) throw chatError;
       
       setChatId(chatId);
       
       const localMessages = await localMessageService.getMessages(chatId);
-      
       const convertedMessages: Message[] = localMessages.map(msg => ({
         ...msg,
         status: msg.status,
@@ -190,11 +181,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       }
     } catch (error) {
       console.error('Error initializing chat:', error);
-      toast({
-        title: "Error",
-        description: "Failed to initialize chat",
-        variant: "destructive"
-      });
+      toast({ title: "Error", description: "Failed to initialize chat", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -207,18 +194,36 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
     try {
       const serverMessages = await dataService.getMessages(chatId);
       
+      // Fetch reactions for each message
+      const messagesWithReactions = await Promise.all(
+        serverMessages.map(async (msg) => {
+          const { data: reactions } = await supabase
+            .from('message_reactions')
+            .select('*')
+            .eq('message_id', msg.id);
+          const mappedReactions = (reactions || []).map(r => ({
+            id: r.id,
+            messageId: r.message_id,
+            userId: r.user_id,
+            emoji: r.emoji,
+            createdAt: new Date(r.created_at)
+          }));
+          return { ...msg, reactions: mappedReactions };
+        })
+      );
+      
       const localMessages: LocalMessage[] = serverMessages.map(msg => ({
         ...msg,
         status: msg.seen ? 'read' : 'delivered',
         synced: true
-      }));
+      })) as LocalMessage[];
       
       await localMessageService.saveMessages(localMessages);
       
       setMessages(prev => {
-        const serverIds = new Set(serverMessages.map(m => m.id));
+        const serverIds = new Set(messagesWithReactions.map(m => m.id));
         const localOnly = prev.filter(m => !serverIds.has(m.id) && m.status === 'pending');
-        const converted = serverMessages.map(msg => ({
+        const converted: Message[] = messagesWithReactions.map(msg => ({
           ...msg,
           status: (msg.seen ? 'read' : 'delivered') as MessageStatus
         }));
@@ -242,21 +247,11 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         try {
           const serverMessage = await dataService.sendMessage(chatId, localMsg.content);
           
-          await localMessageService.saveMessage({
-            ...localMsg,
-            id: serverMessage.id,
-            status: 'sent',
-            synced: true
-          });
-          
-          if (localMsg.localId) {
-            await localMessageService.removeFromOutbox(localMsg.localId);
-          }
+          await localMessageService.saveMessage({ ...localMsg, id: serverMessage.id, status: 'sent', synced: true });
+          if (localMsg.localId) await localMessageService.removeFromOutbox(localMsg.localId);
           
           setMessages(prev => prev.map(m => 
-            m.localId === localMsg.localId 
-              ? { ...serverMessage, status: 'sent' as MessageStatus }
-              : m
+            m.localId === localMsg.localId ? { ...serverMessage, status: 'sent' as MessageStatus } : m
           ));
         } catch (error) {
           console.error('Error sending message from outbox:', error);
@@ -272,6 +267,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
 
     const messageContent = newMessage.trim();
     setNewMessage('');
+    setReplyingTo(null);
 
     const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const tempMessage: Message = {
@@ -283,7 +279,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       type: 'text',
       timestamp: new Date(),
       seen: false,
-      status: isNetworkOnline ? 'pending' : 'pending',
+      status: 'pending',
       localId: tempId,
       synced: false
     };
@@ -291,7 +287,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
     setMessages(prev => [...prev, tempMessage]);
     processedMessageIds.current.add(tempId);
 
-    const localMsg: LocalMessage = { ...tempMessage, status: tempMessage.status || 'pending', synced: false };
+    const localMsg: LocalMessage = { ...tempMessage, status: 'pending', synced: false };
     await localMessageService.saveMessage(localMsg);
 
     if (isNetworkOnline) {
@@ -299,26 +295,15 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         const serverMessage = await dataService.sendMessage(chatId, messageContent);
         processedMessageIds.current.add(serverMessage.id);
         
-        const updatedMsg: Message = {
-          ...serverMessage,
-          status: 'sent'
-        };
+        setMessages(prev => prev.map(m => m.localId === tempId ? { ...serverMessage, status: 'sent' } : m));
         
-        setMessages(prev => 
-          prev.map(m => m.localId === tempId ? updatedMsg : m)
-        );
-        
-        const updatedLocalMsg: LocalMessage = { ...updatedMsg, status: 'sent', synced: true };
-        await localMessageService.saveMessage(updatedLocalMsg);
+        await localMessageService.saveMessage({ ...serverMessage, status: 'sent', synced: true });
         await localMessageService.deleteMessage(tempId, chatId);
+        
+        if (sendSound.current) sendSound.current.play().catch(() => {});
       } catch (error) {
         console.error('Error sending message:', error);
-        toast({
-          title: "Failed to send",
-          description: "Message will be sent when online",
-          variant: "destructive"
-        });
-        
+        toast({ title: "Failed to send", description: "Message will be sent when online", variant: "destructive" });
         await localMessageService.addToOutbox(localMsg);
       }
     } else {
@@ -332,32 +317,56 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
     if (!user || !chatId) return;
 
     try {
-      // Check if user already has a reaction
       const { data: existing } = await supabase
         .from('message_reactions')
-        .select('id')
+        .select('id, emoji')
         .eq('message_id', messageId)
         .eq('user_id', user.id)
         .single();
 
       if (existing) {
-        // Update existing reaction
-        await supabase
-          .from('message_reactions')
-          .update({ emoji })
-          .eq('id', existing.id);
+        if (existing.emoji === emoji) {
+          // Remove reaction if same emoji
+          await supabase.from('message_reactions').delete().eq('id', existing.id);
+        } else {
+          // Update to new emoji
+          await supabase.from('message_reactions').update({ emoji }).eq('id', existing.id);
+        }
       } else {
-        // Add new reaction
-        await supabase
-          .from('message_reactions')
-          .insert({
-            message_id: messageId,
-            user_id: user.id,
-            emoji
-          });
+        await supabase.from('message_reactions').insert({ message_id: messageId, user_id: user.id, emoji });
       }
+
+      // Update local state immediately
+      setMessages(prev => prev.map(m => {
+        if (m.id !== messageId) return m;
+        const reactions = m.reactions || [];
+        const existingIdx = reactions.findIndex(r => r.userId === user.id);
+        
+        if (existingIdx >= 0) {
+          if (reactions[existingIdx].emoji === emoji) {
+            return { ...m, reactions: reactions.filter((_, i) => i !== existingIdx) };
+          }
+          return { ...m, reactions: reactions.map((r, i) => i === existingIdx ? { ...r, emoji } : r) };
+        }
+        return { ...m, reactions: [...reactions, { id: '', messageId, userId: user.id, emoji, createdAt: new Date() }] };
+      }));
     } catch (error) {
-      console.error('Error adding reaction:', error);
+      console.error('Error handling reaction:', error);
+    }
+  };
+
+  const handleEditMessage = async (messageId: string, newContent: string) => {
+    if (!chatId) return;
+
+    try {
+      const contentWithEdit = newContent + ' [edited]';
+      await supabase.from('messages').update({ content: contentWithEdit }).eq('id', messageId);
+      
+      setMessages(prev => prev.map(m => m.id === messageId ? { ...m, content: contentWithEdit } : m));
+      toast({ title: "Message edited" });
+    } catch (error) {
+      console.error('Error editing message:', error);
+      toast({ title: "Error", description: "Failed to edit message", variant: "destructive" });
     }
   };
 
@@ -366,122 +375,85 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
 
     try {
       if (deleteForEveryone) {
-        // Delete from database
-        await supabase
-          .from('messages')
-          .delete()
-          .eq('id', messageId);
+        await supabase.from('messages').delete().eq('id', messageId);
       }
       
-      // Remove from local state
       setMessages(prev => prev.filter(m => m.id !== messageId));
       await localMessageService.deleteMessage(messageId, chatId);
       
-      toast({
-        title: "Message deleted",
-        description: deleteForEveryone ? "Deleted for everyone" : "Deleted for you"
-      });
+      if (pinnedMessage?.id === messageId) setPinnedMessage(null);
+      
+      toast({ title: "Message deleted", description: deleteForEveryone ? "Deleted for everyone" : "Deleted for you" });
     } catch (error) {
       console.error('Error deleting message:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete message",
-        variant: "destructive"
-      });
+      toast({ title: "Error", description: "Failed to delete message", variant: "destructive" });
     }
   };
 
-  const handleAttachment = (type: string) => {
-    toast({
-      title: "Coming Soon",
-      description: `${type} attachment feature will be available soon`
+  const handlePinMessage = (messageId: string) => {
+    const message = messages.find(m => m.id === messageId);
+    if (!message) return;
+
+    if (pinnedMessage?.id === messageId) {
+      setPinnedMessage(null);
+      toast({ title: "Message unpinned" });
+    } else {
+      setPinnedMessage(message);
+      toast({ title: "Message pinned" });
+    }
+  };
+
+  const handleSelectMessage = (messageId: string) => {
+    setSelectedMessages(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(messageId)) {
+        newSet.delete(messageId);
+      } else {
+        newSet.add(messageId);
+      }
+      return newSet;
     });
+  };
+
+  const handleAttachment = async (file: File, type: string) => {
+    toast({ title: `${type} selected`, description: file.name });
+    // TODO: Upload file and send as message
   };
 
   const handleVoiceSend = async (audioBlob: Blob, duration: number) => {
-    toast({
-      title: "Voice message",
-      description: `Recorded ${duration} seconds`
-    });
-    // Implement voice message upload
+    toast({ title: "Voice message", description: `Recorded ${duration} seconds` });
+    // TODO: Upload voice message
   };
 
   const handleChatSettings = {
-    onMute: (duration: string) => {
-      toast({
-        title: "Chat muted",
-        description: `Notifications muted for ${duration}`
-      });
-    },
+    onMute: (duration: string) => toast({ title: "Chat muted", description: `Notifications muted for ${duration}` }),
     onClear: async () => {
       if (!chatId) return;
-      
       try {
-        await supabase
-          .from('messages')
-          .delete()
-          .eq('chat_id', chatId);
-        
+        await supabase.from('messages').delete().eq('chat_id', chatId);
         setMessages([]);
-        
-        toast({
-          title: "Chat cleared",
-          description: "All messages have been deleted"
-        });
+        setPinnedMessage(null);
+        toast({ title: "Chat cleared", description: "All messages have been deleted" });
       } catch (error) {
         console.error('Error clearing chat:', error);
-        toast({
-          title: "Error",
-          description: "Failed to clear chat",
-          variant: "destructive"
-        });
+        toast({ title: "Error", description: "Failed to clear chat", variant: "destructive" });
       }
     },
     onExport: () => {
-      const exportText = messages.map(m => 
-        `[${m.timestamp.toLocaleString()}] ${m.user.name}: ${m.content}`
-      ).join('\n');
-      
+      const exportText = messages.map(m => `[${m.timestamp.toLocaleString()}] ${m.user.name}: ${m.content}`).join('\n');
       const blob = new Blob([exportText], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `chat-${chatUser.name}-${new Date().toISOString()}.txt`;
       a.click();
-      
-      toast({
-        title: "Chat exported",
-        description: "Chat saved as text file"
-      });
+      toast({ title: "Chat exported", description: "Chat saved as text file" });
     },
-    onBlock: () => {
-      toast({
-        title: "User blocked",
-        description: `You won't receive messages from ${chatUser.name}`,
-        variant: "destructive"
-      });
-    },
-    onReport: () => {
-      toast({
-        title: "Report submitted",
-        description: "Thank you for reporting. We'll review this."
-      });
-    },
-    onFavorite: () => {
-      toast({
-        title: "Added to favorites",
-        description: `${chatUser.name} added to favorites`
-      });
-    },
-    onViewProfile: () => {
-      navigate(`/profile/${chatUser.username}`);
-    },
-    onDisappearingMessages: (duration: string) => {
-      toast({
-        title: "Disappearing messages",
-        description: `Messages will disappear after ${duration}`
-      });
-    }
+    onBlock: () => toast({ title: "User blocked", description: `You won't receive messages from ${chatUser.name}`, variant: "destructive" }),
+    onReport: () => toast({ title: "Report submitted", description: "Thank you for reporting. We'll review this." }),
+    onFavorite: () => toast({ title: "Added to favorites", description: `${chatUser.name} added to favorites` }),
+    onViewProfile: () => navigate(`/profile/${chatUser.username}`),
+    onDisappearingMessages: (duration: string) => toast({ title: "Disappearing messages", description: `Messages will disappear after ${duration}` })
   };
 
   return (
@@ -489,12 +461,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b-2 border-primary/20">
         <div className="flex items-center gap-3 flex-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            className="flex-shrink-0"
-          >
+          <Button variant="ghost" size="icon" onClick={onClose} className="flex-shrink-0">
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <Avatar className="w-10 h-10">
@@ -509,33 +476,44 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => toast({ title: "Coming Soon", description: "Voice call feature" })}
-          >
+          <Button variant="ghost" size="icon" onClick={() => toast({ title: "Coming Soon", description: "Voice call feature" })}>
             <Phone className="w-5 h-5" />
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => toast({ title: "Coming Soon", description: "Video call feature" })}
-          >
+          <Button variant="ghost" size="icon" onClick={() => toast({ title: "Coming Soon", description: "Video call feature" })}>
             <Video className="w-5 h-5" />
           </Button>
-          <ChatSettingsMenu
-            chatUser={chatUser}
-            {...handleChatSettings}
-          />
+          <ChatSettingsMenu chatUser={chatUser} {...handleChatSettings} />
         </div>
       </div>
+
+      {/* Pinned Message */}
+      {pinnedMessage && (
+        <div className="px-4 py-2 bg-primary/10 border-b border-primary/20 flex items-center gap-2">
+          <Pin className="w-4 h-4 text-primary" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-muted-foreground">Pinned message</p>
+            <p className="text-sm truncate">{pinnedMessage.content}</p>
+          </div>
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setPinnedMessage(null)}>
+            <X className="w-3 h-3" />
+          </Button>
+        </div>
+      )}
+
+      {/* Selection bar */}
+      {selectedMessages.size > 0 && (
+        <div className="px-4 py-2 bg-primary/10 border-b border-primary/20 flex items-center justify-between">
+          <span className="text-sm">{selectedMessages.size} selected</span>
+          <Button variant="ghost" size="sm" onClick={() => setSelectedMessages(new Set())}>
+            Cancel
+          </Button>
+        </div>
+      )}
 
       {/* Messages */}
       <ScrollArea className="flex-1 p-4">
         {loading ? (
-          <div className="flex justify-center items-center h-full">
-            <p className="text-muted-foreground">Loading messages...</p>
-          </div>
+          <LoadingDots />
         ) : (
           <div className="space-y-1">
             {messages.map((message) => (
@@ -543,21 +521,18 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
                 key={message.id || message.localId}
                 message={message}
                 onReaction={(emoji) => handleReaction(message.id, emoji)}
+                onEdit={handleEditMessage}
                 onDelete={handleDeleteMessage}
                 onReply={setReplyingTo}
                 onForward={(msg) => {
-                  toast({
-                    title: "Forward message",
-                    description: "Select chats to forward to"
-                  });
+                  toast({ title: "Forward message", description: "Select chats to forward to" });
                   navigate('/chat');
                 }}
-                onPin={(id) => {
-                  toast({
-                    title: "Message pinned",
-                    description: "Message pinned to top of chat"
-                  });
-                }}
+                onPin={handlePinMessage}
+                onSelect={handleSelectMessage}
+                isSelected={selectedMessages.has(message.id)}
+                selectedCount={selectedMessages.size}
+                isPinned={pinnedMessage?.id === message.id}
               />
             ))}
             <div ref={messagesEndRef} />
@@ -573,22 +548,11 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
               <p className="text-xs text-muted-foreground">Replying to {replyingTo.user.name}</p>
               <p className="text-sm truncate">{replyingTo.content}</p>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setReplyingTo(null)}
-            >
-              ✕
-            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setReplyingTo(null)}>✕</Button>
           </div>
         )}
         <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setShowAttachmentMenu(true)}
-            className="flex-shrink-0"
-          >
+          <Button variant="ghost" size="icon" onClick={() => setShowAttachmentMenu(true)} className="flex-shrink-0">
             <Plus className="w-5 h-5" />
           </Button>
           <Input
@@ -598,9 +562,6 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 sendMessage();
-                if (sendSound.current) {
-                  sendSound.current.play().catch(() => {});
-                }
               }
             }}
             placeholder="Type a message..."
@@ -608,12 +569,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
           />
           {newMessage.trim() ? (
             <Button
-              onClick={() => {
-                sendMessage();
-                if (sendSound.current) {
-                  sendSound.current.play().catch(() => {});
-                }
-              }}
+              onClick={sendMessage}
               disabled={!newMessage.trim()}
               size="icon"
               className="rounded-full bg-primary hover:bg-primary/90 flex-shrink-0"
@@ -621,10 +577,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
               <Send className="w-5 h-5" />
             </Button>
           ) : (
-            <VoiceRecorder
-              onSend={handleVoiceSend}
-              onCancel={() => {}}
-            />
+            <VoiceRecorder onSend={handleVoiceSend} onCancel={() => {}} />
           )}
         </div>
       </div>
@@ -633,12 +586,11 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       <AttachmentMenu
         isOpen={showAttachmentMenu}
         onClose={() => setShowAttachmentMenu(false)}
-        onCamera={() => handleAttachment('Camera')}
-        onGallery={() => handleAttachment('Gallery')}
-        onDocument={() => handleAttachment('Document')}
-        onLocation={() => handleAttachment('Location')}
-        onAudio={() => handleAttachment('Audio')}
-        onVideo={() => handleAttachment('Video')}
+        onCamera={(file) => handleAttachment(file, 'Camera')}
+        onGallery={(files) => handleAttachment(files[0], 'Gallery')}
+        onDocument={(file) => handleAttachment(file, 'Document')}
+        onAudio={(file) => handleAttachment(file, 'Audio')}
+        onVideo={(file) => handleAttachment(file, 'Video')}
       />
     </div>
   );
