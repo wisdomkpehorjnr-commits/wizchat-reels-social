@@ -817,18 +817,36 @@ export const dataService = {
       throw error;
     }
 
-    return data.map(msg => ({
-      id: msg.id,
-      chatId: msg.chat_id,
-      userId: msg.user_id,
-      user: msg.user as User,
-      content: msg.content,
-      type: msg.type as 'text' | 'voice' | 'image' | 'video',
-      mediaUrl: msg.media_url,
-      duration: msg.duration,
-      seen: msg.seen,
-      timestamp: new Date(msg.created_at)
-    }));
+    return data.map(msg => {
+      // Determine frontend message type from DB data
+      // DB only allows 'text', 'image', 'video', so we need to infer voice/audio/document
+      let frontendType: 'text' | 'image' | 'video' | 'voice' | 'audio' | 'document' = msg.type as any;
+      
+      // If it's 'text' type in DB, check if it's actually voice/audio/document
+      if (msg.type === 'text') {
+        if (msg.media_url && msg.duration && msg.duration > 0 && !msg.content) {
+          frontendType = 'voice';
+        } else if (msg.media_url && msg.media_url.match(/\.(mp3|wav|ogg|m4a|aac|webm)$/i)) {
+          frontendType = 'audio';
+        } else if (msg.media_url && !msg.duration) {
+          frontendType = 'document';
+        }
+      }
+      
+      return {
+        id: msg.id,
+        chatId: msg.chat_id,
+        userId: msg.user_id,
+        user: msg.user as User,
+        content: msg.content,
+        type: frontendType,
+        mediaUrl: msg.media_url,
+        duration: msg.duration,
+        seen: msg.seen,
+        timestamp: new Date(msg.created_at),
+        fileName: msg.media_url ? msg.media_url.split('/').pop()?.split('?')[0] : undefined
+      };
+    });
   },
 
   async sendMessage(chatId: string, content: string): Promise<Message> {
@@ -877,13 +895,15 @@ export const dataService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
+    // Use 'text' type since DB constraint only allows 'text', 'image', 'video'
+    // Voice messages are identified by duration > 0 in frontend
     const { data, error } = await supabase
       .from('messages')
       .insert({
         chat_id: chatId,
         user_id: user.id,
         content: '',
-        type: 'voice',
+        type: 'text', // Use 'text' to satisfy DB constraint
         media_url: audioUrl,
         duration: duration
       })
@@ -909,11 +929,12 @@ export const dataService = {
       userId: data.user_id,
       user: data.user as User,
       content: data.content,
-      type: data.type as 'voice',
+      type: 'voice' as const, // Frontend type - identified by duration > 0
       mediaUrl: data.media_url,
       duration: data.duration,
       seen: data.seen,
-      timestamp: new Date(data.created_at)
+      timestamp: new Date(data.created_at),
+      fileName: `voice_${Date.now()}.webm`
     };
   },
 

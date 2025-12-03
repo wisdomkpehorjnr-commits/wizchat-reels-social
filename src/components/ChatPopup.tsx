@@ -85,6 +85,20 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
             .single();
 
           if (messageData && messageData.user_id !== user?.id) {
+          // Determine frontend message type from DB data
+          let frontendType: 'text' | 'image' | 'video' | 'voice' | 'audio' | 'document' = messageData.type as any;
+          
+          // If it's 'text' type in DB, check if it's actually voice/audio/document
+          if (messageData.type === 'text') {
+            if (messageData.media_url && messageData.duration && messageData.duration > 0 && !messageData.content) {
+              frontendType = 'voice';
+            } else if (messageData.media_url && messageData.media_url.match(/\.(mp3|wav|ogg|m4a|aac|webm)$/i)) {
+              frontendType = 'audio';
+            } else if (messageData.media_url && !messageData.duration) {
+              frontendType = 'document';
+            }
+          }
+          
             const newMsg: Message = {
               id: messageData.id,
               chatId: messageData.chat_id,
@@ -99,13 +113,14 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
                 birthday: messageData.user.birthday ? new Date(messageData.user.birthday) : undefined
               } as unknown as User,
               content: messageData.content,
-              type: messageData.type as 'text' | 'voice' | 'image' | 'video',
+            type: frontendType,
               mediaUrl: messageData.media_url,
               duration: messageData.duration,
               seen: messageData.seen,
               timestamp: new Date(messageData.created_at),
               status: messageData.seen ? 'read' : 'delivered',
-              synced: true
+            synced: true,
+            fileName: messageData.media_url ? messageData.media_url.split('/').pop()?.split('?')[0] : undefined
             };
             
             const localMsg: LocalMessage = { ...newMsg, status: newMsg.status || 'delivered', synced: true };
@@ -227,10 +242,28 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       setMessages(prev => {
         const serverIds = new Set(messagesWithReactions.map(m => m.id));
         const localOnly = prev.filter(m => !serverIds.has(m.id) && m.status === 'pending');
-        const converted: Message[] = messagesWithReactions.map(msg => ({
+        const converted: Message[] = messagesWithReactions.map(msg => {
+          // Determine frontend message type from DB data
+          let frontendType: 'text' | 'image' | 'video' | 'voice' | 'audio' | 'document' = msg.type as any;
+          
+          // If it's 'text' type in DB, check if it's actually voice/audio/document
+          if (msg.type === 'text') {
+            if (msg.mediaUrl && msg.duration && msg.duration > 0 && !msg.content) {
+              frontendType = 'voice';
+            } else if (msg.mediaUrl && msg.mediaUrl.match(/\.(mp3|wav|ogg|m4a|aac|webm)$/i)) {
+              frontendType = 'audio';
+            } else if (msg.mediaUrl && !msg.duration) {
+              frontendType = 'document';
+            }
+          }
+          
+          return {
           ...msg,
-          status: (msg.seen ? 'read' : 'delivered') as MessageStatus
-        }));
+            type: frontendType,
+            status: (msg.seen ? 'read' : 'delivered') as MessageStatus,
+            fileName: msg.mediaUrl ? msg.mediaUrl.split('/').pop()?.split('?')[0] : undefined
+          };
+        });
         return [...converted, ...localOnly].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
       });
 
@@ -445,7 +478,9 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         
         setMessages(prev => prev.filter(m => !messageIds.includes(m.id)));
         for (const id of messageIds) {
-          await localMessageService.deleteMessage(id, chatId);
+          if (typeof id === 'string') {
+            await localMessageService.deleteMessage(id, chatId);
+          }
         }
         
         setSelectedMessages(new Set());
@@ -516,7 +551,9 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       
       setMessages(prev => prev.filter(m => !messageIds.includes(m.id)));
       for (const id of messageIds) {
-        await localMessageService.deleteMessage(id, chatId);
+        if (typeof id === 'string') {
+          await localMessageService.deleteMessage(id, chatId);
+        }
       }
       
       setSelectedMessages(new Set());
@@ -597,14 +634,18 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         }
       }
 
-      // Determine media type
+      // Determine media type based on DB constraint (only 'text', 'image', 'video' allowed)
       let mediaType: 'image' | 'video' | 'text' = 'text';
-      if (file.type.startsWith('image/')) mediaType = 'image';
-      else if (file.type.startsWith('video/')) mediaType = 'video';
-      else if (file.type.includes('pdf') || file.type.includes('document') || 
-               file.type.includes('text') || file.type.includes('sheet') || 
-               file.type.includes('presentation')) {
-        mediaType = 'text'; // Documents as text type
+      const fileName = file.name;
+      const fileSize = file.size;
+      
+      if (file.type.startsWith('image/')) {
+        mediaType = 'image';
+      } else if (file.type.startsWith('video/')) {
+        mediaType = 'video';
+      } else {
+        // Audio files and documents use 'text' type, identified by media_url + file extension
+        mediaType = 'text';
       }
 
       // Create message with media
@@ -647,6 +688,15 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         throw messageError;
       }
 
+      // Determine frontend message type
+      let frontendType: 'text' | 'image' | 'video' | 'voice' | 'audio' | 'document' = mediaType;
+      if (file.type.startsWith('audio/') || fileName.match(/\.(mp3|wav|ogg|m4a|aac|webm)$/i)) {
+        frontendType = 'audio';
+      } else if (mediaType === 'text' && publicUrl && !messageContent) {
+        // Document file (not audio, not image, not video)
+        frontendType = 'document';
+      }
+
       const newMessage: Message = {
         id: messageData.id,
         chatId: messageData.chat_id,
@@ -660,14 +710,16 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
           profileViews: messageData.user.profile_views || 0
         } as unknown as User,
         content: messageContent,
-        type: mediaType,
+        type: frontendType,
         mediaUrl: publicUrl,
         timestamp: new Date(messageData.created_at),
         seen: false,
         status: 'sent',
         synced: true,
-        replyToMessage: replyingTo || undefined
-      };
+        replyToMessage: replyingTo || undefined,
+        fileName: fileName,
+        fileSize: fileSize
+      } as Message;
 
       setMessages(prev => [...prev, newMessage]);
       setReplyingTo(null);
@@ -732,14 +784,15 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         }
       }
 
-      // Create voice message
+      // Create voice message - use 'text' type since DB constraint only allows 'text', 'image', 'video'
+      // We'll identify it as voice by checking duration > 0 in frontend
       const insertData: any = {
         chat_id: chatId,
         user_id: currentUser.id,
-        content: '',
-        type: 'voice',
+        content: '', // Empty content for voice messages
+        type: 'text', // Use 'text' type to satisfy DB constraint
         media_url: publicUrl,
-        duration: duration
+        duration: Math.max(1, duration) // Ensure duration is at least 1 to identify as voice
       };
       
       // Only add reply_to_id if replyingTo exists (column may not exist in schema)
@@ -780,14 +833,16 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
           profileViews: messageData.user.profile_views || 0
         } as unknown as User,
         content: '',
-        type: 'voice',
+        type: 'voice', // Frontend type - identified by duration > 0
         mediaUrl: publicUrl,
         duration: duration,
         timestamp: new Date(messageData.created_at),
         seen: false,
         status: 'sent',
         synced: true,
-        replyToMessage: replyingTo || undefined
+        replyToMessage: replyingTo || undefined,
+        fileName: `voice_${Date.now()}.webm`,
+        fileSize: audioBlob.size
       };
 
       setMessages(prev => [...prev, newMessage]);
@@ -906,8 +961,8 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
                   undefined;
               
               return (
+                <div key={message.id || message.localId}>
               <ChatMessage
-                key={message.id || message.localId}
                 message={message}
                 onReaction={(emoji) => handleReaction(message.id, emoji)}
                 onEdit={handleEditMessage}
@@ -928,6 +983,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
                   onDeleteMultiple={handleDeleteMultiple}
                   onCopyMultiple={handleCopyMultiple}
               />
+                </div>
               );
             })}
             <div ref={messagesEndRef} />

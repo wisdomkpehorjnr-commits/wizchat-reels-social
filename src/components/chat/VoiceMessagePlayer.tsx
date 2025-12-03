@@ -1,14 +1,16 @@
 import { useState, useRef, useEffect } from 'react';
-import { Play, Pause } from 'lucide-react';
+import { Play, Pause, Download } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
 
 interface VoiceMessagePlayerProps {
   audioUrl: string;
   duration: number;
   isOwn: boolean;
+  fileName?: string;
 }
 
-const VoiceMessagePlayer = ({ audioUrl, duration, isOwn }: VoiceMessagePlayerProps) => {
+const VoiceMessagePlayer = ({ audioUrl, duration, isOwn, fileName }: VoiceMessagePlayerProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [playbackRate, setPlaybackRate] = useState(1);
@@ -58,6 +60,23 @@ const VoiceMessagePlayer = ({ audioUrl, duration, isOwn }: VoiceMessagePlayerPro
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
+  const handleDownload = async () => {
+    try {
+      const response = await fetch(audioUrl);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fileName || `voice_${Date.now()}.webm`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+    } catch (error) {
+      console.error('Error downloading voice message:', error);
+    }
+  };
+
   return (
     <div className={`flex items-center gap-2 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
       <audio ref={audioRef} src={audioUrl} preload="metadata" />
@@ -104,7 +123,7 @@ const VoiceMessagePlayer = ({ audioUrl, duration, isOwn }: VoiceMessagePlayerPro
           })}
         </div>
 
-        {/* Time and speed */}
+        {/* Time, speed, and download */}
         <div className={`flex items-center gap-2 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
           <span className={`text-xs font-mono ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
             {formatTime(isPlaying ? currentTime : duration)}
@@ -119,6 +138,14 @@ const VoiceMessagePlayer = ({ audioUrl, duration, isOwn }: VoiceMessagePlayerPro
           >
             {playbackRate}x
           </button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 rounded-full"
+            onClick={handleDownload}
+          >
+            <Download className={`w-3 h-3 ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`} />
+          </Button>
         </div>
       </div>
     </div>

@@ -9,6 +9,9 @@ import MessageContextMenu from './chat/MessageContextMenu';
 import DeleteMessageDialog from './chat/DeleteMessageDialog';
 import EditMessageDialog from './chat/EditMessageDialog';
 import VoiceMessagePlayer from './chat/VoiceMessagePlayer';
+import DocumentMessage from './chat/DocumentMessage';
+import { Download } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 
@@ -290,37 +293,131 @@ const ChatMessage = ({
                 </div>
               )}
 
-              {message.type === 'text' ? (
-                <p className="text-sm whitespace-pre-wrap break-words">{displayContent}</p>
-              ) : message.type === 'image' ? (
-                <div className="relative">
-                  <img 
-                    src={message.mediaUrl} 
-                    alt="Shared" 
-                    className="max-w-[250px] sm:max-w-[300px] rounded-xl object-cover cursor-pointer hover:opacity-90 transition-opacity" 
-                  />
-                  {message.content && (
-                    <p className="text-sm mt-2 whitespace-pre-wrap break-words">{message.content}</p>
-                  )}
-                </div>
-              ) : message.type === 'video' ? (
-                <div className="relative">
-                  <video 
-                    src={message.mediaUrl} 
-                    controls 
-                    className="max-w-[250px] sm:max-w-[300px] rounded-xl" 
-                  />
-                  {message.content && (
-                    <p className="text-sm mt-2 whitespace-pre-wrap break-words">{message.content}</p>
-                  )}
-                </div>
-              ) : message.type === 'voice' ? (
-                <VoiceMessagePlayer 
-                  audioUrl={message.mediaUrl || ''} 
-                  duration={message.duration || 0}
-                  isOwn={isOwn}
-                />
-              ) : null}
+              {(() => {
+                // Detect message type based on DB type, mediaUrl, and duration
+                // DB only allows 'text', 'image', 'video', so we need to infer voice/audio/document
+                const isVoiceMessage = message.mediaUrl && message.duration && message.duration > 0 && !message.content;
+                const isAudioFile = message.mediaUrl && !message.duration && message.mediaUrl.match(/\.(mp3|wav|ogg|m4a|aac|webm)$/i);
+                const isDocument = message.mediaUrl && !message.duration && !isAudioFile && 
+                                  (message.mediaUrl.match(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt|zip|rar)$/i) || 
+                                   message.fileName || message.type === 'document');
+                
+                if (message.type === 'image' || (message.mediaUrl && message.mediaUrl.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i) && !isDocument)) {
+                  return (
+                    <div className="relative">
+                      <img 
+                        src={message.mediaUrl} 
+                        alt="Shared" 
+                        className="max-w-[250px] sm:max-w-[300px] rounded-xl object-cover cursor-pointer hover:opacity-90 transition-opacity" 
+                      />
+                      {message.content && (
+                        <p className="text-sm mt-2 whitespace-pre-wrap break-words">{message.content}</p>
+                      )}
+                    </div>
+                  );
+                } else if (message.type === 'video' || (message.mediaUrl && message.mediaUrl.match(/\.(mp4|webm|ogg|mov|avi)$/i) && !isDocument)) {
+                  return (
+                    <div className="relative">
+                      <video 
+                        src={message.mediaUrl} 
+                        controls 
+                        className="max-w-[250px] sm:max-w-[300px] rounded-xl" 
+                      />
+                      {message.content && (
+                        <p className="text-sm mt-2 whitespace-pre-wrap break-words">{message.content}</p>
+                      )}
+                    </div>
+                  );
+                } else if (isVoiceMessage || message.type === 'voice') {
+                  return (
+                    <VoiceMessagePlayer 
+                      audioUrl={message.mediaUrl || ''} 
+                      duration={message.duration || 0}
+                      isOwn={isOwn}
+                      fileName={message.fileName}
+                    />
+                  );
+                } else if (isAudioFile || message.type === 'audio') {
+                  return (
+                    <div className="space-y-2">
+                      <div className={`flex flex-col gap-2 p-3 rounded-2xl ${
+                        isOwn
+                          ? 'bg-primary/10 border border-primary/20'
+                          : 'bg-muted/50 border border-border'
+                      }`}>
+                        <div className="flex items-center gap-3">
+                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                            isOwn ? 'bg-primary/20' : 'bg-primary/10'
+                          }`}>
+                            <span className="text-2xl">🎵</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm font-medium truncate ${isOwn ? 'text-primary-foreground' : 'text-foreground'}`}>
+                              {message.fileName || message.mediaUrl?.split('/').pop()?.split('?')[0] || 'Audio File'}
+                            </p>
+                            {message.fileSize && (
+                              <p className={`text-xs mt-0.5 ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                                {(message.fileSize / 1024 / 1024).toFixed(2)} MB
+                              </p>
+                            )}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="flex-shrink-0 rounded-full"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                const response = await fetch(message.mediaUrl || '');
+                                const blob = await response.blob();
+                                const blobUrl = URL.createObjectURL(blob);
+                                const link = document.createElement('a');
+                                link.href = blobUrl;
+                                link.download = message.fileName || message.mediaUrl?.split('/').pop()?.split('?')[0] || 'audio';
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                                setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+                              } catch (error) {
+                                console.error('Error downloading audio:', error);
+                              }
+                            }}
+                          >
+                            <Download className={`w-4 h-4 ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`} />
+                          </Button>
+                        </div>
+                        <audio 
+                          src={message.mediaUrl} 
+                          controls 
+                          className="w-full h-10 rounded-lg"
+                          preload="metadata"
+                        />
+                      </div>
+                      {message.content && (
+                        <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                      )}
+                    </div>
+                  );
+                } else if (isDocument || message.type === 'document') {
+                  return (
+                    <div className="space-y-2">
+                      <DocumentMessage
+                        mediaUrl={message.mediaUrl || ''}
+                        fileName={message.fileName}
+                        fileSize={message.fileSize}
+                        fileType={message.mediaUrl?.split('.').pop() || ''}
+                        isOwn={isOwn}
+                      />
+                      {message.content && (
+                        <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                      )}
+                    </div>
+                  );
+                } else {
+                  // Regular text message
+                  return <p className="text-sm whitespace-pre-wrap break-words">{displayContent}</p>;
+                }
+              })()}
 
               <div className="flex items-center justify-end gap-1 mt-1">
                 {(isEdited || message.content.includes('[edited]')) && (

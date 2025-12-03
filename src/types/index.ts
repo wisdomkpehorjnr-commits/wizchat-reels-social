@@ -122,7 +122,7 @@ export interface Message {
   userId: string;
   user: User;
   content: string;
-  type: 'text' | 'image' | 'video' | 'voice';
+  type: 'text' | 'image' | 'video' | 'voice' | 'audio' | 'document'; // Frontend types, DB only has 'text' | 'image' | 'video'
   mediaUrl?: string;
   duration?: number;
   timestamp: Date;
@@ -133,6 +133,8 @@ export interface Message {
   localId?: string; // Temporary ID for unsent messages
   synced?: boolean; // Whether message has been synced to server
   replyToMessage?: Message; // Message being replied to
+  fileName?: string; // For documents
+  fileSize?: number; // For documents
 }
 
 export interface VoiceCall {
