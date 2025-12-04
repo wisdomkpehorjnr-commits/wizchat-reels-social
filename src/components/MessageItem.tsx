@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { dataService } from '@/services/dataService';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { VoiceMessagePlayer } from './VoiceMessagePlayer';
 
 interface MessageItemProps {
   message: Message;
@@ -286,13 +287,15 @@ const MessageItem = ({
     }
     
     if (message.type === 'voice') {
+      // WhatsApp-style voice message UI ONLY
       return (
-        <div className="flex items-center space-x-2">
-          <audio src={message.mediaUrl} controls className="max-w-xs" />
-          <span className="text-xs">
-            {message.duration ? `${Math.floor(message.duration / 60)}:${String(message.duration % 60).padStart(2, '0')}` : ''}
-          </span>
-        </div>
+        <VoiceMessagePlayer 
+          audioUrl={message.mediaUrl || ''} 
+          duration={message.duration || 0}
+          isOwn={isOwn}
+          userAvatar={!isOwn ? message.user.avatar : undefined}
+          userName={!isOwn ? message.user.name : undefined}
+        />
       );
     }
 
