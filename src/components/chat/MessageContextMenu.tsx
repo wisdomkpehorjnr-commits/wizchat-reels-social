@@ -1,4 +1,4 @@
-import { Pin, Copy, Forward, Reply, Trash2, Edit3, PinOff } from 'lucide-react';
+import { Pin, Copy, Forward, Reply, Trash2, Edit3, PinOff, BoxSelect } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Message } from '@/types';
@@ -18,6 +18,7 @@ interface MessageContextMenuProps {
   onClose: () => void;
   onDeleteMultiple?: () => void;
   onCopyMultiple?: () => void;
+  onSelect?: () => void; // <-- newly added
 }
 
 const MessageContextMenu = ({
@@ -35,6 +36,7 @@ const MessageContextMenu = ({
   onClose,
   onDeleteMultiple,
   onCopyMultiple,
+  onSelect,
 }: MessageContextMenuProps) => {
   // For multiple selection, only show copy, forward, delete (hide pin and reply)
   const isMultipleSelected = selectedCount > 1;
@@ -46,6 +48,7 @@ const MessageContextMenu = ({
         { icon: Trash2, label: 'Delete', action: onDeleteMultiple || onDelete, color: 'text-destructive' },
       ]
     : [
+        { icon: BoxSelect, label: 'Select', action: onSelect || (() => {}), color: 'text-primary' },
         { icon: isPinned ? PinOff : Pin, label: isPinned ? 'Unpin' : 'Pin', action: onPin, color: 'text-foreground' },
         { icon: Copy, label: 'Copy', action: onCopy, color: 'text-foreground' },
         { icon: Forward, label: 'Forward', action: onForward, color: 'text-foreground' },

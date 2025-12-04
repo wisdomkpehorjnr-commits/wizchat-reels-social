@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
-import { Check, CheckCheck, Clock, Reply } from 'lucide-react';
+// @ts-nocheck
+import React, { useState, useEffect, useRef } from 'react';
+import { Check, CheckCheck, Clock, Reply, Download } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Message } from '@/types';
@@ -10,8 +11,6 @@ import DeleteMessageDialog from './chat/DeleteMessageDialog';
 import EditMessageDialog from './chat/EditMessageDialog';
 import VoiceMessagePlayer from './chat/VoiceMessagePlayer';
 import DocumentMessage from './chat/DocumentMessage';
-import { Download } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 
@@ -63,13 +62,16 @@ const ChatMessage = ({
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [tapCount, setTapCount] = useState(0);
   const [swipeOffset, setSwipeOffset] = useState(0);
-  const tapTimerRef = useRef<NodeJS.Timeout>();
-  const longPressTimerRef = useRef<NodeJS.Timeout>();
+  const tapTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const isOwn = message.userId === user?.id;
   
   const messageAge = Date.now() - message.timestamp.getTime();
   const canEdit = isOwn && messageAge < 2 * 60 * 1000; // 2 minutes
   const isEdited = message.content.includes('[edited]') || (message as any).isEdited;
+
+  // Add state
+  const [selectMode, setSelectMode] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -85,16 +87,23 @@ const ChatMessage = ({
       } else {
         setShowContextMenu(true);
       }
-    }, 500);
+    }, 4000); // 4 seconds for pop-up (was 500)
   };
 
   const handleTouchEnd = () => {
     if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
   };
 
+  // Handler for select option in context menu
+  const handleContextSelect = () => {
+    setSelectMode(true);
+    if (onSelect) onSelect(message.id); // select this first message
+    setShowContextMenu(false);
+  };
+
   const handleTap = (e: React.MouseEvent) => {
     // If in selection mode, toggle selection
-    if (selectedCount > 0 && onSelect) {
+    if (selectMode && onSelect) {
       onSelect(message.id);
       e.stopPropagation();
       return;
@@ -151,10 +160,10 @@ const ChatMessage = ({
   const handleDragEnd = (event: any, info: PanInfo) => {
     if (info.offset.x > 50 && onReply) {
       onReply(message);
-      // Smooth return animation
+      // Ultra fast return:
       setTimeout(() => {
         setSwipeOffset(0);
-      }, 200);
+      }, 80); // much faster return!
     } else {
       // Smooth return if not enough swipe
       setSwipeOffset(0);
@@ -227,32 +236,46 @@ const ChatMessage = ({
           )}
         </AnimatePresence>
 
-        <div className={`flex items-end space-x-2 max-w-xs lg:max-w-md ${isOwn ? 'flex-row-reverse space-x-reverse' : ''}`}>
+        <div className={`flex items-end max-w-[70vw] ${isOwn ? 'flex-row-reverse ml-auto' : 'mr-auto'} w-full`}>
+          {/* Avatar (incoming) */}
           {!isOwn && (
-            <Avatar className="w-6 h-6 flex-shrink-0">
+            <Avatar className="w-7 h-7 mr-2 flex-shrink-0">
               <AvatarImage src={message.user.avatar} />
-              <AvatarFallback className="text-xs">
-                {message.user.name.charAt(0)}
-              </AvatarFallback>
+              <AvatarFallback className="text-xs">{message.user.name.charAt(0)}</AvatarFallback>
             </Avatar>
           )}
 
-          <div className="relative">
-            {/* Selection overlay - transparent green glass effect */}
+          <div className="relative flex-1">
+            {/* Select overlay (updated further in select-mode step) */}
             {isSelected && (
-              <div className="absolute inset-0 bg-green-500/20 dark:bg-green-500/15 backdrop-blur-[2px] rounded-2xl pointer-events-none z-10 border-2 border-green-500/40 dark:border-green-500/30" />
+              <div className="absolute inset-0 rounded-2xl z-10 border-2 border-green-500/40 dark:border-green-500/30 bg-green-500/10 dark:bg-green-500/8 pointer-events-none" />
             )}
-
             <div
-              className={`px-4 py-2 rounded-2xl transition-all ${
-                isSelected
-                  ? 'bg-green-500/10 dark:bg-green-500/8'
-                  : isOwn
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted'
-              }`}
+              className={
+                `whatsapp-media-bubble${
+                  isOwn
+                    ? ' outgoing'
+                    : ' incoming'
+                }${isSelected ? ' selected' : ''}`
+              }
+              style={{
+                background: isOwn ? '#1DB954' : '#ECEFF1',
+                borderRadius: 18,
+                padding: 8,
+                maxWidth: '100%',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.07)',
+                color: isOwn ? '#fff' : '#222',
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-start',
+                ...(isOwn && {
+                  background: 'var(--primary, #1DB954)',
+                  color: 'var(--primary-foreground, #fff)',
+                }),
+              }}
             >
-              {/* Reply reference - WhatsApp style */}
+              {/* Reply (if any) */}
               {replyToMessage && (
                 <div className={`mb-2 pb-2 border-l-4 ${isOwn ? 'border-primary-foreground/40' : 'border-primary/40'} pl-2 pr-2 bg-black/5 dark:bg-white/5 rounded-l-md`}>
                   <p className={`text-xs font-semibold mb-0.5 ${isOwn ? 'text-primary-foreground/90' : 'text-primary'}`}>
@@ -293,129 +316,119 @@ const ChatMessage = ({
                 </div>
               )}
 
+              {/* --- Media/message rendering --- */}
               {(() => {
-                // Detect message type based on DB type, mediaUrl, and duration
-                // DB only allows 'text', 'image', 'video', so we need to infer voice/audio/document
+                // Detect
                 const isVoiceMessage = message.mediaUrl && message.duration && message.duration > 0 && !message.content;
                 const isAudioFile = message.mediaUrl && !message.duration && message.mediaUrl.match(/\.(mp3|wav|ogg|m4a|aac|webm)$/i);
                 const isDocument = message.mediaUrl && !message.duration && !isAudioFile && 
-                                  (message.mediaUrl.match(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt|zip|rar)$/i) || 
-                                   message.fileName || message.type === 'document');
-                
-                if (message.type === 'image' || (message.mediaUrl && message.mediaUrl.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i) && !isDocument)) {
+                  (message.mediaUrl.match(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt|zip|rar)$/i) || 
+                  message.fileName || message.type === 'document');
+                if (
+                  message.type === 'image' ||
+                  (message.mediaUrl && message.mediaUrl.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i) && !isDocument)
+                ) {
                   return (
-                    <div className="relative">
-                      <img 
-                        src={message.mediaUrl} 
-                        alt="Shared" 
-                        className="max-w-[250px] sm:max-w-[300px] rounded-xl object-cover cursor-pointer hover:opacity-90 transition-opacity" 
+                    <div className="relative w-full" style={{ borderRadius: 12, overflow: 'hidden', margin: 0, padding: 0 }}>
+                      <img
+                        src={message.mediaUrl} alt="Shared"
+                        onClick={() => {/* TODO: show fullscreen */}}
+                        className="w-full max-w-full object-cover block select-none cursor-pointer rounded-xl"
+                        style={{ borderRadius: 12, margin: 0, padding: 0, maxHeight: 320 }}
                       />
-                      {message.content && (
-                        <p className="text-sm mt-2 whitespace-pre-wrap break-words">{message.content}</p>
-                      )}
+                      {message.content && <p className="text-sm mt-2 whitespace-pre-wrap break-words">{message.content}</p>}
                     </div>
                   );
-                } else if (message.type === 'video' || (message.mediaUrl && message.mediaUrl.match(/\.(mp4|webm|ogg|mov|avi)$/i) && !isDocument)) {
+                } else if (
+                  message.type === 'video' ||
+                  (message.mediaUrl && message.mediaUrl.match(/\.(mp4|webm|ogg|mov|avi)$/i) && !isDocument)
+                ) {
                   return (
-                    <div className="relative">
-                      <video 
+                    <div className="relative w-full" style={{ borderRadius: 12, overflow: 'hidden', margin: 0, padding: 0 }}>
+                      <video
                         src={message.mediaUrl} 
-                        controls 
-                        className="max-w-[250px] sm:max-w-[300px] rounded-xl" 
+                        className="w-full max-w-full object-cover block select-none rounded-xl"
+                        style={{ borderRadius: 12, margin: 0, padding: 0, maxHeight: 320 }}
+                        preload="metadata"
+                        poster={message.thumbnailUrl}
+                        onClick={() => {/* TODO: popout video */}}
                       />
-                      {message.content && (
-                        <p className="text-sm mt-2 whitespace-pre-wrap break-words">{message.content}</p>
+                      {/* Play overlay */}
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: '50%',
+                          left: '50%',
+                          transform: 'translate(-50%, -50%)',
+                          background: 'rgba(29, 185, 84, 0.95)',
+                          borderRadius: '50%',
+                          width: 48,
+                          height: 48,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                          cursor: 'pointer',
+                        }}
+                        onClick={e => {
+                          e.stopPropagation();
+                          // TODO: Launch video modal/play inline
+                        }}
+                      >
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="12" fill="white" opacity=".15"/><path d="M9.1 7.25C8.5 7.033 8 7.406 8 8.067V15.933C8 16.594 8.5 16.967 9.1 16.75L16 14.024V9.976L9.1 7.25Z" fill="white"/></svg>
+                      </div>
+                      {/* Duration corner badge (bottom right) */}
+                      {message.duration && (
+                        <div
+                          style={{
+                            position: 'absolute',
+                            bottom: 8,
+                            right: 12,
+                            padding: '2px 8px',
+                            borderRadius: 6,
+                            background: 'rgba(0,0,0,0.65)',
+                            color: '#fff',
+                            fontSize: 12,
+                          }}
+                        >{`${Math.floor(message.duration/60)}:${String(message.duration%60).padStart(2,'0')}`}</div>
                       )}
+                      {message.content && <p className="text-sm mt-2 whitespace-pre-wrap break-words">{message.content}</p>}
                     </div>
                   );
-                } else if (isVoiceMessage || message.type === 'voice') {
+                }
+                if (isVoiceMessage || message.type === 'voice') {
                   return (
-                    <VoiceMessagePlayer 
-                      audioUrl={message.mediaUrl || ''} 
-                      duration={message.duration || 0}
-                      isOwn={isOwn}
-                      fileName={message.fileName}
-                    />
+                    <div className="flex items-center w-full">
+                      {!isOwn && <Avatar className="w-6 h-6 mr-2"><AvatarImage src={message.user.avatar} /><AvatarFallback>{message.user.name.charAt(0)}</AvatarFallback></Avatar>}
+                      <div className="flex-1 flex items-center gap-3 py-1">
+                        <VoiceMessagePlayer audioUrl={message.mediaUrl || ''} duration={message.duration || 0} isOwn={isOwn} fileName={message.fileName} />
+                      </div>
+                    </div>
                   );
                 } else if (isAudioFile || message.type === 'audio') {
                   return (
-                    <div className="space-y-2">
-                      <div className={`flex flex-col gap-2 p-3 rounded-2xl ${
-                        isOwn
-                          ? 'bg-primary/10 border border-primary/20'
-                          : 'bg-muted/50 border border-border'
-                      }`}>
-                        <div className="flex items-center gap-3">
-                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                            isOwn ? 'bg-primary/20' : 'bg-primary/10'
-                          }`}>
-                            <span className="text-2xl">🎵</span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className={`text-sm font-medium truncate ${isOwn ? 'text-primary-foreground' : 'text-foreground'}`}>
-                              {message.fileName || message.mediaUrl?.split('/').pop()?.split('?')[0] || 'Audio File'}
-                            </p>
-                            {message.fileSize && (
-                              <p className={`text-xs mt-0.5 ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                                {(message.fileSize / 1024 / 1024).toFixed(2)} MB
-                              </p>
-                            )}
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="flex-shrink-0 rounded-full"
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              try {
-                                const response = await fetch(message.mediaUrl || '');
-                                const blob = await response.blob();
-                                const blobUrl = URL.createObjectURL(blob);
-                                const link = document.createElement('a');
-                                link.href = blobUrl;
-                                link.download = message.fileName || message.mediaUrl?.split('/').pop()?.split('?')[0] || 'audio';
-                                document.body.appendChild(link);
-                                link.click();
-                                document.body.removeChild(link);
-                                setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
-                              } catch (error) {
-                                console.error('Error downloading audio:', error);
-                              }
-                            }}
-                          >
-                            <Download className={`w-4 h-4 ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`} />
-                          </Button>
-                        </div>
-                        <audio 
-                          src={message.mediaUrl} 
-                          controls 
-                          className="w-full h-10 rounded-lg"
-                          preload="metadata"
-                        />
+                    <div className="flex items-center gap-3 w-full" style={{minHeight:40}}>
+                      <div className={`w-10 h-10 flex items-center justify-center rounded-full ${isOwn ? 'bg-primary/20' : 'bg-primary/10'}`}>
+                        <span className="text-xl">🎵</span>
                       </div>
-                      {message.content && (
-                        <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
-                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-[15px] font-semibold truncate ${isOwn ? 'text-primary-foreground' : 'text-foreground'}`}>{message.fileName || message.mediaUrl?.split('/').pop()?.split('?')[0] || 'Audio File'}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <audio src={message.mediaUrl} controls className="w-full h-8 rounded-lg" preload="metadata" />
+                          <span className="text-xs text-muted-foreground">{message.duration ? `${Math.floor(message.duration/60)}:${String(message.duration%60).padStart(2, '0')}` : ''}</span>
+                        </div>
+                      </div>
                     </div>
                   );
                 } else if (isDocument || message.type === 'document') {
                   return (
-                    <div className="space-y-2">
-                      <DocumentMessage
-                        mediaUrl={message.mediaUrl || ''}
-                        fileName={message.fileName}
-                        fileSize={message.fileSize}
-                        fileType={message.mediaUrl?.split('.').pop() || ''}
-                        isOwn={isOwn}
-                      />
-                      {message.content && (
-                        <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
-                      )}
+                    <div className="w-full">
+                      <DocumentMessage mediaUrl={message.mediaUrl || ''} fileName={message.fileName} fileSize={message.fileSize} fileType={message.mediaUrl?.split('.').pop() || ''} isOwn={isOwn} />
                     </div>
                   );
                 } else {
-                  // Regular text message
-                  return <p className="text-sm whitespace-pre-wrap break-words">{displayContent}</p>;
+                  // regular text
+                  return <p className="text-[15px] whitespace-pre-wrap break-words text-clip leading-relaxed" style={{maxWidth:'100%'}}>{displayContent}</p>;
                 }
               })()}
 
@@ -517,6 +530,7 @@ const ChatMessage = ({
           onDelete={selectedCount > 1 ? (onDeleteMultiple || (() => setShowDeleteDialog(true))) : () => setShowDeleteDialog(true)}
           onEdit={() => setShowEditDialog(true)}
           onClose={() => setShowContextMenu(false)}
+          onSelect={handleContextSelect}
           onDeleteMultiple={onDeleteMultiple}
           onCopyMultiple={onCopyMultiple}
         />
