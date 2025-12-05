@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { Play, Pause, Volume2 } from 'lucide-react';
+import { Play, Pause, Mic } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { motion } from 'framer-motion';
 
 interface VoiceMessagePlayerProps {
   audioUrl: string;
@@ -62,6 +61,11 @@ const VoiceMessagePlayer = ({
     setIsPlaying(!isPlaying);
   };
 
+  const cyclePlaybackRate = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPlaybackRate(prev => prev === 1 ? 1.5 : prev === 1.5 ? 2 : 1);
+  };
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
@@ -70,89 +74,104 @@ const VoiceMessagePlayer = ({
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
-  // WhatsApp-style waveform bars
-  const waveformBars = 25;
-  const barHeights = Array.from({ length: waveformBars }, (_, i) => 
-    Math.sin((i / waveformBars) * Math.PI * 3) * 35 + 25
-  );
+  // Generate waveform bars - WhatsApp style
+  const waveformBars = 28;
+  const barHeights = Array.from({ length: waveformBars }, (_, i) => {
+    // Create a natural-looking waveform pattern
+    const base = Math.sin((i / waveformBars) * Math.PI * 2.5) * 0.4;
+    const noise = Math.sin(i * 0.8) * 0.3;
+    return Math.max(0.15, Math.min(1, 0.5 + base + noise));
+  });
 
   return (
-    <div className={`flex items-center gap-2 py-1 min-w-[200px] max-w-[260px] ${isOwn ? '' : ''}`}>
+    <div 
+      className={`flex items-center gap-2 p-2.5 rounded-[18px] max-w-[70%] ${
+        isOwn 
+          ? 'bg-[#1DB954]' 
+          : 'bg-[#E5E5EA] dark:bg-[#2D2D2D]'
+      }`}
+      style={{ minWidth: '200px' }}
+    >
       <audio ref={audioRef} src={audioUrl} preload="metadata" />
       
-      {/* Play button */}
+      {/* Play/Pause Button */}
       <button
         onClick={togglePlay}
         className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
           isOwn
-            ? 'bg-primary-foreground/20 hover:bg-primary-foreground/30 text-primary-foreground'
-            : 'bg-primary hover:bg-primary/90 text-primary-foreground'
+            ? 'bg-white/20 hover:bg-white/30'
+            : 'bg-[#1DB954] hover:bg-[#1DB954]/90'
         }`}
       >
         {isPlaying ? (
-          <Pause className="w-5 h-5" />
+          <Pause className={`w-5 h-5 ${isOwn ? 'text-white' : 'text-white'}`} fill="currentColor" />
         ) : (
-          <Play className="w-5 h-5 ml-0.5" fill="currentColor" />
+          <Play className={`w-5 h-5 ml-0.5 ${isOwn ? 'text-white' : 'text-white'}`} fill="currentColor" />
         )}
       </button>
 
-      {/* Waveform and time */}
-      <div className="flex-1 flex flex-col gap-1">
-        {/* Waveform */}
-        <div className="flex items-center gap-[2px] h-6">
+      {/* Waveform Container */}
+      <div className="flex-1 flex flex-col gap-1 min-w-0">
+        {/* Waveform Bars */}
+        <div className="flex items-center gap-[2px] h-8 relative">
           {barHeights.map((height, i) => {
-            const isActive = (i / waveformBars) * 100 <= progress;
+            const barProgress = (i / waveformBars) * 100;
+            const isActive = barProgress <= progress;
+            
             return (
-              <motion.div
+              <div
                 key={i}
-                className={`w-[3px] rounded-full transition-colors ${
+                className={`w-[3px] rounded-full transition-all duration-150 ${
                   isOwn
-                    ? isActive ? 'bg-primary-foreground' : 'bg-primary-foreground/30'
-                    : isActive ? 'bg-primary' : 'bg-primary/30'
+                    ? isActive ? 'bg-white' : 'bg-white/40'
+                    : isActive ? 'bg-[#1DB954]' : 'bg-gray-400 dark:bg-gray-500'
                 }`}
-                animate={{
-                  height: isPlaying ? `${Math.random() * 50 + 20}%` : `${height}%`,
+                style={{
+                  height: `${height * 100}%`,
+                  minHeight: '4px',
+                  maxHeight: '28px',
+                  transform: isPlaying && isActive ? `scaleY(${0.8 + Math.random() * 0.4})` : 'scaleY(1)',
+                  transition: isPlaying ? 'transform 0.1s ease-out' : 'transform 0.3s ease-out',
                 }}
-                transition={{
-                  duration: isPlaying ? 0.15 : 0.3,
-                  repeat: isPlaying ? Infinity : 0,
-                  repeatType: 'reverse',
-                }}
-                style={{ minHeight: '4px', maxHeight: '24px' }}
               />
             );
           })}
         </div>
         
-        {/* Time and speed controls */}
+        {/* Bottom Row: Duration + Speed */}
         <div className="flex items-center justify-between">
-          <span className={`text-[11px] font-mono ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+          <span className={`text-[11px] font-medium ${
+            isOwn ? 'text-white/80' : 'text-gray-600 dark:text-gray-300'
+          }`}>
             {formatTime(isPlaying ? currentTime : duration)}
           </span>
-          <div className="flex items-center gap-1.5">
+          
+          <div className="flex items-center gap-2">
+            {/* Playback Speed Button */}
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setPlaybackRate(playbackRate === 1 ? 1.5 : playbackRate === 1.5 ? 2 : 1);
-              }}
-              className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+              onClick={cyclePlaybackRate}
+              className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full transition-colors ${
                 isOwn
-                  ? 'bg-primary-foreground/10 text-primary-foreground/70 hover:bg-primary-foreground/20'
-                  : 'bg-primary/10 text-primary hover:bg-primary/20'
+                  ? 'bg-white/20 text-white hover:bg-white/30'
+                  : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500'
               }`}
             >
-              {playbackRate}x
+              {playbackRate}×
             </button>
-            <Volume2 className={`w-3.5 h-3.5 ${isOwn ? 'text-primary-foreground/50' : 'text-muted-foreground'}`} />
+            
+            {/* Mic icon for incoming messages */}
+            {!isOwn && (
+              <Mic className="w-3 h-3 text-gray-500 dark:text-gray-400" />
+            )}
           </div>
         </div>
       </div>
 
-      {/* Profile picture for incoming messages - WhatsApp style */}
+      {/* Avatar for incoming messages */}
       {!isOwn && userAvatar && (
-        <Avatar className="w-9 h-9 flex-shrink-0 border-2 border-background shadow-sm">
+        <Avatar className="w-8 h-8 flex-shrink-0 border-2 border-white dark:border-gray-700 shadow-sm">
           <AvatarImage src={userAvatar} />
-          <AvatarFallback className="text-xs bg-primary/10 text-primary">
+          <AvatarFallback className="text-xs bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-200">
             {userName?.charAt(0) || '?'}
           </AvatarFallback>
         </Avatar>
