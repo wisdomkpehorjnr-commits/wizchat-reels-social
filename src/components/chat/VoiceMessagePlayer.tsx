@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { Play, Pause, Download } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Play, Pause, Volume2 } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { motion } from 'framer-motion';
 
 interface VoiceMessagePlayerProps {
@@ -8,9 +8,18 @@ interface VoiceMessagePlayerProps {
   duration: number;
   isOwn: boolean;
   fileName?: string;
+  userAvatar?: string;
+  userName?: string;
 }
 
-const VoiceMessagePlayer = ({ audioUrl, duration, isOwn, fileName }: VoiceMessagePlayerProps) => {
+const VoiceMessagePlayer = ({ 
+  audioUrl, 
+  duration, 
+  isOwn, 
+  fileName,
+  userAvatar,
+  userName 
+}: VoiceMessagePlayerProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [playbackRate, setPlaybackRate] = useState(1);
@@ -41,7 +50,8 @@ const VoiceMessagePlayer = ({ audioUrl, duration, isOwn, fileName }: VoiceMessag
     }
   }, [playbackRate]);
 
-  const togglePlay = () => {
+  const togglePlay = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (!audioRef.current) return;
 
     if (isPlaying) {
@@ -60,97 +70,95 @@ const VoiceMessagePlayer = ({ audioUrl, duration, isOwn, fileName }: VoiceMessag
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
-  const handleDownload = async () => {
-    try {
-      const response = await fetch(audioUrl);
-      const blob = await response.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = fileName || `voice_${Date.now()}.webm`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
-    } catch (error) {
-      console.error('Error downloading voice message:', error);
-    }
-  };
+  // WhatsApp-style waveform bars
+  const waveformBars = 25;
+  const barHeights = Array.from({ length: waveformBars }, (_, i) => 
+    Math.sin((i / waveformBars) * Math.PI * 3) * 35 + 25
+  );
 
   return (
-    <div className={`flex items-center gap-2 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
+    <div className={`flex items-center gap-2 py-1 min-w-[200px] max-w-[260px] ${isOwn ? '' : ''}`}>
       <audio ref={audioRef} src={audioUrl} preload="metadata" />
       
+      {/* Play button */}
       <button
         onClick={togglePlay}
         className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
           isOwn
             ? 'bg-primary-foreground/20 hover:bg-primary-foreground/30 text-primary-foreground'
-            : 'bg-primary/20 hover:bg-primary/30 text-primary'
+            : 'bg-primary hover:bg-primary/90 text-primary-foreground'
         }`}
       >
         {isPlaying ? (
           <Pause className="w-5 h-5" />
         ) : (
-          <Play className={`w-5 h-5 ${isOwn ? 'ml-0.5' : 'ml-0.5'}`} />
+          <Play className="w-5 h-5 ml-0.5" fill="currentColor" />
         )}
       </button>
 
-      <div className={`flex-1 flex items-center gap-2 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
-        {/* Waveform visualization */}
-        <div className="flex-1 h-8 flex items-center gap-0.5 px-2">
-          {[...Array(20)].map((_, i) => {
-            const barHeight = isPlaying 
-              ? Math.random() * 100 
-              : Math.sin((i / 20) * Math.PI * 2) * 30 + 30;
+      {/* Waveform and time */}
+      <div className="flex-1 flex flex-col gap-1">
+        {/* Waveform */}
+        <div className="flex items-center gap-[2px] h-6">
+          {barHeights.map((height, i) => {
+            const isActive = (i / waveformBars) * 100 <= progress;
             return (
               <motion.div
                 key={i}
-                className={`flex-1 rounded-full ${
-                  isOwn ? 'bg-primary-foreground/40' : 'bg-primary/40'
+                className={`w-[3px] rounded-full transition-colors ${
+                  isOwn
+                    ? isActive ? 'bg-primary-foreground' : 'bg-primary-foreground/30'
+                    : isActive ? 'bg-primary' : 'bg-primary/30'
                 }`}
                 animate={{
-                  height: `${barHeight}%`,
+                  height: isPlaying ? `${Math.random() * 50 + 20}%` : `${height}%`,
                 }}
                 transition={{
-                  duration: 0.3,
+                  duration: isPlaying ? 0.15 : 0.3,
                   repeat: isPlaying ? Infinity : 0,
                   repeatType: 'reverse',
                 }}
-                style={{ minHeight: '4px' }}
+                style={{ minHeight: '4px', maxHeight: '24px' }}
               />
             );
           })}
         </div>
-
-        {/* Time, speed, and download */}
-        <div className={`flex items-center gap-2 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
-          <span className={`text-xs font-mono ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+        
+        {/* Time and speed controls */}
+        <div className="flex items-center justify-between">
+          <span className={`text-[11px] font-mono ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
             {formatTime(isPlaying ? currentTime : duration)}
           </span>
-          <button
-            onClick={() => setPlaybackRate(playbackRate === 1 ? 2 : 1)}
-            className={`text-xs px-1.5 py-0.5 rounded ${
-              isOwn
-                ? 'bg-primary-foreground/10 text-primary-foreground/70 hover:bg-primary-foreground/20'
-                : 'bg-primary/10 text-primary hover:bg-primary/20'
-            }`}
-          >
-            {playbackRate}x
-          </button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 rounded-full"
-            onClick={handleDownload}
-          >
-            <Download className={`w-3 h-3 ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`} />
-          </Button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setPlaybackRate(playbackRate === 1 ? 1.5 : playbackRate === 1.5 ? 2 : 1);
+              }}
+              className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                isOwn
+                  ? 'bg-primary-foreground/10 text-primary-foreground/70 hover:bg-primary-foreground/20'
+                  : 'bg-primary/10 text-primary hover:bg-primary/20'
+              }`}
+            >
+              {playbackRate}x
+            </button>
+            <Volume2 className={`w-3.5 h-3.5 ${isOwn ? 'text-primary-foreground/50' : 'text-muted-foreground'}`} />
+          </div>
         </div>
       </div>
+
+      {/* Profile picture for incoming messages - WhatsApp style */}
+      {!isOwn && userAvatar && (
+        <Avatar className="w-9 h-9 flex-shrink-0 border-2 border-background shadow-sm">
+          <AvatarImage src={userAvatar} />
+          <AvatarFallback className="text-xs bg-primary/10 text-primary">
+            {userName?.charAt(0) || '?'}
+          </AvatarFallback>
+        </Avatar>
+      )}
     </div>
   );
 };
 
 export default VoiceMessagePlayer;
-
