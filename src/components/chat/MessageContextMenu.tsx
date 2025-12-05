@@ -1,4 +1,4 @@
-import { Pin, Copy, Forward, Reply, Trash2, Edit3, PinOff } from 'lucide-react';
+import { Pin, Copy, Forward, Reply, Trash2, Edit3, PinOff, CheckSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Message } from '@/types';
@@ -18,6 +18,7 @@ interface MessageContextMenuProps {
   onClose: () => void;
   onDeleteMultiple?: () => void;
   onCopyMultiple?: () => void;
+  onSelect?: () => void;
 }
 
 const MessageContextMenu = ({
@@ -35,8 +36,9 @@ const MessageContextMenu = ({
   onClose,
   onDeleteMultiple,
   onCopyMultiple,
+  onSelect,
 }: MessageContextMenuProps) => {
-  // For multiple selection, only show copy, forward, delete (hide pin and reply)
+  // For multiple selection, only show copy, forward, delete (hide pin, reply, edit, select)
   const isMultipleSelected = selectedCount > 1;
   
   const menuItems = isMultipleSelected
@@ -47,11 +49,12 @@ const MessageContextMenu = ({
       ]
     : [
         { icon: isPinned ? PinOff : Pin, label: isPinned ? 'Unpin' : 'Pin', action: onPin, color: 'text-foreground' },
-        { icon: Copy, label: 'Copy', action: onCopy, color: 'text-foreground' },
-        { icon: Forward, label: 'Forward', action: onForward, color: 'text-foreground' },
         { icon: Reply, label: 'Reply', action: onReply, color: 'text-foreground' },
+        { icon: Forward, label: 'Forward', action: onForward, color: 'text-foreground' },
         ...(isOwn && canEdit ? [{ icon: Edit3, label: 'Edit', action: onEdit, color: 'text-foreground' }] : []),
+        { icon: Copy, label: 'Copy', action: onCopy, color: 'text-foreground' },
         { icon: Trash2, label: 'Delete', action: onDelete, color: 'text-destructive' },
+        ...(onSelect ? [{ icon: CheckSquare, label: 'Select', action: onSelect, color: 'text-foreground' }] : []),
       ];
 
   return (
@@ -68,13 +71,8 @@ const MessageContextMenu = ({
           animate={{ y: 0, opacity: 1, scale: 1 }}
           exit={{ y: -20, opacity: 0, scale: 0.95 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="fixed top-3 left-3 sm:top-2 sm:left-1/2 sm:-translate-x-1/2 bg-background/95 backdrop-blur-md border-2 border-primary/20 rounded-2xl shadow-xl p-1.5 sm:p-1.5 flex items-center justify-center gap-1 sm:gap-0.5 z-[60] max-w-[calc(100vw-1.5rem)] sm:max-w-none overflow-x-auto"
+          className="fixed top-3 left-2 right-2 mx-auto max-w-fit bg-background/95 backdrop-blur-md border border-border rounded-2xl shadow-xl p-1 flex items-center gap-0.5 z-[60]"
           onClick={(e) => e.stopPropagation()}
-          style={{ 
-            WebkitOverflowScrolling: 'touch',
-            scrollbarWidth: 'none',
-            msOverflowStyle: 'none'
-          }}
         >
           {menuItems.map((item, index) => (
             <Button
@@ -85,10 +83,10 @@ const MessageContextMenu = ({
                 item.action();
                 onClose();
               }}
-              className={`flex flex-col items-center gap-0.5 h-auto py-1.5 sm:py-2 px-1.5 sm:px-2.5 min-w-[45px] sm:min-w-[50px] flex-shrink-0 ${item.color}`}
+              className={`flex flex-col items-center gap-0.5 h-auto py-1.5 px-2 min-w-[44px] rounded-xl hover:bg-muted/80 ${item.color}`}
             >
               <item.icon className="w-4 h-4" />
-              <span className="text-[9px] sm:text-[10px] whitespace-nowrap font-medium leading-tight">{item.label}</span>
+              <span className="text-[9px] whitespace-nowrap font-medium leading-tight">{item.label}</span>
             </Button>
           ))}
         </motion.div>

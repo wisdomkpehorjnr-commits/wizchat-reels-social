@@ -371,10 +371,10 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
             user: {
               ...messageData.user,
               photoURL: messageData.user.avatar || '',
-              createdAt: new Date(messageData.user.created_at),
-              followerCount: messageData.user.follower_count || 0,
-              followingCount: messageData.user.following_count || 0,
-              profileViews: messageData.user.profile_views || 0
+              createdAt: new Date(),
+              followerCount: 0,
+              followingCount: 0,
+              profileViews: 0
             } as unknown as User,
             content: messageContent,
             type: 'text',
@@ -704,10 +704,10 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         user: {
           ...messageData.user,
           photoURL: messageData.user.avatar || '',
-          createdAt: new Date(messageData.user.created_at),
-          followerCount: messageData.user.follower_count || 0,
-          followingCount: messageData.user.following_count || 0,
-          profileViews: messageData.user.profile_views || 0
+          createdAt: new Date(),
+          followerCount: 0,
+          followingCount: 0,
+          profileViews: 0
         } as unknown as User,
         content: messageContent,
         type: frontendType,
@@ -827,10 +827,10 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         user: {
           ...messageData.user,
           photoURL: messageData.user.avatar || '',
-          createdAt: new Date(messageData.user.created_at),
-          followerCount: messageData.user.follower_count || 0,
-          followingCount: messageData.user.following_count || 0,
-          profileViews: messageData.user.profile_views || 0
+          createdAt: new Date(),
+          followerCount: 0,
+          followingCount: 0,
+          profileViews: 0
         } as unknown as User,
         content: '',
         type: 'voice', // Frontend type - identified by duration > 0

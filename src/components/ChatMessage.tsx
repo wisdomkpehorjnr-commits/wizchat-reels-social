@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Check, CheckCheck, Clock, Reply } from 'lucide-react';
+import { Check, CheckCheck, Clock, Reply, Download, Play, Volume2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Message } from '@/types';
@@ -10,11 +10,8 @@ import DeleteMessageDialog from './chat/DeleteMessageDialog';
 import EditMessageDialog from './chat/EditMessageDialog';
 import VoiceMessagePlayer from './chat/VoiceMessagePlayer';
 import DocumentMessage from './chat/DocumentMessage';
-import { Download } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
-
 interface ChatMessageProps {
   message: Message;
   onReaction: (emoji: string) => void;
@@ -79,13 +76,14 @@ const ChatMessage = ({
   }, []);
 
   const handleTouchStart = () => {
+    // 4 second delay for long press menu as requested
     longPressTimerRef.current = setTimeout(() => {
       if (selectedCount > 0 && onSelect) {
         onSelect(message.id);
       } else {
         setShowContextMenu(true);
       }
-    }, 500);
+    }, 4000);
   };
 
   const handleTouchEnd = () => {
@@ -227,7 +225,8 @@ const ChatMessage = ({
           )}
         </AnimatePresence>
 
-        <div className={`flex items-end space-x-2 max-w-xs lg:max-w-md ${isOwn ? 'flex-row-reverse space-x-reverse' : ''}`}>
+        {/* WhatsApp-style: max 70% width for all message bubbles */}
+        <div className={`flex items-end space-x-2 max-w-[70%] ${isOwn ? 'flex-row-reverse space-x-reverse' : ''}`}>
           {!isOwn && (
             <Avatar className="w-6 h-6 flex-shrink-0">
               <AvatarImage src={message.user.avatar} />
@@ -243,14 +242,16 @@ const ChatMessage = ({
               <div className="absolute inset-0 bg-green-500/20 dark:bg-green-500/15 backdrop-blur-[2px] rounded-2xl pointer-events-none z-10 border-2 border-green-500/40 dark:border-green-500/30" />
             )}
 
+            {/* WhatsApp-style bubble: rounded corners, soft shadow, theme-aware */}
             <div
-              className={`px-4 py-2 rounded-2xl transition-all ${
+              className={`px-2 py-2 rounded-[18px] transition-all shadow-sm ${
                 isSelected
                   ? 'bg-green-500/10 dark:bg-green-500/8'
                   : isOwn
                   ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted'
+                  : 'bg-[hsl(var(--muted))] dark:bg-[hsl(220,10%,18%)]'
               }`}
+              style={{ boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
             >
               {/* Reply reference - WhatsApp style */}
               {replyToMessage && (
@@ -303,99 +304,116 @@ const ChatMessage = ({
                                    message.fileName || message.type === 'document');
                 
                 if (message.type === 'image' || (message.mediaUrl && message.mediaUrl.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i) && !isDocument)) {
+                  // WhatsApp-style image: fills bubble, 12px border radius, preserves aspect ratio
                   return (
-                    <div className="relative">
+                    <div className="relative -mx-2 -mt-2 overflow-hidden">
                       <img 
                         src={message.mediaUrl} 
                         alt="Shared" 
-                        className="max-w-[250px] sm:max-w-[300px] rounded-xl object-cover cursor-pointer hover:opacity-90 transition-opacity" 
+                        className="w-full max-w-[280px] rounded-t-[16px] rounded-b-[12px] object-cover cursor-pointer hover:opacity-95 transition-opacity" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // Open fullscreen viewer
+                          window.open(message.mediaUrl, '_blank');
+                        }}
                       />
                       {message.content && (
-                        <p className="text-sm mt-2 whitespace-pre-wrap break-words">{message.content}</p>
+                        <p className="text-sm mt-2 px-2 whitespace-pre-wrap break-words">{message.content}</p>
                       )}
                     </div>
                   );
                 } else if (message.type === 'video' || (message.mediaUrl && message.mediaUrl.match(/\.(mp4|webm|ogg|mov|avi)$/i) && !isDocument)) {
+                  // WhatsApp-style video: thumbnail with play button and duration
                   return (
-                    <div className="relative">
-                      <video 
-                        src={message.mediaUrl} 
-                        controls 
-                        className="max-w-[250px] sm:max-w-[300px] rounded-xl" 
-                      />
+                    <div className="relative -mx-2 -mt-2 overflow-hidden">
+                      <div className="relative">
+                        <video 
+                          src={message.mediaUrl}
+                          className="w-full max-w-[280px] rounded-t-[16px] rounded-b-[12px] object-cover cursor-pointer"
+                          preload="metadata"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const video = e.target as HTMLVideoElement;
+                            if (video.paused) {
+                              video.play();
+                              video.controls = true;
+                            }
+                          }}
+                        />
+                        {/* Play button overlay */}
+                        <div 
+                          className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                        >
+                          <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center shadow-lg">
+                            <Play className="w-7 h-7 text-primary-foreground ml-1" fill="currentColor" />
+                          </div>
+                        </div>
+                        {/* Duration badge */}
+                        {message.duration && (
+                          <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded-md">
+                            {Math.floor(message.duration / 60)}:{String(Math.floor(message.duration % 60)).padStart(2, '0')}
+                          </div>
+                        )}
+                      </div>
                       {message.content && (
-                        <p className="text-sm mt-2 whitespace-pre-wrap break-words">{message.content}</p>
+                        <p className="text-sm mt-2 px-2 whitespace-pre-wrap break-words">{message.content}</p>
                       )}
                     </div>
                   );
                 } else if (isVoiceMessage || message.type === 'voice') {
+                  // WhatsApp-style voice message with waveform and avatar
                   return (
                     <VoiceMessagePlayer 
                       audioUrl={message.mediaUrl || ''} 
                       duration={message.duration || 0}
                       isOwn={isOwn}
                       fileName={message.fileName}
+                      userAvatar={!isOwn ? message.user.avatar : undefined}
+                      userName={!isOwn ? message.user.name : undefined}
                     />
                   );
                 } else if (isAudioFile || message.type === 'audio') {
+                  // WhatsApp-style audio file
                   return (
-                    <div className="space-y-2">
-                      <div className={`flex flex-col gap-2 p-3 rounded-2xl ${
-                        isOwn
-                          ? 'bg-primary/10 border border-primary/20'
-                          : 'bg-muted/50 border border-border'
-                      }`}>
-                        <div className="flex items-center gap-3">
-                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                            isOwn ? 'bg-primary/20' : 'bg-primary/10'
-                          }`}>
-                            <span className="text-2xl">🎵</span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className={`text-sm font-medium truncate ${isOwn ? 'text-primary-foreground' : 'text-foreground'}`}>
-                              {message.fileName || message.mediaUrl?.split('/').pop()?.split('?')[0] || 'Audio File'}
-                            </p>
-                            {message.fileSize && (
-                              <p className={`text-xs mt-0.5 ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                                {(message.fileSize / 1024 / 1024).toFixed(2)} MB
-                              </p>
-                            )}
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="flex-shrink-0 rounded-full"
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              try {
-                                const response = await fetch(message.mediaUrl || '');
-                                const blob = await response.blob();
-                                const blobUrl = URL.createObjectURL(blob);
-                                const link = document.createElement('a');
-                                link.href = blobUrl;
-                                link.download = message.fileName || message.mediaUrl?.split('/').pop()?.split('?')[0] || 'audio';
-                                document.body.appendChild(link);
-                                link.click();
-                                document.body.removeChild(link);
-                                setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
-                              } catch (error) {
-                                console.error('Error downloading audio:', error);
-                              }
-                            }}
-                          >
-                            <Download className={`w-4 h-4 ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`} />
-                          </Button>
+                    <div className="space-y-2 min-w-[180px] max-w-[240px]">
+                      <div className={`flex items-center gap-2.5 p-2.5 rounded-xl ${
+                        isOwn ? 'bg-primary-foreground/10' : 'bg-background/80 dark:bg-white/10'
+                      }`} style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                          isOwn ? 'bg-primary-foreground/20' : 'bg-primary/10'
+                        }`}>
+                          <span className="text-xl">🎵</span>
                         </div>
-                        <audio 
-                          src={message.mediaUrl} 
-                          controls 
-                          className="w-full h-10 rounded-lg"
-                          preload="metadata"
-                        />
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-medium truncate ${isOwn ? 'text-primary-foreground' : 'text-foreground'}`}>
+                            {message.fileName || 'Audio'}
+                          </p>
+                          <p className={`text-[10px] ${isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
+                            {message.fileSize ? `${(message.fileSize / 1024 / 1024).toFixed(1)} MB` : 'Audio file'}
+                          </p>
+                        </div>
+                        <Button variant="ghost" size="icon" className="flex-shrink-0 w-8 h-8 rounded-full"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              const response = await fetch(message.mediaUrl || '');
+                              const blob = await response.blob();
+                              const blobUrl = URL.createObjectURL(blob);
+                              const link = document.createElement('a');
+                              link.href = blobUrl;
+                              link.download = message.fileName || 'audio';
+                              document.body.appendChild(link);
+                              link.click();
+                              document.body.removeChild(link);
+                              setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+                            } catch (error) { console.error('Error downloading audio:', error); }
+                          }}
+                        >
+                          <Download className={`w-4 h-4 ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`} />
+                        </Button>
                       </div>
-                      {message.content && (
-                        <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
-                      )}
+                      <audio src={message.mediaUrl} controls className="w-full h-9 rounded-lg" preload="metadata" />
+                      {message.content && <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>}
                     </div>
                   );
                 } else if (isDocument || message.type === 'document') {
@@ -519,6 +537,7 @@ const ChatMessage = ({
           onClose={() => setShowContextMenu(false)}
           onDeleteMultiple={onDeleteMultiple}
           onCopyMultiple={onCopyMultiple}
+          onSelect={onSelect ? () => onSelect(message.id) : undefined}
         />
       )}
 
