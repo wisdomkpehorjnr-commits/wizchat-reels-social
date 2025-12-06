@@ -28,6 +28,12 @@ const WIZAI_USER: User = {
   createdAt: new Date(),
 };
 
+interface ChatWithLastMessage {
+  friendUser: User;
+  lastMessageTime: Date | null;
+  hasMessages: boolean;
+}
+
 const Chat = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -41,6 +47,20 @@ const Chat = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(!cachedFriends);
   const [pinnedFriends, setPinnedFriends] = useState<Set<string>>(new Set());
+  const [hiddenChats, setHiddenChats] = useState<Set<string>>(new Set());
+  const [chatOrder, setChatOrder] = useState<Map<string, Date>>(new Map());
+
+  useEffect(() => {
+    // Load hidden chats from localStorage
+    const stored = localStorage.getItem('hidden-chats');
+    if (stored) {
+      try {
+        setHiddenChats(new Set(JSON.parse(stored)));
+      } catch (e) {
+        console.error('Error loading hidden chats:', e);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -84,6 +104,14 @@ const Chat = () => {
           createdAt: new Date(profile.created_at)
         };
         
+        // Remove from hidden if opening their chat
+        if (hiddenChats.has(userId)) {
+          const newHidden = new Set(hiddenChats);
+          newHidden.delete(userId);
+          setHiddenChats(newHidden);
+          localStorage.setItem('hidden-chats', JSON.stringify([...newHidden]));
+        }
+        
         setSelectedFriend(chatUser);
       } catch (error) {
         console.error('Error opening chat with user:', error);
@@ -100,7 +128,7 @@ const Chat = () => {
     return () => {
       window.removeEventListener('openChatWithUser', handleOpenChatWithUser as EventListener);
     };
-  }, [user, toast]);
+  }, [user, toast, hiddenChats]);
 
   const loadData = async () => {
     if (!user) return;
@@ -117,6 +145,9 @@ const Chat = () => {
       const userFriends = await dataService.getFriends();
       setFriends(userFriends);
       setCachedFriends(userFriends); // Update cache
+      
+      // Fetch last message times for sorting
+      await loadChatOrder(userFriends);
     } catch (error) {
       console.error('Error loading friends:', error);
       toast({
@@ -129,8 +160,72 @@ const Chat = () => {
     }
   };
 
+  const loadChatOrder = async (friendsList: Friend[]) => {
+    if (!user) return;
+    
+    const orderMap = new Map<string, Date>();
+    
+    for (const friend of friendsList.filter(f => f.status === 'accepted')) {
+      const friendUser = friend.requester.id === user.id ? friend.addressee : friend.requester;
+      
+      try {
+        // Find chat between users
+        const { data: chats } = await supabase
+          .from('chats')
+          .select('id')
+          .eq('is_group', false)
+          .limit(50);
+        
+        if (chats) {
+          for (const chat of chats) {
+            const { data: participants } = await supabase
+              .from('chat_participants')
+              .select('user_id')
+              .eq('chat_id', chat.id);
+            
+            if (participants && participants.length === 2) {
+              const userIds = participants.map(p => p.user_id);
+              if (userIds.includes(user.id) && userIds.includes(friendUser.id)) {
+                // Get last message time
+                const { data: messages } = await supabase
+                  .from('messages')
+                  .select('created_at')
+                  .eq('chat_id', chat.id)
+                  .order('created_at', { ascending: false })
+                  .limit(1);
+                
+                if (messages && messages.length > 0) {
+                  orderMap.set(friendUser.id, new Date(messages[0].created_at));
+                }
+                break;
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error loading chat order:', error);
+      }
+    }
+    
+    setChatOrder(orderMap);
+  };
+
   const openChat = (friend: User) => {
+    // Remove from hidden when opening chat
+    if (hiddenChats.has(friend.id)) {
+      const newHidden = new Set(hiddenChats);
+      newHidden.delete(friend.id);
+      setHiddenChats(newHidden);
+      localStorage.setItem('hidden-chats', JSON.stringify([...newHidden]));
+    }
     setSelectedFriend(friend);
+  };
+
+  const handleHideChat = (userId: string) => {
+    const newHidden = new Set(hiddenChats);
+    newHidden.add(userId);
+    setHiddenChats(newHidden);
+    localStorage.setItem('hidden-chats', JSON.stringify([...newHidden]));
   };
 
   const acceptedFriends = friends.filter(f => f.status === 'accepted');
@@ -140,17 +235,33 @@ const Chat = () => {
     friend.requester.id === user?.id ? friend.addressee : friend.requester
   );
 
-  const filteredFriends = friendsData.filter(friend =>
-    friend.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter out hidden chats and apply search
+  const filteredFriends = friendsData
+    .filter(friend => !hiddenChats.has(friend.id))
+    .filter(friend =>
+      friend.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
-  // Sort friends: pinned first, then alphabetically
+  // Sort friends: pinned first, then by most recent message, then alphabetically
   const sortedFriends = [...filteredFriends].sort((a, b) => {
     const aIsPinned = pinnedFriends.has(a.id);
     const bIsPinned = pinnedFriends.has(b.id);
     
+    // Pinned first
     if (aIsPinned && !bIsPinned) return -1;
     if (!aIsPinned && bIsPinned) return 1;
+    
+    // Then by most recent message
+    const aTime = chatOrder.get(a.id);
+    const bTime = chatOrder.get(b.id);
+    
+    if (aTime && bTime) {
+      return bTime.getTime() - aTime.getTime(); // Most recent first
+    }
+    if (aTime && !bTime) return -1;
+    if (!aTime && bTime) return 1;
+    
+    // Finally alphabetically
     return a.name.localeCompare(b.name);
   });
 
@@ -232,7 +343,7 @@ const Chat = () => {
                     isWizAi
                   />
                   
-                  {/* Friends list for chatting */}
+                  {/* Friends list for chatting - sorted by recent activity */}
                   {sortedFriends.map((friend) => (
                     <ChatListItem
                       key={friend.id}
@@ -240,6 +351,7 @@ const Chat = () => {
                       onClick={() => openChat(friend)}
                       isPinned={pinnedFriends.has(friend.id)}
                       onPinToggle={() => handlePinToggle(friend.id)}
+                      onHideChat={handleHideChat}
                     />
                   ))}
                   

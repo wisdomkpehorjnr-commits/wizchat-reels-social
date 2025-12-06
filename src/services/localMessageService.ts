@@ -569,6 +569,74 @@ class LocalMessageService {
       });
     });
   }
+
+  // Clear all messages for a specific chat (permanently)
+  async clearChatMessages(chatId: string): Promise<void> {
+    await this.initDB();
+    if (!this.db) throw new Error('Database not initialized');
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(
+        [STORES.MESSAGES, STORES.OUTBOX, STORES.DELETED, STORES.CHAT_METADATA, STORES.PINNED],
+        'readwrite'
+      );
+
+      // Get all messages for this chat and delete them
+      const messagesStore = transaction.objectStore(STORES.MESSAGES);
+      const messagesIndex = messagesStore.index('chatId');
+      const getMessagesRequest = messagesIndex.getAllKeys(chatId);
+
+      getMessagesRequest.onsuccess = () => {
+        const messageIds = getMessagesRequest.result;
+        messageIds.forEach(id => {
+          messagesStore.delete(id);
+        });
+      };
+
+      // Clear outbox messages for this chat
+      const outboxStore = transaction.objectStore(STORES.OUTBOX);
+      const outboxIndex = outboxStore.index('chatId');
+      const getOutboxRequest = outboxIndex.getAllKeys(chatId);
+
+      getOutboxRequest.onsuccess = () => {
+        const outboxIds = getOutboxRequest.result;
+        outboxIds.forEach(id => {
+          outboxStore.delete(id);
+        });
+      };
+
+      // Clear deleted records for this chat
+      const deletedStore = transaction.objectStore(STORES.DELETED);
+      const deletedIndex = deletedStore.index('chatId');
+      const getDeletedRequest = deletedIndex.getAllKeys(chatId);
+
+      getDeletedRequest.onsuccess = () => {
+        const deletedIds = getDeletedRequest.result;
+        deletedIds.forEach(id => {
+          deletedStore.delete(id);
+        });
+      };
+
+      // Clear chat metadata
+      const metadataStore = transaction.objectStore(STORES.CHAT_METADATA);
+      metadataStore.delete(chatId);
+
+      // Clear pinned messages
+      const pinnedStore = transaction.objectStore(STORES.PINNED);
+      const pinnedIndex = pinnedStore.index('chatId');
+      const getPinnedRequest = pinnedIndex.getAll(chatId);
+
+      getPinnedRequest.onsuccess = () => {
+        const pinnedRecords = getPinnedRequest.result;
+        pinnedRecords.forEach((record: any) => {
+          pinnedStore.delete(record.id);
+        });
+      };
+
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+  }
 }
 
 export const localMessageService = new LocalMessageService();

@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Pin, PinOff, BellOff, Ban, AlertTriangle, Trash2, Archive } from 'lucide-react';
 import { User } from '@/types';
 import OnlineStatusIndicator from './OnlineStatusIndicator';
@@ -9,6 +11,7 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { localMessageService, LocalMessage } from '@/services/localMessageService';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface ChatListItemProps {
   friend: User;
@@ -16,9 +19,10 @@ interface ChatListItemProps {
   onClick: () => void;
   isWizAi?: boolean;
   onPinToggle?: () => void;
+  onHideChat?: (userId: string) => void;
 }
 
-const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle }: ChatListItemProps) => {
+const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onHideChat }: ChatListItemProps) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const [pinned, setPinned] = useState(isPinned || false);
@@ -27,6 +31,7 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle }: ChatL
   const [lastMessage, setLastMessage] = useState<string>('');
   const [lastMessageTime, setLastMessageTime] = useState<Date | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const isOnline = useOnlineStatus(friend.id);
 
   useEffect(() => {
@@ -42,7 +47,7 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle }: ChatL
           .from('chats')
           .select('id')
           .eq('is_group', false)
-          .limit(10);
+          .limit(50);
         
         if (!chats || chats.length === 0) {
           setLastMessage("");
@@ -75,84 +80,47 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle }: ChatL
           return;
         }
         
-        // Load from local cache first (offline-first)
-        const localMessages = await localMessageService.getMessages(foundChatId);
-        const metadata = await localMessageService.getChatMetadata(foundChatId);
-        
-        if (localMessages.length > 0) {
-          const lastMsg = localMessages[localMessages.length - 1];
-          const preview = lastMsg.type === 'image' 
-            ? '📷 Photo'
-            : lastMsg.type === 'video'
-            ? '🎥 Video'
-            : lastMsg.type === 'voice'
-            ? '🎤 Voice message'
-            : lastMsg.content && lastMsg.content.length > 30
-            ? lastMsg.content.substring(0, 30) + '...'
-            : lastMsg.content || 'Media';
-          
-          setLastMessage(preview);
-          setLastMessageTime(lastMsg.timestamp);
-        } else if (metadata) {
-          setLastMessage(metadata.lastMessagePreview || '');
-          setLastMessageTime(metadata.lastMessageTime || null);
-        }
-        
-        // Calculate unread count from local messages
-        const unread = localMessages.filter(
-          m => m.userId !== user?.id && !m.seen
-        ).length;
-        setUnreadCount(unread);
-        
-        // Also try to get from server if online (for sync)
+        // Fetch last message from server first (most accurate)
         if (navigator.onLine) {
           try {
             const { data: messages, error: msgError } = await supabase
               .from('messages')
-              .select('id, content, created_at, user_id, seen, type')
+              .select('id, content, created_at, user_id, seen, type, duration, media_url')
               .eq('chat_id', foundChatId)
               .order('created_at', { ascending: false })
               .limit(1);
             
             if (!msgError && messages && messages.length > 0) {
               const msg = messages[0];
-              const preview = msg.type === 'image'
-                ? '📷 Photo'
-                : msg.type === 'video'
-                ? '🎥 Video'
-                : msg.type === 'voice'
-                ? '🎤 Voice message'
-                : msg.content && msg.content.length > 30
-                ? msg.content.substring(0, 30) + '...'
-                : msg.content || 'Media';
+              let preview = '';
+              
+              // Determine message preview
+              if (msg.type === 'image') {
+                preview = '📷 Photo';
+              } else if (msg.type === 'video') {
+                preview = '🎥 Video';
+              } else if (msg.type === 'voice' || (msg.type === 'text' && msg.duration && msg.duration > 0 && !msg.content)) {
+                preview = '🎤 Voice message';
+              } else if (msg.type === 'text' && msg.media_url && !msg.content) {
+                preview = '📎 Document';
+              } else if (msg.content) {
+                preview = msg.content.length > 35 
+                  ? msg.content.substring(0, 35) + '...' 
+                  : msg.content;
+              } else {
+                preview = 'Media';
+              }
+              
+              // Add "You: " prefix if sent by current user
+              if (msg.user_id === user?.id) {
+                preview = `You: ${preview}`;
+              }
               
               setLastMessage(preview);
               setLastMessageTime(new Date(msg.created_at));
-              
-              // Update metadata - get the full message first
-              const { data: fullMessage } = await supabase
-                .from('messages')
-                .select('*')
-                .eq('id', messages[0].id)
-                .single();
-              
-              if (fullMessage) {
-                const localMsg: LocalMessage = {
-                  id: fullMessage.id,
-                  chatId: fullMessage.chat_id,
-                  userId: fullMessage.user_id,
-                  user: friend,
-                  content: fullMessage.content,
-                  type: fullMessage.type as 'text' | 'voice' | 'image' | 'video',
-                  mediaUrl: fullMessage.media_url,
-                  duration: fullMessage.duration,
-                  timestamp: new Date(fullMessage.created_at),
-                  seen: fullMessage.seen,
-                  status: fullMessage.seen ? 'read' : 'delivered',
-                  synced: true
-                };
-                await localMessageService.updateChatMetadataFromMessage(foundChatId, localMsg);
-              }
+            } else {
+              setLastMessage("");
+              setLastMessageTime(null);
             }
             
             // Count unread from server
@@ -165,11 +133,43 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle }: ChatL
             
             if (count !== null) {
               setUnreadCount(count);
-              await localMessageService.updateUnreadCount(foundChatId, count);
             }
           } catch (error) {
             console.error('Error fetching from server:', error);
-            // Continue with local data
+          }
+        } else {
+          // Offline: Load from local cache
+          const localMessages = await localMessageService.getMessages(foundChatId);
+          
+          if (localMessages.length > 0) {
+            const lastMsg = localMessages[localMessages.length - 1];
+            let preview = '';
+            
+            if (lastMsg.type === 'image') {
+              preview = '📷 Photo';
+            } else if (lastMsg.type === 'video') {
+              preview = '🎥 Video';
+            } else if (lastMsg.type === 'voice') {
+              preview = '🎤 Voice message';
+            } else if (lastMsg.content) {
+              preview = lastMsg.content.length > 35
+                ? lastMsg.content.substring(0, 35) + '...'
+                : lastMsg.content;
+            } else {
+              preview = 'Media';
+            }
+            
+            if (lastMsg.userId === user?.id) {
+              preview = `You: ${preview}`;
+            }
+            
+            setLastMessage(preview);
+            setLastMessageTime(lastMsg.timestamp);
+            
+            const unread = localMessages.filter(
+              m => m.userId !== user?.id && !m.seen
+            ).length;
+            setUnreadCount(unread);
           }
         }
       } catch (error) {
@@ -182,18 +182,11 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle }: ChatL
     
     fetchChatData();
     
-    // Subscribe to new messages (both local and server)
+    // Subscribe to new messages
     const channel = supabase
-      .channel(`chat_${friend.id}`)
+      .channel(`chat_list_${friend.id}`)
       .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'messages'
-      }, () => {
-        fetchChatData();
-      })
-      .on('postgres_changes', {
-        event: 'UPDATE',
+        event: '*',
         schema: 'public',
         table: 'messages'
       }, () => {
@@ -201,20 +194,8 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle }: ChatL
       })
       .subscribe();
     
-    // Also listen for storage events (when local storage updates)
-    const handleStorageChange = () => {
-      fetchChatData();
-    };
-    
-    window.addEventListener('storage', handleStorageChange);
-    
-    // Poll for local storage updates (since IndexedDB doesn't have events)
-    const pollInterval = setInterval(fetchChatData, 2000);
-    
     return () => {
       supabase.removeChannel(channel);
-      window.removeEventListener('storage', handleStorageChange);
-      clearInterval(pollInterval);
     };
   }, [friend.id, user?.id, isWizAi]);
   
@@ -242,10 +223,10 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle }: ChatL
     });
   };
 
-  const handleMute = (duration: string) => {
+  const handleMute = () => {
     toast({
       title: "Chat muted",
-      description: `Notifications muted for ${duration}`,
+      description: "Notifications muted",
     });
   };
 
@@ -264,10 +245,17 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle }: ChatL
     });
   };
 
+  const handleDeleteConfirm = () => {
+    setShowDeleteConfirm(true);
+    setShowMenu(false);
+  };
+
   const handleDelete = () => {
+    onHideChat?.(friend.id);
+    setShowDeleteConfirm(false);
     toast({
-      title: "Chat deleted",
-      description: "Conversation has been removed",
+      title: "Chat removed",
+      description: "Chat hidden from list. It will reappear if they message you.",
     });
   };
 
@@ -322,10 +310,10 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle }: ChatL
           </div>
           <div className="flex items-center justify-between gap-2 mt-1">
             <p className={`text-sm truncate flex-1 ${unreadCount > 0 ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
-              {lastMessage || 'No messages yet'}
+              {lastMessage || (isWizAi ? "Ask me anything — I'm here to help!" : '')}
             </p>
             {unreadCount > 0 && (
-              <Badge variant="destructive" className="rounded-full min-w-[20px] h-5 flex-shrink-0 border border-green-500">
+              <Badge variant="destructive" className="rounded-full min-w-[20px] h-5 flex-shrink-0 bg-primary text-primary-foreground">
                 {unreadCount > 99 ? '99+' : unreadCount}
               </Badge>
             )}
@@ -334,73 +322,117 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle }: ChatL
       </div>
 
       {/* Context Menu */}
-      {showMenu && (
-        <>
-          <div 
-            className="fixed inset-0 bg-black/20 z-40"
-            onClick={() => setShowMenu(false)}
-          />
-          <div 
-            className="fixed left-0 right-0 bg-background rounded-2xl p-4 z-50 animate-fade-in shadow-lg mx-2"
-            style={{ top: `${menuPosition.top + 8}px` }}
+      <AnimatePresence>
+        {showMenu && (
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/20 z-40"
+              onClick={() => setShowMenu(false)}
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: -10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -10 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="fixed left-0 right-0 bg-background rounded-2xl p-4 z-50 shadow-lg mx-2 border border-primary/20"
+              style={{ top: `${menuPosition.top + 8}px` }}
+            >
+              <div className="flex justify-around items-center gap-2">
+                <button
+                  onClick={() => { handlePin(); setShowMenu(false); }}
+                  className="flex flex-col items-center gap-2"
+                >
+                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                    {pinned ? (
+                      <PinOff className="w-6 h-6 text-primary" />
+                    ) : (
+                      <Pin className="w-6 h-6 text-primary" />
+                    )}
+                  </div>
+                </button>
+                <button
+                  onClick={() => { handleMute(); setShowMenu(false); }}
+                  className="flex flex-col items-center gap-2"
+                >
+                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                    <BellOff className="w-6 h-6 text-primary" />
+                  </div>
+                </button>
+                <button
+                  onClick={() => { handleArchive(); setShowMenu(false); }}
+                  className="flex flex-col items-center gap-2"
+                >
+                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Archive className="w-6 h-6 text-primary" />
+                  </div>
+                </button>
+                <button
+                  onClick={() => { handleReport(); setShowMenu(false); }}
+                  className="flex flex-col items-center gap-2"
+                >
+                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                    <AlertTriangle className="w-6 h-6 text-primary" />
+                  </div>
+                </button>
+                <button
+                  onClick={() => { handleBlock(); setShowMenu(false); }}
+                  className="flex flex-col items-center gap-2"
+                >
+                  <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
+                    <Ban className="w-6 h-6 text-destructive" />
+                  </div>
+                </button>
+                <button
+                  onClick={handleDeleteConfirm}
+                  className="flex flex-col items-center gap-2"
+                >
+                  <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
+                    <Trash2 className="w-6 h-6 text-destructive" />
+                  </div>
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-md bg-background/95 backdrop-blur-md border-2 border-primary/20">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
           >
-            <div className="flex justify-around items-center gap-2">
-              <button
-                onClick={() => { handlePin(); setShowMenu(false); }}
-                className="flex flex-col items-center gap-2"
+            <DialogHeader>
+              <DialogTitle className="text-lg font-semibold">Remove Chat</DialogTitle>
+              <DialogDescription className="text-base pt-2">
+                Remove {friend.name} from your chat list? They will not be unfriended, and the chat will reappear if they send you a message.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex gap-3 pt-6">
+              <Button
+                variant="outline"
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 border-primary/20 hover:bg-muted"
               >
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                  {pinned ? (
-                    <PinOff className="w-6 h-6 text-primary" />
-                  ) : (
-                    <Pin className="w-6 h-6 text-primary" />
-                  )}
-                </div>
-              </button>
-              <button
-                onClick={() => { handleMute('muted'); setShowMenu(false); }}
-                className="flex flex-col items-center gap-2"
+                No
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDelete}
+                className="flex-1"
               >
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                  <BellOff className="w-6 h-6 text-primary" />
-                </div>
-              </button>
-              <button
-                onClick={() => { handleArchive(); setShowMenu(false); }}
-                className="flex flex-col items-center gap-2"
-              >
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Archive className="w-6 h-6 text-primary" />
-                </div>
-              </button>
-              <button
-                onClick={() => { handleReport(); setShowMenu(false); }}
-                className="flex flex-col items-center gap-2"
-              >
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                  <AlertTriangle className="w-6 h-6 text-primary" />
-                </div>
-              </button>
-              <button
-                onClick={() => { handleBlock(); setShowMenu(false); }}
-                className="flex flex-col items-center gap-2"
-              >
-                <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
-                  <Ban className="w-6 h-6 text-destructive" />
-                </div>
-              </button>
-              <button
-                onClick={() => { handleDelete(); setShowMenu(false); }}
-                className="flex flex-col items-center gap-2"
-              >
-                <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
-                  <Trash2 className="w-6 h-6 text-destructive" />
-                </div>
-              </button>
+                Yes
+              </Button>
             </div>
-          </div>
-        </>
-      )}
+          </motion.div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
