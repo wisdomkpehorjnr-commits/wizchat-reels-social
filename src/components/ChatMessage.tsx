@@ -295,15 +295,53 @@ const ChatMessage = ({
               )}
 
               {(() => {
-                // Detect message type based on DB type, mediaUrl, and duration
-                // DB only allows 'text', 'image', 'video', so we need to infer voice/audio/document
-                const isVoiceMessage = message.mediaUrl && message.duration && message.duration > 0 && !message.content;
-                const isAudioFile = message.mediaUrl && !message.duration && message.mediaUrl.match(/\.(mp3|wav|ogg|m4a|aac|webm)$/i);
-                const isDocument = message.mediaUrl && !message.duration && !isAudioFile && 
-                                  (message.mediaUrl.match(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt|zip|rar)$/i) || 
-                                   message.fileName || message.type === 'document');
+                // Detect message type - VOICE MESSAGES MUST NEVER RENDER AS VIDEO
+                // Voice message detection: has mediaUrl with audio extension OR has duration OR type is 'voice'
+                const audioExtensions = /\.(mp3|wav|ogg|m4a|aac|webm|opus|flac)$/i;
+                const videoExtensions = /\.(mp4|mov|avi|mkv|wmv)$/i;
+                const imageExtensions = /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i;
+                const documentExtensions = /\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt|zip|rar)$/i;
                 
-                if (message.type === 'image' || (message.mediaUrl && message.mediaUrl.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i) && !isDocument)) {
+                // Check if this is a voice/audio message - PRIORITY CHECK
+                const hasAudioExtension = message.mediaUrl && audioExtensions.test(message.mediaUrl);
+                const hasDuration = message.duration && message.duration > 0;
+                const isVoiceType = message.type === 'voice' || message.type === 'audio';
+                const isVoiceMessage = isVoiceType || hasAudioExtension || (message.mediaUrl && hasDuration && !videoExtensions.test(message.mediaUrl));
+                
+                // Document check
+                const isDocument = message.mediaUrl && (
+                  documentExtensions.test(message.mediaUrl) || 
+                  message.fileName?.match(documentExtensions) ||
+                  message.type === 'document'
+                );
+                
+                // Image check - but NOT if it's a voice message
+                const isImage = !isVoiceMessage && !isDocument && (
+                  message.type === 'image' || 
+                  (message.mediaUrl && imageExtensions.test(message.mediaUrl))
+                );
+                
+                // Video check - but NOT if it's a voice message or audio file
+                const isVideo = !isVoiceMessage && !isDocument && !isImage && (
+                  message.type === 'video' || 
+                  (message.mediaUrl && videoExtensions.test(message.mediaUrl))
+                );
+                
+                // VOICE MESSAGE - ALWAYS USE CUSTOM AUDIO PLAYER, NEVER VIDEO
+                if (isVoiceMessage) {
+                  return (
+                    <VoiceMessagePlayer 
+                      audioUrl={message.mediaUrl || ''} 
+                      duration={message.duration || 0}
+                      isOwn={isOwn}
+                      fileName={message.fileName}
+                      userAvatar={!isOwn ? message.user.avatar : undefined}
+                      userName={!isOwn ? message.user.name : undefined}
+                    />
+                  );
+                }
+                
+                if (isImage) {
                   // WhatsApp-style image: fills bubble, 12px border radius, preserves aspect ratio
                   return (
                     <div className="relative -mx-2 -mt-2 overflow-hidden">
@@ -313,7 +351,6 @@ const ChatMessage = ({
                         className="w-full max-w-[280px] rounded-t-[16px] rounded-b-[12px] object-cover cursor-pointer hover:opacity-95 transition-opacity" 
                         onClick={(e) => {
                           e.stopPropagation();
-                          // Open fullscreen viewer
                           window.open(message.mediaUrl, '_blank');
                         }}
                       />
@@ -322,7 +359,9 @@ const ChatMessage = ({
                       )}
                     </div>
                   );
-                } else if (message.type === 'video' || (message.mediaUrl && message.mediaUrl.match(/\.(mp4|webm|ogg|mov|avi)$/i) && !isDocument)) {
+                }
+                
+                if (isVideo) {
                   // WhatsApp-style video: thumbnail with play button and duration
                   return (
                     <div className="relative -mx-2 -mt-2 overflow-hidden">
@@ -360,63 +399,10 @@ const ChatMessage = ({
                       )}
                     </div>
                   );
-                } else if (isVoiceMessage || message.type === 'voice') {
-                  // WhatsApp-style voice message with waveform and avatar
-                  return (
-                    <VoiceMessagePlayer 
-                      audioUrl={message.mediaUrl || ''} 
-                      duration={message.duration || 0}
-                      isOwn={isOwn}
-                      fileName={message.fileName}
-                      userAvatar={!isOwn ? message.user.avatar : undefined}
-                      userName={!isOwn ? message.user.name : undefined}
-                    />
-                  );
-                } else if (isAudioFile || message.type === 'audio') {
-                  // WhatsApp-style audio file
-                  return (
-                    <div className="space-y-2 min-w-[180px] max-w-[240px]">
-                      <div className={`flex items-center gap-2.5 p-2.5 rounded-xl ${
-                        isOwn ? 'bg-primary-foreground/10' : 'bg-background/80 dark:bg-white/10'
-                      }`} style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                          isOwn ? 'bg-primary-foreground/20' : 'bg-primary/10'
-                        }`}>
-                          <span className="text-xl">🎵</span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-sm font-medium truncate ${isOwn ? 'text-primary-foreground' : 'text-foreground'}`}>
-                            {message.fileName || 'Audio'}
-                          </p>
-                          <p className={`text-[10px] ${isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
-                            {message.fileSize ? `${(message.fileSize / 1024 / 1024).toFixed(1)} MB` : 'Audio file'}
-                          </p>
-                        </div>
-                        <Button variant="ghost" size="icon" className="flex-shrink-0 w-8 h-8 rounded-full"
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            try {
-                              const response = await fetch(message.mediaUrl || '');
-                              const blob = await response.blob();
-                              const blobUrl = URL.createObjectURL(blob);
-                              const link = document.createElement('a');
-                              link.href = blobUrl;
-                              link.download = message.fileName || 'audio';
-                              document.body.appendChild(link);
-                              link.click();
-                              document.body.removeChild(link);
-                              setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
-                            } catch (error) { console.error('Error downloading audio:', error); }
-                          }}
-                        >
-                          <Download className={`w-4 h-4 ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`} />
-                        </Button>
-                      </div>
-                      <audio src={message.mediaUrl} controls className="w-full h-9 rounded-lg" preload="metadata" />
-                      {message.content && <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>}
-                    </div>
-                  );
-                } else if (isDocument || message.type === 'document') {
+                }
+                
+                if (isDocument) {
+                  // Document message with icon and download
                   return (
                     <div className="space-y-2">
                       <DocumentMessage
@@ -431,10 +417,10 @@ const ChatMessage = ({
                       )}
                     </div>
                   );
-                } else {
-                  // Regular text message
-                  return <p className="text-sm whitespace-pre-wrap break-words">{displayContent}</p>;
                 }
+                
+                // Regular text message (default)
+                return <p className="text-sm whitespace-pre-wrap break-words">{displayContent}</p>;
               })()}
 
               <div className="flex items-center justify-end gap-1 mt-1">

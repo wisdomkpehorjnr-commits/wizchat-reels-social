@@ -28,9 +28,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { badges, clearBadge } = useNotificationBadges();
+  
+  // Double-tap detection for Home button
+  const lastHomeTapRef = React.useRef<number>(0);
+  const DOUBLE_TAP_DELAY = 300; // ms
 
   const navItems = [
-    { icon: Home, label: 'Home', path: '/', badge: 0 }, // No badge for Home
+    { icon: Home, label: 'Home', path: '/', badge: 0 },
     { icon: PlayCircle, label: 'Reels', path: '/reels', badge: badges.reels },
     { icon: MessageCircle, label: 'Chat', path: '/chat', badge: 0 },
     { icon: Users, label: 'Friends', path: '/friends', badge: badges.friends },
@@ -58,9 +62,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   const handleHomeClick = (e: React.MouseEvent) => {
-    // Only prevent default and scroll to top if we want to refresh
-    // For now, let normal navigation happen - scroll position will be preserved
-    // If user wants to refresh, they can use the Refresh button
+    const now = Date.now();
+    const timeSinceLastTap = now - lastHomeTapRef.current;
+    
+    // If already on home and double-tapped, scroll to top
+    if (location.pathname === '/' && timeSinceLastTap < DOUBLE_TAP_DELAY) {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      lastHomeTapRef.current = 0; // Reset
+    } else {
+      lastHomeTapRef.current = now;
+    }
   };
 
   return (
