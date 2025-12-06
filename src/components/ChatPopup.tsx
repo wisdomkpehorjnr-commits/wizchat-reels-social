@@ -867,10 +867,16 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
     onClear: async () => {
       if (!chatId) return;
       try {
+        // Delete all messages from Supabase
         await supabase.from('messages').delete().eq('chat_id', chatId);
+        // Clear all local storage for this chat permanently
+        await localMessageService.clearChatMessages(chatId);
+        // Clear UI state
         setMessages([]);
         setPinnedMessage(null);
-        toast({ title: "Chat cleared", description: "All messages have been deleted" });
+        setSelectedMessages(new Set());
+        processedMessageIds.current.clear();
+        toast({ title: "Chat cleared", description: "All messages have been permanently deleted" });
       } catch (error) {
         console.error('Error clearing chat:', error);
         toast({ title: "Error", description: "Failed to clear chat", variant: "destructive" });
