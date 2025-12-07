@@ -110,12 +110,12 @@ const VoiceMessagePlayer = ({
 
   return (
     <div 
-      className={`flex items-center gap-2.5 rounded-[18px] max-w-[70%] w-full ${
+      className={`flex items-center gap-1.5 sm:gap-2.5 rounded-[18px] max-w-[70%] w-full ${
         isOwn 
           ? 'bg-[#DCF8C6] dark:bg-[#005C4B]' 
           : 'bg-[#F1F1F1] dark:bg-[#262D31]'
       }`}
-      style={{ padding: '8px 12px', minWidth: '180px' }}
+      style={{ padding: '6px 10px', minWidth: '140px' }}
       data-testid="whatsapp-voice-bubble"
     >
       {/* Hidden audio element - NO CONTROLS */}
@@ -128,7 +128,7 @@ const VoiceMessagePlayer = ({
       
       {/* Avatar for incoming messages (left side) */}
       {!isOwn && userAvatar && (
-        <Avatar className="w-8 h-8 flex-shrink-0">
+        <Avatar className="w-6 h-6 sm:w-8 sm:h-8 flex-shrink-0">
           <AvatarImage src={userAvatar} />
           <AvatarFallback className="text-xs bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-200">
             {userName?.charAt(0) || '?'}
@@ -138,13 +138,13 @@ const VoiceMessagePlayer = ({
 
       {/* Mic icon for incoming messages */}
       {!isOwn && (
-        <Mic className="w-4 h-4 flex-shrink-0 text-[#696969] dark:text-gray-400" />
+        <Mic className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0 text-[#696969] dark:text-gray-400" />
       )}
 
       {/* Play/Pause Button - Circular with triangle/pause icon */}
       <button
         onClick={togglePlay}
-        className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
+        className={`w-7 h-7 sm:w-9 sm:h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
           isOwn 
             ? 'bg-[#25D366] hover:bg-[#20BA5A]' 
             : 'bg-[#25D366] hover:bg-[#20BA5A]'
@@ -153,16 +153,16 @@ const VoiceMessagePlayer = ({
         aria-label={isPlaying ? 'Pause' : 'Play'}
       >
         {isPlaying ? (
-          <Pause className="w-4 h-4 text-white" fill="currentColor" />
+          <Pause className="w-3 h-3 sm:w-4 sm:h-4 text-white" fill="currentColor" />
         ) : (
-          <Play className="w-4 h-4 ml-0.5 text-white" fill="currentColor" />
+          <Play className="w-3 h-3 sm:w-4 sm:h-4 ml-0.5 text-white" fill="currentColor" />
         )}
       </button>
 
       {/* Waveform and Progress */}
-      <div className="flex flex-1 items-center gap-2 min-w-0">
+      <div className="flex flex-1 items-center gap-1 sm:gap-2 min-w-0">
         {/* Waveform bars (WhatsApp style) */}
-        <div className="flex items-end gap-[2px] h-8 w-full relative select-none" style={{ minWidth: '84px' }}>
+        <div className="flex items-end gap-[1.5px] sm:gap-[2px] h-6 sm:h-8 w-full relative select-none" style={{ minWidth: '60px' }}>
           {barHeights.map((height, i) => {
             const barProgress = (i / (waveformBars - 1)) * 100;
             const isActive = barProgress <= progress;
@@ -173,15 +173,15 @@ const VoiceMessagePlayer = ({
             return (
               <div
                 key={i}
-                className={`w-[3px] rounded-full transition-all duration-150 ${
+                className={`w-[2px] sm:w-[3px] rounded-full transition-all duration-150 ${
                   isOwn
                     ? isActive ? 'bg-[#075E54] dark:bg-white' : 'bg-[#075E54]/40 dark:bg-white/40'
                     : isActive ? 'bg-[#222] dark:bg-gray-200' : 'bg-gray-400 dark:bg-gray-600'
                 }`}
                 style={{
                   height: `${animatedHeight * 100}%`,
-                  minHeight: '4px',
-                  maxHeight: '28px',
+                  minHeight: '3px',
+                  maxHeight: '20px',
                 }}
               />
             );
@@ -190,8 +190,8 @@ const VoiceMessagePlayer = ({
       </div>
 
       {/* Duration and Speed */}
-      <div className="flex items-center gap-1.5 flex-shrink-0">
-        <span className={`text-xs font-medium tabular-nums select-none ${
+      <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
+        <span className={`text-[10px] sm:text-xs font-medium tabular-nums select-none ${
           isOwn 
             ? 'text-[#075E54] dark:text-white/90' 
             : 'text-[#323232] dark:text-gray-200'
@@ -200,12 +200,12 @@ const VoiceMessagePlayer = ({
         </span>
         <button
           onClick={cyclePlaybackRate}
-          className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border transition-all ${
+          className={`text-[9px] sm:text-[10px] font-semibold px-1 sm:px-1.5 py-0.5 rounded border transition-all ${
             isOwn
               ? 'border-[#075E54]/30 dark:border-white/30 text-[#075E54] dark:text-white/80 bg-transparent hover:bg-[#075E54]/10 dark:hover:bg-white/10'
               : 'border-gray-400 dark:border-gray-500 text-gray-700 dark:text-gray-200 bg-gray-200/50 dark:bg-gray-700/50 hover:bg-gray-300 dark:hover:bg-gray-600'
           }`}
-          style={{ minWidth: '26px', height: '18px', lineHeight: '16px' }}
+          style={{ minWidth: '22px', height: '16px', lineHeight: '14px' }}
         >
           {playbackRate}x
         </button>

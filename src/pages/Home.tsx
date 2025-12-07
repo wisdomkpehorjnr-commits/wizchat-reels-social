@@ -6,7 +6,7 @@ import StoriesSection from '@/components/StoriesSection';
 import WatchReelsCard from '@/components/WatchReelsCard';
 import FriendsSuggestionCard from '@/components/FriendsSuggestionCard';
 import { Button } from '@/components/ui/button';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Search } from 'lucide-react';
 import { dataService } from '@/services/dataService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -14,6 +14,7 @@ import { useScrollPosition } from '@/contexts/ScrollPositionContext';
 import { useTabCache } from '@/hooks/useTabCache';
 import { FeedSkeleton, PostCardSkeleton } from '@/components/SkeletonLoaders';
 import { SmartLoading } from '@/components/SmartLoading';
+import GlobalSearch from '@/components/GlobalSearch';
 
 const Home = () => {
   const { user } = useAuth();
@@ -23,6 +24,7 @@ const Home = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const [showSearch, setShowSearch] = useState(false);
   const hasLoadedRef = useRef(false);
   const isRestoringScrollRef = useRef(false);
   const scrollRestoredRef = useRef(false);
@@ -255,15 +257,24 @@ const Home = () => {
         <div className="max-w-2xl mx-auto">
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-3xl font-bold text-foreground">Home</h1>
-            <Button 
-              onClick={refreshFeed}
-              disabled={refreshing}
-              variant="outline"
-              size="sm"
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-              {refreshing ? 'Refreshing...' : 'Refresh'}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button 
+                onClick={() => setShowSearch(true)}
+                variant="outline"
+                size="sm"
+              >
+                <Search className="w-4 h-4" />
+              </Button>
+              <Button 
+                onClick={refreshFeed}
+                disabled={refreshing}
+                variant="outline"
+                size="sm"
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                {refreshing ? 'Refreshing...' : 'Refresh'}
+              </Button>
+            </div>
           </div>
 
           {/* Stories Section */}
@@ -355,6 +366,7 @@ const Home = () => {
           </SmartLoading>
         </div>
       </div>
+      <GlobalSearch isOpen={showSearch} onClose={() => setShowSearch(false)} />
     </Layout>
   );
 };

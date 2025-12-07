@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, ArrowLeft, Plus, Phone, Video, Pin, X } from 'lucide-react';
+import { Send, ArrowLeft, Plus, Phone, Video, Pin, X, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -941,9 +941,51 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       {selectedMessages.size > 0 && (
         <div className="px-4 py-2 bg-primary/10 border-b border-primary/20 flex items-center justify-between">
           <span className="text-sm">{selectedMessages.size} selected</span>
-          <Button variant="ghost" size="sm" onClick={() => setSelectedMessages(new Set())}>
-            Cancel
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={async () => {
+                if (selectedMessages.size === 0 || !chatId) return;
+                try {
+                  const messageIds = Array.from(selectedMessages);
+                  // Delete permanently from database
+                  await supabase.from('messages').delete().in('id', messageIds);
+                  
+                  // Delete from local storage
+                  setMessages(prev => prev.filter(m => !messageIds.includes(m.id)));
+                  for (const id of messageIds) {
+                    if (typeof id === 'string') {
+                      await localMessageService.deleteMessage(id, chatId);
+                    }
+                  }
+                  
+                  setSelectedMessages(new Set());
+                  if (pinnedMessage && messageIds.includes(pinnedMessage.id)) setPinnedMessage(null);
+                  
+                  toast({ 
+                    title: "Messages Deleted", 
+                    description: `${messageIds.length} message(s) permanently deleted`,
+                    variant: "default"
+                  });
+                } catch (error) {
+                  console.error('Error deleting messages:', error);
+                  toast({ 
+                    title: "Error", 
+                    description: "Failed to delete messages", 
+                    variant: "destructive" 
+                  });
+                }
+              }}
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="w-4 h-4 mr-1" />
+              Delete
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setSelectedMessages(new Set())}>
+              Cancel
+            </Button>
+          </div>
         </div>
       )}
 
