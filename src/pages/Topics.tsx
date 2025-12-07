@@ -24,11 +24,11 @@ const Topics = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Persistent room cache (won't reload on tab revisit)
+  // Persistent room cache (won't reload on tab revisit) - Never expires for instant loading
   const { cachedData: cachedRooms, cacheData: cacheRooms, cacheStatus } = useTabCache({
     tabId: 'topics-rooms',
     enabled: true,
-    ttl: 30 * 60 * 1000, // 30 minutes - rooms don't change often
+    ttl: Infinity, // Never expires - show instantly on revisit
     onStatusChange: (status) => {
       console.debug(`[Topics] Cache status: ${status}`);
     },
@@ -41,29 +41,36 @@ const Topics = () => {
   const [joiningRoomId, setJoiningRoomId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user?.id) {
-      loadRooms();
-      
-      // Subscribe to room_participants changes for real-time updates
-      const channel = supabase
-        .channel('room_participants_changes')
-        .on('postgres_changes', {
-          event: '*',
-          schema: 'public',
-          table: 'room_participants'
-        }, () => {
-          // Reload participant counts when someone joins/leaves
-          loadRooms();
-        })
-        .subscribe();
+    // Only load if no cached data exists
+    if (!cachedRooms || cachedRooms.length === 0) {
+      if (user?.id) {
+        loadRooms();
+        
+        // Subscribe to room_participants changes for real-time updates
+        const channel = supabase
+          .channel('room_participants_changes')
+          .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'room_participants'
+          }, () => {
+            // Reload participant counts when someone joins/leaves
+            loadRooms();
+          })
+          .subscribe();
 
-      return () => {
-        supabase.removeChannel(channel);
-      };
+        return () => {
+          supabase.removeChannel(channel);
+        };
+      } else {
+        loadRooms();
+      }
     } else {
-      loadRooms();
+      // Use cached data - show instantly
+      setLoading(false);
+      setDataLoaded(true);
     }
-  }, [user?.id]);
+  }, [user?.id, cachedRooms]);
 
   const loadRooms = async () => {
     try {
@@ -205,10 +212,7 @@ const Topics = () => {
             </CardHeader>
             <CardContent className="p-6 pt-0 space-y-3">
               {loading ? (
-                <div className="flex justify-center items-center py-12">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
-                  <span className="sr-only">Loading...</span>
-                </div>
+                <ListSkeleton count={5} itemType="topic" />
               ) : rooms.length === 0 && dataLoaded ? (
                 <p className="text-center text-gray-600 dark:text-gray-300 py-8">
                   No topic rooms yet.

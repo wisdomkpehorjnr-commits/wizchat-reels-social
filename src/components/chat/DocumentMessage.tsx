@@ -58,16 +58,33 @@ const DocumentMessage = ({ mediaUrl, fileName, fileSize, fileType, isOwn }: Docu
     return urlName || 'Document';
   };
 
-  const handleOpen = async () => {
+  const handleOpen = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     try {
+      // Always download/open externally - don't open in Supabase navigation
       if (mediaUrl.startsWith('blob:') || mediaUrl.startsWith('data:')) {
-        handleDownload(new MouseEvent('click') as any);
+        handleDownload(e);
       } else {
-        window.open(mediaUrl, '_blank', 'noopener,noreferrer');
+        // Try to download first, if that fails, open in new tab
+        try {
+          const response = await fetch(mediaUrl);
+          const blob = await response.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = fileName || 'document';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+        } catch {
+          // Fallback: open in new tab (external)
+          window.open(mediaUrl, '_blank', 'noopener,noreferrer');
+        }
       }
     } catch (error) {
       console.error('Error opening document:', error);
-      handleDownload(new MouseEvent('click') as any);
+      handleDownload(e);
     }
   };
 

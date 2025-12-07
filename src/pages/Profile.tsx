@@ -224,7 +224,17 @@ const Profile = () => {
   const handleUserClick = (userId: string) => navigate(`/profile/${userId}`);
 
   if (!user) return null;
-  if (loading) return <Layout><div className="max-w-4xl mx-auto p-6 text-center">Loading...</div></Layout>;
+  if (loading) return (
+    <Layout>
+      <div className="max-w-4xl mx-auto p-6 flex items-center justify-center min-h-[400px]">
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full bg-green-500 animate-bounce" style={{ animationDelay: '0ms', animationDuration: '0.6s' }}></div>
+          <div className="w-3 h-3 rounded-full bg-green-500 animate-bounce" style={{ animationDelay: '200ms', animationDuration: '0.6s' }}></div>
+          <div className="w-3 h-3 rounded-full bg-green-500 animate-bounce" style={{ animationDelay: '400ms', animationDuration: '0.6s' }}></div>
+        </div>
+      </div>
+    </Layout>
+  );
   if (error && error === "User not found") {
     return (
       <Layout>

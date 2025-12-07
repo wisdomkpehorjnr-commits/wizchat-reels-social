@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Check, CheckCheck, Clock, Reply, Download, Play, Volume2 } from 'lucide-react';
+import { Check, CheckCheck, Clock, Reply, Download, Play, Volume2, X } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Message } from '@/types';
@@ -12,6 +12,7 @@ import VoiceMessagePlayer from './chat/VoiceMessagePlayer';
 import DocumentMessage from './chat/DocumentMessage';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
+import ImageModal from './ImageModal';
 interface ChatMessageProps {
   message: Message;
   onReaction: (emoji: string) => void;
@@ -58,6 +59,8 @@ const ChatMessage = ({
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [showVideoModal, setShowVideoModal] = useState(false);
   const [tapCount, setTapCount] = useState(0);
   const [swipeOffset, setSwipeOffset] = useState(0);
   const tapTimerRef = useRef<NodeJS.Timeout>();
@@ -322,60 +325,87 @@ const ChatMessage = ({
                 } else if (message.type === 'image' || (message.mediaUrl && message.mediaUrl.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i) && !isDocument && !isVoiceMessage)) {
                   // WhatsApp-style image: fills bubble, 12px border radius, preserves aspect ratio
                   return (
-                    <div className="relative -mx-2 -mt-2 overflow-hidden">
-                      <img 
-                        src={message.mediaUrl} 
-                        alt="Shared" 
-                        className="w-full max-w-[280px] rounded-t-[16px] rounded-b-[12px] object-cover cursor-pointer hover:opacity-95 transition-opacity" 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          // Open fullscreen viewer
-                          window.open(message.mediaUrl, '_blank');
-                        }}
+                    <>
+                      <div className="relative -mx-2 -mt-2 overflow-hidden">
+                        <img 
+                          src={message.mediaUrl} 
+                          alt="Shared" 
+                          className="w-full max-w-[280px] rounded-t-[16px] rounded-b-[12px] object-cover cursor-pointer hover:opacity-95 transition-opacity" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowImageModal(true);
+                          }}
+                        />
+                        {message.content && (
+                          <p className="text-sm mt-2 px-2 whitespace-pre-wrap break-words">{message.content}</p>
+                        )}
+                      </div>
+                      <ImageModal
+                        imageUrl={message.mediaUrl || ''}
+                        isOpen={showImageModal}
+                        onClose={() => setShowImageModal(false)}
+                        alt="Shared image"
                       />
-                      {message.content && (
-                        <p className="text-sm mt-2 px-2 whitespace-pre-wrap break-words">{message.content}</p>
-                      )}
-                    </div>
+                    </>
                   );
                 } else if (message.type === 'video' || (message.mediaUrl && message.mediaUrl.match(/\.(mp4|webm|ogg|mov|avi)$/i) && !isDocument && !isVoiceMessage && !isAudioFile)) {
                   // WhatsApp-style video: thumbnail with play button and duration
                   // NOTE: Only render as video if it's NOT a voice message
                   return (
-                    <div className="relative -mx-2 -mt-2 overflow-hidden">
-                      <div className="relative">
-                        <video 
-                          src={message.mediaUrl}
-                          className="w-full max-w-[280px] rounded-t-[16px] rounded-b-[12px] object-cover cursor-pointer"
-                          preload="metadata"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const video = e.target as HTMLVideoElement;
-                            if (video.paused) {
-                              video.play();
-                              video.controls = true;
-                            }
-                          }}
-                        />
-                        {/* Play button overlay */}
-                        <div 
-                          className="absolute inset-0 flex items-center justify-center pointer-events-none"
-                        >
-                          <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center shadow-lg">
-                            <Play className="w-7 h-7 text-primary-foreground ml-1" fill="currentColor" />
+                    <>
+                      <div className="relative -mx-2 -mt-2 overflow-hidden">
+                        <div className="relative">
+                          <video 
+                            src={message.mediaUrl}
+                            className="w-full max-w-[280px] rounded-t-[16px] rounded-b-[12px] object-cover cursor-pointer"
+                            preload="metadata"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowVideoModal(true);
+                            }}
+                          />
+                          {/* Play button overlay */}
+                          <div 
+                            className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                          >
+                            <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center shadow-lg">
+                              <Play className="w-7 h-7 text-primary-foreground ml-1" fill="currentColor" />
+                            </div>
                           </div>
+                          {/* Duration badge */}
+                          {message.duration && (
+                            <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded-md">
+                              {Math.floor(message.duration / 60)}:{String(Math.floor(message.duration % 60)).padStart(2, '0')}
+                            </div>
+                          )}
                         </div>
-                        {/* Duration badge */}
-                        {message.duration && (
-                          <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded-md">
-                            {Math.floor(message.duration / 60)}:{String(Math.floor(message.duration % 60)).padStart(2, '0')}
-                          </div>
+                        {message.content && (
+                          <p className="text-sm mt-2 px-2 whitespace-pre-wrap break-words">{message.content}</p>
                         )}
                       </div>
-                      {message.content && (
-                        <p className="text-sm mt-2 px-2 whitespace-pre-wrap break-words">{message.content}</p>
+                      {showVideoModal && (
+                        <div 
+                          className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center"
+                          onClick={() => setShowVideoModal(false)}
+                        >
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute top-4 right-4 z-10 text-white hover:bg-white/20"
+                            onClick={() => setShowVideoModal(false)}
+                          >
+                            <X className="w-6 h-6" />
+                          </Button>
+                          <video
+                            src={message.mediaUrl}
+                            controls
+                            autoPlay
+                            className="max-w-full max-h-[90vh]"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
                       )}
-                    </div>
+                    </>
                   );
                 } else if (isAudioFile || message.type === 'audio') {
                   // WhatsApp-style audio file
