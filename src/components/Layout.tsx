@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -53,14 +53,40 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     }
   }, [location.pathname, clearBadge]);
 
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (homeTapRef.current.timer) {
+        clearTimeout(homeTapRef.current.timer);
+      }
+    };
+  }, []);
+
   const isActivePath = (path: string) => {
     return location.pathname === path;
   };
 
+  const homeTapRef = useRef<{ count: number; timer: NodeJS.Timeout | null }>({ count: 0, timer: null });
+
   const handleHomeClick = (e: React.MouseEvent) => {
-    // Only prevent default and scroll to top if we want to refresh
-    // For now, let normal navigation happen - scroll position will be preserved
-    // If user wants to refresh, they can use the Refresh button
+    // Double-tap to scroll to top when already on home page
+    if (location.pathname === '/') {
+      e.preventDefault();
+      
+      homeTapRef.current.count += 1;
+      
+      if (homeTapRef.current.timer) {
+        clearTimeout(homeTapRef.current.timer);
+      }
+      
+      homeTapRef.current.timer = setTimeout(() => {
+        if (homeTapRef.current.count === 2) {
+          // Double tap detected - scroll to top
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        homeTapRef.current.count = 0;
+      }, 300);
+    }
   };
 
   return (

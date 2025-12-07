@@ -297,13 +297,29 @@ const ChatMessage = ({
               {(() => {
                 // Detect message type based on DB type, mediaUrl, and duration
                 // DB only allows 'text', 'image', 'video', so we need to infer voice/audio/document
-                const isVoiceMessage = message.mediaUrl && message.duration && message.duration > 0 && !message.content;
-                const isAudioFile = message.mediaUrl && !message.duration && message.mediaUrl.match(/\.(mp3|wav|ogg|m4a|aac|webm)$/i);
-                const isDocument = message.mediaUrl && !message.duration && !isAudioFile && 
+                // IMPORTANT: Check voice messages FIRST to prevent them from being rendered as video
+                const isVoiceMessage = message.type === 'voice' || 
+                  (message.mediaUrl && message.duration && message.duration > 0 && !message.content);
+                const isAudioFile = message.mediaUrl && !message.duration && !isVoiceMessage && 
+                  message.mediaUrl.match(/\.(mp3|wav|ogg|m4a|aac|webm)$/i);
+                const isDocument = message.mediaUrl && !message.duration && !isAudioFile && !isVoiceMessage && 
                                   (message.mediaUrl.match(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt|zip|rar)$/i) || 
                                    message.fileName || message.type === 'document');
                 
-                if (message.type === 'image' || (message.mediaUrl && message.mediaUrl.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i) && !isDocument)) {
+                // VOICE MESSAGES - Check FIRST to prevent video rendering
+                if (isVoiceMessage || message.type === 'voice') {
+                  // WhatsApp-style voice message with waveform and avatar - NO VIDEO ELEMENTS
+                  return (
+                    <VoiceMessagePlayer 
+                      audioUrl={message.mediaUrl || ''} 
+                      duration={message.duration || 0}
+                      isOwn={isOwn}
+                      fileName={message.fileName}
+                      userAvatar={!isOwn ? message.user.avatar : undefined}
+                      userName={!isOwn ? message.user.name : undefined}
+                    />
+                  );
+                } else if (message.type === 'image' || (message.mediaUrl && message.mediaUrl.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i) && !isDocument && !isVoiceMessage)) {
                   // WhatsApp-style image: fills bubble, 12px border radius, preserves aspect ratio
                   return (
                     <div className="relative -mx-2 -mt-2 overflow-hidden">
@@ -322,8 +338,9 @@ const ChatMessage = ({
                       )}
                     </div>
                   );
-                } else if (message.type === 'video' || (message.mediaUrl && message.mediaUrl.match(/\.(mp4|webm|ogg|mov|avi)$/i) && !isDocument)) {
+                } else if (message.type === 'video' || (message.mediaUrl && message.mediaUrl.match(/\.(mp4|webm|ogg|mov|avi)$/i) && !isDocument && !isVoiceMessage && !isAudioFile)) {
                   // WhatsApp-style video: thumbnail with play button and duration
+                  // NOTE: Only render as video if it's NOT a voice message
                   return (
                     <div className="relative -mx-2 -mt-2 overflow-hidden">
                       <div className="relative">
@@ -359,18 +376,6 @@ const ChatMessage = ({
                         <p className="text-sm mt-2 px-2 whitespace-pre-wrap break-words">{message.content}</p>
                       )}
                     </div>
-                  );
-                } else if (isVoiceMessage || message.type === 'voice') {
-                  // WhatsApp-style voice message with waveform and avatar
-                  return (
-                    <VoiceMessagePlayer 
-                      audioUrl={message.mediaUrl || ''} 
-                      duration={message.duration || 0}
-                      isOwn={isOwn}
-                      fileName={message.fileName}
-                      userAvatar={!isOwn ? message.user.avatar : undefined}
-                      userName={!isOwn ? message.user.name : undefined}
-                    />
                   );
                 } else if (isAudioFile || message.type === 'audio') {
                   // WhatsApp-style audio file

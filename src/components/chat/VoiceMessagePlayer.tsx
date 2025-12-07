@@ -23,25 +23,49 @@ const VoiceMessagePlayer = ({
   const [currentTime, setCurrentTime] = useState(0);
   const [playbackRate, setPlaybackRate] = useState(1);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const animationFrameRef = useRef<number>();
 
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
-    const updateTime = () => setCurrentTime(audio.currentTime);
+    const updateTime = () => {
+      setCurrentTime(audio.currentTime);
+      if (isPlaying) {
+        animationFrameRef.current = requestAnimationFrame(updateTime);
+      }
+    };
+
     const handleEnded = () => {
       setIsPlaying(false);
       setCurrentTime(0);
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
     };
+
+    const handlePlay = () => setIsPlaying(true);
+    const handlePause = () => setIsPlaying(false);
 
     audio.addEventListener('timeupdate', updateTime);
     audio.addEventListener('ended', handleEnded);
+    audio.addEventListener('play', handlePlay);
+    audio.addEventListener('pause', handlePause);
+
+    if (isPlaying) {
+      animationFrameRef.current = requestAnimationFrame(updateTime);
+    }
 
     return () => {
       audio.removeEventListener('timeupdate', updateTime);
       audio.removeEventListener('ended', handleEnded);
+      audio.removeEventListener('play', handlePlay);
+      audio.removeEventListener('pause', handlePause);
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
     };
-  }, []);
+  }, [isPlaying]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -56,9 +80,10 @@ const VoiceMessagePlayer = ({
     if (isPlaying) {
       audioRef.current.pause();
     } else {
-      audioRef.current.play();
+      audioRef.current.play().catch(err => {
+        console.error('Error playing audio:', err);
+      });
     }
-    setIsPlaying(!isPlaying);
   };
 
   const cyclePlaybackRate = (e: React.MouseEvent) => {
@@ -74,102 +99,117 @@ const VoiceMessagePlayer = ({
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
-  // Generate waveform bars - WhatsApp style
+  // Generate waveform bars - WhatsApp style with more natural variation
   const waveformBars = 28;
   const barHeights = Array.from({ length: waveformBars }, (_, i) => {
     // Create a natural-looking waveform pattern
     const base = Math.sin((i / waveformBars) * Math.PI * 2.5) * 0.4;
     const noise = Math.sin(i * 0.8) * 0.3;
-    return Math.max(0.15, Math.min(1, 0.5 + base + noise));
+    return Math.max(0.2, Math.min(1, 0.5 + base + noise));
   });
 
   return (
     <div 
-      className={`flex items-center p-2.5 rounded-[18px] max-w-[70%] w-full shadow-sm ${
+      className={`flex items-center gap-2.5 rounded-[18px] max-w-[70%] w-full ${
         isOwn 
-          ? 'bg-[#1DB954]' 
+          ? 'bg-[#DCF8C6] dark:bg-[#005C4B]' 
           : 'bg-[#F1F1F1] dark:bg-[#262D31]'
       }`}
-      style={{padding:'10px', minWidth:'140px'}}
+      style={{ padding: '8px 12px', minWidth: '180px' }}
       data-testid="whatsapp-voice-bubble"
     >
-      <audio ref={audioRef} src={audioUrl} preload="metadata" />
-      {/* Play/Pause Button */}
-      <button
-        onClick={togglePlay}
-        className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 mr-3 shadow ${
-          isOwn ? 'bg-white/20 hover:bg-white/30' : 'bg-[#1DB954] hover:bg-[#1DB954]/90'
-        }`}
-        style={{ outline: 'none', border: 'none' }}
-        aria-label={isPlaying ? 'Pause' : 'Play'}
-      >
-        {isPlaying ? (
-          <Pause className="w-5 h-5 text-white" fill="currentColor" />
-        ) : (
-          <Play className="w-5 h-5 ml-0.5 text-white" fill="currentColor" />
-        )}
-      </button>
-      {/* Waveform */}
-      <div className="flex flex-1 items-center gap-2 min-w-0">
-        {/* Waveform bars (WhatsApp style) */}
-        <div className="flex items-end gap-[2px] h-8 w-full relative select-none" style={{minWidth:'84px'}}>
-          {barHeights.map((height, i) => {
-            const barProgress = (i / (waveformBars-1)) * 100;
-            const isActive = barProgress <= progress;
-            return (
-              <div
-                key={i}
-                className={`w-[3.2px] rounded-full transition-transform duration-100 ${
-                  isOwn
-                    ? isActive ? 'bg-white' : 'bg-white/50'
-                    : isActive ? 'bg-[#222] dark:bg-gray-100' : 'bg-gray-400 dark:bg-gray-700'
-                }`}
-                style={{
-                  height: `${height * 100}%`,
-                  minHeight: '5px',
-                  maxHeight: '28px',
-                  transform: isPlaying && isActive ? `scaleY(${0.85 + Math.random() * 0.25})` : 'scaleY(1)',
-                  transition: isPlaying ? 'transform 0.12s cubic-bezier(.68,-0.55,.27,1.55)' : 'transform 0.25s cubic-bezier(.68,-0.55,.27,1.55)',
-                }}
-              />
-            );
-          })}
-        </div>
-        {/* Bottom Row (duration, speed, mic) */}
-        <div className="flex flex-col items-end justify-between h-8 ml-3 min-w-[36px]">
-          {/* Duration/Mic/Speed in row */}
-          <div className="flex items-center gap-1 mt-auto">
-            {/* Mic on incoming */}
-            {!isOwn && (
-              <Mic className="w-3 h-3 text-[#696969] dark:text-gray-400 mr-[2px]" />
-            )}
-            <span className={`text-xs font-semibold tabular-nums select-none ${
-              isOwn ? 'text-white/80' : 'text-[#323232] dark:text-gray-200'
-            }`} style={{minWidth:'36px', textAlign:'right'}}>{formatTime(isPlaying ? currentTime : duration)}</span>
-            {/* Speed (always show on desktop/mobile) */}
-            <button
-              onClick={cyclePlaybackRate}
-              className={`ml-2 text-[11px] font-bold px-1.5 py-0.5 rounded-full border transition-all ${
-                isOwn
-                  ? 'border-white/40 text-white bg-white/20 hover:bg-white/30'
-                  : 'border-gray-400 dark:border-gray-500 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-50 hover:bg-gray-300 dark:hover:bg-gray-600'
-              }`}
-              style={{ minWidth:'28px', height:'20px', lineHeight:'18px'}}
-            >
-              {playbackRate}x
-            </button>
-          </div>
-        </div>
-      </div>
-      {/* Sender Avatar at right end (incoming) */}
+      {/* Hidden audio element - NO CONTROLS */}
+      <audio 
+        ref={audioRef} 
+        src={audioUrl} 
+        preload="metadata"
+        style={{ display: 'none' }}
+      />
+      
+      {/* Avatar for incoming messages (left side) */}
       {!isOwn && userAvatar && (
-        <Avatar className="w-8 h-8 flex-shrink-0 border-2 border-background dark:border-gray-700 ml-2 -mr-2 shadow-md" style={{marginLeft:'12px'}}>
+        <Avatar className="w-8 h-8 flex-shrink-0">
           <AvatarImage src={userAvatar} />
           <AvatarFallback className="text-xs bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-200">
             {userName?.charAt(0) || '?'}
           </AvatarFallback>
         </Avatar>
       )}
+
+      {/* Mic icon for incoming messages */}
+      {!isOwn && (
+        <Mic className="w-4 h-4 flex-shrink-0 text-[#696969] dark:text-gray-400" />
+      )}
+
+      {/* Play/Pause Button - Circular with triangle/pause icon */}
+      <button
+        onClick={togglePlay}
+        className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
+          isOwn 
+            ? 'bg-[#25D366] hover:bg-[#20BA5A]' 
+            : 'bg-[#25D366] hover:bg-[#20BA5A]'
+        }`}
+        style={{ outline: 'none', border: 'none' }}
+        aria-label={isPlaying ? 'Pause' : 'Play'}
+      >
+        {isPlaying ? (
+          <Pause className="w-4 h-4 text-white" fill="currentColor" />
+        ) : (
+          <Play className="w-4 h-4 ml-0.5 text-white" fill="currentColor" />
+        )}
+      </button>
+
+      {/* Waveform and Progress */}
+      <div className="flex flex-1 items-center gap-2 min-w-0">
+        {/* Waveform bars (WhatsApp style) */}
+        <div className="flex items-end gap-[2px] h-8 w-full relative select-none" style={{ minWidth: '84px' }}>
+          {barHeights.map((height, i) => {
+            const barProgress = (i / (waveformBars - 1)) * 100;
+            const isActive = barProgress <= progress;
+            const animatedHeight = isPlaying && isActive 
+              ? height * (0.9 + Math.sin(Date.now() / 100 + i) * 0.2)
+              : height;
+            
+            return (
+              <div
+                key={i}
+                className={`w-[3px] rounded-full transition-all duration-150 ${
+                  isOwn
+                    ? isActive ? 'bg-[#075E54] dark:bg-white' : 'bg-[#075E54]/40 dark:bg-white/40'
+                    : isActive ? 'bg-[#222] dark:bg-gray-200' : 'bg-gray-400 dark:bg-gray-600'
+                }`}
+                style={{
+                  height: `${animatedHeight * 100}%`,
+                  minHeight: '4px',
+                  maxHeight: '28px',
+                }}
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Duration and Speed */}
+      <div className="flex items-center gap-1.5 flex-shrink-0">
+        <span className={`text-xs font-medium tabular-nums select-none ${
+          isOwn 
+            ? 'text-[#075E54] dark:text-white/90' 
+            : 'text-[#323232] dark:text-gray-200'
+        }`}>
+          {formatTime(isPlaying ? currentTime : duration)}
+        </span>
+        <button
+          onClick={cyclePlaybackRate}
+          className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border transition-all ${
+            isOwn
+              ? 'border-[#075E54]/30 dark:border-white/30 text-[#075E54] dark:text-white/80 bg-transparent hover:bg-[#075E54]/10 dark:hover:bg-white/10'
+              : 'border-gray-400 dark:border-gray-500 text-gray-700 dark:text-gray-200 bg-gray-200/50 dark:bg-gray-700/50 hover:bg-gray-300 dark:hover:bg-gray-600'
+          }`}
+          style={{ minWidth: '26px', height: '18px', lineHeight: '16px' }}
+        >
+          {playbackRate}x
+        </button>
+      </div>
     </div>
   );
 };
