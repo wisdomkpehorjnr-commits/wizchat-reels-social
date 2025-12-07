@@ -214,9 +214,13 @@ const Topics = () => {
               {loading ? (
                 <ListSkeleton count={5} itemType="topic" />
               ) : rooms.length === 0 && dataLoaded ? (
-                <p className="text-center text-gray-600 dark:text-gray-300 py-8">
-                  No topic rooms yet.
-                </p>
+                <div className="flex items-center justify-center py-8">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-green-500 animate-bounce" style={{ animationDelay: '0ms', animationDuration: '0.6s' }}></div>
+                    <div className="w-3 h-3 rounded-full bg-green-500 animate-bounce" style={{ animationDelay: '200ms', animationDuration: '0.6s' }}></div>
+                    <div className="w-3 h-3 rounded-full bg-green-500 animate-bounce" style={{ animationDelay: '400ms', animationDuration: '0.6s' }}></div>
+                  </div>
+                </div>
               ) : (
                 rooms.map((room) => (
                   <Card
