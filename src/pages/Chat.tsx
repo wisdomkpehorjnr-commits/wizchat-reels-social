@@ -155,65 +155,6 @@ const Chat = () => {
       console.error('Background sync error:', error);
     }
   }, [user]);
-      
-      if (!userId) return;
-      
-      try {
-        // Fetch user profile
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .single();
-        
-        if (error || !profile) {
-          toast({
-            title: "Error",
-            description: "User not found",
-            variant: "destructive"
-          });
-          return;
-        }
-        
-        const chatUser: User = {
-          id: profile.id,
-          name: profile.name,
-          username: profile.username,
-          email: profile.email,
-          avatar: profile.avatar,
-          photoURL: profile.avatar,
-          bio: profile.bio,
-          followerCount: profile.follower_count || 0,
-          followingCount: profile.following_count || 0,
-          profileViews: profile.profile_views || 0,
-          createdAt: new Date(profile.created_at)
-        };
-        
-        // Remove from hidden if opening their chat
-        if (hiddenChats.has(userId)) {
-          const newHidden = new Set(hiddenChats);
-          newHidden.delete(userId);
-          setHiddenChats(newHidden);
-          localStorage.setItem('hidden-chats', JSON.stringify([...newHidden]));
-        }
-        
-        setSelectedFriend(chatUser);
-      } catch (error) {
-        console.error('Error opening chat with user:', error);
-        toast({
-          title: "Error",
-          description: "Failed to open chat",
-          variant: "destructive"
-        });
-      }
-    };
-    
-    window.addEventListener('openChatWithUser', handleOpenChatWithUser as EventListener);
-    
-    return () => {
-      window.removeEventListener('openChatWithUser', handleOpenChatWithUser as EventListener);
-    };
-  }, [user, toast, hiddenChats]);
 
   const openChat = (friend: User) => {
     if (hiddenChats.has(friend.id)) {
