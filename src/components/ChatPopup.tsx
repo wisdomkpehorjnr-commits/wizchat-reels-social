@@ -126,6 +126,15 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
             const localMsg: LocalMessage = { ...newMsg, status: newMsg.status || 'delivered', synced: true };
             await localMessageService.saveMessage(localMsg);
             
+            // If user was hidden, remove them from hidden list (they sent a message)
+            const hiddenUsers = JSON.parse(localStorage.getItem('hidden-chat-users') || '[]');
+            if (hiddenUsers.includes(messageData.user_id)) {
+              const updated = hiddenUsers.filter((id: string) => id !== messageData.user_id);
+              localStorage.setItem('hidden-chat-users', JSON.stringify(updated));
+              // Dispatch event to refresh chat list
+              window.dispatchEvent(new CustomEvent('chatListUpdate'));
+            }
+            
             setMessages(prev => {
               if (prev.some(m => m.id === newMsg.id)) return prev;
               return [...prev, newMsg];
@@ -867,10 +876,27 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
     onClear: async () => {
       if (!chatId) return;
       try {
+        // Get all message IDs first
+        const messageIds = messages.map(m => m.id).filter(Boolean);
+        
+        // Delete from Supabase
+        if (messageIds.length > 0) {
+          await supabase.from('messages').delete().in('id', messageIds);
+        }
+        // Also delete by chat_id to catch any missed messages
         await supabase.from('messages').delete().eq('chat_id', chatId);
+        
+        // Clear all messages from local storage/IndexedDB
+        await localMessageService.clearChatMessages(chatId);
+        
+        // Clear state
         setMessages([]);
         setPinnedMessage(null);
-        toast({ title: "Chat cleared", description: "All messages have been deleted" });
+        
+        // Force refresh to ensure no messages remain
+        await initializeChat();
+        
+        toast({ title: "Chat cleared", description: "All messages have been permanently deleted" });
       } catch (error) {
         console.error('Error clearing chat:', error);
         toast({ title: "Error", description: "Failed to clear chat", variant: "destructive" });

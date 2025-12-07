@@ -47,6 +47,12 @@ const Chat = () => {
       loadData();
     }
     
+    // Listen for chat list updates (when hidden users send messages)
+    const handleChatListUpdate = () => {
+      loadData();
+    };
+    window.addEventListener('chatListUpdate', handleChatListUpdate);
+    
     // Listen for custom event to open chat with a specific user
     const handleOpenChatWithUser = async (event: CustomEvent) => {
       const { userId, chatId } = event.detail;
@@ -99,6 +105,7 @@ const Chat = () => {
     
     return () => {
       window.removeEventListener('openChatWithUser', handleOpenChatWithUser as EventListener);
+      window.removeEventListener('chatListUpdate', handleChatListUpdate);
     };
   }, [user, toast]);
 
@@ -140,9 +147,24 @@ const Chat = () => {
     friend.requester.id === user?.id ? friend.addressee : friend.requester
   );
 
-  const filteredFriends = friendsData.filter(friend =>
+  // Get hidden users from localStorage
+  const hiddenUsers = JSON.parse(localStorage.getItem('hidden-chat-users') || '[]');
+  
+  // Filter out hidden users
+  const visibleFriends = friendsData.filter(friend => !hiddenUsers.includes(friend.id));
+
+  const filteredFriends = visibleFriends.filter(friend =>
     friend.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Handle delete (hide) user from chat list
+  const handleDeleteUser = (userId: string) => {
+    // Already handled in ChatListItem, just refresh the list
+    setFriends(prev => prev.filter(f => {
+      const friendUser = f.requester.id === user?.id ? f.addressee : f.requester;
+      return friendUser.id !== userId;
+    }));
+  };
 
   // Sort friends: pinned first, then alphabetically
   const sortedFriends = [...filteredFriends].sort((a, b) => {
@@ -233,15 +255,16 @@ const Chat = () => {
                   />
                   
                   {/* Friends list for chatting */}
-                  {sortedFriends.map((friend) => (
-                    <ChatListItem
-                      key={friend.id}
-                      friend={friend}
-                      onClick={() => openChat(friend)}
-                      isPinned={pinnedFriends.has(friend.id)}
-                      onPinToggle={() => handlePinToggle(friend.id)}
-                    />
-                  ))}
+                   {sortedFriends.map((friend) => (
+                     <ChatListItem
+                       key={friend.id}
+                       friend={friend}
+                       onClick={() => openChat(friend)}
+                       isPinned={pinnedFriends.has(friend.id)}
+                       onPinToggle={() => handlePinToggle(friend.id)}
+                       onDelete={handleDeleteUser}
+                     />
+                   ))}
                   
                   {filteredFriends.length === 0 && (
                     <div className="p-8 text-center">

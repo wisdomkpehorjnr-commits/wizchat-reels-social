@@ -9,6 +9,16 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { localMessageService, LocalMessage } from '@/services/localMessageService';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface ChatListItemProps {
   friend: User;
@@ -16,13 +26,15 @@ interface ChatListItemProps {
   onClick: () => void;
   isWizAi?: boolean;
   onPinToggle?: () => void;
+  onDelete?: (userId: string) => void;
 }
 
-const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle }: ChatListItemProps) => {
+const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelete }: ChatListItemProps) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const [pinned, setPinned] = useState(isPinned || false);
   const [showMenu, setShowMenu] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, height: 0 });
   const [lastMessage, setLastMessage] = useState<string>('');
   const [lastMessageTime, setLastMessageTime] = useState<Date | null>(null);
@@ -265,9 +277,24 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle }: ChatL
   };
 
   const handleDelete = () => {
+    setShowMenu(false);
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDelete = () => {
+    // Hide user from chat list (not delete as friend)
+    const hiddenUsers = JSON.parse(localStorage.getItem('hidden-chat-users') || '[]');
+    if (!hiddenUsers.includes(friend.id)) {
+      hiddenUsers.push(friend.id);
+      localStorage.setItem('hidden-chat-users', JSON.stringify(hiddenUsers));
+    }
+    
+    onDelete?.(friend.id);
+    setShowDeleteDialog(false);
+    
     toast({
-      title: "Chat deleted",
-      description: "Conversation has been removed",
+      title: "Chat hidden",
+      description: `${friend.name} has been removed from your chat list. They will reappear if they send you a message.`,
     });
   };
 
@@ -401,6 +428,28 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle }: ChatL
           </div>
         </>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent className="bg-background border-2 border-primary/20">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-foreground">Remove from Chat List?</AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
+              This will remove <span className="font-semibold text-foreground">{friend.name}</span> from your chat list. 
+              They will reappear if they send you a message. This does not remove them as a friend.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-2 border-primary/30">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };

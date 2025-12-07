@@ -183,6 +183,50 @@ class LocalMessageService {
     });
   }
 
+  // Clear all messages for a chat
+  async clearChatMessages(chatId: string): Promise<void> {
+    await this.initDB();
+    if (!this.db) throw new Error('Database not initialized');
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction([STORES.MESSAGES, STORES.DELETED, STORES.OUTBOX], 'readwrite');
+      const messagesStore = transaction.objectStore(STORES.MESSAGES);
+      const deletedStore = transaction.objectStore(STORES.DELETED);
+      const outboxStore = transaction.objectStore(STORES.OUTBOX);
+      
+      const index = messagesStore.index('chatId');
+      const request = index.getAll(chatId);
+
+      request.onsuccess = () => {
+        const messages = request.result as LocalMessage[];
+        
+        // Delete all messages
+        messages.forEach(msg => {
+          messagesStore.delete(msg.id);
+          // Mark as deleted
+          deletedStore.put({
+            messageId: msg.id,
+            chatId,
+            deletedAt: new Date()
+          });
+        });
+
+        // Also clear outbox for this chat
+        const outboxIndex = outboxStore.index('chatId');
+        const outboxRequest = outboxIndex.getAll(chatId);
+        outboxRequest.onsuccess = () => {
+          const outboxMessages = outboxRequest.result;
+          outboxMessages.forEach((msg: any) => {
+            outboxStore.delete(msg.localId);
+          });
+        };
+      };
+
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+  }
+
   // Permanently delete a message (mark as deleted)
   async deleteMessage(messageId: string, chatId: string): Promise<void> {
     await this.initDB();

@@ -35,7 +35,16 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
     if (isOpen) {
       setSearchHistory(searchService.getSearchHistory());
       inputRef.current?.focus();
+      // Prevent background scroll
+      document.body.style.overflow = 'hidden';
+    } else {
+      // Restore background scroll
+      document.body.style.overflow = '';
     }
+
+    return () => {
+      document.body.style.overflow = '';
+    };
   }, [isOpen]);
 
   useEffect(() => {
@@ -68,23 +77,27 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
     try {
       let searchResults: SearchResult[] = [];
 
+      // Always search ALL types first, then filter by tab
       if (isOnline) {
-        // Online: search with type filter
-        const types = activeTab === 'all' 
-          ? undefined 
-          : [activeTab as 'people' | 'post' | 'image' | 'group' | 'reel'];
-        searchResults = await searchService.search(query, types);
+        // Search all types regardless of active tab
+        searchResults = await searchService.search(query, undefined);
       } else {
-        // Offline: search cached data
-        const types = activeTab === 'all' 
-          ? undefined 
-          : [activeTab as 'people' | 'post' | 'image' | 'group' | 'reel'];
-        searchResults = await searchService.searchOffline(query, types);
+        // Offline: search all cached data
+        searchResults = await searchService.searchOffline(query, undefined);
       }
 
       // Filter by active tab if not 'all'
       if (activeTab !== 'all') {
-        searchResults = searchResults.filter(r => r.type === activeTab);
+        // Map tab names to result types
+        const typeMap: { [key: string]: string } = {
+          'people': 'people',
+          'posts': 'post',
+          'images': 'image',
+          'groups': 'group',
+          'reels': 'reel'
+        };
+        const targetType = typeMap[activeTab] || activeTab;
+        searchResults = searchResults.filter(r => r.type === targetType);
       }
 
       setResults(searchResults);
@@ -101,58 +114,12 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
   };
 
   const handleResultClick = async (result: SearchResult) => {
-    switch (result.type) {
-      case 'people':
-        navigate(`/profile/${result.data.username}`);
-        onClose();
-        break;
-      case 'post':
-        navigate(`/?post=${result.id}`);
-        onClose();
-        break;
-      case 'image':
-        navigate(`/?post=${result.data.id}`);
-        onClose();
-        break;
-      case 'group':
-        // Handle group join
-        try {
-          // Try to join the group
-          const { error } = await supabase
-            .from('topic_room_members')
-            .insert({
-              room_id: result.id,
-              user_id: user?.id
-            });
-          
-          if (error && error.code !== '23505') { // Ignore duplicate key error
-            // If insert fails, try to navigate anyway (might already be a member)
-            console.log('Group join error (might already be member):', error);
-          }
-          
-          navigate(`/topic-room/${result.id}`);
-          if (!error || error.code === '23505') {
-            toast({
-              title: "Joined Group",
-              description: `You've joined ${result.title}`
-            });
-          }
-        } catch (error) {
-          console.error('Error joining group:', error);
-          // Still navigate even if join fails
-          navigate(`/topic-room/${result.id}`);
-          toast({
-            title: "Opening Group",
-            description: "Opening group..."
-          });
-        }
-        onClose();
-        break;
-      case 'reel':
-        navigate(`/reels?reel=${result.id}`);
-        onClose();
-        break;
-    }
+    // Don't navigate, just close search
+    // User can click again if they want to navigate
+    onClose();
+    
+    // Optionally, you can add navigation here if needed
+    // But per user request, it should do nothing
   };
 
   const handleHistoryClick = (historyQuery: string) => {
@@ -171,8 +138,19 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="flex flex-col h-full">
+    <div 
+      className="fixed inset-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+      onClick={(e) => {
+        // Close on backdrop click
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div 
+        className="flex flex-col h-full"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-center gap-2 p-4 border-b">
           <div className="flex-1 relative">
