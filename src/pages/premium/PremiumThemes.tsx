@@ -32,14 +32,14 @@ const PremiumThemes = () => {
     {
       icon: Flag,
       title: 'Ghana Pride',
-      price: '₵20',
+      price: '₵70',
       description: 'Flag colors & cultural patterns',
       colors: ['bg-red-500', 'bg-yellow-500', 'bg-green-500']
     },
     {
       icon: BookOpen,
       title: 'Ultra',
-      price: '₵70',
+      price: '₵120',
       description: 'Black & white focus mode — minimal distractions',
       colors: ['bg-black', 'bg-white']
     }

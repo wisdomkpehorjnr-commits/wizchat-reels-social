@@ -17,7 +17,7 @@ const Advertise = () => {
     {
       icon: DollarSign,
       title: 'Boosted Post',
-      price: '₵15',
+      price: '₵10',
       description: 'Pin your post to "Top Feed" for 24 hours',
       features: ['Top visibility', 'Reach thousands', 'Track views']
     },

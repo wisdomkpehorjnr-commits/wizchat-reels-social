@@ -17,7 +17,7 @@ const WizBoost = () => {
     {
       icon: Flame,
       title: 'Feed Boost',
-      price: '₵15',
+      price: '₵10',
       duration: '6 hours',
       description: 'Pin your post to Top Feed',
       features: ['Top visibility', 'More likes & comments', 'Track engagement']
