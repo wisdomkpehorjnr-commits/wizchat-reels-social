@@ -205,9 +205,8 @@ const Topics = () => {
             </CardHeader>
             <CardContent className="p-6 pt-0 space-y-3">
               {loading ? (
-                <div className="flex justify-center items-center py-12">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
-                  <span className="sr-only">Loading...</span>
+                <div className="py-4">
+                  <ListSkeleton itemType="topic" count={4} />
                 </div>
               ) : rooms.length === 0 && dataLoaded ? (
                 <p className="text-center text-gray-600 dark:text-gray-300 py-8">

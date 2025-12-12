@@ -349,7 +349,7 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
           </div>
           <div className="flex items-center justify-between gap-2 mt-1">
             <p className={`text-sm truncate flex-1 ${unreadCount > 0 ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
-              {lastMessage || 'No messages yet'}
+              {lastMessage}
             </p>
             {unreadCount > 0 && (
               <Badge variant="destructive" className="rounded-full min-w-[20px] h-5 flex-shrink-0 border border-green-500">

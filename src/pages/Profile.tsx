@@ -15,7 +15,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { Calendar, MapPin, Link as LinkIcon, Edit, MessageCircle, UserPlus, UserMinus, Bookmark, Users, UserCircle, Trash2, Heart, ThumbsUp, X } from 'lucide-react';
 import EditProfileDialog from '@/components/EditProfileDialog';
 import PostCard from '@/components/PostCard';
-import ReelCard from '@/components/ReelCard';
 import ImageModal from '@/components/ImageModal';
 import AvatarStudio, { EnhancedAvatarData } from '@/components/AvatarStudio';
 import { useToast } from '@/components/ui/use-toast';
