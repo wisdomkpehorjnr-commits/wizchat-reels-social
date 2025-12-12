@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { ReelPlayer } from './ReelPlayer';
 import ReelControls from './ReelControls';
+import MoreBottomSheet from './MoreBottomSheet';
 import CommentsModal from './CommentsModal';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useToast } from '@/hooks/use-toast';
@@ -73,27 +74,49 @@ export const ReelsFeed: React.FC = () => {
   }, [toast]);
 
   const handleMore = useCallback((post: Post) => {
-    const opts = ['Download', 'Save', 'Report'];
-    const choice = prompt(`Options:\n${opts.join('\n')}`);
-    if (choice === 'Download' && post.videoUrl) {
-      const a = document.createElement('a');
-      a.href = post.videoUrl;
-      a.download = `reel_${post.id}.mp4`;
-      a.click();
-    } else if (choice === 'Save') {
-      const saved = JSON.parse(localStorage.getItem('saved_reels') || '[]');
-      if (!saved.includes(post.id)) {
-        saved.push(post.id);
-        localStorage.setItem('saved_reels', JSON.stringify(saved));
-        toast({ title: 'Saved' });
-      }
-    } else if (choice === 'Report') {
-      const reports = JSON.parse(localStorage.getItem('reported_reels') || '[]');
-      reports.push({ id: post.id, at: Date.now() });
-      localStorage.setItem('reported_reels', JSON.stringify(reports));
-      toast({ title: 'Reported', description: 'We will review this content.' });
-    }
+    // open bottom sheet handled in UI
+    setSheetPost(post);
+    setSheetOpen(true);
   }, [toast]);
+
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetPost, setSheetPost] = useState<Post | null>(null);
+
+  const handleSave = useCallback(() => {
+    if (!sheetPost) return;
+    const saved = JSON.parse(localStorage.getItem('saved_reels') || '[]');
+    if (!saved.includes(sheetPost.id)) {
+      saved.push(sheetPost.id);
+      localStorage.setItem('saved_reels', JSON.stringify(saved));
+      toast({ title: 'Saved' });
+    } else {
+      toast({ title: 'Already saved' });
+    }
+    setSheetOpen(false);
+  }, [sheetPost, toast]);
+
+  const handleDownload = useCallback(() => {
+    if (!sheetPost) return;
+    if (sheetPost.videoUrl) {
+      const a = document.createElement('a');
+      a.href = sheetPost.videoUrl;
+      a.download = `reel_${sheetPost.id}.mp4`;
+      a.click();
+      toast({ title: 'Download started' });
+    } else {
+      toast({ title: 'No video', description: 'This reel has no downloadable video.' });
+    }
+    setSheetOpen(false);
+  }, [sheetPost, toast]);
+
+  const handleReport = useCallback(() => {
+    if (!sheetPost) return;
+    const reports = JSON.parse(localStorage.getItem('reported_reels') || '[]');
+    reports.push({ id: sheetPost.id, at: Date.now() });
+    localStorage.setItem('reported_reels', JSON.stringify(reports));
+    toast({ title: 'Reported', description: 'We will review this content.' });
+    setSheetOpen(false);
+  }, [sheetPost, toast]);
 
   // Intersection observer to detect the currently visible reel and ensure one-video-per-snap
   useEffect(() => {
