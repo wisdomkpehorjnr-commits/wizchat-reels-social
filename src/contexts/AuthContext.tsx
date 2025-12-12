@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/types';
+import { initMessageNotifier } from '@/services/messageNotifier';
 
 interface AuthContextType {
   user: User | null;
@@ -96,6 +97,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       mounted = false;
     };
   }, []);
+
+  // Initialize message notifier when user becomes available, and clean up on logout
+  useEffect(() => {
+    let cleanup: (() => void) | null = null;
+    if (user && user.id) {
+      try {
+        cleanup = initMessageNotifier(user.id);
+      } catch (e) {
+        console.error('initMessageNotifier failed:', e);
+      }
+    }
+
+    return () => {
+      if (cleanup) {
+        try { cleanup(); } catch (e) {}
+      }
+    };
+  }, [user]);
 
   const loadUserProfile = async (userId: string) => {
     try {

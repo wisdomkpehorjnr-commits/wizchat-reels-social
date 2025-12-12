@@ -523,6 +523,23 @@ class LocalMessageService {
     });
   }
 
+  // Get all chat metadata entries
+  async getAllChatMetadata(): Promise<ChatMetadata[]> {
+    await this.initDB();
+    if (!this.db) throw new Error('Database not initialized');
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(STORES.CHAT_METADATA, 'readonly');
+      const metadataStore = transaction.objectStore(STORES.CHAT_METADATA);
+      const request = metadataStore.getAll();
+
+      request.onsuccess = () => {
+        resolve(request.result as ChatMetadata[]);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  }
+
   // Update unread count for a chat
   async updateUnreadCount(chatId: string, count: number): Promise<void> {
     await this.initDB();

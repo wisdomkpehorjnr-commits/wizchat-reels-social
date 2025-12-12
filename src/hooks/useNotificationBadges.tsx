@@ -181,6 +181,25 @@ export const useNotificationBadges = () => {
     };
   }, [user]);
 
+  // Listen for local badge updates coming from message notifier
+  useEffect(() => {
+    const handler = (e: Event) => {
+      try {
+        const detail = (e as CustomEvent).detail as any;
+        if (detail && typeof detail.chat === 'number') {
+          setBadges(prev => ({ ...prev, chat: detail.chat }));
+        }
+      } catch (err) {
+        // ignore
+      }
+    };
+
+    window.addEventListener('badges:updated', handler as EventListener);
+    return () => {
+      window.removeEventListener('badges:updated', handler as EventListener);
+    };
+  }, []);
+
   const clearBadge = async (tab: string) => {
     // Mark messages as seen when chat tab is opened
     if (tab === 'chat' && user) {

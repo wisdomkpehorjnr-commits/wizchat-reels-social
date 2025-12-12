@@ -219,6 +219,15 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
     };
     
     window.addEventListener('storage', handleStorageChange);
+    const handleIncomingMessage = (e: Event) => {
+      try {
+        // Trigger a refresh when any new message is received
+        fetchChatData();
+      } catch (err) {
+        console.error('Error handling incoming message event:', err);
+      }
+    };
+    window.addEventListener('message:received', handleIncomingMessage as EventListener);
     
     // Poll for local storage updates (since IndexedDB doesn't have events)
     const pollInterval = setInterval(fetchChatData, 2000);
@@ -226,6 +235,7 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
     return () => {
       supabase.removeChannel(channel);
       window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('message:received', handleIncomingMessage as EventListener);
       clearInterval(pollInterval);
     };
   }, [friend.id, user?.id, isWizAi]);
