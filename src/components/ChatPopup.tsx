@@ -135,11 +135,6 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
               window.dispatchEvent(new CustomEvent('chatListUpdate'));
             }
             
-            // Notify other listeners (chat list, badges) that a message was received
-            try {
-              window.dispatchEvent(new CustomEvent('messageReceived', { detail: payload.new }));
-            } catch (e) {}
-
             setMessages(prev => {
               if (prev.some(m => m.id === newMsg.id)) return prev;
               return [...prev, newMsg];
@@ -181,34 +176,6 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       supabase.removeChannel(reactionsChannel);
     };
   }, [chatId, user?.id]);
-
-  // When opening the chat popup, mark messages in this chat as seen for the current user
-  useEffect(() => {
-    const markSeen = async () => {
-      if (!chatId || !user) return;
-      try {
-        const { error } = await supabase
-          .from('messages')
-          .update({ seen: true })
-          .eq('chat_id', chatId)
-          .neq('user_id', user.id)
-          .eq('seen', false);
-
-        if (error) {
-          console.error('Error marking messages as seen:', error);
-        } else {
-          // Dispatch global event that messages in this chat were seen
-          try {
-            window.dispatchEvent(new CustomEvent('messagesSeen', { detail: { chat_id: chatId, user_id: user.id } }));
-          } catch (e) { }
-        }
-      } catch (err) {
-        console.error('Mark seen failed', err);
-      }
-    };
-
-    markSeen();
-  }, [chatId, user]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

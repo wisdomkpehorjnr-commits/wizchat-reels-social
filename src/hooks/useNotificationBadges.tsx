@@ -114,12 +114,6 @@ export const useNotificationBadges = () => {
             
             if (isParticipant) {
               setBadges(prev => ({ ...prev, chat: prev.chat + 1 }));
-              // Dispatch a global event so chat list components can update immediately
-              try {
-                window.dispatchEvent(new CustomEvent('messageReceived', { detail: payload.new }));
-              } catch (e) {
-                // ignore
-              }
             }
           }
         }

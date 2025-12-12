@@ -135,33 +135,6 @@ const ChatInterface = ({ chat, onClose }: ChatInterfaceProps) => {
     };
   }, [chat.id]);
 
-  // When opening a chat interface, mark messages as seen for current user
-  useEffect(() => {
-    const markSeen = async () => {
-      if (!chat.id || !user) return;
-      try {
-        const { error } = await supabase
-          .from('messages')
-          .update({ seen: true })
-          .eq('chat_id', chat.id)
-          .neq('user_id', user.id)
-          .eq('seen', false);
-
-        if (error) {
-          console.error('Error marking messages as seen:', error);
-        } else {
-          try {
-            window.dispatchEvent(new CustomEvent('messagesSeen', { detail: { chat_id: chat.id, user_id: user.id } }));
-          } catch (e) { }
-        }
-      } catch (err) {
-        console.error('Mark seen failed', err);
-      }
-    };
-
-    markSeen();
-  }, [chat.id, user]);
-
   useEffect(() => {
     if (searchTerm) {
       searchUsers();
