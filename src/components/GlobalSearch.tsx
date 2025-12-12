@@ -148,7 +148,7 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
       }}
     >
       <div 
-        className="flex flex-col h-full"
+        className="flex flex-col h-full min-h-0"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -179,7 +179,7 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
         </div>
 
         {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="flex-1 flex flex-col">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="flex-1 flex flex-col min-h-0">
           <TabsList className="w-full justify-start rounded-none border-b px-4">
             <TabsTrigger value="all">All</TabsTrigger>
             <TabsTrigger value="people">People</TabsTrigger>
@@ -190,7 +190,8 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
           </TabsList>
 
           {/* Content */}
-          <div className="flex-1 overflow-auto">
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="flex-1 overflow-auto min-h-0">
             {!query.trim() ? (
               <div className="p-4">
                 <div className="flex items-center justify-between mb-4">
@@ -314,6 +315,7 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
                 )}
               </div>
             )}
+          </div>
           </div>
         </Tabs>
       </div>
