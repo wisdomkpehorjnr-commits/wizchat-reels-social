@@ -49,38 +49,42 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
     
     const fetchChatData = async () => {
       try {
-        // Find existing chat between users
-        const { data: chats } = await supabase
-          .from('chats')
-          .select('id')
-          .eq('is_group', false)
-          .limit(10);
-        
-        if (!chats || chats.length === 0) {
-          setLastMessage("");
-          setLastMessageTime(null);
-          setUnreadCount(0);
-          return;
-        }
-        
-        // Find chat where both users are participants
-        let foundChatId = null;
-        for (const chat of chats) {
-          const { data: participants } = await supabase
+        // Find existing one-on-one chat between users by intersecting chat_participants
+        let foundChatId: string | null = null;
+        try {
+          const { data: myChats, error: myChatsError } = await supabase
             .from('chat_participants')
-            .select('user_id')
-            .eq('chat_id', chat.id);
-          
-          if (participants && participants.length === 2) {
-            const userIds = participants.map(p => p.user_id);
-            if (userIds.includes(user?.id || '') && userIds.includes(friend.id)) {
-              foundChatId = chat.id;
-              break;
-            }
+            .select('chat_id')
+            .eq('user_id', user?.id);
+
+          if (myChatsError) throw myChatsError;
+          const chatIds = (myChats || []).map((c: any) => c.chat_id).filter(Boolean);
+
+          if (chatIds.length === 0) {
+            setLastMessage("");
+            setLastMessageTime(null);
+            setUnreadCount(0);
+            return;
           }
-        }
-        
-        if (!foundChatId) {
+
+          const { data: common, error: commonError } = await supabase
+            .from('chat_participants')
+            .select('chat_id')
+            .eq('user_id', friend.id)
+            .in('chat_id', chatIds)
+            .limit(1);
+
+          if (commonError) throw commonError;
+          if (common && common.length > 0) {
+            foundChatId = common[0].chat_id;
+          } else {
+            setLastMessage("");
+            setLastMessageTime(null);
+            setUnreadCount(0);
+            return;
+          }
+        } catch (err) {
+          console.error('Error finding chat between users:', err);
           setLastMessage("");
           setLastMessageTime(null);
           setUnreadCount(0);
