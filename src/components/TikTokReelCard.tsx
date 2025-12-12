@@ -320,12 +320,12 @@ const TikTokReelCard: React.FC<TikTokReelCardProps> = ({
             )}
             <video
               ref={videoRef}
-              src={post.videoUrl}
+              src={isActive ? post.videoUrl : undefined}
               className="w-full h-full object-cover"
               loop
               muted={!soundEnabled}
               playsInline
-              preload="auto"
+              preload="metadata"
               style={{ display: hasError ? 'none' : 'block' }}
             />
           </>

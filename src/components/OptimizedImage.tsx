@@ -27,7 +27,7 @@ export function OptimizedImage({
   width,
   height,
   priority = false,
-  quality = 'high',
+  quality = 'medium',
   onLoad,
   onError,
 }: OptimizedImageProps) {
@@ -69,10 +69,11 @@ export function OptimizedImage({
         params.set('w', '512');
         params.set('q', '75');
         break;
-      case 'high':
-        params.set('w', '1024');
-        params.set('q', '90');
-        break;
+        case 'high':
+          params.set('w', '1024');
+          params.set('q', '90');
+          break;
+        default:
     }
 
     return src.includes('?')
@@ -125,7 +126,7 @@ export function ImageGallery({
           key={idx}
           src={img}
           alt={`Gallery image ${idx + 1}`}
-          priority={idx < 2} // Load first 2 images immediately
+          priority={idx < 1} // Load first image immediately, defer others
           quality={idx < 4 ? 'high' : 'medium'}
           className="w-full h-40 object-cover rounded-lg"
         />
@@ -147,9 +148,25 @@ export function BackgroundImageOptimized({
   className?: string;
 }) {
   const [isLoaded, setIsLoaded] = useState(false);
+  const ref = React.useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!ref.current) return;
+
+    const obs = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        setIsLoaded(true);
+        obs.disconnect();
+      }
+    }, { rootMargin: '200px' });
+
+    obs.observe(ref.current);
+    return () => obs.disconnect();
+  }, []);
 
   return (
     <div
+      ref={ref}
       className={`relative overflow-hidden ${className}`}
       style={{
         backgroundImage: isLoaded ? `url(${src})` : undefined,
@@ -157,14 +174,6 @@ export function BackgroundImageOptimized({
         backgroundPosition: 'center',
       }}
     >
-      {/* Hidden image element to preload */}
-      <img
-        src={src}
-        alt="Background"
-        style={{ display: 'none' }}
-        onLoad={() => setIsLoaded(true)}
-      />
-
       {/* Placeholder gradient while loading */}
       {!isLoaded && <div className="absolute inset-0 bg-gradient-to-br from-gray-200 to-gray-300" />}
 

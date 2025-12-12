@@ -1,4 +1,5 @@
 import { Reel } from '../types';
+import { networkStatusManager } from '@/services/networkStatusManager';
 
 interface PlayerInstance {
   videoUrl: string;
@@ -170,10 +171,20 @@ export class VideoPlayerController {
    * Preload video from URL for faster playback
    */
   async preloadVideo(videoUrl: string): Promise<void> {
-    if (this.videoCache.has(videoUrl)) return;
-
+    // Avoid preloading on slow networks to save user data
     try {
-      const response = await fetch(videoUrl);
+      if (networkStatusManager.isSlow()) {
+        // Skip heavy preloads on slow connections
+        return;
+      }
+
+      if (this.videoCache.has(videoUrl)) return;
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 20000);
+
+      const response = await fetch(videoUrl, { signal: controller.signal });
+      clearTimeout(timeout);
       const blob = await response.blob();
 
       // Check cache size
@@ -185,7 +196,8 @@ export class VideoPlayerController {
       this.videoCache.set(videoUrl, blob);
       this.currentCacheSize += blob.size;
     } catch (error) {
-      console.error(`Failed to preload video ${videoUrl}:`, error);
+      // Network errors or aborts are expected on constrained networks
+      console.debug(`Preload skipped/failed for ${videoUrl}:`, error?.message || error);
     }
   }
 
