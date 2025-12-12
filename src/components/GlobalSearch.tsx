@@ -190,7 +190,7 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
           </TabsList>
 
           {/* Content */}
-          <div className="flex-1 overflow-auto">
+          <div className="flex-1 overflow-auto touch-pan-y" style={{ WebkitOverflowScrolling: 'touch' as any }}>
             {!query.trim() ? (
               <div className="p-4">
                 <div className="flex items-center justify-between mb-4">
