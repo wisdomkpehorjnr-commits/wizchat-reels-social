@@ -9,6 +9,8 @@ import { dataService } from '@/services/dataService';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { VoiceMessagePlayer } from './VoiceMessagePlayer';
+import MediaViewer from './MediaViewer';
+import DocumentOptions from './DocumentOptions';
 
 interface MessageItemProps {
   message: Message;
@@ -53,6 +55,8 @@ const MessageItem = ({
   const [showReactions, setShowReactions] = useState(false);
   const [reactions, setReactions] = useState<{ emoji: string; userId: string }[]>([]);
   const [userReaction, setUserReaction] = useState<string | null>(null);
+  const [viewer, setViewer] = useState<null | { open: boolean; src: string; type: 'image' | 'video' }>(null);
+  const [docOptionsOpen, setDocOptionsOpen] = useState(false);
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
@@ -271,18 +275,29 @@ const MessageItem = ({
         <img 
           src={message.mediaUrl} 
           alt="Shared image" 
-          className="max-w-xs rounded-lg"
+          className="max-w-xs rounded-lg cursor-zoom-in"
+          onClick={(e) => {
+            e.stopPropagation();
+            setViewer({ open: true, src: message.mediaUrl!, type: 'image' });
+          }}
         />
       );
     }
     
     if (message.type === 'video') {
       return (
-        <video 
-          src={message.mediaUrl} 
-          controls 
-          className="max-w-xs rounded-lg"
-        />
+        <div className="max-w-xs rounded-lg overflow-hidden">
+          <video 
+            src={message.mediaUrl} 
+            className="w-full h-auto object-contain cursor-zoom-in"
+            onClick={(e) => {
+              e.stopPropagation();
+              setViewer({ open: true, src: message.mediaUrl!, type: 'video' });
+            }}
+            preload="metadata"
+            playsInline
+          />
+        </div>
       );
     }
     
@@ -296,6 +311,22 @@ const MessageItem = ({
           userAvatar={!isOwn ? message.user.avatar : undefined}
           userName={!isOwn ? message.user.name : undefined}
         />
+      );
+    }
+
+    if (message.type === 'document' || message.type === 'file') {
+      // Show a simple document card with filename and open options
+      const fileName = message.fileName || (message.mediaUrl ? message.mediaUrl.split('/').pop() : 'Document');
+      return (
+        <div className="flex items-center gap-3 p-2 bg-white/5 rounded-lg cursor-pointer" onClick={(e) => { e.stopPropagation(); setDocOptionsOpen(true); }}>
+          <div className="w-10 h-10 flex items-center justify-center bg-muted rounded">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+          </div>
+          <div className="flex-1 text-sm">
+            <div className="font-medium">{fileName}</div>
+            <div className="text-xs text-muted-foreground">Tap to open</div>
+          </div>
+        </div>
       );
     }
 
@@ -364,7 +395,16 @@ const MessageItem = ({
                 <p className="text-sm">{message.content}</p>
               )
             ) : (
-              renderMediaContent()
+              <>
+                {renderMediaContent()}
+                {/* Media viewer and document options */}
+                {viewer?.open && (
+                  <MediaViewer src={viewer.src} type={viewer.type} open={viewer.open} onClose={() => setViewer(null)} />
+                )}
+                {docOptionsOpen && (
+                  <DocumentOptions url={message.mediaUrl || ''} open={docOptionsOpen} onClose={() => setDocOptionsOpen(false)} />
+                )}
+              </>
             )}
             
             {/* Reactions */}
