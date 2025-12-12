@@ -147,7 +147,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end" forceMount>
+              <DropdownMenuContent
+                className={"w-56 rounded-xl p-2 backdrop-blur-md bg-white/10 border border-white/20 shadow-lg transform-gpu transition-all duration-150 ease-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[side=right]:slide-in-from-left-2"}
+                align="end"
+                forceMount
+              >
                 <div className="flex flex-col space-y-1 p-2">
                   <p className="text-sm font-medium leading-none text-foreground">{user?.name}</p>
                   <p className="text-xs leading-none text-muted-foreground">
