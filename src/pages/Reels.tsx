@@ -1,6 +1,6 @@
 import React from 'react';
 import Layout from '@/components/Layout';
-import ReelsContainer from '@/components/Reels/ReelsContainer';
+import ReelsContainer from '@/components/reels/ReelsContainer';
 
 const ReelsPage: React.FC = () => {
   return (
