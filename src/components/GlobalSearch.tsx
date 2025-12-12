@@ -179,7 +179,7 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
         </div>
 
         {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="flex-1 flex flex-col">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="flex-1 flex flex-col min-h-0">
           <TabsList className="w-full justify-start rounded-none border-b px-4">
             <TabsTrigger value="all">All</TabsTrigger>
             <TabsTrigger value="people">People</TabsTrigger>
@@ -190,7 +190,10 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
           </TabsList>
 
           {/* Content */}
-          <div className="flex-1 overflow-auto touch-pan-y" style={{ WebkitOverflowScrolling: 'touch' as any }}>
+          <div
+            className="flex-1 overflow-auto touch-pan-y min-h-0"
+            style={{ WebkitOverflowScrolling: 'touch' as any, touchAction: 'pan-y', overscrollBehavior: 'contain' }}
+          >
             {!query.trim() ? (
               <div className="p-4">
                 <div className="flex items-center justify-between mb-4">
