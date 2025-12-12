@@ -32,7 +32,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const navItems = [
     { icon: Home, label: 'Home', path: '/', badge: 0 }, // No badge for Home
     { icon: PlayCircle, label: 'Reels', path: '/reels', badge: badges.reels },
-    { icon: MessageCircle, label: 'Chat', path: '/chat', badge: 0 },
+    { icon: MessageCircle, label: 'Chat', path: '/chat', badge: badges.chat },
     { icon: Users, label: 'Friends', path: '/friends', badge: badges.friends },
     { icon: MessageSquare, label: 'Topics', path: '/topics', badge: badges.topics },
   ];

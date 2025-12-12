@@ -39,6 +39,7 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
   const [lastMessage, setLastMessage] = useState<string>('');
   const [lastMessageTime, setLastMessageTime] = useState<Date | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [chatId, setChatId] = useState<string | null>(null);
   const isOnline = useOnlineStatus(friend.id);
 
   useEffect(() => {
@@ -84,6 +85,7 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
           setLastMessage("");
           setLastMessageTime(null);
           setUnreadCount(0);
+          setChatId(null);
           return;
         }
         
@@ -105,9 +107,11 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
           
           setLastMessage(preview);
           setLastMessageTime(lastMsg.timestamp);
+          setChatId(foundChatId);
         } else if (metadata) {
           setLastMessage(metadata.lastMessagePreview || '');
           setLastMessageTime(metadata.lastMessageTime || null);
+          setChatId(foundChatId);
         }
         
         // Calculate unread count from local messages
@@ -179,6 +183,7 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
               setUnreadCount(count);
               await localMessageService.updateUnreadCount(foundChatId, count);
             }
+            setChatId(foundChatId);
           } catch (error) {
             console.error('Error fetching from server:', error);
             // Continue with local data
@@ -195,23 +200,51 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
     fetchChatData();
     
     // Subscribe to new messages (both local and server)
-    const channel = supabase
-      .channel(`chat_${friend.id}`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'messages'
-      }, () => {
-        fetchChatData();
-      })
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'messages'
-      }, () => {
-        fetchChatData();
-      })
-      .subscribe();
+    // Instead of subscribing per-item via Supabase (expensive), listen to global
+    // events dispatched when a message arrives. This reduces per-item channels
+    // and allows us to update only the affected conversation.
+    const handleMessageEvent = (e: Event) => {
+      try {
+        const payload = (e as CustomEvent).detail;
+        if (!payload) return;
+
+        // If this event belongs to this chat, update preview/time/unread
+        if (payload.chat_id && payload.chat_id === chatId) {
+          const preview = payload.type === 'image'
+            ? '📷 Photo'
+            : payload.type === 'video'
+            ? '🎥 Video'
+            : payload.type === 'voice'
+            ? '🎤 Voice message'
+            : payload.content && payload.content.length > 30
+            ? payload.content.substring(0, 30) + '...'
+            : payload.content || 'Media';
+
+          setLastMessage(preview);
+          setLastMessageTime(payload.created_at ? new Date(payload.created_at) : new Date());
+
+          // Increment unread only when the sender is not the current user
+          if (payload.user_id && payload.user_id !== user?.id) {
+            setUnreadCount(prev => prev + 1);
+          }
+        }
+      } catch (err) {
+        // ignore
+      }
+    };
+
+    window.addEventListener('messageReceived', handleMessageEvent as EventListener);
+    const handleMessagesSeen = (e: Event) => {
+      try {
+        const payload = (e as CustomEvent).detail;
+        if (payload?.chat_id && payload.chat_id === chatId) {
+          setUnreadCount(0);
+        }
+      } catch (err) {
+        // ignore
+      }
+    };
+    window.addEventListener('messagesSeen', handleMessagesSeen as EventListener);
     
     // Also listen for storage events (when local storage updates)
     const handleStorageChange = () => {
@@ -224,7 +257,8 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
     const pollInterval = setInterval(fetchChatData, 2000);
     
     return () => {
-      supabase.removeChannel(channel);
+      window.removeEventListener('messageReceived', handleMessageEvent as EventListener);
+      window.removeEventListener('messagesSeen', handleMessagesSeen as EventListener);
       window.removeEventListener('storage', handleStorageChange);
       clearInterval(pollInterval);
     };
@@ -352,7 +386,7 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
               {lastMessage || 'No messages yet'}
             </p>
             {unreadCount > 0 && (
-              <Badge variant="destructive" className="rounded-full min-w-[20px] h-5 flex-shrink-0 border border-green-500">
+              <Badge variant="destructive" className="rounded-full min-w-[20px] h-5 flex-shrink-0">
                 {unreadCount > 99 ? '99+' : unreadCount}
               </Badge>
             )}
