@@ -27,6 +27,8 @@ export const initMessageNotifier = (userId: string) => {
           const newMsg = payload.new;
           if (!newMsg) return;
 
+          console.debug('[messageNotifier] INSERT payload received:', newMsg);
+
           // If the message was sent by this user, ignore (we don't increment unread for own messages)
           if (newMsg.user_id === userId) return;
 
@@ -58,6 +60,7 @@ export const initMessageNotifier = (userId: string) => {
 
           // Save to local DB
           await localMessageService.saveMessage(localMsg);
+          console.debug('[messageNotifier] saved incoming message to local DB', { chatId: localMsg.chatId, id: localMsg.id });
 
           // Increment unread count for the chat (if message is unseen)
           if (!localMsg.seen) {
@@ -78,6 +81,7 @@ export const initMessageNotifier = (userId: string) => {
           try {
             const allMeta = await localMessageService.getAllChatMetadata();
             const totalUnread = allMeta.reduce((sum, m) => sum + (m.unreadCount || 0), 0);
+            console.debug('[messageNotifier] dispatching badges:updated', { totalUnread });
             window.dispatchEvent(new CustomEvent('badges:updated', { detail: { chat: totalUnread } }));
           } catch (e) {
             // ignore
@@ -95,6 +99,8 @@ export const initMessageNotifier = (userId: string) => {
           const newMsg = payload.new;
           const oldMsg = payload.old;
           if (!newMsg) return;
+
+          console.debug('[messageNotifier] UPDATE payload received:', { old: oldMsg, new: newMsg });
 
           // If seen status changed, update local DB and metadata
           if (oldMsg && oldMsg.seen !== newMsg.seen) {
@@ -115,6 +121,7 @@ export const initMessageNotifier = (userId: string) => {
             } as LocalMessage;
 
             await localMessageService.saveMessage(localMsg);
+            console.debug('[messageNotifier] updated message saved to local DB', { id: localMsg.id, seen: localMsg.seen });
 
             // Recalculate unread count for that chat by querying local metadata or messages
             const localMeta = await localMessageService.getChatMetadata(localMsg.chatId);
@@ -132,6 +139,7 @@ export const initMessageNotifier = (userId: string) => {
             try {
               const allMeta = await localMessageService.getAllChatMetadata();
               const totalUnread = allMeta.reduce((sum, m) => sum + (m.unreadCount || 0), 0);
+              console.debug('[messageNotifier] dispatching badges:updated (update)', { totalUnread });
               window.dispatchEvent(new CustomEvent('badges:updated', { detail: { chat: totalUnread } }));
             } catch (e) {}
           }

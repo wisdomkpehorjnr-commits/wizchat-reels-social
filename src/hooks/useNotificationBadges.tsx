@@ -186,11 +186,12 @@ export const useNotificationBadges = () => {
     const handler = (e: Event) => {
       try {
         const detail = (e as CustomEvent).detail as any;
+        console.debug('[useNotificationBadges] badges:updated event received', detail);
         if (detail && typeof detail.chat === 'number') {
           setBadges(prev => ({ ...prev, chat: detail.chat }));
         }
       } catch (err) {
-        // ignore
+        console.error('[useNotificationBadges] error handling badges:updated', err);
       }
     };
 

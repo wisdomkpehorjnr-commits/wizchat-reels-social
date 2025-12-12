@@ -48,10 +48,12 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
     }
     
     const fetchChatData = async () => {
+      console.debug('[ChatListItem] fetchChatData start for friend:', friend.id);
       try {
         // Find existing one-on-one chat between users by intersecting chat_participants
         let foundChatId: string | null = null;
         try {
+          console.debug('[ChatListItem] searching for chat intersection');
           const { data: myChats, error: myChatsError } = await supabase
             .from('chat_participants')
             .select('chat_id')
@@ -77,7 +79,9 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
           if (commonError) throw commonError;
           if (common && common.length > 0) {
             foundChatId = common[0].chat_id;
+            console.debug('[ChatListItem] found chat id:', foundChatId);
           } else {
+            console.debug('[ChatListItem] no common chat found for friend', friend.id);
             setLastMessage("");
             setLastMessageTime(null);
             setUnreadCount(0);
@@ -94,6 +98,7 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
         // Load from local cache first (offline-first)
         const localMessages = await localMessageService.getMessages(foundChatId);
         const metadata = await localMessageService.getChatMetadata(foundChatId);
+        console.debug('[ChatListItem] localMessages length, metadata:', localMessages.length, metadata);
         
         if (localMessages.length > 0) {
           const lastMsg = localMessages[localMessages.length - 1];
@@ -118,6 +123,7 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
         const unread = localMessages.filter(
           m => m.userId !== user?.id && !m.seen
         ).length;
+        console.debug('[ChatListItem] unread counted from localMessages:', unread);
         setUnreadCount(unread);
         
         // Also try to get from server if online (for sync)
@@ -132,6 +138,7 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
             
             if (!msgError && messages && messages.length > 0) {
               const msg = messages[0];
+              console.debug('[ChatListItem] latest message from server:', msg);
               const preview = msg.type === 'image'
                 ? '📷 Photo'
                 : msg.type === 'video'
@@ -180,6 +187,7 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
               .neq('user_id', user?.id);
             
             if (count !== null) {
+              console.debug('[ChatListItem] unread count from server:', count);
               setUnreadCount(count);
               await localMessageService.updateUnreadCount(foundChatId, count);
             }
@@ -225,6 +233,7 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
     window.addEventListener('storage', handleStorageChange);
     const handleIncomingMessage = (e: Event) => {
       try {
+        console.debug('[ChatListItem] message:received event for friend:', friend.id, (e as CustomEvent).detail);
         // Trigger a refresh when any new message is received
         fetchChatData();
       } catch (err) {
