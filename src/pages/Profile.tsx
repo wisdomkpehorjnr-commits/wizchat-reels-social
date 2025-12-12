@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import ThemeAwareDialog from '@/components/ThemeAwareDialog';
 import Layout from '@/components/Layout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -21,6 +21,7 @@ import AvatarStudio, { EnhancedAvatarData } from '@/components/AvatarStudio';
 import { useToast } from '@/components/ui/use-toast';
 import { useNavigate, useParams } from 'react-router-dom';
 import VerificationBadge from '@/components/VerificationBadge';
+import LoadingDots from '@/components/LoadingDots';
 
 const Profile = () => {
   const { user } = useAuth();
@@ -46,6 +47,11 @@ const Profile = () => {
   const [userGroups, setUserGroups] = useState<any[]>([]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [postToDelete, setPostToDelete] = useState<string | null>(null);
+
+  // Saved item long-press / download
+  const [selectedSaved, setSelectedSaved] = useState<SavedPost | null>(null);
+  const [showSavedOptions, setShowSavedOptions] = useState(false);
+  const longPressTimer = useRef<number | null>(null);
 
   // Determine if this is the current user's profile
   // Check both if there's no userIdentifier (own profile route) or if the profileUser matches current user
@@ -221,10 +227,49 @@ const Profile = () => {
       else { navigator.clipboard.writeText(window.location.href); toast({ title: "Shared", description: "Link copied" }); }
     } catch { toast({ title: "Error", description: "Failed to share", variant: "destructive" }); }
   };
+  
+  // Download helper for saved media
+  const getFilenameFromUrl = (url?: string) => {
+    if (!url) return `media_${Date.now()}`;
+    try {
+      const u = new URL(url);
+      const parts = u.pathname.split('/');
+      const last = parts[parts.length - 1];
+      return last.split('?')[0] || `media_${Date.now()}`;
+    } catch {
+      return `media_${Date.now()}`;
+    }
+  };
+
+  const downloadMedia = async (url?: string, fallbackName?: string) => {
+    if (!url) {
+      toast({ title: 'Error', description: 'No media URL found', variant: 'destructive' });
+      return;
+    }
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = fallbackName || getFilenameFromUrl(url);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+      toast({ title: 'Downloaded', description: 'Media downloaded' });
+    } catch (err) {
+      console.error('Download error', err);
+      toast({ title: 'Error', description: 'Failed to download media', variant: 'destructive' });
+    } finally {
+      setShowSavedOptions(false);
+      setSelectedSaved(null);
+    }
+  };
   const handleUserClick = (userId: string) => navigate(`/profile/${userId}`);
 
   if (!user) return null;
-  if (loading) return <Layout><div className="max-w-4xl mx-auto p-6 text-center">Loading...</div></Layout>;
+  if (loading) return <Layout><div className="max-w-4xl mx-auto p-6 text-center"><LoadingDots /></div></Layout>;
   if (error && error === "User not found") {
     return (
       <Layout>
@@ -470,52 +515,44 @@ const Profile = () => {
 
             {isOwnProfile && (
               <>
-                <TabsContent value="saved" className="p-4 space-y-4">
-                  {savedPosts.length > 0 ? savedPosts.map(s => {
-                    // Check if it's a reel (video post)
-                    const isReel = s.post.videoUrl || s.post.isReel || s.post.mediaType === 'video';
-                    if (isReel) {
-                      return (
-                        <div key={s.id} className="aspect-[9/16] max-w-xs mx-auto">
-                          <ReelCard
-                            post={s.post}
-                            onLike={async (postId) => {
-                              try {
-                                await dataService.likePost(postId);
-                                // Refresh saved posts
-                                const saved = await ProfileService.getSavedPosts();
-                                setSavedPosts(saved);
-                              } catch (error) {
-                                console.error('Error liking saved reel:', error);
-                              }
-                            }}
-                            onUserClick={(user) => navigate(`/profile/${user.username || user.id}`)}
-                            onShare={async (post) => {
-                              try {
-                                if (navigator.share) {
-                                  await navigator.share({
-                                    title: `Check out this reel by ${post.user.name}`,
-                                    text: post.content || 'Check out this awesome reel!',
-                                    url: `${window.location.origin}/reel/${post.id}`
-                                  });
-                                } else {
-                                  await navigator.clipboard.writeText(`${window.location.origin}/reel/${post.id}`);
-                                  toast({ title: "Link copied", description: "Reel link copied to clipboard" });
-                                }
-                              } catch (error) {
-                                console.error('Error sharing:', error);
-                              }
-                            }}
-                            isMuted={true}
-                            onMuteToggle={() => {}}
-                            isOwnProfile={isOwnProfile}
-                          />
-                        </div>
-                      );
-                    }
-                    return <PostCard key={s.id} post={s.post} onPostUpdate={() => {}} />;
-                  }) :
-                    <div className="text-center py-12 text-strong-contrast/60">No saved posts yet</div>}
+                <TabsContent value="saved" className="p-2">
+                  {savedPosts.length > 0 ? (
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-1">
+                      {savedPosts.map(s => {
+                        const isReel = s.post.videoUrl || s.post.isReel || s.post.mediaType === 'video';
+                        const mediaUrl = s.post.videoUrl || s.post.imageUrl;
+                        return (
+                          <div
+                            key={s.id}
+                            className={`relative rounded overflow-hidden cursor-pointer group ${isReel ? 'aspect-[9/16]' : 'aspect-square'}`}
+                            onClick={() => { if (isReel) navigate('/reels'); else { /* could open post */ } }}
+                            onPointerDown={() => { longPressTimer.current = window.setTimeout(() => { setSelectedSaved(s); setShowSavedOptions(true); }, 600); }}
+                            onPointerUp={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; } }}
+                            onPointerLeave={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; } }}
+                          >
+                            {s.post.videoUrl ? (
+                              <video src={s.post.videoUrl} className="w-full h-full object-cover" muted />
+                            ) : s.post.imageUrl ? (
+                              <img src={s.post.imageUrl} alt={s.post.content || 'Saved'} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full bg-gradient-to-br from-gray-400 to-gray-600 flex items-center justify-center p-1">
+                                <p className="text-white text-[10px] text-center line-clamp-2">{s.post.content}</p>
+                              </div>
+                            )}
+
+                            <div className="absolute inset-0 bg-black/0 hover:bg-black/30 transition-colors flex items-center justify-center">
+                              <div className="opacity-0 hover:opacity-100 transition-opacity flex items-center gap-1 text-white">
+                                <Heart className="w-3 h-3 fill-white" />
+                                <span className="text-[10px]">{s.post.likes?.length || 0}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 text-strong-contrast/60">No saved posts yet</div>
+                  )}
                 </TabsContent>
                 
                 <TabsContent value="groups" className="p-4">
@@ -594,6 +631,27 @@ const Profile = () => {
           }} 
         />
         
+        <Dialog open={showSavedOptions} onOpenChange={(open) => { if (!open) { setShowSavedOptions(false); setSelectedSaved(null); } }}>
+          <DialogContent className="bg-white dark:bg-gray-900 border border-green-500 rounded-2xl max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-semibold text-green-700">Saved Item</DialogTitle>
+            </DialogHeader>
+            <div className="py-4 flex flex-col gap-3">
+              <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={async () => {
+                if (selectedSaved) {
+                  const media = selectedSaved.post.videoUrl || selectedSaved.post.imageUrl;
+                  await downloadMedia(media, selectedSaved.post.id || undefined);
+                }
+              }}>
+                Download
+              </Button>
+              <Button variant="outline" onClick={() => { setShowSavedOptions(false); setSelectedSaved(null); }}>
+                Cancel
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         <ThemeAwareDialog
           open={!!deletePostId}
           onOpenChange={(open) => !open && setDeletePostId(null)}
