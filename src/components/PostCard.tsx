@@ -480,7 +480,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
                     </div>
                   ))}
                 </div>
-              {post.imageUrl && (
+              ) : post.imageUrl && (
                 <div className="mt-2 rounded-lg overflow-hidden">
                   <ImageWithFallback
                     src={post.imageUrl}
