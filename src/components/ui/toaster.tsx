@@ -14,10 +14,19 @@ export function Toaster() {
   return (
     <ToastProvider>
       {toasts.map(function ({ id, title, description, action, ...props }) {
+        const processedTitle = (() => {
+          if (!title) return null
+          if (typeof title === "string") {
+            const t = title.replace(/^\s*error[:\-\s]*/i, "").trim()
+            return t === "" ? null : t
+          }
+          return title
+        })()
+
         return (
           <Toast key={id} {...props}>
             <div className="grid gap-1">
-              {title && <ToastTitle>{title}</ToastTitle>}
+              {processedTitle && <ToastTitle>{processedTitle}</ToastTitle>}
               {description && (
                 <ToastDescription>{description}</ToastDescription>
               )}
