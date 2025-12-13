@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { MoreVertical, ThumbsUp, MessageSquare, Share2, Edit, Trash2, Download, Pin, Send, X } from 'lucide-react';
+import { MoreVertical, ThumbsUp, MessageSquare, Share2, Edit, Trash2, Download, Pin, Send, X, ImageOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -265,94 +265,6 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [imageModalSrc, setImageModalSrc] = useState('');
 
-  // Helper component for images: handles load/error, offline blur placeholder, and retry
-  function PostImage({ src, alt }: { src: string; alt?: string }) {
-    const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
-    const [reloadKey, setReloadKey] = useState(0);
-
-    // Reset status when src changes or reload triggered
-    useEffect(() => {
-      setStatus('loading');
-    }, [src, reloadKey]);
-
-    const handleClick = () => {
-      if (!navigator.onLine) {
-        toast({ description: 'Image will load when online' });
-        return;
-      }
-      if (status === 'loaded') {
-        setImageModalSrc(src);
-        setImageModalOpen(true);
-      }
-    };
-
-    const reload = (e?: React.MouseEvent) => {
-      e?.stopPropagation();
-      setReloadKey((k) => k + 1);
-    };
-
-    return (
-      <div className="rounded-lg overflow-hidden">
-        {status !== 'error' && (
-          // Add reloadKey as query param to bypass cache when retrying
-          <img
-            src={reloadKey ? `${src}?_ts=${reloadKey}` : src}
-            alt={alt || 'Post image'}
-            className="w-full object-cover max-h-96 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-            onClick={handleClick}
-            onLoad={() => setStatus('loaded')}
-            onError={() => setStatus('error')}
-            onTouchStart={() => handleLongPressStart(src, false)}
-            onTouchEnd={handleLongPressEnd}
-            onMouseDown={() => handleLongPressStart(src, false)}
-            onMouseUp={handleLongPressEnd}
-            onMouseLeave={handleLongPressEnd}
-          />
-        )}
-
-        {status === 'error' && !navigator.onLine && (
-          // Glassmorphism blur placeholder for offline failed images
-          <div
-            role="img"
-            aria-label="Image unavailable offline"
-            onClick={handleClick}
-            className="w-full object-cover max-h-96 rounded-lg"
-            style={{
-              backgroundColor: undefined,
-            }}
-          >
-            <div
-              className="w-full h-full rounded-lg"
-              style={{
-                background: undefined,
-                backdropFilter: 'blur(10px)',
-                WebkitBackdropFilter: 'blur(10px)',
-                // overlay colors: light mode white translucent, dark mode black translucent
-                backgroundColor: window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-                  ? 'rgba(0,0,0,0.4)'
-                  : 'rgba(255,255,255,0.6)',
-                opacity: 0.9,
-                minHeight: '12rem'
-              }}
-            />
-          </div>
-        )}
-
-        {status === 'error' && navigator.onLine && (
-          // Show retry UI when online and image failed to load
-          <div className="w-full object-cover max-h-96 rounded-lg bg-black/30 flex items-center justify-center">
-            <button
-              onClick={reload}
-              className="bg-white/90 text-black px-3 py-2 rounded-md text-sm"
-            >
-              Tap to reload
-            </button>
-          </div>
-        )}
-      </div>
-    );
-  }
-
   const handleLongPressStart = (mediaUrl: string, isVideo: boolean) => {
     setLongPressProgress(0);
     const startTime = Date.now();
@@ -390,6 +302,61 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
     }
     setLongPressProgress(0);
   };
+
+  // Small image component with graceful fallback when an image fails to load
+  function ImageWithFallback({
+    src,
+    alt,
+    className,
+    onClick,
+    onTouchStart,
+    onTouchEnd,
+    onMouseDown,
+    onMouseUp,
+    onMouseLeave,
+  }: {
+    src?: string | null;
+    alt?: string;
+    className?: string;
+    onClick?: () => void;
+    onTouchStart?: () => void;
+    onTouchEnd?: () => void;
+    onMouseDown?: () => void;
+    onMouseUp?: () => void;
+    onMouseLeave?: () => void;
+  }) {
+    const [errored, setErrored] = useState(false);
+
+    if (!src || errored) {
+      return (
+        <div
+          className={`${className} flex items-center justify-center bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-lg`}
+          onClick={onClick}
+        >
+          <div className="flex flex-col items-center justify-center p-8">
+            <ImageOff className="h-8 w-8 mb-2 opacity-80" />
+            <div className="text-sm text-center">Image unavailable</div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      // use a plain img but manage errors so alt text doesn't show as a fallback
+      <img
+        src={src}
+        alt={alt ?? ''}
+        className={className}
+        onError={() => setErrored(true)}
+        onClick={onClick}
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+        onMouseDown={onMouseDown}
+        onMouseUp={onMouseUp}
+        onMouseLeave={onMouseLeave}
+      />
+    );
+  }
 
   const handleUpdatePost = async () => {
     try {
@@ -496,13 +463,39 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
                 <div className="mt-2 space-y-2">
                   {post.imageUrls.map((img, idx) => (
                     <div key={idx} className="rounded-lg overflow-hidden">
-                      <PostImage src={img} alt={`Post image ${idx + 1}`} />
+                      <ImageWithFallback
+                        src={img}
+                        alt={`Post image ${idx + 1}`}
+                        className="w-full object-cover max-h-96 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => {
+                          setImageModalSrc(img);
+                          setImageModalOpen(true);
+                        }}
+                        onTouchStart={() => handleLongPressStart(img, false)}
+                        onTouchEnd={handleLongPressEnd}
+                        onMouseDown={() => handleLongPressStart(img, false)}
+                        onMouseUp={handleLongPressEnd}
+                        onMouseLeave={handleLongPressEnd}
+                      />
                     </div>
                   ))}
                 </div>
-              ) : post.imageUrl && (
+              {post.imageUrl && (
                 <div className="mt-2 rounded-lg overflow-hidden">
-                  <PostImage src={post.imageUrl} alt="Post content" />
+                  <ImageWithFallback
+                    src={post.imageUrl}
+                    alt="Post content"
+                    className="w-full object-cover max-h-96 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                    onClick={() => {
+                      setImageModalSrc(post.imageUrl!);
+                      setImageModalOpen(true);
+                    }}
+                    onTouchStart={() => handleLongPressStart(post.imageUrl!, false)}
+                    onTouchEnd={handleLongPressEnd}
+                    onMouseDown={() => handleLongPressStart(post.imageUrl!, false)}
+                    onMouseUp={handleLongPressEnd}
+                    onMouseLeave={handleLongPressEnd}
+                  />
                 </div>
               )}
               
