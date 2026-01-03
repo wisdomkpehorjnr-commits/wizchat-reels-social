@@ -8,7 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { dataService } from '@/services/dataService';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { VoiceMessagePlayer } from './VoiceMessagePlayer';
+import VoiceMessagePlayer from './chat/VoiceMessagePlayer';
 
 interface MessageItemProps {
   message: Message;

@@ -150,7 +150,7 @@ export const ReelsFeed: React.FC = () => {
             </div>
 
             <ReelControls
-              likesCount={Array.isArray(p.likes) ? p.likes.length : (p.likeCount || 0)}
+              likesCount={Array.isArray(p.likes) ? p.likes.length : ((p as any).likeCount || 0)}
               isLiked={!!(p as any).isLiked || !!likes[p.id]}
               onLike={() => handleLike(p.id)}
               onComment={() => setCommentsOpenFor(p.id)}

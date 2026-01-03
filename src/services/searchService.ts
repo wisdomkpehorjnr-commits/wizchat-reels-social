@@ -249,7 +249,7 @@ class SearchService {
                 type: 'group',
                 title: group.name,
                 subtitle: group.description?.substring(0, 100),
-                image: group.image_url,
+                image: (group as any).image_url || undefined,
                 data: group,
                 timestamp: new Date(group.created_at || Date.now()).getTime()
               });
