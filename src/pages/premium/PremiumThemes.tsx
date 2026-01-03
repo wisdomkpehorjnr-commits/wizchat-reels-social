@@ -1,49 +1,108 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Palette, Moon, Flag, BookOpen } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { ArrowLeft, Palette, Moon, Flag, BookOpen, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import PremiumCodeVerification from '@/components/PremiumCodeVerification';
 import { useToast } from '@/hooks/use-toast';
+import { useTheme } from '@/contexts/ThemeContext';
 
 const PremiumThemes = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { themeMode, setThemeMode } = useTheme();
   const [showVerification, setShowVerification] = useState(false);
   const [selectedFeature, setSelectedFeature] = useState('');
+  const [purchasedThemes, setPurchasedThemes] = useState<string[]>([]);
+
+  useEffect(() => {
+    // Load purchased themes from localStorage
+    const purchased = JSON.parse(localStorage.getItem('purchased-themes') || '[]');
+    setPurchasedThemes(purchased);
+  }, []);
 
   const themes = [
     {
+      id: 'light',
       icon: Palette,
       title: 'Green/White',
       price: 'FREE',
       description: 'Default WizChat theme',
       colors: ['bg-green-500', 'bg-white'],
-      active: true
+      free: true
     },
     {
+      id: 'dark',
       icon: Moon,
       title: 'Night Mode',
       price: 'FREE',
       description: 'Dark green & black',
-      colors: ['bg-green-900', 'bg-black']
+      colors: ['bg-green-900', 'bg-black'],
+      free: true
     },
     {
+      id: 'ghana',
       icon: Flag,
       title: 'Ghana Pride',
       price: '₵70',
       description: 'Flag colors & cultural patterns',
-      colors: ['bg-red-500', 'bg-yellow-500', 'bg-green-500']
+      colors: ['bg-red-500', 'bg-yellow-500', 'bg-green-500'],
+      free: false
     },
     {
+      id: 'ultra',
       icon: BookOpen,
       title: 'Ultra',
       price: '₵120',
       description: 'Black & white focus mode — minimal distractions',
-      colors: ['bg-black', 'bg-white']
+      colors: ['bg-black', 'bg-white'],
+      free: false
     }
   ];
+
+  const isThemePurchased = (themeId: string) => {
+    return purchasedThemes.includes(themeId);
+  };
+
+  const isThemeActive = (themeId: string) => {
+    if (themeId === 'light') return themeMode === 'light';
+    if (themeId === 'dark') return themeMode === 'dark';
+    if (themeId === 'ultra') return themeMode === 'ultra';
+    return false;
+  };
+
+  const handleThemeToggle = (themeId: string) => {
+    if (themeId === 'light') {
+      setThemeMode('light');
+    } else if (themeId === 'dark') {
+      setThemeMode('dark');
+    } else if (themeId === 'ultra') {
+      if (isThemePurchased('ultra')) {
+        setThemeMode('ultra');
+        toast({
+          title: "Ultra Theme Activated",
+          description: "Black & white focus mode is now active",
+        });
+      }
+    }
+  };
+
+  const handlePurchaseSuccess = (themeId: string) => {
+    const newPurchased = [...purchasedThemes, themeId];
+    setPurchasedThemes(newPurchased);
+    localStorage.setItem('purchased-themes', JSON.stringify(newPurchased));
+    
+    // Activate the theme immediately after purchase
+    if (themeId === 'ultra') {
+      setThemeMode('ultra');
+      toast({
+        title: "Ultra Theme Purchased & Activated!",
+        description: "Your black & white focus mode is now active. Enjoy the minimal experience!",
+      });
+    }
+  };
 
   return (
     <Layout>
@@ -71,27 +130,36 @@ const PremiumThemes = () => {
           </div>
 
           <div className="grid gap-6 mb-8">
-            {themes.map((theme, index) => {
+            {themes.map((theme) => {
               const Icon = theme.icon;
+              const isActive = isThemeActive(theme.id);
+              const isPurchased = theme.free || isThemePurchased(theme.id);
+              
               return (
                 <Card 
-                  key={index} 
-                  className={`border-2 hover:shadow-lg transition-shadow ${
-                    theme.active ? 'border-primary bg-primary/5' : ''
+                  key={theme.id} 
+                  className={`border-2 hover:shadow-lg transition-all duration-300 ${
+                    isActive ? 'border-primary bg-primary/5 ring-2 ring-primary/20' : 'border-border'
                   }`}
                 >
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="p-3 bg-background rounded-full">
-                          <Icon className="w-6 h-6 text-primary" />
+                        <div className={`p-3 rounded-full ${isActive ? 'bg-primary/20' : 'bg-muted'}`}>
+                          <Icon className={`w-6 h-6 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
                         </div>
                         <div>
                           <CardTitle className="text-xl flex items-center gap-2">
                             {theme.title}
-                            {theme.active && (
-                              <span className="text-xs bg-primary text-primary-foreground px-2 py-1 rounded-full">
+                            {isActive && (
+                              <span className="text-xs bg-primary text-primary-foreground px-2 py-1 rounded-full flex items-center gap-1">
+                                <Check className="w-3 h-3" />
                                 Active
+                              </span>
+                            )}
+                            {isPurchased && !theme.free && !isActive && (
+                              <span className="text-xs bg-green-500 text-white px-2 py-1 rounded-full">
+                                Owned
                               </span>
                             )}
                           </CardTitle>
@@ -102,30 +170,40 @@ const PremiumThemes = () => {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="flex items-center gap-4 mb-4">
-                      <span className="text-sm text-muted-foreground">Preview:</span>
-                      <div className="flex gap-2">
-                        {theme.colors.map((color, idx) => (
-                          <div 
-                            key={idx} 
-                            className={`w-8 h-8 rounded-full border-2 border-border ${color}`}
-                          />
-                        ))}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <span className="text-sm text-muted-foreground">Preview:</span>
+                        <div className="flex gap-2">
+                          {theme.colors.map((color, idx) => (
+                            <div 
+                              key={idx} 
+                              className={`w-8 h-8 rounded-full border-2 border-border ${color}`}
+                            />
+                          ))}
+                        </div>
                       </div>
+                      
+                      {isPurchased ? (
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm text-muted-foreground">
+                            {isActive ? 'Enabled' : 'Enable'}
+                          </span>
+                          <Switch
+                            checked={isActive}
+                            onCheckedChange={() => handleThemeToggle(theme.id)}
+                          />
+                        </div>
+                      ) : (
+                        <Button 
+                          onClick={() => {
+                            setSelectedFeature(theme.title);
+                            setShowVerification(true);
+                          }}
+                        >
+                          Get Premium
+                        </Button>
+                      )}
                     </div>
-                  <Button 
-                    className="w-full"
-                    variant={theme.active ? 'outline' : 'default'}
-                    disabled={theme.active || theme.price === 'FREE'}
-                    onClick={() => {
-                      if (theme.price !== 'FREE') {
-                        setSelectedFeature(theme.title);
-                        setShowVerification(true);
-                      }
-                    }}
-                  >
-                    {theme.active ? 'Currently Active' : theme.price === 'FREE' ? 'Free Theme' : 'Get Premium'}
-                  </Button>
                   </CardContent>
                 </Card>
               );
@@ -145,7 +223,13 @@ const PremiumThemes = () => {
       <PremiumCodeVerification
         open={showVerification}
         onOpenChange={setShowVerification}
-        onVerified={() => toast({ title: "Success!", description: `${selectedFeature} theme activated!` })}
+        onVerified={() => {
+          const themeId = selectedFeature === 'Ultra' ? 'ultra' : 
+                          selectedFeature === 'Ghana Pride' ? 'ghana' : '';
+          if (themeId) {
+            handlePurchaseSuccess(themeId);
+          }
+        }}
         featureName={selectedFeature}
       />
     </Layout>
