@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { ReelPlayer } from './ReelPlayer';
+import OptimizedReelPlayer from './OptimizedReelPlayer';
 import ReelControls from './ReelControls';
 import MoreBottomSheet from './MoreBottomSheet';
 import CommentsModal from './CommentsModal';
@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Post } from '@/types';
 import { dataService } from '@/services/dataService';
 import { useAuth } from '@/contexts/AuthContext';
+import { useMediaOptimization } from '@/hooks/useMediaOptimization';
 
 export const ReelsFeed: React.FC = () => {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -19,19 +20,35 @@ export const ReelsFeed: React.FC = () => {
   const { isDarkMode } = useTheme();
   const { toast } = useToast();
   const { user } = useAuth();
+  const { isDataSaverEnabled, networkInfo } = useMediaOptimization();
+  
+  // Only load 5 reels at a time to save data
+  const [visibleRange, setVisibleRange] = useState({ start: 0, end: 5 });
 
+  // Fetch reels only once on mount - no repeated calls
   useEffect(() => {
+    let mounted = true;
+    
     (async () => {
       try {
         const all = await dataService.getPosts();
+        if (!mounted) return;
+        
         const reels = (all || []).filter(p => p.videoUrl || p.isReel || p.mediaType === 'video');
         setPosts(reels);
+        
+        // Log data optimization info
+        console.log(`[ReelsFeed] Loaded ${reels.length} reels. Data saver: ${isDataSaverEnabled}, Network: ${networkInfo.type}`);
       } catch (err) {
         console.error('Failed to load reels', err);
-        toast({ title: 'Failed to load reels', variant: 'destructive' });
+        if (mounted) {
+          toast({ title: 'Failed to load reels', variant: 'destructive' });
+        }
       }
     })();
-  }, [toast]);
+    
+    return () => { mounted = false; };
+  }, []); // Empty deps - only load once
 
   useEffect(() => {
     // Initialize likes from loaded posts' isLiked flag
@@ -73,14 +90,13 @@ export const ReelsFeed: React.FC = () => {
     } catch (err) { console.error('Share failed', err); }
   }, [toast]);
 
-  const handleMore = useCallback((post: Post) => {
-    // open bottom sheet handled in UI
-    setSheetPost(post);
-    setSheetOpen(true);
-  }, [toast]);
-
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetPost, setSheetPost] = useState<Post | null>(null);
+
+  const handleMore = useCallback((post: Post) => {
+    setSheetPost(post);
+    setSheetOpen(true);
+  }, []);
 
   const handleSave = useCallback(() => {
     if (!sheetPost) return;
@@ -118,15 +134,22 @@ export const ReelsFeed: React.FC = () => {
     setSheetOpen(false);
   }, [sheetPost, toast]);
 
-  // Intersection observer to detect the currently visible reel and ensure one-video-per-snap
+  // Intersection observer with optimized lazy loading
   useEffect(() => {
     if (!containerRef.current) return;
+    
     const options = { root: containerRef.current, threshold: [0.6] };
     obsRef.current = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         const index = Number((entry.target as HTMLElement).dataset.index);
         if (entry.isIntersecting) {
           setActiveIndex(index);
+          
+          // Update visible range to only load nearby reels (saves data)
+          setVisibleRange({
+            start: Math.max(0, index - 1),
+            end: Math.min(posts.length, index + 3)
+          });
         }
       });
     }, options);
@@ -137,12 +160,37 @@ export const ReelsFeed: React.FC = () => {
     return () => { obsRef.current?.disconnect(); };
   }, [posts]);
 
+  // Get only the reels we should render (for memory optimization)
+  const visiblePosts = posts.map((p, i) => ({
+    ...p,
+    shouldRender: i >= visibleRange.start && i <= visibleRange.end
+  }));
+
   return (
     <div className={`fixed inset-0 ${isDarkMode ? 'bg-black' : 'bg-white'}`}>
+      {/* Data saver banner */}
+      {isDataSaverEnabled && (
+        <div className="absolute top-0 left-0 right-0 z-50 bg-yellow-500/90 text-black text-center py-1 text-sm font-medium">
+          Data Saver Mode - Tap videos to play
+        </div>
+      )}
+      
       <div ref={containerRef} className="h-full w-full overflow-y-auto snap-y snap-mandatory touch-pan-y" style={{ WebkitOverflowScrolling: 'touch' }}>
-        {posts.map((p, i) => (
+        {visiblePosts.map((p, i) => (
           <div key={p.id} data-index={i} className="reel-item snap-start w-full h-screen relative">
-            <ReelPlayer src={p.videoUrl} isActive={i === activeIndex} poster={(p as any).thumbnail || p.imageUrl} />
+            {/* Only render video component for visible range to save memory */}
+            {p.shouldRender ? (
+              <OptimizedReelPlayer 
+                src={p.videoUrl} 
+                isActive={i === activeIndex} 
+                poster={(p as any).thumbnail || p.imageUrl}
+              />
+            ) : (
+              // Placeholder for non-visible reels
+              <div className="w-full h-full bg-gray-900 flex items-center justify-center">
+                <div className="w-16 h-16 rounded-full bg-gray-800 animate-pulse" />
+              </div>
+            )}
 
             <div className="absolute left-4 bottom-8 text-white z-40 max-w-[60%]">
               <div className="font-semibold text-lg">{p.user?.name}</div>
@@ -163,6 +211,16 @@ export const ReelsFeed: React.FC = () => {
 
       {commentsOpenFor && (
         <CommentsModal reelId={commentsOpenFor} open={!!commentsOpenFor} onClose={() => setCommentsOpenFor(null)} />
+      )}
+      
+      {sheetOpen && sheetPost && (
+        <MoreBottomSheet
+          open={sheetOpen}
+          onClose={() => setSheetOpen(false)}
+          onSave={handleSave}
+          onDownload={handleDownload}
+          onReport={handleReport}
+        />
       )}
     </div>
   );
