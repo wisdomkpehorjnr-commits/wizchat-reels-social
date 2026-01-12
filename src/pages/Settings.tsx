@@ -30,7 +30,15 @@ import {
   Star,
   Share2,
   Mail,
-  Phone
+  Phone,
+  Wifi,
+  WifiOff,
+  Zap,
+  Database,
+  Download,
+  Image,
+  Video,
+  Mic
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -43,10 +51,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { useMediaOptimization } from '@/hooks/useMediaOptimization';
 
 const Settings = () => {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { 
+    settings: dataSaverSettings, 
+    updateSettings: updateDataSaverSettings,
+    networkInfo,
+    cacheSize,
+    clearCache: clearMediaCache,
+    isOnWifi
+  } = useMediaOptimization();
+  
   const [fontSize, setFontSize] = useState([16]);
   const [notifications, setNotifications] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -176,7 +194,11 @@ const Settings = () => {
         </div>
 
         <Tabs defaultValue="help" className="w-full">
-          <TabsList className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 w-full mb-6 h-auto p-1 bg-muted/50">
+          <TabsList className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-9 w-full mb-6 h-auto p-1 bg-muted/50">
+            <TabsTrigger value="datasaver" className="flex flex-col items-center justify-center p-4 h-auto text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <Zap className="w-5 h-5 mb-2" />
+              <span className="text-xs text-center leading-tight">Data Saver</span>
+            </TabsTrigger>
             <TabsTrigger value="help" className="flex flex-col items-center justify-center p-4 h-auto text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
               <HelpCircle className="w-5 h-5 mb-2" />
               <span className="text-xs text-center leading-tight">Help & Support</span>
@@ -210,6 +232,217 @@ const Settings = () => {
               <span className="text-xs text-center leading-tight">App Info</span>
             </TabsTrigger>
           </TabsList>
+
+          {/* Data Saver Mode - NEW SECTION */}
+          <TabsContent value="datasaver" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-yellow-500" />
+                  Data Saver Mode
+                </CardTitle>
+                <CardDescription>
+                  Reduce mobile data usage by up to 80%. Perfect for users with limited data plans.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Network Status */}
+                <div className={`p-4 rounded-lg flex items-center gap-3 ${isOnWifi ? 'bg-green-500/10 border border-green-500/30' : 'bg-yellow-500/10 border border-yellow-500/30'}`}>
+                  {isOnWifi ? (
+                    <Wifi className="w-6 h-6 text-green-500" />
+                  ) : (
+                    <WifiOff className="w-6 h-6 text-yellow-500" />
+                  )}
+                  <div>
+                    <div className="font-medium">
+                      {isOnWifi ? 'Connected to WiFi' : 'Using Mobile Data'}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      Network: {networkInfo.effectiveType || networkInfo.speed}
+                      {networkInfo.downlink && ` • ${networkInfo.downlink} Mbps`}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Main Data Saver Toggle */}
+                <div className="flex items-center justify-between p-4 bg-primary/5 rounded-lg border-2 border-primary/20">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Zap className="w-6 h-6 text-primary" />
+                    </div>
+                    <div>
+                      <Label className="text-lg font-semibold">Data Saver Mode</Label>
+                      <p className="text-sm text-muted-foreground">
+                        {dataSaverSettings.enabled 
+                          ? 'Active - Saving your data!' 
+                          : 'Enable to reduce data usage'}
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={dataSaverSettings.enabled}
+                    onCheckedChange={(checked) => updateDataSaverSettings({ enabled: checked })}
+                    className="scale-125"
+                  />
+                </div>
+
+                <Separator />
+
+                {/* Video Settings */}
+                <div className="space-y-4">
+                  <h4 className="font-semibold flex items-center gap-2">
+                    <Video className="w-4 h-4" />
+                    Video & Reels Settings
+                  </h4>
+                  
+                  <div className="space-y-3 ml-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label>Autoplay on WiFi</Label>
+                        <p className="text-xs text-muted-foreground">Videos play automatically on WiFi</p>
+                      </div>
+                      <Switch
+                        checked={dataSaverSettings.autoplayOnWifi}
+                        onCheckedChange={(checked) => updateDataSaverSettings({ autoplayOnWifi: checked })}
+                        disabled={dataSaverSettings.enabled}
+                      />
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label>Autoplay on Mobile Data</Label>
+                        <p className="text-xs text-muted-foreground">⚠️ Uses significant data</p>
+                      </div>
+                      <Switch
+                        checked={dataSaverSettings.autoplayOnCellular}
+                        onCheckedChange={(checked) => updateDataSaverSettings({ autoplayOnCellular: checked })}
+                        disabled={dataSaverSettings.enabled}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label>Preload Videos</Label>
+                        <p className="text-xs text-muted-foreground">Pre-download next videos</p>
+                      </div>
+                      <Switch
+                        checked={dataSaverSettings.preloadVideos}
+                        onCheckedChange={(checked) => updateDataSaverSettings({ preloadVideos: checked })}
+                        disabled={dataSaverSettings.enabled}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Video Quality</Label>
+                      <Select 
+                        value={dataSaverSettings.videoQuality} 
+                        onValueChange={(value: any) => updateDataSaverSettings({ videoQuality: value })}
+                        disabled={dataSaverSettings.enabled}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="auto">Auto (Based on network)</SelectItem>
+                          <SelectItem value="1080p">High (1080p) - Uses most data</SelectItem>
+                          <SelectItem value="720p">Medium (720p)</SelectItem>
+                          <SelectItem value="480p">Low (480p) - Saves data</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Image & Media Settings */}
+                <div className="space-y-4">
+                  <h4 className="font-semibold flex items-center gap-2">
+                    <Image className="w-4 h-4" />
+                    Image & Media Download
+                  </h4>
+                  
+                  <div className="space-y-3 ml-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label>Auto-download on WiFi</Label>
+                        <p className="text-xs text-muted-foreground">Images/videos download automatically</p>
+                      </div>
+                      <Switch
+                        checked={dataSaverSettings.autoDownloadOnWifi}
+                        onCheckedChange={(checked) => updateDataSaverSettings({ autoDownloadOnWifi: checked })}
+                      />
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label>Auto-download on Mobile Data</Label>
+                        <p className="text-xs text-muted-foreground">⚠️ Not recommended</p>
+                      </div>
+                      <Switch
+                        checked={dataSaverSettings.autoDownloadOnCellular}
+                        onCheckedChange={(checked) => updateDataSaverSettings({ autoDownloadOnCellular: checked })}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Cache Management */}
+                <div className="space-y-4">
+                  <h4 className="font-semibold flex items-center gap-2">
+                    <Database className="w-4 h-4" />
+                    Cache & Storage
+                  </h4>
+                  
+                  <div className="p-4 bg-muted/50 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm">Cached Media</span>
+                      <span className="font-mono text-sm">{(cacheSize / 1024 / 1024).toFixed(1)} MB</span>
+                    </div>
+                    <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-primary transition-all" 
+                        style={{ width: `${Math.min((cacheSize / (200 * 1024 * 1024)) * 100, 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Cached media allows replaying without re-downloading
+                    </p>
+                  </div>
+                  
+                  <Button 
+                    variant="outline" 
+                    className="w-full"
+                    onClick={async () => {
+                      await clearMediaCache();
+                      toast({ title: 'Cache Cleared', description: 'All cached media has been removed.' });
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Clear Media Cache
+                  </Button>
+                </div>
+
+                {/* Data Saver Info */}
+                {dataSaverSettings.enabled && (
+                  <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
+                    <h4 className="font-semibold text-green-600 dark:text-green-400 mb-2">
+                      ✓ Data Saver Active
+                    </h4>
+                    <ul className="text-sm space-y-1 text-muted-foreground">
+                      <li>• Videos require tap to play</li>
+                      <li>• Video quality reduced to 480p</li>
+                      <li>• No preloading of videos</li>
+                      <li>• Images load as thumbnails first</li>
+                      <li>• Voice notes stream on-demand</li>
+                    </ul>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* Help & Support */}
           <TabsContent value="help" className="space-y-4">
