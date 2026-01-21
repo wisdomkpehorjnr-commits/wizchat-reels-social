@@ -30,6 +30,7 @@ import { ListItemSkeleton, ListSkeleton } from '@/components/SkeletonLoaders';
 import { SmartLoading } from '@/components/SmartLoading';
 import ConfirmationDialog from '@/components/ui/confirmation-dialog';
 
+import React from 'react';
 
 const Friends = () => {
   const { user } = useAuth();
@@ -58,11 +59,21 @@ const Friends = () => {
   const [searchLoading, setSearchLoading] = useState(false);
   const [confirmUnfriend, setConfirmUnfriend] = useState<string | null>(null);
   const [followingStates, setFollowingStates] = useState<Record<string, boolean>>({});
-  
+  const hasLoadedRef = React.useRef(false);
 
   useEffect(() => {
-    if (user) {
-      loadFriends();
+    if (user && !hasLoadedRef.current) {
+      // If we have cached data, show instantly
+      if (tabCachedFriends || cachedFriends) {
+        setLoading(false);
+        // Background refresh only if stale
+        if (isStale) {
+          loadFriends(true);
+        }
+      } else {
+        loadFriends();
+      }
+      hasLoadedRef.current = true;
     }
   }, [user]);
 
@@ -78,18 +89,12 @@ const Friends = () => {
     return () => clearTimeout(delayedSearch);
   }, [searchTerm]);
 
-  const loadFriends = async () => {
+  const loadFriends = async (silent = false) => {
     if (!user) return;
     
     try {
-      // Show cached data immediately if available
-      if (tabCachedFriends) {
-        setFriends(tabCachedFriends);
-        setLoading(false);
-      } else if (!isStale && cachedFriends) {
-        setFriends(cachedFriends);
-        setLoading(false);
-      } else {
+      // Only show loading if no cache and not silent
+      if (!silent && !tabCachedFriends && !cachedFriends) {
         setLoading(true);
       }
       
@@ -99,9 +104,9 @@ const Friends = () => {
       
       // Update both cache layers
       setCachedFriends(userFriends);
-      await cacheTabFriends(userFriends); // Persist in tab cache
+      await cacheTabFriends(userFriends); // Persist for instant tab switching
       
-      // Load following states for all friends
+      // Load following states for all friends (in background)
       const states: Record<string, boolean> = {};
       for (const friend of userFriends) {
         const friendUser = friend.requester.id === user.id ? friend.addressee : friend.requester;
@@ -111,13 +116,15 @@ const Friends = () => {
       setFollowingStates(states);
     } catch (error) {
       console.error('Error loading friends:', error);
-      const err = error instanceof Error ? error : new Error('Failed to load friends');
-      setError(err);
-      toast({
-        title: "Error",
-        description: "Failed to load friends",
-        variant: "destructive"
-      });
+      if (!silent) {
+        const err = error instanceof Error ? error : new Error('Failed to load friends');
+        setError(err);
+        toast({
+          title: "Error",
+          description: "Failed to load friends",
+          variant: "destructive"
+        });
+      }
     } finally {
       setLoading(false);
     }

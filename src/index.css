@@ -71,32 +71,61 @@
     --chart-5: 340 75% 55%;
   }
 
-  /* Ultra Theme - Pure Black & White */
+  /* Ultra Theme - Pure Black & White ONLY (no green) */
   .ultra {
     --background: 0 0% 0%;
     --foreground: 0 0% 100%;
-    --card: 0 0% 5%;
+    --card: 0 0% 8%;
     --card-foreground: 0 0% 100%;
-    --popover: 0 0% 5%;
+    --popover: 0 0% 8%;
     --popover-foreground: 0 0% 100%;
     --primary: 0 0% 100%;
     --primary-foreground: 0 0% 0%;
     --secondary: 0 0% 15%;
     --secondary-foreground: 0 0% 100%;
-    --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 65%;
+    --muted: 0 0% 18%;
+    --muted-foreground: 0 0% 70%;
     --accent: 0 0% 20%;
     --accent-foreground: 0 0% 100%;
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 0% 40%;
     --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 20%;
-    --input: 0 0% 15%;
+    --border: 0 0% 25%;
+    --input: 0 0% 12%;
     --ring: 0 0% 100%;
     --chart-1: 0 0% 100%;
     --chart-2: 0 0% 80%;
     --chart-3: 0 0% 60%;
     --chart-4: 0 0% 40%;
     --chart-5: 0 0% 20%;
+    --text-strong-contrast: 0 0% 100%;
+  }
+
+  /* Ultra mode - remove ALL green colors */
+  .ultra .green-border,
+  .ultra [class*="border-green"],
+  .ultra [class*="border-emerald"] {
+    border-color: hsl(0 0% 30%) !important;
+  }
+
+  .ultra [class*="bg-green"],
+  .ultra [class*="bg-emerald"] {
+    background-color: hsl(0 0% 100%) !important;
+    color: hsl(0 0% 0%) !important;
+  }
+
+  .ultra [class*="text-green"],
+  .ultra [class*="text-emerald"],
+  .ultra .from-green-600,
+  .ultra .to-emerald-600 {
+    color: hsl(0 0% 100%) !important;
+    background: none !important;
+    -webkit-background-clip: unset !important;
+    -webkit-text-fill-color: hsl(0 0% 100%) !important;
+  }
+
+  .ultra [class*="hover:bg-green"]:hover,
+  .ultra [class*="hover:bg-emerald"]:hover {
+    background-color: hsl(0 0% 90%) !important;
   }
 }
 
@@ -262,4 +291,142 @@ button {
 
 .animate-marquee:hover {
   animation-play-state: paused;
+}
+
+/* ============= ULTRA THEME COMPREHENSIVE OVERRIDES ============= */
+/* Ensure NO black text on black background, NO white text on white */
+
+.ultra,
+.ultra * {
+  --tw-text-opacity: 1;
+}
+
+/* Force all backgrounds in ultra mode to be dark */
+.ultra .bg-white,
+.ultra .dark\:bg-gray-900,
+.ultra .dark\:bg-gray-800,
+.ultra .dark\:bg-gray-700 {
+  background-color: hsl(0 0% 0%) !important;
+}
+
+/* Cards and elevated surfaces */
+.ultra .bg-card,
+.ultra [class*="dark:bg-gray-800"],
+.ultra [class*="dark:bg-gray-700"] {
+  background-color: hsl(0 0% 8%) !important;
+}
+
+/* Force all text to be white in ultra mode */
+.ultra h1, .ultra h2, .ultra h3, .ultra h4, .ultra h5, .ultra h6,
+.ultra p, .ultra span, .ultra label, .ultra a, .ultra li,
+.ultra .text-gray-900, .ultra .text-gray-800, .ultra .text-gray-700,
+.ultra .text-gray-600, .ultra .text-gray-500,
+.ultra .dark\:text-white, .ultra .dark\:text-gray-100,
+.ultra .dark\:text-gray-200, .ultra .dark\:text-gray-300,
+.ultra .dark\:text-gray-400 {
+  color: hsl(0 0% 100%) !important;
+}
+
+/* Muted text should be light gray, not dark */
+.ultra .text-muted-foreground,
+.ultra .text-gray-400,
+.ultra .text-gray-500 {
+  color: hsl(0 0% 65%) !important;
+}
+
+/* Input fields with visible borders and white text */
+.ultra input,
+.ultra textarea,
+.ultra select,
+.ultra .dark\:bg-gray-900 input,
+.ultra .dark\:bg-gray-800 input {
+  background-color: hsl(0 0% 12%) !important;
+  border-color: hsl(0 0% 30%) !important;
+  color: hsl(0 0% 100%) !important;
+}
+
+.ultra input::placeholder,
+.ultra textarea::placeholder {
+  color: hsl(0 0% 50%) !important;
+}
+
+/* Buttons - ensure text is visible */
+.ultra button {
+  color: hsl(0 0% 100%) !important;
+}
+
+.ultra button[class*="bg-primary"],
+.ultra button[class*="bg-white"],
+.ultra .btn-primary {
+  background-color: hsl(0 0% 100%) !important;
+  color: hsl(0 0% 0%) !important;
+}
+
+/* Card titles and content */
+.ultra .card-text,
+.ultra [class*="CardTitle"],
+.ultra [class*="CardContent"] {
+  color: hsl(0 0% 100%) !important;
+}
+
+/* Badge and status elements */
+.ultra .badge,
+.ultra [class*="Badge"] {
+  border-color: hsl(0 0% 40%) !important;
+}
+
+/* Dropdown menus and popovers */
+.ultra [role="menu"],
+.ultra [role="listbox"],
+.ultra .popover-content,
+.ultra [class*="DropdownMenuContent"],
+.ultra [class*="DropdownMenuItem"] {
+  background-color: hsl(0 0% 8%) !important;
+  color: hsl(0 0% 100%) !important;
+  border-color: hsl(0 0% 25%) !important;
+}
+
+/* Avatar fallback */
+.ultra .avatar-fallback,
+.ultra [class*="AvatarFallback"] {
+  background-color: hsl(0 0% 20%) !important;
+  color: hsl(0 0% 100%) !important;
+}
+
+/* Skeleton loaders */
+.ultra [class*="Skeleton"],
+.ultra .skeleton {
+  background-color: hsl(0 0% 15%) !important;
+}
+
+/* Tabs */
+.ultra [role="tablist"] {
+  background-color: hsl(0 0% 8%) !important;
+}
+
+.ultra [role="tab"] {
+  color: hsl(0 0% 65%) !important;
+}
+
+.ultra [role="tab"][data-state="active"] {
+  color: hsl(0 0% 100%) !important;
+  background-color: hsl(0 0% 0%) !important;
+}
+
+/* Scrollbars for ultra mode */
+.ultra ::-webkit-scrollbar-track {
+  background: hsl(0 0% 5%);
+}
+
+.ultra ::-webkit-scrollbar-thumb {
+  background: hsl(0 0% 25%);
+}
+
+/* Links */
+.ultra a:not([class*="bg-"]) {
+  color: hsl(0 0% 100%) !important;
+}
+
+.ultra a:hover {
+  color: hsl(0 0% 80%) !important;
 }

@@ -169,15 +169,15 @@ class MediaOptimizationService {
     } catch (e) {
       console.warn('[MediaOptimization] Failed to load settings:', e);
     }
-    // Default settings - conservative for data saving
+    // Default settings - MAXIMUM data saving by default (prevent 1GB drain on launch)
     return {
-      enabled: false,
-      autoDownloadOnWifi: true,
+      enabled: true, // Data saver ON by default
+      autoDownloadOnWifi: false, // NO auto-download even on WiFi
       autoDownloadOnCellular: false,
-      videoQuality: 'auto',
-      autoplayOnWifi: true,
+      videoQuality: '480p', // Low quality by default
+      autoplayOnWifi: false, // NO autoplay by default
       autoplayOnCellular: false,
-      preloadVideos: false
+      preloadVideos: false // NEVER preload
     };
   }
 
