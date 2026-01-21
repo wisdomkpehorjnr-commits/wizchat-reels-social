@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import ChatPopup from '@/components/ChatPopup';
 import WizAiChat from '@/components/WizAiChat';
@@ -12,6 +12,7 @@ import { dataService } from '@/services/dataService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useCache } from '@/hooks/useCache';
+import { useTabCache } from '@/hooks/useTabCache';
 import { supabase } from '@/integrations/supabase/client';
 
 const WIZAI_USER: User = {
@@ -31,25 +32,48 @@ const WIZAI_USER: User = {
 const Chat = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { cachedData: cachedFriends, setCache: setCachedFriends, isStale } = useCache<Friend[]>({ 
-    key: 'chat-friends-list',
-    ttl: 2 * 60 * 1000 // 2 minutes cache
+  
+  // Use persistent tab cache - friends list stays cached, no reload on tab revisit
+  const { cachedData: tabCachedFriends, cacheData: cacheTabFriends, cacheStatus } = useTabCache({
+    tabId: 'chat-friends-tab',
+    enabled: true,
+    ttl: 60 * 60 * 1000, // 1 hour - long cache for instant tab switching
+    onStatusChange: (status) => {
+      console.debug(`[Chat] Cache status: ${status}`);
+    },
   });
   
-  const [friends, setFriends] = useState<Friend[]>(cachedFriends || []);
+  const { cachedData: cachedFriends, setCache: setCachedFriends, isStale } = useCache<Friend[]>({ 
+    key: 'chat-friends-list',
+    ttl: 5 * 60 * 1000 // 5 minutes cache
+  });
+  
+  // Initialize with cached data - INSTANT display, no loading
+  const [friends, setFriends] = useState<Friend[]>(tabCachedFriends || cachedFriends || []);
   const [selectedFriend, setSelectedFriend] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [loading, setLoading] = useState(!cachedFriends);
+  const [loading, setLoading] = useState(!tabCachedFriends && !cachedFriends);
   const [pinnedFriends, setPinnedFriends] = useState<Set<string>>(new Set());
+  const hasLoadedRef = React.useRef(false);
 
   useEffect(() => {
-    if (user) {
-      loadData();
+    if (user && !hasLoadedRef.current) {
+      // If we have cached data, show instantly and refresh in background
+      if (tabCachedFriends || cachedFriends) {
+        setLoading(false);
+        // Background refresh only if data is stale
+        if (isStale) {
+          loadData(true); // silent background refresh
+        }
+      } else {
+        loadData();
+      }
+      hasLoadedRef.current = true;
     }
     
     // Listen for chat list updates (when hidden users send messages)
     const handleChatListUpdate = () => {
-      loadData();
+      loadData(true); // silent refresh
     };
     window.addEventListener('chatListUpdate', handleChatListUpdate);
     
@@ -109,28 +133,30 @@ const Chat = () => {
     };
   }, [user, toast]);
 
-  const loadData = async () => {
+  const loadData = async (silent = false) => {
     if (!user) return;
     
     try {
-      // Show cached data immediately if available
-      if (!isStale && cachedFriends) {
-        setFriends(cachedFriends);
-        setLoading(false);
-      } else {
+      // Only show loading if no cached data and not silent
+      if (!silent && !tabCachedFriends && !cachedFriends) {
         setLoading(true);
       }
       
       const userFriends = await dataService.getFriends();
       setFriends(userFriends);
-      setCachedFriends(userFriends); // Update cache
+      
+      // Update both cache layers
+      setCachedFriends(userFriends);
+      await cacheTabFriends(userFriends); // Persist for instant tab switching
     } catch (error) {
       console.error('Error loading friends:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load friends",
-        variant: "destructive"
-      });
+      if (!silent) {
+        toast({
+          title: "Error",
+          description: "Failed to load friends",
+          variant: "destructive"
+        });
+      }
     } finally {
       setLoading(false);
     }
