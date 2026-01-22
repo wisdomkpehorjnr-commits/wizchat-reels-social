@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { formatDistanceToNow } from 'date-fns';
 import {
@@ -33,14 +33,69 @@ interface PostCardProps {
   onPostUpdate: () => void;
 }
 
+type LazyVideoProps = {
+  videoUrl: string;
+  posterUrl?: string;
+  onLongPressStart?: () => void;
+  onLongPressEnd?: () => void;
+};
+
+function LazyVideo({ videoUrl, posterUrl, onLongPressStart, onLongPressEnd }: LazyVideoProps) {
+  const [shouldLoad, setShouldLoad] = useState(false);
+
+  return (
+    <div className="mt-2 rounded-lg overflow-hidden relative">
+      {!shouldLoad ? (
+        <button
+          type="button"
+          onClick={() => setShouldLoad(true)}
+          className="group relative block w-full"
+          aria-label="Tap to load video"
+          onTouchStart={onLongPressStart}
+          onTouchEnd={onLongPressEnd}
+          onMouseDown={onLongPressStart}
+          onMouseUp={onLongPressEnd}
+          onMouseLeave={onLongPressEnd}
+        >
+          {/* Poster only (no video request until user taps) */}
+          <div
+            className="w-full max-h-96 aspect-video bg-muted flex items-center justify-center"
+            style={posterUrl ? { backgroundImage: `url(${posterUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
+          />
+          <div className="absolute inset-0 bg-background/40 group-hover:bg-background/50 transition-colors flex items-center justify-center">
+            <div className="rounded-full bg-background/80 text-foreground px-4 py-2 text-sm font-medium border">
+              Tap to play
+            </div>
+          </div>
+        </button>
+      ) : (
+        <video
+          src={videoUrl}
+          controls
+          className="w-full max-h-96 rounded-lg"
+          preload="none"
+          poster={posterUrl}
+          style={{ WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
+        >
+          Your browser does not support the video tag.
+        </video>
+      )}
+    </div>
+  );
+}
+
 const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [newComment, setNewComment] = useState('');
-  const [isLiked, setIsLiked] = useState(false);
-  const [likeCount, setLikeCount] = useState(0);
+  const initialLikes = useMemo(() => (Array.isArray(post.likes) ? post.likes : []), [post.likes]);
+  const initialLikeCount = useMemo(() => (typeof post.likeCount === 'number' ? post.likeCount : initialLikes.length), [post.likeCount, initialLikes.length]);
+  const initialIsLiked = useMemo(() => !!post.isLiked, [post.isLiked]);
+
+  const [isLiked, setIsLiked] = useState(initialIsLiked);
+  const [likeCount, setLikeCount] = useState(initialLikeCount);
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(post.content);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -55,29 +110,32 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
   const [showShareBoard, setShowShareBoard] = useState(false);
   const [showPinPremium, setShowPinPremium] = useState(false);
 
-  // Load likes when component mounts
+  // Keep like UI in sync with incoming post props without triggering network calls
   useEffect(() => {
-    loadLikes();
-  }, [post.id]);
+    setIsLiked(initialIsLiked);
+    setLikeCount(initialLikeCount);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [post.id, initialIsLiked, initialLikeCount]);
 
-  // Initialize comments from post data and subscribe to updates
+  // Initialize comments from post data (no auto-fetch on feed mount)
   useEffect(() => {
-    // Set initial comments from post data
-    if (post.comments && Array.isArray(post.comments) && post.comments.length > 0) {
+    if (post.comments && Array.isArray(post.comments)) {
       setComments(post.comments);
-    } else {
-      // If not in post data, load them
-      loadComments();
     }
+  }, [post.id, post.comments]);
 
-    // Subscribe to new comments in real-time
+  // Load + subscribe to comments only when user opens the modal (saves data on Home feed)
+  useEffect(() => {
+    if (!showCommentModal) return;
+
+    loadComments();
     const channel = supabase
       .channel(`post_comments:${post.id}`)
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
         table: 'comments',
-        filter: `post_id=eq.${post.id}`
+        filter: `post_id=eq.${post.id}`,
       }, () => {
         loadComments();
       })
@@ -85,7 +143,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
         event: 'DELETE',
         schema: 'public',
         table: 'comments',
-        filter: `post_id=eq.${post.id}`
+        filter: `post_id=eq.${post.id}`,
       }, () => {
         loadComments();
       })
@@ -95,28 +153,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [post.id]);
-
-  // Load comments when modal opens (for detailed view)
-  useEffect(() => {
-    if (showCommentModal) {
-      loadComments();
-    }
-  }, [showCommentModal]);
-
-  const loadLikes = async () => {
-    try {
-      const likes = await dataService.getLikes(post.id);
-      setLikeCount(likes.length);
-      
-      if (user) {
-        const userLike = likes.find(like => like.userId === user.id);
-        setIsLiked(!!userLike);
-      }
-    } catch (error) {
-      console.error('Error loading likes:', error);
-    }
-  };
+  }, [showCommentModal, post.id]);
 
   const loadComments = async () => {
     setLoadingComments(true);
@@ -201,7 +238,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
 
     try {
       await dataService.likePost(post.id);
-      onPostUpdate();
+      // Important: do NOT trigger full Home feed reload (saves data)
     } catch (error) {
       // Revert optimistic update on error
       setIsLiked(wasLiked);
@@ -224,7 +261,6 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
       await dataService.createComment(post.id, newComment.trim());
       setNewComment('');
       await loadComments();
-      onPostUpdate();
       toast({
         title: "Success",
         description: "Comment posted successfully"
@@ -408,10 +444,12 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
                 <div className="mt-2 space-y-2">
                   {post.imageUrls.map((img, idx) => (
                     <div key={idx} className="rounded-lg overflow-hidden">
-                      <img
+                       <img
                         src={img}
                         alt={`Post image ${idx + 1}`}
                         className="w-full object-cover max-h-96 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                         loading="lazy"
+                         decoding="async"
                         onClick={() => {
                           setImageModalSrc(img);
                           setImageModalOpen(true);
@@ -432,10 +470,12 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
                 </div>
               ) : post.imageUrl && (
                 <div className="mt-2 rounded-lg overflow-hidden">
-                  <img 
+                       <img 
                     src={post.imageUrl} 
                     alt="Post content" 
                     className="w-full object-cover max-h-96 rounded-lg cursor-pointer hover:opacity-90 transition-opacity" 
+                     loading="lazy"
+                     decoding="async"
                     onLoad={() => console.log('Image loaded successfully:', post.imageUrl)}
                     onError={(e) => {
                       console.error('Failed to load image:', post.imageUrl);
@@ -454,40 +494,14 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
                 </div>
               )}
               
-              {post.videoUrl && (
-                <div className="mt-2 rounded-lg overflow-hidden relative">
-                  <video 
-                    src={post.videoUrl} 
-                    controls 
-                    className="w-full max-h-96 rounded-lg cursor-pointer" 
-                    preload="metadata"
-                    poster={post.imageUrl || `${post.videoUrl}#t=0.5`}
-                    onLoadedData={() => console.log('Video loaded successfully:', post.videoUrl)}
-                    onError={(e) => {
-                      console.error('Failed to load video:', post.videoUrl);
-                    }}
-                    onTouchStart={() => handleLongPressStart(post.videoUrl!, true)}
-                    onTouchEnd={handleLongPressEnd}
-                    onMouseDown={() => handleLongPressStart(post.videoUrl!, true)}
-                    onMouseUp={handleLongPressEnd}
-                    onMouseLeave={handleLongPressEnd}
-                    style={{
-                      WebkitUserSelect: 'none',
-                      WebkitTouchCallout: 'none'
-                    }}
-                  >
-                    Your browser does not support the video tag.
-                  </video>
-                  <div 
-                    className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 hover:opacity-100 transition-opacity pointer-events-none"
-                    style={{
-                      backgroundImage: post.imageUrl ? `url(${post.imageUrl})` : 'none',
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center'
-                    }}
-                  />
-                </div>
-              )}
+               {post.videoUrl && (
+                 <LazyVideo
+                   videoUrl={post.videoUrl}
+                   posterUrl={post.imageUrl || `${post.videoUrl}#t=0.5`}
+                   onLongPressStart={() => handleLongPressStart(post.videoUrl!, true)}
+                   onLongPressEnd={handleLongPressEnd}
+                 />
+               )}
             </div>
           )}
 

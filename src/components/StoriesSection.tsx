@@ -355,7 +355,7 @@ const StoriesSection: React.FC = () => {
 
               {/* Story Content */}
               <div className="w-full h-full flex items-center justify-center">
-                {viewingStories[currentStoryIndex].mediaUrl ? viewingStories[currentStoryIndex].mediaType === 'image' ? <img src={viewingStories[currentStoryIndex].mediaUrl} alt="Story" className="max-w-full max-h-full object-contain" /> : <video src={viewingStories[currentStoryIndex].mediaUrl} controls className="max-w-full max-h-full object-contain" autoPlay /> : <div className="text-center p-8">
+                {viewingStories[currentStoryIndex].mediaUrl ? viewingStories[currentStoryIndex].mediaType === 'image' ? <img src={viewingStories[currentStoryIndex].mediaUrl} alt="Story" className="max-w-full max-h-full object-contain" loading="lazy" decoding="async" /> : <video src={viewingStories[currentStoryIndex].mediaUrl} controls className="max-w-full max-h-full object-contain" preload="none" /> : <div className="text-center p-8">
                     <p className="text-white text-lg">{viewingStories[currentStoryIndex].content}</p>
                   </div>}
               </div>

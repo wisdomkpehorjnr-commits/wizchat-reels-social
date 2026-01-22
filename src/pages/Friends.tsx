@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import { Button } from '@/components/ui/button';
@@ -35,6 +35,18 @@ import React from 'react';
 const Friends = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+
+  // Synchronously hydrate from localStorage so revisits render instantly (no skeleton flash)
+  const localStorageFriends = useMemo((): Friend[] => {
+    try {
+      const raw = localStorage.getItem('friends-list');
+      if (!raw) return [];
+      const parsed = JSON.parse(raw) as { data?: Friend[] };
+      return Array.isArray(parsed?.data) ? parsed.data : [];
+    } catch {
+      return [];
+    }
+  }, []);
   
   // Use persistent tab cache (friends list won't reload on tab revisit)
   const { cachedData: tabCachedFriends, cacheData: cacheTabFriends, cacheStatus } = useTabCache({
@@ -46,35 +58,49 @@ const Friends = () => {
     },
   });
   
-  const { cachedData: cachedFriends, setCache: setCachedFriends, isStale } = useCache<Friend[]>({ 
+  const { cachedData: cachedFriends, setCache: setCachedFriends } = useCache<Friend[]>({
     key: 'friends-list',
-    ttl: 2 * 60 * 1000 // 2 minutes cache
+    // Effectively “forever” for session UX: we only refresh on explicit user actions
+    ttl: 365 * 24 * 60 * 60 * 1000,
   });
   
-  const [friends, setFriends] = useState<Friend[]>(tabCachedFriends || cachedFriends || []);
+  const [friends, setFriends] = useState<Friend[]>(tabCachedFriends || cachedFriends || localStorageFriends || []);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<User[]>([]);
-  const [loading, setLoading] = useState(!tabCachedFriends && !cachedFriends);
+  const [loading, setLoading] = useState(!(tabCachedFriends || cachedFriends || localStorageFriends));
   const [error, setError] = useState<Error | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [confirmUnfriend, setConfirmUnfriend] = useState<string | null>(null);
   const [followingStates, setFollowingStates] = useState<Record<string, boolean>>({});
   const hasLoadedRef = React.useRef(false);
 
+  // When async caches hydrate, reflect them immediately
   useEffect(() => {
-    if (user && !hasLoadedRef.current) {
-      // If we have cached data, show instantly
-      if (tabCachedFriends || cachedFriends) {
-        setLoading(false);
-        // Background refresh only if stale
-        if (isStale) {
-          loadFriends(true);
-        }
-      } else {
-        loadFriends();
-      }
-      hasLoadedRef.current = true;
+    if (tabCachedFriends && tabCachedFriends.length > 0) {
+      setFriends(tabCachedFriends);
+      setLoading(false);
     }
+  }, [tabCachedFriends]);
+
+  useEffect(() => {
+    if (cachedFriends && cachedFriends.length > 0) {
+      setFriends(cachedFriends);
+      setLoading(false);
+    }
+  }, [cachedFriends]);
+
+  useEffect(() => {
+    if (!user || hasLoadedRef.current) return;
+
+    // Hard rule: do NOT refetch on revisit if we already have any cached friends.
+    if ((tabCachedFriends && tabCachedFriends.length > 0) || (cachedFriends && cachedFriends.length > 0) || localStorageFriends.length > 0) {
+      setLoading(false);
+      hasLoadedRef.current = true;
+      return;
+    }
+
+    loadFriends(false);
+    hasLoadedRef.current = true;
   }, [user]);
 
   useEffect(() => {
@@ -106,14 +132,8 @@ const Friends = () => {
       setCachedFriends(userFriends);
       await cacheTabFriends(userFriends); // Persist for instant tab switching
       
-      // Load following states for all friends (in background)
-      const states: Record<string, boolean> = {};
-      for (const friend of userFriends) {
-        const friendUser = friend.requester.id === user.id ? friend.addressee : friend.requester;
-        const isFollowing = await dataService.checkIfFollowing(friendUser.id);
-        states[friendUser.id] = isFollowing;
-      }
-      setFollowingStates(states);
+      // Avoid expensive per-friend network checks on tab open (saves data).
+      // Follow state will be derived lazily only when the user taps Follow/Unfollow.
     } catch (error) {
       console.error('Error loading friends:', error);
       if (!silent) {
@@ -211,6 +231,10 @@ const Friends = () => {
 
   const handleFollowToggle = async (userId: string, currentlyFollowing: boolean) => {
     try {
+      // If state is unknown (first time), treat as not-following.
+      if (typeof currentlyFollowing !== 'boolean') {
+        currentlyFollowing = false;
+      }
       if (currentlyFollowing) {
         await ProfileService.unfollowUser(userId);
         setFollowingStates(prev => ({ ...prev, [userId]: false }));
