@@ -185,15 +185,15 @@ export const OptimizedReelPlayer: React.FC<OptimizedReelPlayerProps> = ({
               
               {/* Data saver indicator */}
               {isDataSaverEnabled && !shouldLoad && (
-                <div className="flex items-center gap-2 bg-black/60 px-3 py-1.5 rounded-full text-white text-sm">
+                <div className="flex items-center gap-2 bg-background/60 px-3 py-1.5 rounded-full text-foreground text-sm">
                   <WifiOff className="w-4 h-4" />
                   <span>Tap to play</span>
                 </div>
               )}
               
               {!isDataSaverEnabled && !isOnWifi && !shouldLoad && (
-                <div className="flex items-center gap-2 bg-black/60 px-3 py-1.5 rounded-full text-white text-sm">
-                  <WifiOff className="w-4 h-4 text-yellow-400" />
+                <div className="flex items-center gap-2 bg-background/60 px-3 py-1.5 rounded-full text-foreground text-sm">
+                  <WifiOff className="w-4 h-4" />
                   <span>Mobile data - Tap to play</span>
                 </div>
               )}
@@ -202,24 +202,24 @@ export const OptimizedReelPlayer: React.FC<OptimizedReelPlayerProps> = ({
         )}
       </AnimatePresence>
 
-      {/* Network Status Indicator */}
-      <div className="absolute top-4 left-4 z-50">
-        <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs ${
-          isOnWifi ? 'bg-green-500/80 text-white' : 'bg-yellow-500/80 text-black'
-        }`}>
-          {isOnWifi ? (
-            <>
-              <Wifi className="w-3 h-3" />
-              <span>WiFi</span>
-            </>
-          ) : (
-            <>
-              <WifiOff className="w-3 h-3" />
-              <span>Data</span>
-            </>
-          )}
+      {/* Network Status Indicator - Only show when data saver is off */}
+      {!isDataSaverEnabled && (
+        <div className="absolute top-4 left-4 z-50">
+          <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs bg-background/80 text-foreground`}>
+            {isOnWifi ? (
+              <>
+                <Wifi className="w-3 h-3" />
+                <span>WiFi</span>
+              </>
+            ) : (
+              <>
+                <WifiOff className="w-3 h-3" />
+                <span>Data</span>
+              </>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Mute Toggle */}
       {shouldLoad && videoLoaded && (
