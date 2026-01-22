@@ -54,13 +54,6 @@ export const dataService = {
         imageUrls = [post.image_url];
       }
       
-      console.log('Post data:', {
-        id: post.id,
-        image_url: post.image_url,
-        imageUrls: imageUrls,
-        media_type: post.media_type
-      });
-      
       return {
         id: post.id,
         userId: post.user_id,
