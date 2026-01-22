@@ -55,36 +55,36 @@ export function NetworkStatusBanner({
     switch (status) {
       case 'offline':
         return {
-          bg: 'bg-red-50 dark:bg-red-950',
-          border: 'border-red-200 dark:border-red-800',
+          bg: 'bg-destructive/10',
+          border: 'border-destructive/30',
           icon: WifiOff,
-          iconColor: 'text-red-600 dark:text-red-400',
-          text: 'text-red-800 dark:text-red-200',
+          iconColor: 'text-destructive',
+          text: 'text-foreground',
         };
       case 'slow':
         return {
-          bg: 'bg-amber-50 dark:bg-amber-950',
-          border: 'border-amber-200 dark:border-amber-800',
+          bg: 'bg-muted',
+          border: 'border-border',
           icon: Zap,
-          iconColor: 'text-amber-600 dark:text-amber-400',
-          text: 'text-amber-800 dark:text-amber-200',
+          iconColor: 'text-muted-foreground',
+          text: 'text-foreground',
         };
       case 'reconnecting':
         return {
-          bg: 'bg-blue-50 dark:bg-blue-950',
-          border: 'border-blue-200 dark:border-blue-800',
+          bg: 'bg-muted',
+          border: 'border-border',
           icon: AlertCircle,
-          iconColor: 'text-blue-600 dark:text-blue-400',
-          text: 'text-blue-800 dark:text-blue-200',
+          iconColor: 'text-muted-foreground',
+          text: 'text-foreground',
         };
       case 'online':
       default:
         return {
-          bg: 'bg-green-50 dark:bg-green-950',
-          border: 'border-green-200 dark:border-green-800',
+          bg: 'bg-muted',
+          border: 'border-border',
           icon: Wifi,
-          iconColor: 'text-green-600 dark:text-green-400',
-          text: 'text-green-800 dark:text-green-200',
+          iconColor: 'text-foreground',
+          text: 'text-foreground',
         };
     }
   };
@@ -178,14 +178,14 @@ export function NetworkStatusIndicator() {
   const getIndicatorClass = () => {
     switch (status) {
       case 'offline':
-        return 'bg-red-500';
+        return 'bg-destructive';
       case 'slow':
-        return 'bg-amber-500';
+        return 'bg-muted-foreground';
       case 'reconnecting':
-        return 'bg-blue-500 animate-pulse';
+        return 'bg-muted-foreground animate-pulse';
       case 'online':
       default:
-        return 'bg-green-500';
+        return 'bg-foreground';
     }
   };
 

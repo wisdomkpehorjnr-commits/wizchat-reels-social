@@ -53,25 +53,25 @@ export function SyncIndicator({
         {isOnline ? (
           <>
             {hasPending ? (
-              <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-950 rounded-full border border-blue-200 dark:border-blue-800 shadow-sm hover:shadow-md transition-all">
-                <Loader2 className="w-4 h-4 text-blue-600 dark:text-blue-400 animate-spin" />
+              <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-full border border-border shadow-sm hover:shadow-md transition-all">
+                <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" />
                 {showQueueCount && (
-                  <span className="text-xs text-blue-700 dark:text-blue-300 font-medium">
+                  <span className="text-xs text-foreground font-medium">
                     {syncStatus.queueLength > 99 ? '99+' : syncStatus.queueLength}
                   </span>
                 )}
               </div>
             ) : (
-              <div className="flex items-center gap-2 px-3 py-2 bg-green-50 dark:bg-green-950 rounded-full border border-green-200 dark:border-green-800 shadow-sm">
-                <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400" />
-                <span className="text-xs text-green-700 dark:text-green-300 font-medium">Synced</span>
+              <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-full border border-border shadow-sm">
+                <CheckCircle2 className="w-4 h-4 text-foreground" />
+                <span className="text-xs text-foreground font-medium">Synced</span>
               </div>
             )}
           </>
         ) : (
-          <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-950 rounded-full border border-amber-200 dark:border-amber-800 shadow-sm">
-            <CloudOff className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-            <span className="text-xs text-amber-700 dark:text-amber-300 font-medium">Offline</span>
+          <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-full border border-border shadow-sm">
+            <CloudOff className="w-4 h-4 text-muted-foreground" />
+            <span className="text-xs text-foreground font-medium">Offline</span>
           </div>
         )}
       </div>
@@ -81,13 +81,13 @@ export function SyncIndicator({
   // Expanded view
   return (
     <div className={`${getPositionClass()} min-w-[250px]`}>
-      <div className="bg-white dark:bg-slate-950 rounded-lg shadow-lg border border-gray-200 dark:border-slate-800 p-4 space-y-3">
+      <div className="bg-card rounded-lg shadow-lg border border-border p-4 space-y-3">
         {/* Status header */}
         <div className="flex items-center gap-2">
           {isOnline ? (
-            <Cloud className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            <Cloud className="w-5 h-5 text-foreground" />
           ) : (
-            <CloudOff className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+            <CloudOff className="w-5 h-5 text-muted-foreground" />
           )}
           <span className="font-semibold text-sm text-foreground">
             {isOnline ? 'Online' : 'Offline'}
@@ -96,10 +96,10 @@ export function SyncIndicator({
 
         {/* Sync status */}
         <div className="space-y-2 text-xs">
-          {hasPending && (
-            <div className="flex items-center gap-2 p-2 bg-blue-50 dark:bg-blue-950 rounded border border-blue-200 dark:border-blue-800">
-              <Loader2 className="w-3 h-3 text-blue-600 dark:text-blue-400 animate-spin" />
-              <span className="text-blue-700 dark:text-blue-300">
+        {hasPending && (
+            <div className="flex items-center gap-2 p-2 bg-muted rounded border border-border">
+              <Loader2 className="w-3 h-3 text-muted-foreground animate-spin" />
+              <span className="text-foreground">
                 {syncStatus.queueLength} pending change{syncStatus.queueLength !== 1 ? 's' : ''}
               </span>
             </div>
@@ -112,9 +112,9 @@ export function SyncIndicator({
           )}
 
           {!isOnline && hasPending && (
-            <div className="flex items-center gap-2 p-2 bg-amber-50 dark:bg-amber-950 rounded border border-amber-200 dark:border-amber-800">
-              <AlertCircle className="w-3 h-3 text-amber-600 dark:text-amber-400" />
-              <span className="text-amber-700 dark:text-amber-300">
+            <div className="flex items-center gap-2 p-2 bg-muted rounded border border-border">
+              <AlertCircle className="w-3 h-3 text-muted-foreground" />
+              <span className="text-foreground">
                 Changes will sync when online
               </span>
             </div>
@@ -129,7 +129,7 @@ export function SyncIndicator({
               const { offlineService } = await import('@/services/offlineService');
               await offlineService.manualSync();
             }}
-            className="w-full px-3 py-2 text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+            className="w-full px-3 py-2 text-xs font-medium bg-primary hover:bg-primary/90 text-primary-foreground rounded transition-colors"
           >
             Sync Now
           </button>
@@ -150,8 +150,8 @@ export function QueueStatusBadge() {
   }
 
   return (
-    <div className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium">
-      <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+    <div className="inline-flex items-center gap-1 px-2 py-1 bg-muted text-foreground rounded-full text-xs font-medium">
+      <div className="w-2 h-2 bg-foreground rounded-full animate-pulse" />
       {syncStatus.queueLength > 99 ? '99+' : syncStatus.queueLength} pending
     </div>
   );
@@ -187,9 +187,9 @@ export function ConflictResolutionDialog({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-slate-950 rounded-lg shadow-lg p-6 max-w-sm space-y-4">
+      <div className="bg-card rounded-lg shadow-lg p-6 max-w-sm space-y-4">
         <div className="flex items-center gap-2">
-          <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+          <AlertCircle className="w-5 h-5 text-muted-foreground" />
           <h3 className="font-semibold text-foreground">Data Conflict</h3>
         </div>
 
@@ -198,15 +198,15 @@ export function ConflictResolutionDialog({
         </p>
 
         <div className="space-y-2">
-          <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded border border-blue-200 dark:border-blue-800">
-            <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">Your version</p>
+          <div className="p-3 bg-muted rounded border border-border">
+            <p className="text-xs font-medium text-foreground mb-1">Your version</p>
             <p className="text-xs text-muted-foreground truncate">
               {JSON.stringify(conflict.localItem.data).substring(0, 100)}...
             </p>
           </div>
 
-          <div className="p-3 bg-amber-50 dark:bg-amber-950 rounded border border-amber-200 dark:border-amber-800">
-            <p className="text-xs font-medium text-amber-700 dark:text-amber-300 mb-1">Server version</p>
+          <div className="p-3 bg-muted rounded border border-border">
+            <p className="text-xs font-medium text-foreground mb-1">Server version</p>
             <p className="text-xs text-muted-foreground truncate">
               {JSON.stringify(conflict.remoteData).substring(0, 100)}...
             </p>
@@ -217,14 +217,14 @@ export function ConflictResolutionDialog({
           <button
             onClick={() => handleResolve('local')}
             disabled={resolving}
-            className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium rounded transition-colors"
+            className="flex-1 px-3 py-2 bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground text-sm font-medium rounded transition-colors"
           >
             {resolving ? 'Resolving...' : 'Keep Yours'}
           </button>
           <button
             onClick={() => handleResolve('remote')}
             disabled={resolving}
-            className="flex-1 px-3 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-sm font-medium rounded transition-colors"
+            className="flex-1 px-3 py-2 bg-secondary hover:bg-secondary/90 disabled:opacity-50 text-secondary-foreground text-sm font-medium rounded transition-colors"
           >
             {resolving ? 'Resolving...' : 'Use Server'}
           </button>
@@ -233,7 +233,7 @@ export function ConflictResolutionDialog({
         <button
           onClick={onDismiss}
           disabled={resolving}
-          className="w-full px-3 py-2 border border-gray-200 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-900 text-sm font-medium rounded transition-colors disabled:opacity-50"
+          className="w-full px-3 py-2 border border-border hover:bg-muted text-sm font-medium rounded transition-colors disabled:opacity-50"
         >
           Dismiss
         </button>

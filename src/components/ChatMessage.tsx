@@ -237,19 +237,19 @@ const ChatMessage = ({
           )}
 
           <div className="relative">
-            {/* Selection overlay - transparent green glass effect */}
+            {/* Selection overlay - transparent glass effect */}
             {isSelected && (
-              <div className="absolute inset-0 bg-green-500/20 dark:bg-green-500/15 backdrop-blur-[2px] rounded-2xl pointer-events-none z-10 border-2 border-green-500/40 dark:border-green-500/30" />
+              <div className="absolute inset-0 bg-accent/20 backdrop-blur-[2px] rounded-2xl pointer-events-none z-10 border-2 border-foreground/30" />
             )}
 
             {/* WhatsApp-style bubble: rounded corners, soft shadow, theme-aware */}
             <div
               className={`px-2 py-2 rounded-[18px] transition-all shadow-sm ${
                 isSelected
-                  ? 'bg-green-500/10 dark:bg-green-500/8'
+                  ? 'bg-accent/20'
                   : isOwn
                   ? 'bg-primary text-primary-foreground'
-                  : 'bg-[hsl(var(--muted))] dark:bg-[hsl(220,10%,18%)]'
+                  : 'bg-muted text-foreground'
               }`}
               style={{ boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
             >

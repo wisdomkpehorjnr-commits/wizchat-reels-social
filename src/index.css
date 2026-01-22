@@ -430,3 +430,163 @@ button {
 .ultra a:hover {
   color: hsl(0 0% 80%) !important;
 }
+
+/* ============= ULTRA THEME CHAT SPECIFIC FIXES ============= */
+/* Ensure chat messages are always readable in Ultra mode */
+
+/* Chat message bubbles - incoming messages */
+.ultra [class*="bg-muted"],
+.ultra .bg-\[hsl\(var\(--muted\)\)\],
+.ultra [class*="dark:bg-\[hsl\(220,10%,18%\)\]"] {
+  background-color: hsl(0 0% 15%) !important;
+}
+
+/* Ensure message text is white on dark backgrounds */
+.ultra .rounded-\[18px\] p,
+.ultra .rounded-\[18px\] span,
+.ultra .rounded-lg p,
+.ultra .rounded-lg span {
+  color: hsl(0 0% 100%) !important;
+}
+
+/* Own messages with primary bg should have dark text */
+.ultra .bg-primary {
+  background-color: hsl(0 0% 100%) !important;
+}
+
+.ultra .bg-primary p,
+.ultra .bg-primary span,
+.ultra .bg-primary .text-primary-foreground {
+  color: hsl(0 0% 0%) !important;
+}
+
+/* Chat header and footer */
+.ultra .border-b,
+.ultra .border-t {
+  border-color: hsl(0 0% 20%) !important;
+}
+
+/* Chat timestamps */
+.ultra .text-xs.text-muted-foreground,
+.ultra [class*="text-xs"][class*="text-muted"] {
+  color: hsl(0 0% 60%) !important;
+}
+
+/* Reply reference in chat */
+.ultra .border-l-4 {
+  border-color: hsl(0 0% 50%) !important;
+}
+
+.ultra .border-l-4 p {
+  color: hsl(0 0% 85%) !important;
+}
+
+/* Voice message player */
+.ultra [class*="VoiceMessage"],
+.ultra audio {
+  background-color: hsl(0 0% 12%) !important;
+}
+
+/* Chat input area */
+.ultra .border-t.p-4 {
+  background-color: hsl(0 0% 5%) !important;
+}
+
+/* Context menu and reactions */
+.ultra [role="menu"] button,
+.ultra [role="menu"] div {
+  color: hsl(0 0% 100%) !important;
+}
+
+/* Message status icons */
+.ultra .text-primary {
+  color: hsl(0 0% 100%) !important;
+}
+
+/* Scroll areas */
+.ultra [data-radix-scroll-area-viewport] {
+  background-color: hsl(0 0% 0%) !important;
+}
+
+/* ============= ULTRA THEME GREEN COLOR REMOVAL ============= */
+/* NetworkStatusBanner and SyncIndicator - remove green when online */
+
+.ultra .bg-green-50,
+.ultra .dark\:bg-green-950,
+.ultra [class*="bg-green"] {
+  background-color: hsl(0 0% 15%) !important;
+}
+
+.ultra .text-green-600,
+.ultra .text-green-700,
+.ultra .text-green-800,
+.ultra .dark\:text-green-300,
+.ultra .dark\:text-green-400,
+.ultra [class*="text-green"] {
+  color: hsl(0 0% 100%) !important;
+}
+
+.ultra .border-green-200,
+.ultra .dark\:border-green-800,
+.ultra [class*="border-green"] {
+  border-color: hsl(0 0% 30%) !important;
+}
+
+/* Selection overlay in chat - make it grayscale */
+.ultra .bg-green-500\/20,
+.ultra .dark\:bg-green-500\/15,
+.ultra .border-green-500\/40,
+.ultra .dark\:border-green-500\/30 {
+  background-color: hsl(0 0% 100% / 0.15) !important;
+  border-color: hsl(0 0% 100% / 0.3) !important;
+}
+
+/* ============= ULTRA THEME ADDITIONAL FIXES ============= */
+
+/* Dialog and modal backgrounds */
+.ultra [role="dialog"],
+.ultra [data-state="open"] > div {
+  background-color: hsl(0 0% 5%) !important;
+}
+
+/* Toast notifications */
+.ultra [data-sonner-toast],
+.ultra [class*="toast"] {
+  background-color: hsl(0 0% 10%) !important;
+  color: hsl(0 0% 100%) !important;
+  border-color: hsl(0 0% 25%) !important;
+}
+
+/* Ensure all interactive elements have visible focus states */
+.ultra *:focus-visible {
+  outline: 2px solid hsl(0 0% 100%) !important;
+  outline-offset: 2px;
+}
+
+/* Fix for any remaining colored backgrounds */
+.ultra .bg-blue-50,
+.ultra .bg-amber-50,
+.ultra .bg-red-50,
+.ultra .dark\:bg-blue-950,
+.ultra .dark\:bg-amber-950,
+.ultra .dark\:bg-red-950 {
+  background-color: hsl(0 0% 12%) !important;
+}
+
+.ultra .text-blue-600,
+.ultra .text-amber-600,
+.ultra .text-red-600,
+.ultra .dark\:text-blue-400,
+.ultra .dark\:text-amber-400,
+.ultra .dark\:text-red-400 {
+  color: hsl(0 0% 100%) !important;
+}
+
+.ultra .border-blue-200,
+.ultra .border-amber-200,
+.ultra .border-red-200,
+.ultra .dark\:border-blue-800,
+.ultra .dark\:border-amber-800,
+.ultra .dark\:border-red-800 {
+  border-color: hsl(0 0% 30%) !important;
+}
