@@ -11,47 +11,68 @@ import { dataService } from '@/services/dataService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useScrollPosition } from '@/contexts/ScrollPositionContext';
-import { useTabCache } from '@/hooks/useTabCache';
-import { FeedSkeleton, PostCardSkeleton } from '@/components/SkeletonLoaders';
+import { FeedSkeleton } from '@/components/SkeletonLoaders';
 import { SmartLoading } from '@/components/SmartLoading';
 import GlobalSearch from '@/components/GlobalSearch';
+
+const HOME_FEED_CACHE_KEY = 'wizchat_home_feed_cache';
+
+// Synchronous localStorage hydration - INSTANT display
+const getInitialCachedPosts = (): any[] => {
+  try {
+    const cached = localStorage.getItem(HOME_FEED_CACHE_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (parsed?.data && Array.isArray(parsed.data)) {
+        console.debug('[Home] Hydrated from localStorage instantly');
+        return parsed.data;
+      }
+    }
+  } catch (e) {
+    console.debug('[Home] localStorage hydration failed:', e);
+  }
+  return [];
+};
+
+const savePostsToCache = (posts: any[]) => {
+  try {
+    localStorage.setItem(HOME_FEED_CACHE_KEY, JSON.stringify({
+      data: posts,
+      timestamp: Date.now()
+    }));
+  } catch (e) {
+    console.debug('[Home] Failed to cache posts:', e);
+  }
+};
 
 const Home = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { saveScrollPosition, getScrollPosition, getCachedData, clearScrollPosition } = useScrollPosition();
-  const [posts, setPosts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  
+  // Synchronous hydration - NO loading if cached
+  const initialCachedData = getInitialCachedPosts();
+  const hasCachedData = initialCachedData.length > 0;
+  
+  const [posts, setPosts] = useState<any[]>(initialCachedData);
+  const [loading, setLoading] = useState(!hasCachedData); // No loading if we have cached data
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [showSearch, setShowSearch] = useState(false);
   const hasLoadedRef = useRef(false);
   const isRestoringScrollRef = useRef(false);
-  const scrollRestoredRef = useRef(false);
+  const scrollRestoredRef = useRef(hasCachedData); // Already restored if cached
 
-  // Use tab cache for persistent feed caching (15 minutes TTL)
-  const { cachedData, cacheStatus, isCached, cacheData, refreshFromNetwork, clearCache } = useTabCache({
-    tabId: 'home-feed',
-    enabled: true,
-    ttl: 15 * 60 * 1000,
-    onStatusChange: (status) => {
-      console.debug(`[Home] Cache status: ${status}`);
-    },
-  });
-
-  // Initialize: restore from cache or load from server
+  // Initialize: restore scroll position and optionally refresh in background
   useEffect(() => {
-    const cachedPosts = getCachedData('/');
-    const savedScroll = getScrollPosition('/');
-
-    if (cachedPosts && cachedPosts.length > 0 && !hasLoadedRef.current) {
-      setPosts(cachedPosts);
-      setLoading(false);
+    if (!hasLoadedRef.current) {
       hasLoadedRef.current = true;
-
-      if (savedScroll !== null && savedScroll > 0) {
-        isRestoringScrollRef.current = true;
-        requestAnimationFrame(() => {
+      
+      if (hasCachedData) {
+        // Restore scroll position if available
+        const savedScroll = getScrollPosition('/');
+        if (savedScroll !== null && savedScroll > 0) {
+          isRestoringScrollRef.current = true;
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
               window.scrollTo({ top: savedScroll, behavior: 'instant' });
@@ -59,12 +80,14 @@ const Home = () => {
               isRestoringScrollRef.current = false;
             });
           });
-        });
+        }
+        
+        // Silent background refresh
+        loadPosts(true);
       } else {
-        scrollRestoredRef.current = true;
+        // First load - show skeleton
+        loadPosts(false);
       }
-    } else if (!hasLoadedRef.current) {
-      loadPosts();
     }
   }, []);
 
@@ -103,13 +126,16 @@ const Home = () => {
     if (posts.length > 0 && !isRestoringScrollRef.current && scrollRestoredRef.current) {
       const currentScroll = window.scrollY;
       saveScrollPosition('/', currentScroll, posts);
+      savePostsToCache(posts); // Persist for instant hydration
     }
   }, [posts]);
 
-  const loadPosts = async (skipCache = false) => {
+  const loadPosts = async (silent = false) => {
     if (!user) return;
     try {
-      setLoading(true);
+      if (!silent && !hasCachedData) {
+        setLoading(true);
+      }
       setError(null);
 
       const [postsData, pinnedIds] = await Promise.all([
@@ -122,23 +148,25 @@ const Home = () => {
       const sortedPosts = [...pinnedPosts, ...otherPosts];
 
       setPosts(sortedPosts);
+      savePostsToCache(sortedPosts); // Persist for instant hydration
 
-      if (!skipCache) {
+      if (!silent) {
         const currentScroll = window.scrollY;
         saveScrollPosition('/', currentScroll, sortedPosts);
-        await cacheData(sortedPosts);
       }
 
-      hasLoadedRef.current = true;
     } catch (error) {
       console.error('Error fetching posts:', error);
-      const err = error instanceof Error ? error : new Error('Failed to fetch posts');
-      setError(err);
-      toast({
-        title: "Error",
-        description: "Failed to load posts",
-        variant: "destructive"
-      });
+      // Only show error if we have no cached data
+      if (!hasCachedData) {
+        const err = error instanceof Error ? error : new Error('Failed to fetch posts');
+        setError(err);
+        toast({
+          title: "Error",
+          description: "Failed to load posts",
+          variant: "destructive"
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -158,8 +186,6 @@ const Home = () => {
               } 
             : post
         );
-        const currentScroll = window.scrollY;
-        saveScrollPosition('/', currentScroll, updated);
         return updated;
       });
     } catch (error) {
@@ -215,23 +241,22 @@ const Home = () => {
     setError(null);
     try {
       clearScrollPosition('/');
-      await clearCache();
       scrollRestoredRef.current = false;
 
-      const freshPosts = await refreshFromNetwork(async () => {
-        const [posts, pinnedIds] = await Promise.all([
-          dataService.getPosts(),
-          dataService.getActivePinnedPosts(),
-        ]);
+      const [postsData, pinnedIds] = await Promise.all([
+        dataService.getPosts(),
+        dataService.getActivePinnedPosts(),
+      ]);
 
-        const pinnedPosts = posts.filter(post => pinnedIds.includes(post.id));
-        const otherPosts = posts.filter(post => !pinnedIds.includes(post.id));
-        return [...pinnedPosts, ...otherPosts];
-      });
+      const pinnedPosts = postsData.filter(post => pinnedIds.includes(post.id));
+      const otherPosts = postsData.filter(post => !pinnedIds.includes(post.id));
+      const freshPosts = [...pinnedPosts, ...otherPosts];
 
-      setPosts(freshPosts || []);
+      setPosts(freshPosts);
+      savePostsToCache(freshPosts);
       window.scrollTo({ top: 0, behavior: 'smooth' });
-      saveScrollPosition('/', 0, freshPosts || []);
+      saveScrollPosition('/', 0, freshPosts);
+      scrollRestoredRef.current = true;
 
       toast({
         title: "Feed Refreshed",
@@ -290,8 +315,7 @@ const Home = () => {
 
                 setPosts(prevPosts => {
                   const updated = [createdPost, ...prevPosts];
-                  const currentScroll = window.scrollY;
-                  saveScrollPosition('/', currentScroll, updated);
+                  savePostsToCache(updated);
                   return updated;
                 });
 
@@ -326,7 +350,7 @@ const Home = () => {
           {/* Posts Feed with SmartLoading */}
           <SmartLoading
             isLoading={loading && posts.length === 0}
-            isError={error !== null && !isCached}
+            isError={error !== null && posts.length === 0}
             isEmpty={!loading && posts.length === 0}
             error={error}
             loadingFallback={<FeedSkeleton />}
