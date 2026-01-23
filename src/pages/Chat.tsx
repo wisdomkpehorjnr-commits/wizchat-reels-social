@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Layout from '@/components/Layout';
 import ChatPopup from '@/components/ChatPopup';
 import WizAiChat from '@/components/WizAiChat';
@@ -11,9 +11,37 @@ import { Friend, User } from '@/types';
 import { dataService } from '@/services/dataService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { useCache } from '@/hooks/useCache';
-import { useTabCache } from '@/hooks/useTabCache';
 import { supabase } from '@/integrations/supabase/client';
+
+const CHAT_LIST_CACHE_KEY = 'wizchat_chat_list_cache';
+
+// Synchronous localStorage hydration - INSTANT display, no waiting
+const getInitialCachedChatList = (): Friend[] => {
+  try {
+    const cached = localStorage.getItem(CHAT_LIST_CACHE_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (parsed?.data && Array.isArray(parsed.data)) {
+        console.debug('[Chat] Hydrated from localStorage instantly');
+        return parsed.data;
+      }
+    }
+  } catch (e) {
+    console.debug('[Chat] localStorage hydration failed:', e);
+  }
+  return [];
+};
+
+const saveChatListToCache = (friends: Friend[]) => {
+  try {
+    localStorage.setItem(CHAT_LIST_CACHE_KEY, JSON.stringify({
+      data: friends,
+      timestamp: Date.now()
+    }));
+  } catch (e) {
+    console.debug('[Chat] Failed to cache chat list:', e);
+  }
+};
 
 const WIZAI_USER: User = {
   id: 'wizai',
@@ -33,42 +61,28 @@ const Chat = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   
-  // Use persistent tab cache - friends list stays cached, no reload on tab revisit
-  const { cachedData: tabCachedFriends, cacheData: cacheTabFriends, cacheStatus } = useTabCache({
-    tabId: 'chat-friends-tab',
-    enabled: true,
-    ttl: 60 * 60 * 1000, // 1 hour - long cache for instant tab switching
-    onStatusChange: (status) => {
-      console.debug(`[Chat] Cache status: ${status}`);
-    },
-  });
+  // Synchronous hydration from localStorage - NO loading state if cached
+  const initialCachedData = getInitialCachedChatList();
+  const hasCachedData = initialCachedData.length > 0;
   
-  const { cachedData: cachedFriends, setCache: setCachedFriends, isStale } = useCache<Friend[]>({ 
-    key: 'chat-friends-list',
-    ttl: 5 * 60 * 1000 // 5 minutes cache
-  });
-  
-  // Initialize with cached data - INSTANT display, no loading
-  const [friends, setFriends] = useState<Friend[]>(tabCachedFriends || cachedFriends || []);
+  const [friends, setFriends] = useState<Friend[]>(initialCachedData);
   const [selectedFriend, setSelectedFriend] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [loading, setLoading] = useState(!tabCachedFriends && !cachedFriends);
+  // NEVER show loading if we have cached data - instant display
+  const [loading, setLoading] = useState(!hasCachedData);
   const [pinnedFriends, setPinnedFriends] = useState<Set<string>>(new Set());
-  const hasLoadedRef = React.useRef(false);
+  const hasLoadedRef = useRef(false);
 
   useEffect(() => {
     if (user && !hasLoadedRef.current) {
-      // If we have cached data, show instantly and refresh in background
-      if (tabCachedFriends || cachedFriends) {
-        setLoading(false);
-        // Background refresh only if data is stale
-        if (isStale) {
-          loadData(true); // silent background refresh
-        }
-      } else {
-        loadData();
-      }
       hasLoadedRef.current = true;
+      
+      // If cached, display is already instant, do silent background refresh
+      if (hasCachedData) {
+        loadData(true); // silent background refresh
+      } else {
+        loadData(false); // first load, show skeleton
+      }
     }
     
     // Listen for chat list updates (when hidden users send messages)
@@ -131,23 +145,22 @@ const Chat = () => {
       window.removeEventListener('openChatWithUser', handleOpenChatWithUser as EventListener);
       window.removeEventListener('chatListUpdate', handleChatListUpdate);
     };
-  }, [user, toast]);
+  }, [user, toast, hasCachedData]);
 
   const loadData = async (silent = false) => {
     if (!user) return;
     
     try {
       // Only show loading if no cached data and not silent
-      if (!silent && !tabCachedFriends && !cachedFriends) {
+      if (!silent && !hasCachedData) {
         setLoading(true);
       }
       
       const userFriends = await dataService.getFriends();
       setFriends(userFriends);
       
-      // Update both cache layers
-      setCachedFriends(userFriends);
-      await cacheTabFriends(userFriends); // Persist for instant tab switching
+      // Persist to localStorage for instant hydration next time
+      saveChatListToCache(userFriends);
     } catch (error) {
       console.error('Error loading friends:', error);
       if (!silent) {
