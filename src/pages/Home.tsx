@@ -59,29 +59,38 @@ const Home = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [showSearch, setShowSearch] = useState(false);
-  const hasLoadedRef = useRef(false);
+  const hasLoadedDataRef = useRef(false);
   const isRestoringScrollRef = useRef(false);
-  const scrollRestoredRef = useRef(hasCachedData); // Already restored if cached
+  const scrollRestoredRef = useRef(false);
 
-  // Initialize: restore scroll position and optionally refresh in background
+  // ALWAYS restore scroll position on mount (when returning to tab)
   useEffect(() => {
-    if (!hasLoadedRef.current) {
-      hasLoadedRef.current = true;
+    if (hasCachedData) {
+      const savedScroll = getScrollPosition('/');
+      if (savedScroll !== null && savedScroll > 0) {
+        isRestoringScrollRef.current = true;
+        // Use multiple RAF frames to ensure DOM is ready
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            window.scrollTo({ top: savedScroll, behavior: 'instant' });
+            scrollRestoredRef.current = true;
+            isRestoringScrollRef.current = false;
+          });
+        });
+      } else {
+        scrollRestoredRef.current = true;
+      }
+    } else {
+      scrollRestoredRef.current = true;
+    }
+  }, []); // Run on every mount
+
+  // Load data only once per session (background refresh on return)
+  useEffect(() => {
+    if (!hasLoadedDataRef.current) {
+      hasLoadedDataRef.current = true;
       
       if (hasCachedData) {
-        // Restore scroll position if available
-        const savedScroll = getScrollPosition('/');
-        if (savedScroll !== null && savedScroll > 0) {
-          isRestoringScrollRef.current = true;
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              window.scrollTo({ top: savedScroll, behavior: 'instant' });
-              scrollRestoredRef.current = true;
-              isRestoringScrollRef.current = false;
-            });
-          });
-        }
-        
         // Silent background refresh
         loadPosts(true);
       } else {
