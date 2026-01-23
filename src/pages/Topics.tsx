@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import Layout from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,9 +7,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { MessageCircle, Users, Flame } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { useTabCache } from "@/hooks/useTabCache";
-import { TopicRoomSkeleton, ListSkeleton } from "@/components/SkeletonLoaders";
-import { SmartLoading } from "@/components/SmartLoading";
+import { ListSkeleton } from "@/components/SkeletonLoaders";
+
+const TOPICS_CACHE_KEY = 'wizchat_topics_cache';
 
 interface TopicRoomType {
   id: string;
@@ -19,42 +19,60 @@ interface TopicRoomType {
   isJoined?: boolean;
 }
 
+// Synchronous localStorage hydration - INSTANT display
+const getInitialCachedTopics = (): TopicRoomType[] => {
+  try {
+    const cached = localStorage.getItem(TOPICS_CACHE_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (parsed?.data && Array.isArray(parsed.data)) {
+        console.debug('[Topics] Hydrated from localStorage instantly');
+        return parsed.data;
+      }
+    }
+  } catch (e) {
+    console.debug('[Topics] localStorage hydration failed:', e);
+  }
+  return [];
+};
+
+const saveTopicsToCache = (rooms: TopicRoomType[]) => {
+  try {
+    localStorage.setItem(TOPICS_CACHE_KEY, JSON.stringify({
+      data: rooms,
+      timestamp: Date.now()
+    }));
+  } catch (e) {
+    console.debug('[Topics] Failed to cache topics:', e);
+  }
+};
+
 const Topics = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Persistent room cache (won't reload on tab revisit)
-  const { cachedData: cachedRooms, cacheData: cacheRooms, cacheStatus } = useTabCache({
-    tabId: 'topics-rooms',
-    enabled: true,
-    ttl: 30 * 60 * 1000, // 30 minutes - rooms don't change often
-    onStatusChange: (status) => {
-      console.debug(`[Topics] Cache status: ${status}`);
-    },
-  });
+  // Synchronous hydration - NO loading if cached
+  const initialCachedData = getInitialCachedTopics();
+  const hasCachedData = initialCachedData.length > 0;
 
-  const [rooms, setRooms] = useState<TopicRoomType[]>(cachedRooms || []);
-  const [loading, setLoading] = useState(!cachedRooms);
+  const [rooms, setRooms] = useState<TopicRoomType[]>(initialCachedData);
+  const [loading, setLoading] = useState(!hasCachedData);
   const [error, setError] = useState<Error | null>(null);
-  const [dataLoaded, setDataLoaded] = useState(!!cachedRooms);
+  const [dataLoaded, setDataLoaded] = useState(hasCachedData);
   const [joiningRoomId, setJoiningRoomId] = useState<string | null>(null);
-  const hasLoadedRef = React.useRef(false);
+  const hasLoadedRef = useRef(false);
 
   useEffect(() => {
     if (!hasLoadedRef.current) {
-      // If we have cached data, show instantly
-      if (cachedRooms) {
-        setLoading(false);
-        setDataLoaded(true);
-        // Background refresh
-        loadRooms(true);
-      } else if (user?.id) {
-        loadRooms();
-      } else {
-        loadRooms();
-      }
       hasLoadedRef.current = true;
+      
+      // If cached, display instantly and do silent background refresh
+      if (hasCachedData) {
+        loadRooms(true); // silent background refresh
+      } else {
+        loadRooms(false); // first load, show skeleton
+      }
     }
     
     // Subscribe to room_participants changes for real-time updates (only if user logged in)
@@ -75,11 +93,11 @@ const Topics = () => {
         supabase.removeChannel(channel);
       };
     }
-  }, [user?.id]);
+  }, [user?.id, hasCachedData]);
 
   const loadRooms = async (silent = false) => {
     try {
-      if (!silent && !cachedRooms) {
+      if (!silent && !hasCachedData) {
         setLoading(true);
       }
       setError(null);
@@ -115,7 +133,7 @@ const Topics = () => {
           })
         );
         setRooms(roomsWithCounts);
-        await cacheRooms(roomsWithCounts); // Persist in cache
+        saveTopicsToCache(roomsWithCounts); // Persist for instant hydration
       }
       setDataLoaded(true);
     } catch (err) {
