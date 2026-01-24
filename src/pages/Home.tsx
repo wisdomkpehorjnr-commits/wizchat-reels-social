@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import Layout from '@/components/Layout';
 import CreatePost from '@/components/CreatePost';
 import PostCard from '@/components/PostCard';
@@ -16,6 +16,8 @@ import { SmartLoading } from '@/components/SmartLoading';
 import GlobalSearch from '@/components/GlobalSearch';
 
 const HOME_FEED_CACHE_KEY = 'wizchat_home_feed_cache';
+
+const HOME_FEED_MIN_REFRESH_INTERVAL_MS = 2 * 60 * 1000; // avoid re-downloading when tab-switching
 
 // Synchronous localStorage hydration - INSTANT display
 const getInitialCachedPosts = (): any[] => {
@@ -45,54 +47,86 @@ const savePostsToCache = (posts: any[]) => {
   }
 };
 
+const getCacheTimestamp = (): number | null => {
+  try {
+    const cached = localStorage.getItem(HOME_FEED_CACHE_KEY);
+    if (!cached) return null;
+    const parsed = JSON.parse(cached);
+    return typeof parsed?.timestamp === 'number' ? parsed.timestamp : null;
+  } catch {
+    return null;
+  }
+};
+
 const Home = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { saveScrollPosition, getScrollPosition, getCachedData, clearScrollPosition } = useScrollPosition();
-  
-  // Synchronous hydration - NO loading if cached
-  const initialCachedData = getInitialCachedPosts();
+
+  // Prefer in-memory cached feed (persists across tab switches) over localStorage.
+  const initialCachedData = useMemo(() => {
+    const inMemory = getCachedData('/') as any[] | null;
+    if (inMemory && Array.isArray(inMemory) && inMemory.length > 0) return inMemory;
+    return getInitialCachedPosts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const hasCachedData = initialCachedData.length > 0;
-  
+
   const [posts, setPosts] = useState<any[]>(initialCachedData);
-  const [loading, setLoading] = useState(!hasCachedData); // No loading if we have cached data
+  const [loading, setLoading] = useState(!hasCachedData); // no skeleton if cached
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [showSearch, setShowSearch] = useState(false);
   const hasLoadedDataRef = useRef(false);
   const isRestoringScrollRef = useRef(false);
   const scrollRestoredRef = useRef(false);
+  const pendingRestoreScrollRef = useRef<number | null>(null);
 
-  // ALWAYS restore scroll position on mount (when returning to tab)
+  // Capture desired scroll position on mount; apply after cached feed is rendered.
   useEffect(() => {
-    if (hasCachedData) {
-      const savedScroll = getScrollPosition('/');
-      if (savedScroll !== null && savedScroll > 0) {
-        isRestoringScrollRef.current = true;
-        // Use multiple RAF frames to ensure DOM is ready
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            window.scrollTo({ top: savedScroll, behavior: 'instant' });
-            scrollRestoredRef.current = true;
-            isRestoringScrollRef.current = false;
-          });
-        });
-      } else {
-        scrollRestoredRef.current = true;
-      }
-    } else {
-      scrollRestoredRef.current = true;
-    }
-  }, []); // Run on every mount
+    const savedScroll = getScrollPosition('/');
+    pendingRestoreScrollRef.current = (savedScroll !== null && savedScroll > 0) ? savedScroll : null;
+  }, [getScrollPosition]);
 
-  // Load data only once per session (background refresh on return)
+  // Apply scroll restoration once the feed is present (prevents jumping to top on tab return).
+  useLayoutEffect(() => {
+    if (scrollRestoredRef.current) return;
+    if (!hasCachedData) {
+      scrollRestoredRef.current = true;
+      return;
+    }
+    if (posts.length === 0) return;
+
+    const savedScroll = pendingRestoreScrollRef.current;
+    if (savedScroll === null) {
+      scrollRestoredRef.current = true;
+      return;
+    }
+
+    isRestoringScrollRef.current = true;
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: savedScroll, behavior: 'auto' });
+        scrollRestoredRef.current = true;
+        isRestoringScrollRef.current = false;
+      });
+    });
+  }, [hasCachedData, posts.length]);
+
+  // Load data only when needed (avoid re-downloading on every tab switch)
   useEffect(() => {
     if (!hasLoadedDataRef.current) {
       hasLoadedDataRef.current = true;
       
       if (hasCachedData) {
-        // Silent background refresh
-        loadPosts(true);
+        const ts = getCacheTimestamp();
+        const isFresh = typeof ts === 'number' && Date.now() - ts < HOME_FEED_MIN_REFRESH_INTERVAL_MS;
+        if (!isFresh) {
+          // Silent refresh only if cache is stale
+          loadPosts(true);
+        }
       } else {
         // First load - show skeleton
         loadPosts(false);
@@ -365,13 +399,13 @@ const Home = () => {
             loadingFallback={<FeedSkeleton />}
             errorFallback={(retry) => (
               <div className="text-center py-12 space-y-4">
-                <p className="text-red-600 dark:text-red-400">Failed to load feed</p>
+                <p className="text-destructive">Failed to load feed</p>
                 <Button onClick={retry} variant="outline">Try Again</Button>
               </div>
             )}
             emptyFallback={
               <div className="text-center py-12">
-                <p className="text-gray-600 dark:text-slate-400">No posts yet. Start following people to see their posts!</p>
+                <p className="text-muted-foreground">No posts yet. Start following people to see their posts!</p>
               </div>
             }
             onRetry={() => loadPosts()}

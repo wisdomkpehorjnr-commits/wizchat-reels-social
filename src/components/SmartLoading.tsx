@@ -40,19 +40,19 @@ export function SmartLoading({
       <div className="flex items-center justify-center py-12">
         <div className="text-center space-y-4">
           <div className="flex justify-center">
-            <AlertCircle className="w-12 h-12 text-red-500" />
+            <AlertCircle className="w-12 h-12 text-destructive" />
           </div>
           {errorContent ? (
             <div>{errorContent}</div>
           ) : (
             <>
-              <h3 className="font-semibold text-red-700 dark:text-red-400">
+              <h3 className="font-semibold text-destructive">
                 {error?.message || 'Something went wrong'}
               </h3>
               {onRetry && (
                 <button
                   onClick={onRetry}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-red-100 hover:bg-red-200 dark:bg-red-950 dark:hover:bg-red-900 text-red-700 dark:text-red-300 rounded-lg transition-colors"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-destructive/10 hover:bg-destructive/15 text-foreground rounded-lg transition-colors"
                 >
                   <RefreshCw className="w-4 h-4" />
                   Try Again

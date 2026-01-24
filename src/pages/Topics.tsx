@@ -11,6 +11,12 @@ import { ListSkeleton } from "@/components/SkeletonLoaders";
 
 const TOPICS_CACHE_KEY = 'wizchat_topics_cache';
 
+const normalizeTopicRoomName = (name: string) => {
+  const n = (name || '').trim().toLowerCase();
+  if (n === 'reel review zone') return 'Trending News';
+  return name;
+};
+
 interface TopicRoomType {
   id: string;
   name: string;
@@ -56,7 +62,9 @@ const Topics = () => {
   const initialCachedData = getInitialCachedTopics();
   const hasCachedData = initialCachedData.length > 0;
 
-  const [rooms, setRooms] = useState<TopicRoomType[]>(initialCachedData);
+  const [rooms, setRooms] = useState<TopicRoomType[]>(
+    initialCachedData.map((r) => ({ ...r, name: normalizeTopicRoomName(r.name) }))
+  );
   const [loading, setLoading] = useState(!hasCachedData);
   const [error, setError] = useState<Error | null>(null);
   const [dataLoaded, setDataLoaded] = useState(hasCachedData);
@@ -132,8 +140,12 @@ const Topics = () => {
             };
           })
         );
-        setRooms(roomsWithCounts);
-        saveTopicsToCache(roomsWithCounts); // Persist for instant hydration
+        const normalizedRooms = roomsWithCounts.map((r: TopicRoomType) => ({
+          ...r,
+          name: normalizeTopicRoomName(r.name),
+        }));
+        setRooms(normalizedRooms);
+        saveTopicsToCache(normalizedRooms); // Persist for instant hydration
       }
       setDataLoaded(true);
     } catch (err) {
@@ -266,7 +278,7 @@ const Topics = () => {
                         {/* Topic Info */}
                         <div className="flex-1 min-w-0">
                           <h3 className="text-foreground font-semibold text-base mb-1 truncate">
-                            {room.name}
+                            {normalizeTopicRoomName(room.name)}
                           </h3>
                           <div className="flex items-center gap-4 text-sm">
                             <div className="flex items-center gap-1 text-muted-foreground">
