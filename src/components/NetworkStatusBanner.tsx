@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Wifi, WifiOff, Zap, AlertCircle } from 'lucide-react';
 import { networkStatusManager } from '@/services/networkStatusManager';
 
@@ -13,6 +13,7 @@ interface NetworkStatusBannerProps {
 /**
  * Real-time network status banner
  * Shows online/offline/slow/reconnecting states with smooth animations
+ * Auto-hides after 5 seconds for all statuses except offline
  */
 export function NetworkStatusBanner({
   position = 'top',
@@ -22,32 +23,51 @@ export function NetworkStatusBanner({
   const [status, setStatus] = useState<ConnectionStatus>('online');
   const [isVisible, setIsVisible] = useState(false);
   const [message, setMessage] = useState('');
+  const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const unsubscribe = networkStatusManager.subscribe((newStatus) => {
       setStatus(newStatus);
       onStatusChange?.(newStatus);
 
+      // Clear any existing timer
+      if (hideTimerRef.current) {
+        clearTimeout(hideTimerRef.current);
+        hideTimerRef.current = null;
+      }
+
       if (newStatus === 'online') {
         setIsVisible(true);
         setMessage('You are back online');
-        setTimeout(() => setIsVisible(false), 3000);
+        // Hide after 5 seconds
+        hideTimerRef.current = setTimeout(() => setIsVisible(false), 5000);
       } else if (newStatus === 'offline') {
         setIsVisible(true);
         setMessage('You are offline - using cached data');
+        // Auto-hide after 5 seconds (user knows they're offline)
+        hideTimerRef.current = setTimeout(() => setIsVisible(false), 5000);
       } else if (newStatus === 'slow') {
         setIsVisible(true);
         setMessage('Slow network detected');
+        // Hide after 5 seconds
+        hideTimerRef.current = setTimeout(() => setIsVisible(false), 5000);
       } else if (newStatus === 'reconnecting') {
         setIsVisible(true);
         setMessage('Reconnecting...');
+        // Hide after 5 seconds
+        hideTimerRef.current = setTimeout(() => setIsVisible(false), 5000);
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (hideTimerRef.current) {
+        clearTimeout(hideTimerRef.current);
+      }
+    };
   }, [onStatusChange]);
 
-  if (!isVisible && status === 'online') {
+  if (!isVisible) {
     return null;
   }
 
@@ -55,33 +75,33 @@ export function NetworkStatusBanner({
     switch (status) {
       case 'offline':
         return {
-          bg: 'bg-destructive/10',
-          border: 'border-destructive/30',
+          bg: 'bg-destructive/90 backdrop-blur-xl',
+          border: 'border-destructive/50',
           icon: WifiOff,
-          iconColor: 'text-destructive',
-          text: 'text-foreground',
+          iconColor: 'text-destructive-foreground',
+          text: 'text-destructive-foreground',
         };
       case 'slow':
         return {
-          bg: 'bg-muted',
-          border: 'border-border',
+          bg: 'bg-muted/90 backdrop-blur-xl',
+          border: 'border-border/50',
           icon: Zap,
-          iconColor: 'text-muted-foreground',
+          iconColor: 'text-foreground',
           text: 'text-foreground',
         };
       case 'reconnecting':
         return {
-          bg: 'bg-muted',
-          border: 'border-border',
+          bg: 'bg-muted/90 backdrop-blur-xl',
+          border: 'border-border/50',
           icon: AlertCircle,
-          iconColor: 'text-muted-foreground',
+          iconColor: 'text-foreground',
           text: 'text-foreground',
         };
       case 'online':
       default:
         return {
-          bg: 'bg-muted',
-          border: 'border-border',
+          bg: 'bg-muted/90 backdrop-blur-xl',
+          border: 'border-border/50',
           icon: Wifi,
           iconColor: 'text-foreground',
           text: 'text-foreground',

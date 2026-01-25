@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { MoreVertical, ThumbsUp, MessageSquare, Share2, Edit, Trash2, Download, Pin, Send, X } from 'lucide-react';
+import { MoreVertical, ThumbsUp, MessageSquare, Share2, Edit, Trash2, Download, Pin, Send, X, ImageOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -31,6 +31,67 @@ import PremiumCodeVerification from './PremiumCodeVerification';
 interface PostCardProps {
   post: any;
   onPostUpdate: () => void;
+}
+
+// Offline-aware image component with glass placeholder
+interface OfflineAwareImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
+  src: string;
+  alt: string;
+}
+
+function OfflineAwareImage({ src, alt, className, ...props }: OfflineAwareImageProps) {
+  const [hasError, setHasError] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Reset state when src changes
+  useEffect(() => {
+    setHasError(false);
+    setIsLoaded(false);
+  }, [src]);
+
+  if (hasError) {
+    return (
+      <div 
+        className={`flex flex-col items-center justify-center bg-muted/30 backdrop-blur-xl border border-border/50 rounded-lg ${className}`}
+        style={{ minHeight: '200px', aspectRatio: '16/9' }}
+      >
+        <div className="p-6 text-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted/50 backdrop-blur-sm flex items-center justify-center">
+            <ImageOff className="w-8 h-8 text-muted-foreground/70" />
+          </div>
+          <p className="text-sm font-medium text-muted-foreground">
+            Image not available offline
+          </p>
+          <p className="text-xs text-muted-foreground/70 mt-1">
+            Connect to view this content
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {!isLoaded && (
+        <div 
+          className={`flex items-center justify-center bg-muted/20 backdrop-blur-sm animate-pulse rounded-lg ${className}`}
+          style={{ minHeight: '200px', aspectRatio: '16/9' }}
+        >
+          <div className="w-12 h-12 rounded-full bg-muted/30 backdrop-blur-sm" />
+        </div>
+      )}
+      <img
+        src={src}
+        alt={alt}
+        className={`${className} ${isLoaded ? '' : 'hidden'}`}
+        loading="lazy"
+        decoding="async"
+        onLoad={() => setIsLoaded(true)}
+        onError={() => setHasError(true)}
+        {...props}
+      />
+    </>
+  );
 }
 
 type LazyVideoProps = {
@@ -444,20 +505,13 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
                 <div className="mt-2 space-y-2">
                   {post.imageUrls.map((img, idx) => (
                     <div key={idx} className="rounded-lg overflow-hidden">
-                       <img
+                      <OfflineAwareImage
                         src={img}
                         alt={`Post image ${idx + 1}`}
                         className="w-full object-cover max-h-96 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                         loading="lazy"
-                         decoding="async"
                         onClick={() => {
                           setImageModalSrc(img);
                           setImageModalOpen(true);
-                        }}
-                        onLoad={() => console.log('Image loaded successfully:', img)}
-                        onError={(e) => {
-                          console.error('Failed to load image:', img);
-                          console.error('Image error details:', e);
                         }}
                         onTouchStart={() => handleLongPressStart(img, false)}
                         onTouchEnd={handleLongPressEnd}
@@ -470,17 +524,10 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
                 </div>
               ) : post.imageUrl && (
                 <div className="mt-2 rounded-lg overflow-hidden">
-                       <img 
+                  <OfflineAwareImage 
                     src={post.imageUrl} 
                     alt="Post content" 
-                    className="w-full object-cover max-h-96 rounded-lg cursor-pointer hover:opacity-90 transition-opacity" 
-                     loading="lazy"
-                     decoding="async"
-                    onLoad={() => console.log('Image loaded successfully:', post.imageUrl)}
-                    onError={(e) => {
-                      console.error('Failed to load image:', post.imageUrl);
-                      console.error('Image error details:', e);
-                    }}
+                    className="w-full object-cover max-h-96 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
                     onClick={() => {
                       setImageModalSrc(post.imageUrl!);
                       setImageModalOpen(true);

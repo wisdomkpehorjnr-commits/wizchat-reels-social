@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import Layout from '@/components/Layout';
 import CreatePost from '@/components/CreatePost';
 import PostCard from '@/components/PostCard';
@@ -10,135 +10,132 @@ import { RefreshCw, Search } from 'lucide-react';
 import { dataService } from '@/services/dataService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { useScrollPosition } from '@/contexts/ScrollPositionContext';
 import { FeedSkeleton } from '@/components/SkeletonLoaders';
 import { SmartLoading } from '@/components/SmartLoading';
 import GlobalSearch from '@/components/GlobalSearch';
 
+// =============================================
+// PERSISTENT IN-MEMORY STORE (survives remounts)
+// =============================================
 const HOME_FEED_CACHE_KEY = 'wizchat_home_feed_cache';
+const HOME_FEED_MIN_REFRESH_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
 
-const HOME_FEED_MIN_REFRESH_INTERVAL_MS = 2 * 60 * 1000; // avoid re-downloading when tab-switching
+// In-memory store that persists across component remounts
+const homeStore = {
+  posts: [] as any[],
+  scrollY: 0,
+  lastFetchTime: 0,
+  hasInitialized: false,
+};
 
-// Synchronous localStorage hydration - INSTANT display
-const getInitialCachedPosts = (): any[] => {
+// Sync with localStorage on page load
+const initializeFromLocalStorage = () => {
+  if (homeStore.hasInitialized) return;
+  
   try {
     const cached = localStorage.getItem(HOME_FEED_CACHE_KEY);
     if (cached) {
       const parsed = JSON.parse(cached);
-      if (parsed?.data && Array.isArray(parsed.data)) {
-        console.debug('[Home] Hydrated from localStorage instantly');
-        return parsed.data;
+      if (parsed?.data && Array.isArray(parsed.data) && parsed.data.length > 0) {
+        homeStore.posts = parsed.data;
+        homeStore.lastFetchTime = parsed.timestamp || 0;
+        console.debug('[Home] Restored from localStorage:', parsed.data.length, 'posts');
       }
     }
   } catch (e) {
-    console.debug('[Home] localStorage hydration failed:', e);
+    console.debug('[Home] localStorage parse failed:', e);
   }
-  return [];
+  homeStore.hasInitialized = true;
 };
 
-const savePostsToCache = (posts: any[]) => {
+// Initialize immediately on module load
+initializeFromLocalStorage();
+
+const saveToLocalStorage = (posts: any[]) => {
   try {
     localStorage.setItem(HOME_FEED_CACHE_KEY, JSON.stringify({
       data: posts,
       timestamp: Date.now()
     }));
   } catch (e) {
-    console.debug('[Home] Failed to cache posts:', e);
-  }
-};
-
-const getCacheTimestamp = (): number | null => {
-  try {
-    const cached = localStorage.getItem(HOME_FEED_CACHE_KEY);
-    if (!cached) return null;
-    const parsed = JSON.parse(cached);
-    return typeof parsed?.timestamp === 'number' ? parsed.timestamp : null;
-  } catch {
-    return null;
+    console.debug('[Home] Failed to save to localStorage:', e);
   }
 };
 
 const Home = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { saveScrollPosition, getScrollPosition, getCachedData, clearScrollPosition } = useScrollPosition();
-
-  // Prefer in-memory cached feed (persists across tab switches) over localStorage.
-  const initialCachedData = useMemo(() => {
-    const inMemory = getCachedData('/') as any[] | null;
-    if (inMemory && Array.isArray(inMemory) && inMemory.length > 0) return inMemory;
-    return getInitialCachedPosts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const hasCachedData = initialCachedData.length > 0;
-
-  const [posts, setPosts] = useState<any[]>(initialCachedData);
-  const [loading, setLoading] = useState(!hasCachedData); // no skeleton if cached
+  
+  // Use persistent store as initial state - INSTANT display
+  const [posts, setPosts] = useState<any[]>(homeStore.posts);
+  const [loading, setLoading] = useState(homeStore.posts.length === 0);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [showSearch, setShowSearch] = useState(false);
-  const hasLoadedDataRef = useRef(false);
-  const isRestoringScrollRef = useRef(false);
+  
+  const hasLoadedRef = useRef(false);
   const scrollRestoredRef = useRef(false);
-  const pendingRestoreScrollRef = useRef<number | null>(null);
 
-  // Capture desired scroll position on mount; apply after cached feed is rendered.
-  useEffect(() => {
-    const savedScroll = getScrollPosition('/');
-    pendingRestoreScrollRef.current = (savedScroll !== null && savedScroll > 0) ? savedScroll : null;
-  }, [getScrollPosition]);
-
-  // Apply scroll restoration once the feed is present (prevents jumping to top on tab return).
+  // Restore scroll position immediately on mount
   useLayoutEffect(() => {
     if (scrollRestoredRef.current) return;
-    if (!hasCachedData) {
-      scrollRestoredRef.current = true;
-      return;
-    }
-    if (posts.length === 0) return;
-
-    const savedScroll = pendingRestoreScrollRef.current;
-    if (savedScroll === null) {
-      scrollRestoredRef.current = true;
-      return;
-    }
-
-    isRestoringScrollRef.current = true;
-
-    requestAnimationFrame(() => {
+    scrollRestoredRef.current = true;
+    
+    if (homeStore.scrollY > 0 && homeStore.posts.length > 0) {
+      // Use double RAF to ensure DOM is rendered
       requestAnimationFrame(() => {
-        window.scrollTo({ top: savedScroll, behavior: 'auto' });
-        scrollRestoredRef.current = true;
-        isRestoringScrollRef.current = false;
+        requestAnimationFrame(() => {
+          window.scrollTo({ top: homeStore.scrollY, behavior: 'instant' as any });
+          console.debug('[Home] Restored scroll to:', homeStore.scrollY);
+        });
       });
-    });
-  }, [hasCachedData, posts.length]);
-
-  // Load data only when needed (avoid re-downloading on every tab switch)
-  useEffect(() => {
-    if (!hasLoadedDataRef.current) {
-      hasLoadedDataRef.current = true;
-      
-      if (hasCachedData) {
-        const ts = getCacheTimestamp();
-        const isFresh = typeof ts === 'number' && Date.now() - ts < HOME_FEED_MIN_REFRESH_INTERVAL_MS;
-        if (!isFresh) {
-          // Silent refresh only if cache is stale
-          loadPosts(true);
-        }
-      } else {
-        // First load - show skeleton
-        loadPosts(false);
-      }
     }
   }, []);
 
-  // Setup event listeners and URL handling
+  // Save scroll position on scroll
+  useEffect(() => {
+    const handleScroll = () => {
+      homeStore.scrollY = window.scrollY;
+    };
+    
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Sync posts to in-memory store whenever they change
+  useEffect(() => {
+    if (posts.length > 0) {
+      homeStore.posts = posts;
+      saveToLocalStorage(posts);
+    }
+  }, [posts]);
+
+  // Fetch posts only when needed (not on every mount)
+  useEffect(() => {
+    if (hasLoadedRef.current) return;
+    hasLoadedRef.current = true;
+
+    const now = Date.now();
+    const timeSinceLastFetch = now - homeStore.lastFetchTime;
+    const isCacheStale = timeSinceLastFetch > HOME_FEED_MIN_REFRESH_INTERVAL_MS;
+    
+    if (homeStore.posts.length > 0 && !isCacheStale) {
+      // Cache is fresh - don't fetch
+      console.debug('[Home] Using cached posts, skipping fetch');
+      setLoading(false);
+      return;
+    }
+
+    // Either no cache or cache is stale - fetch silently if we have data
+    loadPosts(homeStore.posts.length > 0);
+  }, []);
+
+  // Event listeners
   useEffect(() => {
     const handleRefreshHome = () => refreshFeed();
     window.addEventListener('refreshHome', handleRefreshHome);
 
+    // Handle post URL parameter
     const urlParams = new URLSearchParams(window.location.search);
     const postId = urlParams.get('post');
     if (postId) {
@@ -154,7 +151,6 @@ const Home = () => {
           setTimeout(scrollToPost, 500);
         }
       };
-
       window.history.replaceState({}, '', '/');
       setTimeout(scrollToPost, 1000);
     }
@@ -164,19 +160,11 @@ const Home = () => {
     };
   }, []);
 
-  // Save posts to cache whenever they change
-  useEffect(() => {
-    if (posts.length > 0 && !isRestoringScrollRef.current && scrollRestoredRef.current) {
-      const currentScroll = window.scrollY;
-      saveScrollPosition('/', currentScroll, posts);
-      savePostsToCache(posts); // Persist for instant hydration
-    }
-  }, [posts]);
-
-  const loadPosts = async (silent = false) => {
+  const loadPosts = useCallback(async (silent = false) => {
     if (!user) return;
+    
     try {
-      if (!silent && !hasCachedData) {
+      if (!silent) {
         setLoading(true);
       }
       setError(null);
@@ -191,17 +179,14 @@ const Home = () => {
       const sortedPosts = [...pinnedPosts, ...otherPosts];
 
       setPosts(sortedPosts);
-      savePostsToCache(sortedPosts); // Persist for instant hydration
-
-      if (!silent) {
-        const currentScroll = window.scrollY;
-        saveScrollPosition('/', currentScroll, sortedPosts);
-      }
-
+      homeStore.posts = sortedPosts;
+      homeStore.lastFetchTime = Date.now();
+      saveToLocalStorage(sortedPosts);
+      
+      console.debug('[Home] Fetched', sortedPosts.length, 'posts');
     } catch (error) {
       console.error('Error fetching posts:', error);
-      // Only show error if we have no cached data
-      if (!hasCachedData) {
+      if (homeStore.posts.length === 0) {
         const err = error instanceof Error ? error : new Error('Failed to fetch posts');
         setError(err);
         toast({
@@ -213,7 +198,7 @@ const Home = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, toast]);
 
   const handleLikePost = async (postId: string) => {
     try {
@@ -224,7 +209,7 @@ const Home = () => {
             ? { 
                 ...post, 
                 likes: post.likes.includes(user?.id) 
-                  ? post.likes.filter(id => id !== user?.id) 
+                  ? post.likes.filter((id: string) => id !== user?.id) 
                   : [...post.likes, user?.id] 
               } 
             : post
@@ -283,9 +268,6 @@ const Home = () => {
     setRefreshing(true);
     setError(null);
     try {
-      clearScrollPosition('/');
-      scrollRestoredRef.current = false;
-
       const [postsData, pinnedIds] = await Promise.all([
         dataService.getPosts(),
         dataService.getActivePinnedPosts(),
@@ -296,10 +278,12 @@ const Home = () => {
       const freshPosts = [...pinnedPosts, ...otherPosts];
 
       setPosts(freshPosts);
-      savePostsToCache(freshPosts);
+      homeStore.posts = freshPosts;
+      homeStore.lastFetchTime = Date.now();
+      homeStore.scrollY = 0;
+      saveToLocalStorage(freshPosts);
+      
       window.scrollTo({ top: 0, behavior: 'smooth' });
-      saveScrollPosition('/', 0, freshPosts);
-      scrollRestoredRef.current = true;
 
       toast({
         title: "Feed Refreshed",
@@ -316,6 +300,37 @@ const Home = () => {
       });
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  const handlePostCreated = async (postData: any) => {
+    try {
+      const createdPost = await dataService.createPost(postData);
+      
+      setPosts(prevPosts => {
+        const updated = [createdPost, ...prevPosts];
+        homeStore.posts = updated;
+        saveToLocalStorage(updated);
+        return updated;
+      });
+
+      setTimeout(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        homeStore.scrollY = 0;
+      }, 100);
+
+      toast({
+        title: "Success",
+        description: "Post created successfully!",
+        duration: 2000
+      });
+    } catch (error) {
+      console.error('Error creating post:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create post. Please try again.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -352,35 +367,7 @@ const Home = () => {
 
           {/* Create Post */}
           <div className="mb-6">
-            <CreatePost onPostCreated={async (postData) => {
-              try {
-                const createdPost = await dataService.createPost(postData);
-
-                setPosts(prevPosts => {
-                  const updated = [createdPost, ...prevPosts];
-                  savePostsToCache(updated);
-                  return updated;
-                });
-
-                setTimeout(() => {
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                  saveScrollPosition('/', 0, [createdPost, ...posts]);
-                }, 100);
-
-                toast({
-                  title: "Success",
-                  description: "Post created successfully!",
-                  duration: 2000
-                });
-              } catch (error) {
-                console.error('Error creating post:', error);
-                toast({
-                  title: "Error",
-                  description: "Failed to create post. Please try again.",
-                  variant: "destructive"
-                });
-              }
-            }} />
+            <CreatePost onPostCreated={handlePostCreated} />
           </div>
 
           {/* Watch Reels Section */}
