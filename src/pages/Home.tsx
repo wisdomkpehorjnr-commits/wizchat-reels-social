@@ -13,25 +13,67 @@ import { useToast } from '@/hooks/use-toast';
 import { FeedSkeleton } from '@/components/SkeletonLoaders';
 import { SmartLoading } from '@/components/SmartLoading';
 import GlobalSearch from '@/components/GlobalSearch';
-import { useFeedStore, getFeedScrollPosition, setFeedScrollPosition } from '@/hooks/useFeedStore';
+
+// =============================================
+// PERSISTENT IN-MEMORY STORE (survives remounts)
+// =============================================
+const HOME_FEED_CACHE_KEY = 'wizchat_home_feed_cache';
+const HOME_FEED_MIN_REFRESH_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
+
+// In-memory store that persists across component remounts
+const homeStore = {
+  posts: [] as any[],
+  scrollY: 0,
+  lastFetchTime: 0,
+  hasInitialized: false,
+};
+
+// Sync with localStorage on page load
+const initializeFromLocalStorage = () => {
+  if (homeStore.hasInitialized) return;
+  
+  try {
+    const cached = localStorage.getItem(HOME_FEED_CACHE_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (parsed?.data && Array.isArray(parsed.data) && parsed.data.length > 0) {
+        homeStore.posts = parsed.data;
+        homeStore.lastFetchTime = parsed.timestamp || 0;
+        console.debug('[Home] Restored from localStorage:', parsed.data.length, 'posts');
+      }
+    }
+  } catch (e) {
+    console.debug('[Home] localStorage parse failed:', e);
+  }
+  homeStore.hasInitialized = true;
+};
+
+// Initialize immediately on module load
+initializeFromLocalStorage();
+
+const saveToLocalStorage = (posts: any[]) => {
+  try {
+    localStorage.setItem(HOME_FEED_CACHE_KEY, JSON.stringify({
+      data: posts,
+      timestamp: Date.now()
+    }));
+  } catch (e) {
+    console.debug('[Home] Failed to save to localStorage:', e);
+  }
+};
 
 const Home = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  
+  // Use persistent store as initial state - INSTANT display
+  const [posts, setPosts] = useState<any[]>(homeStore.posts);
+  const [loading, setLoading] = useState(homeStore.posts.length === 0);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
   const [showSearch, setShowSearch] = useState(false);
   
-  // Use the persistent feed store
-  const {
-    posts,
-    loading,
-    refreshing,
-    error,
-    fullRefresh,
-    addPostLocally,
-    updatePostLocally,
-    getSavedScrollY,
-  } = useFeedStore({ userId: user?.id });
-
+  const hasLoadedRef = useRef(false);
   const scrollRestoredRef = useRef(false);
 
   // Restore scroll position immediately on mount
@@ -39,31 +81,58 @@ const Home = () => {
     if (scrollRestoredRef.current) return;
     scrollRestoredRef.current = true;
     
-    const savedScroll = getSavedScrollY();
-    if (savedScroll > 0 && posts.length > 0) {
+    if (homeStore.scrollY > 0 && homeStore.posts.length > 0) {
       // Use double RAF to ensure DOM is rendered
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          window.scrollTo({ top: savedScroll, behavior: 'instant' as any });
-          console.debug('[Home] Restored scroll to:', savedScroll);
+          window.scrollTo({ top: homeStore.scrollY, behavior: 'instant' as any });
+          console.debug('[Home] Restored scroll to:', homeStore.scrollY);
         });
       });
     }
-  }, [posts.length, getSavedScrollY]);
+  }, []);
 
   // Save scroll position on scroll
   useEffect(() => {
     const handleScroll = () => {
-      setFeedScrollPosition(window.scrollY);
+      homeStore.scrollY = window.scrollY;
     };
     
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Sync posts to in-memory store whenever they change
+  useEffect(() => {
+    if (posts.length > 0) {
+      homeStore.posts = posts;
+      saveToLocalStorage(posts);
+    }
+  }, [posts]);
+
+  // Fetch posts only when needed (not on every mount)
+  useEffect(() => {
+    if (hasLoadedRef.current) return;
+    hasLoadedRef.current = true;
+
+    const now = Date.now();
+    const timeSinceLastFetch = now - homeStore.lastFetchTime;
+    const isCacheStale = timeSinceLastFetch > HOME_FEED_MIN_REFRESH_INTERVAL_MS;
+    
+    if (homeStore.posts.length > 0 && !isCacheStale) {
+      // Cache is fresh - don't fetch
+      console.debug('[Home] Using cached posts, skipping fetch');
+      setLoading(false);
+      return;
+    }
+
+    // Either no cache or cache is stale - fetch silently if we have data
+    loadPosts(homeStore.posts.length > 0);
+  }, []);
+
   // Event listeners
   useEffect(() => {
-    const handleRefreshHome = () => fullRefresh();
+    const handleRefreshHome = () => refreshFeed();
     window.addEventListener('refreshHome', handleRefreshHome);
 
     // Handle post URL parameter
@@ -89,30 +158,66 @@ const Home = () => {
     return () => {
       window.removeEventListener('refreshHome', handleRefreshHome);
     };
-  }, [fullRefresh]);
+  }, []);
 
-  const handleLikePost = async (postId: string) => {
+  const loadPosts = useCallback(async (silent = false) => {
     if (!user) return;
     
     try {
-      // Optimistic update
-      updatePostLocally(postId, post => ({
-        ...post,
-        likes: post.likes.includes(user.id)
-          ? post.likes.filter(id => id !== user.id)
-          : [...post.likes, user.id],
-      }));
+      if (!silent) {
+        setLoading(true);
+      }
+      setError(null);
+
+      const [postsData, pinnedIds] = await Promise.all([
+        dataService.getPosts(),
+        dataService.getActivePinnedPosts(),
+      ]);
+
+      const pinnedPosts = postsData.filter(post => pinnedIds.includes(post.id));
+      const otherPosts = postsData.filter(post => !pinnedIds.includes(post.id));
+      const sortedPosts = [...pinnedPosts, ...otherPosts];
+
+      setPosts(sortedPosts);
+      homeStore.posts = sortedPosts;
+      homeStore.lastFetchTime = Date.now();
+      saveToLocalStorage(sortedPosts);
       
+      console.debug('[Home] Fetched', sortedPosts.length, 'posts');
+    } catch (error) {
+      console.error('Error fetching posts:', error);
+      if (homeStore.posts.length === 0) {
+        const err = error instanceof Error ? error : new Error('Failed to fetch posts');
+        setError(err);
+        toast({
+          title: "Error",
+          description: "Failed to load posts",
+          variant: "destructive"
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [user, toast]);
+
+  const handleLikePost = async (postId: string) => {
+    try {
       await dataService.likePost(postId);
+      setPosts(currentPosts => {
+        const updated = currentPosts.map(post =>
+          post.id === postId 
+            ? { 
+                ...post, 
+                likes: post.likes.includes(user?.id) 
+                  ? post.likes.filter((id: string) => id !== user?.id) 
+                  : [...post.likes, user?.id] 
+              } 
+            : post
+        );
+        return updated;
+      });
     } catch (error) {
       console.error('Error liking post:', error);
-      // Revert on error
-      updatePostLocally(postId, post => ({
-        ...post,
-        likes: post.likes.includes(user.id)
-          ? post.likes.filter(id => id !== user.id)
-          : [...post.likes, user.id],
-      }));
       toast({
         title: "Error",
         description: "Failed to like post",
@@ -160,23 +265,58 @@ const Home = () => {
   };
 
   const refreshFeed = async () => {
-    await fullRefresh();
-    toast({
-      title: "Feed Refreshed",
-      description: "Your feed has been updated with the latest posts"
-    });
+    setRefreshing(true);
+    setError(null);
+    try {
+      const [postsData, pinnedIds] = await Promise.all([
+        dataService.getPosts(),
+        dataService.getActivePinnedPosts(),
+      ]);
+
+      const pinnedPosts = postsData.filter(post => pinnedIds.includes(post.id));
+      const otherPosts = postsData.filter(post => !pinnedIds.includes(post.id));
+      const freshPosts = [...pinnedPosts, ...otherPosts];
+
+      setPosts(freshPosts);
+      homeStore.posts = freshPosts;
+      homeStore.lastFetchTime = Date.now();
+      homeStore.scrollY = 0;
+      saveToLocalStorage(freshPosts);
+      
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      toast({
+        title: "Feed Refreshed",
+        description: "Your feed has been updated with the latest posts"
+      });
+    } catch (error) {
+      console.error('Error refreshing feed:', error);
+      const err = error instanceof Error ? error : new Error('Failed to refresh feed');
+      setError(err);
+      toast({
+        title: "Error",
+        description: "Failed to refresh feed",
+        variant: "destructive"
+      });
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const handlePostCreated = async (postData: any) => {
     try {
       const createdPost = await dataService.createPost(postData);
       
-      // Add to local store immediately
-      addPostLocally(createdPost);
+      setPosts(prevPosts => {
+        const updated = [createdPost, ...prevPosts];
+        homeStore.posts = updated;
+        saveToLocalStorage(updated);
+        return updated;
+      });
 
       setTimeout(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
-        setFeedScrollPosition(0);
+        homeStore.scrollY = 0;
       }, 100);
 
       toast({
@@ -193,10 +333,6 @@ const Home = () => {
       });
     }
   };
-
-  // Filter non-reel posts for feed display
-  const feedPosts = posts.filter(post => !post.isReel);
-  const reelPosts = posts.filter(post => post.isReel || post.videoUrl);
 
   return (
     <Layout>
@@ -235,9 +371,9 @@ const Home = () => {
           </div>
 
           {/* Watch Reels Section */}
-          {reelPosts.length > 0 && (
+          {posts.filter(post => post.isReel || post.videoUrl).length > 0 && (
             <div className="mb-6">
-              <WatchReelsCard reelPosts={reelPosts} />
+              <WatchReelsCard reelPosts={posts.filter(post => post.isReel || post.videoUrl)} />
             </div>
           )}
 
@@ -259,24 +395,27 @@ const Home = () => {
                 <p className="text-muted-foreground">No posts yet. Start following people to see their posts!</p>
               </div>
             }
-            onRetry={fullRefresh}
+            onRetry={() => loadPosts()}
           >
             <div className="space-y-6">
-              {feedPosts.map((post, index) => {
-                const shouldShowSuggestion = (index + 1) % 60 === 0;
+              {posts
+                .filter(post => !post.isReel)
+                .map((post, index) => {
+                  const shouldShowSuggestion = (index + 1) % 60 === 0;
 
-                return (
-                  <div key={post.id} data-post-id={post.id}>
-                    <PostCard
-                      post={post}
-                      onPostUpdate={fullRefresh}
-                    />
-                    {shouldShowSuggestion && (
-                      <FriendsSuggestionCard />
-                    )}
-                  </div>
-                );
-              })}
+                  return (
+                    <div key={post.id}>
+                      <PostCard
+                        post={post}
+                        onPostUpdate={loadPosts}
+                      />
+                      {shouldShowSuggestion && (
+                        <FriendsSuggestionCard />
+                      )}
+                    </div>
+                  );
+                })
+              }
             </div>
           </SmartLoading>
         </div>
