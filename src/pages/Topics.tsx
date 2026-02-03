@@ -4,12 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { MessageCircle, Users, Flame } from "lucide-react";
+import { MessageCircle, Users, Flame, WifiOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { ListSkeleton } from "@/components/SkeletonLoaders";
 
 const TOPICS_CACHE_KEY = 'wizchat_topics_cache';
+const TOPICS_MIN_REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 const normalizeTopicRoomName = (name: string) => {
   const n = (name || '').trim().toLowerCase();
@@ -25,22 +26,43 @@ interface TopicRoomType {
   isJoined?: boolean;
 }
 
-// Synchronous localStorage hydration - INSTANT display
-const getInitialCachedTopics = (): TopicRoomType[] => {
+// =============================================
+// PERSISTENT MODULE-LEVEL STORE (survives all remounts)
+// =============================================
+interface TopicsStore {
+  rooms: TopicRoomType[];
+  lastFetchTime: number;
+  isInitialized: boolean;
+}
+
+const topicsStore: TopicsStore = {
+  rooms: [],
+  lastFetchTime: 0,
+  isInitialized: false,
+};
+
+// SYNCHRONOUS initialization from localStorage on module load
+(() => {
+  if (topicsStore.isInitialized) return;
+  
   try {
     const cached = localStorage.getItem(TOPICS_CACHE_KEY);
     if (cached) {
       const parsed = JSON.parse(cached);
       if (parsed?.data && Array.isArray(parsed.data)) {
-        console.debug('[Topics] Hydrated from localStorage instantly');
-        return parsed.data;
+        topicsStore.rooms = parsed.data.map((r: TopicRoomType) => ({
+          ...r,
+          name: normalizeTopicRoomName(r.name)
+        }));
+        topicsStore.lastFetchTime = parsed.timestamp || 0;
+        console.debug('[Topics] INSTANT hydration from localStorage:', topicsStore.rooms.length, 'rooms');
       }
     }
   } catch (e) {
     console.debug('[Topics] localStorage hydration failed:', e);
   }
-  return [];
-};
+  topicsStore.isInitialized = true;
+})();
 
 const saveTopicsToCache = (rooms: TopicRoomType[]) => {
   try {
@@ -48,6 +70,8 @@ const saveTopicsToCache = (rooms: TopicRoomType[]) => {
       data: rooms,
       timestamp: Date.now()
     }));
+    topicsStore.rooms = rooms;
+    topicsStore.lastFetchTime = Date.now();
   } catch (e) {
     console.debug('[Topics] Failed to cache topics:', e);
   }
@@ -58,29 +82,51 @@ const Topics = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Synchronous hydration - NO loading if cached
-  const initialCachedData = getInitialCachedTopics();
-  const hasCachedData = initialCachedData.length > 0;
+  // INSTANT display from module store
+  const hasCachedData = topicsStore.rooms.length > 0;
 
-  const [rooms, setRooms] = useState<TopicRoomType[]>(
-    initialCachedData.map((r) => ({ ...r, name: normalizeTopicRoomName(r.name) }))
-  );
+  const [rooms, setRooms] = useState<TopicRoomType[]>(topicsStore.rooms);
   const [loading, setLoading] = useState(!hasCachedData);
   const [error, setError] = useState<Error | null>(null);
   const [dataLoaded, setDataLoaded] = useState(hasCachedData);
   const [joiningRoomId, setJoiningRoomId] = useState<string | null>(null);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const hasLoadedRef = useRef(false);
+
+  // Network status listener
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOffline(false);
+      // Silent refresh when coming back online
+      loadRooms(true);
+    };
+    const handleOffline = () => setIsOffline(true);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     if (!hasLoadedRef.current) {
       hasLoadedRef.current = true;
       
-      // If cached, display instantly and do silent background refresh
-      if (hasCachedData) {
-        loadRooms(true); // silent background refresh
-      } else {
-        loadRooms(false); // first load, show skeleton
+      const now = Date.now();
+      const timeSinceLastFetch = now - topicsStore.lastFetchTime;
+      const isCacheStale = timeSinceLastFetch > TOPICS_MIN_REFRESH_INTERVAL_MS;
+      
+      if (hasCachedData && !isCacheStale) {
+        console.debug('[Topics] Cache fresh, skipping network fetch');
+        setLoading(false);
+        return;
       }
+      
+      // Background refresh if we have cached data
+      loadRooms(hasCachedData);
     }
     
     // Subscribe to room_participants changes for real-time updates (only if user logged in)
@@ -245,10 +291,18 @@ const Topics = () => {
           {/* Hot Topic Rooms Section */}
           <Card className="border-2 border-primary bg-card shadow-lg">
             <CardHeader className="p-6 pb-4">
-              <CardTitle className="text-2xl font-bold text-foreground flex items-center gap-2">
-                <Flame className="w-6 h-6 text-orange-500" />
-                Hot Topic Rooms
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-2xl font-bold text-foreground flex items-center gap-2">
+                  <Flame className="w-6 h-6 text-orange-500" />
+                  Hot Topic Rooms
+                </CardTitle>
+                {isOffline && (
+                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                    <WifiOff className="w-4 h-4" />
+                    Offline
+                  </div>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="p-6 pt-0 space-y-3">
               {loading ? (

@@ -9,14 +9,72 @@ import { Post } from '@/types';
 import { dataService } from '@/services/dataService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMediaOptimization } from '@/hooks/useMediaOptimization';
+import { WifiOff } from 'lucide-react';
+
+// =============================================
+// PERSISTENT MODULE-LEVEL STORE (survives all remounts)
+// =============================================
+const REELS_CACHE_KEY = 'wizchat_reels_cache';
+const REELS_MIN_REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+
+interface ReelsStore {
+  reels: Post[];
+  lastFetchTime: number;
+  isInitialized: boolean;
+}
+
+const reelsStore: ReelsStore = {
+  reels: [],
+  lastFetchTime: 0,
+  isInitialized: false,
+};
+
+// SYNCHRONOUS initialization from localStorage on module load
+(() => {
+  if (reelsStore.isInitialized) return;
+  
+  try {
+    const cached = localStorage.getItem(REELS_CACHE_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (parsed?.data && Array.isArray(parsed.data) && parsed.data.length > 0) {
+        reelsStore.reels = parsed.data;
+        reelsStore.lastFetchTime = parsed.timestamp || 0;
+        console.debug('[Reels] INSTANT hydration from localStorage:', parsed.data.length, 'reels');
+      }
+    }
+  } catch (e) {
+    console.debug('[Reels] localStorage parse failed:', e);
+  }
+  reelsStore.isInitialized = true;
+})();
+
+const saveReelsToLocalStorage = (reels: Post[]) => {
+  try {
+    localStorage.setItem(REELS_CACHE_KEY, JSON.stringify({
+      data: reels,
+      timestamp: Date.now()
+    }));
+  } catch (e) {
+    console.debug('[Reels] Failed to save to localStorage:', e);
+  }
+};
 
 export const ReelsFeed: React.FC = () => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const obsRef = useRef<IntersectionObserver | null>(null);
-  const [posts, setPosts] = useState<Post[]>([]);
+  const hasLoadedRef = useRef(false);
+  
+  // INSTANT display from module store
+  const hasCachedReels = reelsStore.reels.length > 0;
+  
+  const [posts, setPosts] = useState<Post[]>(reelsStore.reels);
+  const [loading, setLoading] = useState(!hasCachedReels);
   const [activeIndex, setActiveIndex] = useState(0);
   const [likes, setLikes] = useState<Record<string, boolean>>({});
   const [commentsOpenFor, setCommentsOpenFor] = useState<string | null>(null);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  
   const { isDarkMode } = useTheme();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -25,30 +83,77 @@ export const ReelsFeed: React.FC = () => {
   // Only load 5 reels at a time to save data
   const [visibleRange, setVisibleRange] = useState({ start: 0, end: 5 });
 
-  // Fetch reels only once on mount - no repeated calls
+  // Network status listener
   useEffect(() => {
-    let mounted = true;
-    
-    (async () => {
-      try {
-        const all = await dataService.getPosts();
-        if (!mounted) return;
-        
-        const reels = (all || []).filter(p => p.videoUrl || p.isReel || p.mediaType === 'video');
-        setPosts(reels);
-        
-        // Log data optimization info
-        console.log(`[ReelsFeed] Loaded ${reels.length} reels. Data saver: ${isDataSaverEnabled}, Network: ${networkInfo.type}`);
-      } catch (err) {
-        console.error('Failed to load reels', err);
-        if (mounted) {
-          toast({ title: 'Failed to load reels', variant: 'destructive' });
-        }
+    const handleOnline = () => {
+      setIsOffline(false);
+      // Silent refresh when coming back online
+      if (hasLoadedRef.current) {
+        loadReels(true);
       }
-    })();
+    };
+    const handleOffline = () => setIsOffline(true);
     
-    return () => { mounted = false; };
-  }, []); // Empty deps - only load once
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Fetch reels with caching
+  useEffect(() => {
+    if (hasLoadedRef.current) return;
+    hasLoadedRef.current = true;
+
+    const now = Date.now();
+    const timeSinceLastFetch = now - reelsStore.lastFetchTime;
+    const isCacheStale = timeSinceLastFetch > REELS_MIN_REFRESH_INTERVAL_MS;
+    
+    if (hasCachedReels && !isCacheStale) {
+      console.debug('[Reels] Cache fresh, skipping network fetch');
+      setLoading(false);
+      return;
+    }
+
+    // Background refresh if we have cached data
+    loadReels(hasCachedReels);
+  }, [hasCachedReels]);
+
+  const loadReels = async (silent = false) => {
+    try {
+      if (!silent) {
+        setLoading(true);
+      }
+      
+      const all = await dataService.getPosts();
+      const reels = (all || []).filter(p => p.videoUrl || p.isReel || p.mediaType === 'video');
+      
+      setPosts(reels);
+      reelsStore.reels = reels;
+      reelsStore.lastFetchTime = Date.now();
+      saveReelsToLocalStorage(reels);
+      
+      console.debug(`[Reels] Loaded ${reels.length} reels. Data saver: ${isDataSaverEnabled}, Network: ${networkInfo.type}`);
+    } catch (err) {
+      console.error('Failed to load reels', err);
+      if (reelsStore.reels.length === 0) {
+        toast({ title: 'Failed to load reels', variant: 'destructive' });
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Sync posts to store
+  useEffect(() => {
+    if (posts.length > 0) {
+      reelsStore.reels = posts;
+      saveReelsToLocalStorage(posts);
+    }
+  }, [posts]);
 
   useEffect(() => {
     // Initialize likes from loaded posts' isLiked flag
@@ -166,12 +271,49 @@ export const ReelsFeed: React.FC = () => {
     shouldRender: i >= visibleRange.start && i <= visibleRange.end
   }));
 
+  // Loading skeleton
+  if (loading && posts.length === 0) {
+    return (
+      <div className={`fixed inset-0 ${isDarkMode ? 'bg-black' : 'bg-white'} flex items-center justify-center`}>
+        <div className="animate-pulse flex flex-col items-center gap-4">
+          <div className="w-20 h-20 rounded-full bg-muted" />
+          <div className="w-32 h-4 bg-muted rounded" />
+        </div>
+      </div>
+    );
+  }
+
+  // Offline with no cached reels
+  if (isOffline && posts.length === 0) {
+    return (
+      <div className={`fixed inset-0 ${isDarkMode ? 'bg-black' : 'bg-white'} flex items-center justify-center`}>
+        <div className="text-center p-8">
+          <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-muted/20 backdrop-blur-xl flex items-center justify-center">
+            <WifiOff className="w-10 h-10 text-muted-foreground" />
+          </div>
+          <h3 className="text-lg font-semibold text-foreground mb-2">You're offline</h3>
+          <p className="text-muted-foreground text-sm">
+            Connect to the internet to load reels
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`fixed inset-0 ${isDarkMode ? 'bg-black' : 'bg-white'}`}>
       {/* Data saver banner */}
       {isDataSaverEnabled && (
         <div className="absolute top-0 left-0 right-0 z-50 bg-yellow-500/90 text-black text-center py-1 text-sm font-medium">
           Data Saver Mode - Tap videos to play
+        </div>
+      )}
+      
+      {/* Offline indicator */}
+      {isOffline && posts.length > 0 && (
+        <div className="absolute top-0 left-0 right-0 z-50 bg-muted/80 backdrop-blur-xl text-foreground text-center py-2 text-sm">
+          <WifiOff className="w-4 h-4 inline-block mr-2" />
+          Offline - Showing cached reels
         </div>
       )}
       

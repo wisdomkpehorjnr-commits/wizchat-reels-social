@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import { Button } from '@/components/ui/button';
@@ -12,12 +12,12 @@ import {
   Search, 
   UserPlus, 
   UserMinus, 
-  MessageCircle, 
   Users, 
   Clock,
   Check,
   X,
-  Heart
+  Heart,
+  WifiOff
 } from 'lucide-react';
 import { Friend, User } from '@/types';
 import { dataService } from '@/services/dataService';
@@ -26,11 +26,19 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useCache } from '@/hooks/useCache';
 import { useTabCache } from '@/hooks/useTabCache';
-import { ListItemSkeleton, ListSkeleton } from '@/components/SkeletonLoaders';
-import { SmartLoading } from '@/components/SmartLoading';
 import ConfirmationDialog from '@/components/ui/confirmation-dialog';
 
-import React from 'react';
+const FRIENDS_CACHE_KEY = 'wizchat_friends_cache';
+
+const friendsStore = { friends: [] as Friend[], lastFetchTime: 0 };
+
+const saveFriendsToCache = (friends: Friend[]) => {
+  try {
+    localStorage.setItem(FRIENDS_CACHE_KEY, JSON.stringify({ data: friends, timestamp: Date.now() }));
+    friendsStore.friends = friends;
+    friendsStore.lastFetchTime = Date.now();
+  } catch {}
+};
 
 const Friends = () => {
   const { user } = useAuth();
@@ -72,7 +80,8 @@ const Friends = () => {
   const [searchLoading, setSearchLoading] = useState(false);
   const [confirmUnfriend, setConfirmUnfriend] = useState<string | null>(null);
   const [followingStates, setFollowingStates] = useState<Record<string, boolean>>({});
-  const hasLoadedRef = React.useRef(false);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const hasLoadedRef = useRef(false);
 
   // When async caches hydrate, reflect them immediately
   useEffect(() => {
@@ -119,24 +128,17 @@ const Friends = () => {
     if (!user) return;
     
     try {
-      // Only show loading if no cache and not silent
-      if (!silent && !tabCachedFriends && !cachedFriends) {
+      if (!silent) {
         setLoading(true);
       }
       
       setError(null);
       const userFriends = await dataService.getFriends();
       setFriends(userFriends);
-      
-      // Update both cache layers
-      setCachedFriends(userFriends);
-      await cacheTabFriends(userFriends); // Persist for instant tab switching
-      
-      // Avoid expensive per-friend network checks on tab open (saves data).
-      // Follow state will be derived lazily only when the user taps Follow/Unfollow.
+      saveFriendsToCache(userFriends);
     } catch (error) {
       console.error('Error loading friends:', error);
-      if (!silent) {
+      if (!silent && friendsStore.friends.length === 0) {
         const err = error instanceof Error ? error : new Error('Failed to load friends');
         setError(err);
         toast({
@@ -276,10 +278,18 @@ const Friends = () => {
         <div className="max-w-4xl mx-auto">
           <Card className="border-2 green-border mb-6">
             <CardHeader>
-              <CardTitle className="text-2xl font-bold text-foreground flex items-center">
-                <Users className="w-6 h-6 mr-2" />
-                Friends
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-2xl font-bold text-foreground flex items-center">
+                  <Users className="w-6 h-6 mr-2" />
+                  Friends
+                </CardTitle>
+                {isOffline && (
+                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                    <WifiOff className="w-4 h-4" />
+                    Offline
+                  </div>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               <div className="relative">

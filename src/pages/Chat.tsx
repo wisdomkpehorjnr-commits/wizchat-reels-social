@@ -6,7 +6,7 @@ import ChatListItem from '@/components/ChatListItem';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, MessageCircle, Bot } from 'lucide-react';
+import { Search, MessageCircle, Bot, WifiOff } from 'lucide-react';
 import { Friend, User } from '@/types';
 import { dataService } from '@/services/dataService';
 import { useAuth } from '@/contexts/AuthContext';
@@ -15,22 +15,42 @@ import { supabase } from '@/integrations/supabase/client';
 
 const CHAT_LIST_CACHE_KEY = 'wizchat_chat_list_cache';
 
-// Synchronous localStorage hydration - INSTANT display, no waiting
-const getInitialCachedChatList = (): Friend[] => {
+// =============================================
+// PERSISTENT MODULE-LEVEL STORE (survives all remounts)
+// =============================================
+interface ChatStore {
+  friends: Friend[];
+  lastFetchTime: number;
+  isInitialized: boolean;
+}
+
+const chatStore: ChatStore = {
+  friends: [],
+  lastFetchTime: 0,
+  isInitialized: false,
+};
+
+const CHAT_MIN_REFRESH_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
+
+// SYNCHRONOUS initialization from localStorage on module load
+(() => {
+  if (chatStore.isInitialized) return;
+  
   try {
     const cached = localStorage.getItem(CHAT_LIST_CACHE_KEY);
     if (cached) {
       const parsed = JSON.parse(cached);
       if (parsed?.data && Array.isArray(parsed.data)) {
-        console.debug('[Chat] Hydrated from localStorage instantly');
-        return parsed.data;
+        chatStore.friends = parsed.data;
+        chatStore.lastFetchTime = parsed.timestamp || 0;
+        console.debug('[Chat] INSTANT hydration from localStorage:', parsed.data.length, 'friends');
       }
     }
   } catch (e) {
     console.debug('[Chat] localStorage hydration failed:', e);
   }
-  return [];
-};
+  chatStore.isInitialized = true;
+})();
 
 const saveChatListToCache = (friends: Friend[]) => {
   try {
@@ -38,6 +58,8 @@ const saveChatListToCache = (friends: Friend[]) => {
       data: friends,
       timestamp: Date.now()
     }));
+    chatStore.friends = friends;
+    chatStore.lastFetchTime = Date.now();
   } catch (e) {
     console.debug('[Chat] Failed to cache chat list:', e);
   }
@@ -61,28 +83,51 @@ const Chat = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   
-  // Synchronous hydration from localStorage - NO loading state if cached
-  const initialCachedData = getInitialCachedChatList();
-  const hasCachedData = initialCachedData.length > 0;
+  // INSTANT display from module store - NO loading if we have cached data
+  const hasCachedData = chatStore.friends.length > 0;
   
-  const [friends, setFriends] = useState<Friend[]>(initialCachedData);
+  const [friends, setFriends] = useState<Friend[]>(chatStore.friends);
   const [selectedFriend, setSelectedFriend] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  // NEVER show loading if we have cached data - instant display
   const [loading, setLoading] = useState(!hasCachedData);
   const [pinnedFriends, setPinnedFriends] = useState<Set<string>>(new Set());
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const hasLoadedRef = useRef(false);
+
+  // Network status listener
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOffline(false);
+      // Silent refresh when coming back online
+      loadData(true);
+    };
+    const handleOffline = () => setIsOffline(true);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     if (user && !hasLoadedRef.current) {
       hasLoadedRef.current = true;
       
-      // If cached, display is already instant, do silent background refresh
-      if (hasCachedData) {
-        loadData(true); // silent background refresh
-      } else {
-        loadData(false); // first load, show skeleton
+      const now = Date.now();
+      const timeSinceLastFetch = now - chatStore.lastFetchTime;
+      const isCacheStale = timeSinceLastFetch > CHAT_MIN_REFRESH_INTERVAL_MS;
+      
+      if (hasCachedData && !isCacheStale) {
+        console.debug('[Chat] Cache fresh, skipping network fetch');
+        setLoading(false);
+        return;
       }
+      
+      // Background refresh if we have cached data
+      loadData(hasCachedData);
     }
     
     // Listen for chat list updates (when hidden users send messages)
@@ -250,6 +295,12 @@ const Chat = () => {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-2xl font-bold text-foreground">Chat</CardTitle>
+                {isOffline && (
+                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                    <WifiOff className="w-4 h-4" />
+                    Offline
+                  </div>
+                )}
               </div>
             </CardHeader>
             <CardContent>

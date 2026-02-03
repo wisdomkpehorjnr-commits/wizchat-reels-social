@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
-import ThemeAwareDialog from '@/components/ThemeAwareDialog';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import Layout from '@/components/Layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,15 +11,45 @@ import { dataService } from '@/services/dataService';
 import { ProfileService } from '@/services/profileService';
 import { Post, SavedPost, Follow } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
-import { Calendar, MapPin, Link as LinkIcon, Edit, MessageCircle, UserPlus, UserMinus, Bookmark, Users, UserCircle, Trash2, Heart, ThumbsUp, X } from 'lucide-react';
+import { Calendar, MapPin, Link as LinkIcon, Edit, MessageCircle, UserPlus, UserMinus, Bookmark, Users, UserCircle, WifiOff } from 'lucide-react';
 import EditProfileDialog from '@/components/EditProfileDialog';
 import PostCard from '@/components/PostCard';
 import ImageModal from '@/components/ImageModal';
-import AvatarStudio, { EnhancedAvatarData } from '@/components/AvatarStudio';
+import AvatarStudio from '@/components/AvatarStudio';
 import { useToast } from '@/components/ui/use-toast';
 import { useNavigate, useParams } from 'react-router-dom';
 import VerificationBadge from '@/components/VerificationBadge';
 import LoadingDots from '@/components/LoadingDots';
+
+// =============================================
+// PERSISTENT PROFILE CACHE
+// =============================================
+const PROFILE_CACHE_KEY = 'wizchat_profile_cache';
+
+interface ProfileCache {
+  profile: any;
+  posts: Post[];
+  reels: Post[];
+  timestamp: number;
+}
+
+const getProfileCache = (userId: string): ProfileCache | null => {
+  try {
+    const cached = localStorage.getItem(`${PROFILE_CACHE_KEY}_${userId}`);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+  } catch {}
+  return null;
+};
+
+const saveProfileCache = (userId: string, data: Partial<ProfileCache>) => {
+  try {
+    const existing = getProfileCache(userId) || { profile: null, posts: [], reels: [], timestamp: 0 };
+    const updated = { ...existing, ...data, timestamp: Date.now() };
+    localStorage.setItem(`${PROFILE_CACHE_KEY}_${userId}`, JSON.stringify(updated));
+  } catch {}
+};
 
 const Profile = () => {
   const { user } = useAuth();
@@ -28,14 +57,19 @@ const Profile = () => {
   const navigate = useNavigate();
   const { userIdentifier } = useParams();
 
-  const [profileUser, setProfileUser] = useState<any>(null);
-  const [userPosts, setUserPosts] = useState<Post[]>([]);
-  const [userReels, setUserReels] = useState<Post[]>([]);
+  // Get cached data for instant display
+  const targetUserId = userIdentifier || user?.id;
+  const cachedProfile = useMemo(() => targetUserId ? getProfileCache(targetUserId) : null, [targetUserId]);
+
+  const [profileUser, setProfileUser] = useState<any>(cachedProfile?.profile || null);
+  const [userPosts, setUserPosts] = useState<Post[]>(cachedProfile?.posts || []);
+  const [userReels, setUserReels] = useState<Post[]>(cachedProfile?.reels || []);
   const [savedPosts, setSavedPosts] = useState<SavedPost[]>([]);
   const [followers, setFollowers] = useState<Follow[]>([]);
   const [following, setFollowing] = useState<Follow[]>([]);
   const [isMuted, setIsMuted] = useState(true);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!cachedProfile);
+  const [contentLoading, setContentLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -46,6 +80,7 @@ const Profile = () => {
   const [userGroups, setUserGroups] = useState<any[]>([]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [postToDelete, setPostToDelete] = useState<string | null>(null);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
   // Saved item long-press / download
   const [selectedSaved, setSelectedSaved] = useState<SavedPost | null>(null);
@@ -53,16 +88,37 @@ const Profile = () => {
   const longPressTimer = useRef<number | null>(null);
 
   // Determine if this is the current user's profile
-  // Check both if there's no userIdentifier (own profile route) or if the profileUser matches current user
   const isOwnProfile = !userIdentifier || (profileUser && user && profileUser.id === user.id);
   const targetUser = profileUser || user;
+
+  // Network status
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   /** Fetch profile data */
   useEffect(() => {
     const fetchUserData = async () => {
       if (!user) return;
-      setLoading(true);
+      
+      // If we have cached data, show it immediately and don't show loading
+      if (cachedProfile) {
+        setLoading(false);
+      } else {
+        setLoading(true);
+      }
+      
       setError(null);
+      setContentLoading(true);
 
       try {
         let currentUserId = user.id;
@@ -79,6 +135,7 @@ const Profile = () => {
           if (!profiles || profiles.length === 0) {
             setError("User not found");
             setLoading(false);
+            setContentLoading(false);
             return;
           }
 
@@ -107,13 +164,22 @@ const Profile = () => {
           setProfileUser(foundUser);
           currentUserId = foundUser.id;
           currentUser = foundUser;
+          
+          // Cache the profile
+          saveProfileCache(foundUser.id, { profile: foundUser });
         }
 
         // Posts & reels
         const posts = await dataService.getPosts();
         const filteredPosts = posts.filter(p => p.userId === currentUserId);
-        setUserPosts(filteredPosts.filter(p => !p.isReel));
-        setUserReels(filteredPosts.filter(p => p.isReel));
+        const userPostsList = filteredPosts.filter(p => !p.isReel);
+        const userReelsList = filteredPosts.filter(p => p.isReel);
+        
+        setUserPosts(userPostsList);
+        setUserReels(userReelsList);
+        
+        // Cache posts and reels
+        saveProfileCache(currentUserId, { posts: userPostsList, reels: userReelsList });
 
         if (isOwnProfile) {
           const saved = await ProfileService.getSavedPosts().catch(() => []);
@@ -143,43 +209,15 @@ const Profile = () => {
 
       } catch (err: any) {
         console.error('Error loading profile:', err);
-        // Only show error if it's a critical error, not just missing data
-        if (err?.code === 'PGRST116' || err?.message?.includes('not found')) {
-          setError("User not found");
-        } else {
-          // For other errors, try to still show what we can
-          setError(null);
-          // If we have userIdentifier, try to load basic profile info
-          if (userIdentifier && !profileUser) {
-            try {
-              const { data: basicProfile } = await supabase
-                .from('profiles')
-                .select('id, name, username, email, avatar')
-                .or(`username.eq.${userIdentifier},id.eq.${userIdentifier}`)
-                .limit(1)
-                .single();
-              
-              if (basicProfile) {
-                setProfileUser({
-                  id: basicProfile.id,
-                  name: basicProfile.name,
-                  username: basicProfile.username || `user_${basicProfile.id.slice(0, 8)}`,
-                  email: basicProfile.email,
-                  avatar: basicProfile.avatar || '',
-                  photoURL: basicProfile.avatar || '',
-                  followerCount: 0,
-                  followingCount: 0,
-                  profileViews: 0,
-                  createdAt: new Date()
-                });
-              }
-            } catch (fallbackErr) {
-              setError("User not found");
-            }
+        // Only show error if no cached data
+        if (!cachedProfile) {
+          if (err?.code === 'PGRST116' || err?.message?.includes('not found')) {
+            setError("User not found");
           }
         }
       } finally {
         setLoading(false);
+        setContentLoading(false);
       }
     };
 
@@ -189,7 +227,7 @@ const Profile = () => {
     if (!isOwnProfile && activeTab === 'saved') {
       setActiveTab('posts');
     }
-  }, [user, userIdentifier, isOwnProfile]);
+  }, [user, userIdentifier, isOwnProfile, cachedProfile]);
 
   /** Follow / Unfollow */
   const handleFollow = async () => {
@@ -267,8 +305,25 @@ const Profile = () => {
   };
   const handleUserClick = (userId: string) => navigate(`/profile/${userId}`);
 
+  // Offline placeholder for content sections
+  const OfflineContentPlaceholder = () => (
+    <div className="flex flex-col items-center justify-center py-12 text-center">
+      <div className="w-16 h-16 mb-4 rounded-full bg-muted/30 backdrop-blur-xl flex items-center justify-center">
+        <WifiOff className="w-8 h-8 text-muted-foreground" />
+      </div>
+      <p className="text-muted-foreground text-sm">
+        Connect to the internet to view this content
+      </p>
+    </div>
+  );
+
   if (!user) return null;
-  if (loading) return <Layout><div className="max-w-4xl mx-auto p-6 text-center"><LoadingDots /></div></Layout>;
+  
+  // Show profile shell instantly even while loading
+  if (loading && !cachedProfile) {
+    return <Layout><div className="max-w-4xl mx-auto p-6 text-center"><LoadingDots /></div></Layout>;
+  }
+  
   if (error && error === "User not found") {
     return (
       <Layout>
@@ -285,7 +340,7 @@ const Profile = () => {
   return (
     <Layout>
       <div className="max-w-4xl mx-auto space-y-6">
-        {/* Profile Header */}
+        {/* Profile Header - Always shows from cache */}
         <Card className="relative overflow-hidden backdrop-blur-md bg-white/10 border-white/20 shadow-xl">
           {targetUser?.coverImage && (
             <div className="h-48 md:h-64 relative">
@@ -326,7 +381,7 @@ const Profile = () => {
                 </div>
 
                 <div className="flex flex-wrap gap-4 text-sm text-strong-contrast/80">
-                  <div className="flex items-center space-x-1"><Calendar className="w-4 h-4" /><span>Joined {new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(targetUser?.createdAt)}</span></div>
+                  <div className="flex items-center space-x-1"><Calendar className="w-4 h-4" /><span>Joined {targetUser?.createdAt ? new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(targetUser.createdAt) : 'Unknown'}</span></div>
                   {targetUser?.location && <div className="flex items-center space-x-1"><MapPin className="w-4 h-4" /><span>{targetUser.location}</span></div>}
                   {targetUser?.website && <div className="flex items-center space-x-1"><LinkIcon className="w-4 h-4" /><a href={targetUser.website} target="_blank" rel="noopener noreferrer">{targetUser.website}</a></div>}
                 </div>
@@ -357,18 +412,14 @@ const Profile = () => {
                       onClick={async () => {
                         if (!targetUser?.id || !user?.id) return;
                         try {
-                          // Get or create chat with the user
                           const { data: chatId, error } = await supabase.rpc('get_or_create_direct_chat', {
                             p_other_user_id: targetUser.id
                           });
                           
                           if (error) throw error;
                           
-                          // Navigate to chat page
                           navigate('/chat');
                           
-                          // After navigation, trigger opening the chat with this user
-                          // We'll use a custom event or URL parameter
                           setTimeout(() => {
                             window.dispatchEvent(new CustomEvent('openChatWithUser', { 
                               detail: { userId: targetUser.id, chatId } 
@@ -384,7 +435,8 @@ const Profile = () => {
                         }
                       }}
                     >
-                      <MessageCircle className="w-4 h-4 mr-2" />Message
+                      <MessageCircle className="w-4 h-4 mr-2" />
+                      Message
                     </Button>
                   </>
                 )}
@@ -393,339 +445,171 @@ const Profile = () => {
           </CardContent>
         </Card>
 
-        {/* Posts and Reels Section */}
-        <Card className="backdrop-blur-md bg-white/10 border-white/20">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className={`grid ${isOwnProfile ? 'grid-cols-4' : 'grid-cols-2'} bg-white/5 backdrop-blur-sm`}>
-              <TabsTrigger value="posts">Posts</TabsTrigger>
-              <TabsTrigger value="reels">Reels</TabsTrigger>
-              {isOwnProfile && <TabsTrigger value="saved"><Bookmark className="w-4 h-4 mr-1" />Saved</TabsTrigger>}
-              {isOwnProfile && <TabsTrigger value="groups"><Users className="w-4 h-4 mr-1" />Groups</TabsTrigger>}
-            </TabsList>
+        {/* Content Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full grid-cols-4 gap-1">
+            <TabsTrigger value="posts">Posts</TabsTrigger>
+            <TabsTrigger value="reels">Reels</TabsTrigger>
+            {isOwnProfile && <TabsTrigger value="saved">Saved</TabsTrigger>}
+            <TabsTrigger value="groups">Groups</TabsTrigger>
+          </TabsList>
 
-            <TabsContent value="posts" className="p-2">
-              {userPosts.length > 0 ? (
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-1">
-                  {userPosts.map(post => (
-                    <div
-                      key={post.id}
-                      className="aspect-square relative rounded overflow-hidden cursor-pointer hover:opacity-90 transition-opacity group"
-                      onClick={() => {
-                        // Navigate to post or show full view
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                      }}
-                    >
-                      {post.imageUrl ? (
-                        <img
-                          src={post.imageUrl}
-                          alt={post.content || 'Post'}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : post.videoUrl ? (
-                        <video
-                          src={post.videoUrl}
-                          className="w-full h-full object-cover"
-                          muted
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center p-1">
-                          <p className="text-white text-[10px] text-center line-clamp-2">{post.content}</p>
-                        </div>
-                      )}
-                      <div className="absolute inset-0 bg-black/0 hover:bg-black/30 transition-colors flex items-center justify-center">
-                        <div className="opacity-0 hover:opacity-100 transition-opacity flex items-center gap-1 text-white">
-                          <Heart className="w-3 h-3 fill-white" />
-                          <span className="text-[10px]">{post.likes?.length || 0}</span>
-                        </div>
-                      </div>
-                      {isOwnProfile && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setPostToDelete(post.id);
-                            setShowDeleteConfirm(true);
-                          }}
-                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 hover:bg-red-600/80 backdrop-blur-sm rounded-full p-1.5 z-10"
-                        >
-                          <Trash2 className="w-3 h-3 text-white" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-12 text-strong-contrast/60">No posts yet</div>
-              )}
-            </TabsContent>
+          <TabsContent value="posts" className="mt-6">
+            {contentLoading && userPosts.length === 0 ? (
+              <div className="text-center py-8"><LoadingDots /></div>
+            ) : isOffline && userPosts.length === 0 ? (
+              <OfflineContentPlaceholder />
+            ) : userPosts.length > 0 ? (
+              <div className="grid gap-4">
+                {userPosts.map(post => (
+                  <PostCard key={post.id} post={post} onPostUpdate={() => {}} />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">No posts yet</div>
+            )}
+          </TabsContent>
 
-            <TabsContent value="reels" className="p-2">
-              {userReels.length > 0 ? (
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-1">
-                  {userReels.map(reel => (
-                    <div
-                      key={reel.id}
-                      className="aspect-[9/16] relative rounded overflow-hidden cursor-pointer hover:opacity-90 transition-opacity group"
-                      onClick={() => {
-                        navigate('/reels');
-                      }}
-                    >
+          <TabsContent value="reels" className="mt-6">
+            {contentLoading && userReels.length === 0 ? (
+              <div className="text-center py-8"><LoadingDots /></div>
+            ) : isOffline && userReels.length === 0 ? (
+              <OfflineContentPlaceholder />
+            ) : userReels.length > 0 ? (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {userReels.map(reel => (
+                  <Card key={reel.id} className="overflow-hidden cursor-pointer hover:ring-2 ring-primary">
+                    <div className="aspect-[9/16] relative bg-muted">
                       {reel.videoUrl ? (
                         <video
                           src={reel.videoUrl}
                           className="w-full h-full object-cover"
-                          muted
+                          muted={isMuted}
+                          preload="none"
+                          poster={reel.imageUrl}
                         />
                       ) : reel.imageUrl ? (
-                        <img
-                          src={reel.imageUrl}
-                          alt={reel.content || 'Reel'}
-                          className="w-full h-full object-cover"
-                        />
+                        <img src={reel.imageUrl} alt="" className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-blue-400 to-purple-400 flex items-center justify-center p-1">
-                          <p className="text-white text-[10px] text-center line-clamp-2">{reel.content}</p>
+                        <div className="w-full h-full flex items-center justify-center">
+                          <span className="text-muted-foreground">No preview</span>
                         </div>
-                      )}
-                      <div className="absolute inset-0 bg-black/0 hover:bg-black/30 transition-colors flex items-center justify-center">
-                        <div className="opacity-0 hover:opacity-100 transition-opacity flex items-center gap-1 text-white">
-                          <ThumbsUp className="w-3 h-3 fill-white" />
-                          <span className="text-[10px]">{reel.likes?.length || 0}</span>
-                        </div>
-                      </div>
-                      {isOwnProfile && (
-                        <button
-                          onClick={e => {
-                            e.stopPropagation();
-                            setPostToDelete(reel.id);
-                            setShowDeleteConfirm(true);
-                          }}
-                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 hover:bg-red-600/80 backdrop-blur-sm rounded-full p-1.5 z-10"
-                        >
-                          <Trash2 className="w-3 h-3 text-white" />
-                        </button>
                       )}
                     </div>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">No reels yet</div>
+            )}
+          </TabsContent>
+
+          {isOwnProfile && (
+            <TabsContent value="saved" className="mt-6">
+              {isOffline && savedPosts.length === 0 ? (
+                <OfflineContentPlaceholder />
+              ) : savedPosts.length > 0 ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {savedPosts.map(saved => (
+                    <Card 
+                      key={saved.id} 
+                      className="overflow-hidden cursor-pointer hover:ring-2 ring-primary"
+                      onClick={() => { setSelectedSaved(saved); setShowSavedOptions(true); }}
+                    >
+                      <div className="aspect-square relative bg-muted">
+                        {saved.post?.imageUrl ? (
+                          <img src={saved.post.imageUrl} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center p-4">
+                            <p className="text-sm text-muted-foreground line-clamp-3">{saved.post?.content}</p>
+                          </div>
+                        )}
+                        <div className="absolute bottom-2 right-2">
+                          <Bookmark className="w-5 h-5 text-white drop-shadow-lg fill-current" />
+                        </div>
+                      </div>
+                    </Card>
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-12 text-strong-contrast/60">No reels yet</div>
+                <div className="text-center py-8 text-muted-foreground">No saved posts</div>
               )}
             </TabsContent>
+          )}
 
-            {isOwnProfile && (
-              <>
-                <TabsContent value="saved" className="p-2">
-                  {savedPosts.length > 0 ? (
-                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-1">
-                      {savedPosts.map(s => {
-                        const isReel = s.post.videoUrl || s.post.isReel || s.post.mediaType === 'video';
-                        const mediaUrl = s.post.videoUrl || s.post.imageUrl;
-                        return (
-                          <div
-                            key={s.id}
-                            className={`relative rounded overflow-hidden cursor-pointer group ${isReel ? 'aspect-[9/16]' : 'aspect-square'}`}
-                            onClick={() => { if (isReel) navigate('/reels'); else { /* could open post */ } }}
-                            onPointerDown={() => { longPressTimer.current = window.setTimeout(() => { setSelectedSaved(s); setShowSavedOptions(true); }, 600); }}
-                            onPointerUp={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; } }}
-                            onPointerLeave={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; } }}
-                          >
-                            {s.post.videoUrl ? (
-                              <video src={s.post.videoUrl} className="w-full h-full object-cover" muted />
-                            ) : s.post.imageUrl ? (
-                              <img src={s.post.imageUrl} alt={s.post.content || 'Saved'} className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full bg-gradient-to-br from-gray-400 to-gray-600 flex items-center justify-center p-1">
-                                <p className="text-white text-[10px] text-center line-clamp-2">{s.post.content}</p>
-                              </div>
-                            )}
-
-                            <div className="absolute inset-0 bg-black/0 hover:bg-black/30 transition-colors flex items-center justify-center">
-                              <div className="opacity-0 hover:opacity-100 transition-opacity flex items-center gap-1 text-white">
-                                <Heart className="w-3 h-3 fill-white" />
-                                <span className="text-[10px]">{s.post.likes?.length || 0}</span>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
+          <TabsContent value="groups" className="mt-6">
+            {isOffline && userGroups.length === 0 ? (
+              <OfflineContentPlaceholder />
+            ) : userGroups.length > 0 ? (
+              <div className="grid gap-4">
+                {userGroups.map(group => (
+                  <Card key={group.id} className="p-4">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Users className="w-6 h-6 text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold">{group.name}</h3>
+                        <p className="text-sm text-muted-foreground">{group.member_count} members</p>
+                      </div>
                     </div>
-                  ) : (
-                    <div className="text-center py-12 text-strong-contrast/60">No saved posts yet</div>
-                  )}
-                </TabsContent>
-                
-                <TabsContent value="groups" className="p-4">
-                  {userGroups.length > 0 ? (
-                    <div className="space-y-3">
-                      {userGroups.map((group) => (
-                        <Card key={group.id} className="backdrop-blur-md bg-white/10 border-white/20 hover:bg-white/20 transition-colors cursor-pointer">
-                          <CardContent className="p-4">
-                            <div className="flex items-center justify-between">
-                              <div className="flex-1">
-                                <h3 className="font-semibold text-strong-contrast flex items-center gap-2">
-                                  <Users className="w-4 h-4 text-green-600 dark:text-green-400" />
-                                  {group.name}
-                                </h3>
-                                {group.description && (
-                                  <p className="text-sm text-strong-contrast/70 mt-1">{group.description}</p>
-                                )}
-                                <div className="flex items-center gap-4 mt-2 text-xs text-strong-contrast/60">
-                                  <span>{group.memberCount || 0} members</span>
-                                  {group.isPrivate && <span className="text-orange-500">Private</span>}
-                                </div>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-12 text-strong-contrast/60">No groups yet. Join or create a group to get started!</div>
-                  )}
-                </TabsContent>
-              </>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">No groups yet</div>
             )}
-          </Tabs>
-        </Card>
-
-        {/* Modals & Dialogs */}
-        <EditProfileDialog open={showEditDialog} onOpenChange={setShowEditDialog} user={user} />
-        {showImageModal && <ImageModal src={showImageModal} alt="Profile Picture" isOpen={!!showImageModal} onClose={() => setShowImageModal(null)} />}
-        <AvatarStudio 
-          open={showAvatarStudio} 
-          onOpenChange={setShowAvatarStudio}
-          initialAvatar={(() => {
-            // Try to parse saved avatar data from user's avatar field
-            if (user?.avatar) {
-              try {
-                const parsed = JSON.parse(user.avatar);
-                // Check if it's valid EnhancedAvatarData (has required fields)
-                if (parsed && typeof parsed === 'object' && ('skinColor' in parsed || 'headColor' in parsed || 'gender' in parsed)) {
-                  return parsed as Partial<EnhancedAvatarData>;
-                }
-              } catch {
-                // If parsing fails, it's probably a URL, return undefined
-              }
-            }
-            return undefined;
-          })()}
-          onSave={async (data) => {
-            try {
-              // Save avatar data as JSON string
-              const avatarDataJson = JSON.stringify(data);
-              await ProfileService.updateProfile({ avatar: avatarDataJson });
-              toast({ 
-                title: "Success", 
-                description: "Avatar saved successfully!" 
-              });
-              // Reload to show updated avatar
-              window.location.reload();
-            } catch (error) {
-              toast({ 
-                title: "Error", 
-                description: "Failed to save avatar", 
-                variant: "destructive" 
-              });
-            }
-          }} 
-        />
-        
-        <Dialog open={showSavedOptions} onOpenChange={(open) => { if (!open) { setShowSavedOptions(false); setSelectedSaved(null); } }}>
-          <DialogContent className="bg-white dark:bg-gray-900 border border-green-500 rounded-2xl max-w-sm">
-            <DialogHeader>
-              <DialogTitle className="text-lg font-semibold text-green-700">Saved Item</DialogTitle>
-            </DialogHeader>
-            <div className="py-4 flex flex-col gap-3">
-              <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={async () => {
-                if (selectedSaved) {
-                  const media = selectedSaved.post.videoUrl || selectedSaved.post.imageUrl;
-                  await downloadMedia(media, selectedSaved.post.id || undefined);
-                }
-              }}>
-                Download
-              </Button>
-              <Button variant="outline" onClick={() => { setShowSavedOptions(false); setSelectedSaved(null); }}>
-                Cancel
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        <ThemeAwareDialog
-          open={!!deletePostId}
-          onOpenChange={(open) => !open && setDeletePostId(null)}
-          title="Delete Post"
-          description="Are you sure you want to delete this post? This action cannot be undone."
-          onConfirm={() => {
-            if (deletePostId) {
-              dataService.deletePost(deletePostId).then(() => {
-                toast({ title: "Success", description: "Post deleted successfully" });
-                window.location.reload();
-              }).catch(() => {
-                toast({ title: "Error", description: "Failed to delete post", variant: "destructive" });
-              });
-              setDeletePostId(null);
-            }
-          }}
-        />
-        
-        {/* Delete Post Confirmation Dialog */}
-        <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-          <DialogContent className="bg-white dark:bg-gray-900 border border-green-500 rounded-2xl max-w-md">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-semibold text-green-700 dark:text-green-400 flex items-center justify-between">
-                <span>Delete Post</span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    setShowDeleteConfirm(false);
-                    setPostToDelete(null);
-                  }}
-                  className="h-6 w-6 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </DialogTitle>
-            </DialogHeader>
-            <div className="py-4">
-              <p className="text-gray-700 dark:text-gray-300">
-                Are you sure you want to delete this post? This action cannot be undone.
-              </p>
-            </div>
-            <div className="flex gap-3 justify-end">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowDeleteConfirm(false);
-                  setPostToDelete(null);
-                }}
-                className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={async () => {
-                  if (postToDelete) {
-                    try {
-                      await dataService.deletePost(postToDelete);
-                      toast({ title: "Success", description: "Post deleted successfully" });
-                      setUserPosts(prev => prev.filter(p => p.id !== postToDelete));
-                      setShowDeleteConfirm(false);
-                      setPostToDelete(null);
-                    } catch (error) {
-                      toast({ title: "Error", description: "Failed to delete post", variant: "destructive" });
-                    }
-                  }
-                }}
-                className="bg-red-600 hover:bg-red-700 text-white"
-              >
-                Delete
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+          </TabsContent>
+        </Tabs>
       </div>
+
+      {/* Dialogs */}
+      <EditProfileDialog
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        user={user}
+      />
+
+      <ImageModal 
+        src={showImageModal || ''} 
+        alt="Profile" 
+        isOpen={!!showImageModal}
+        onClose={() => setShowImageModal(null)} 
+      />
+
+      <AvatarStudio
+        open={showAvatarStudio}
+        onOpenChange={setShowAvatarStudio}
+        onSave={(avatarUrl) => {
+          console.log('Avatar saved:', avatarUrl);
+          setShowAvatarStudio(false);
+        }}
+      />
+
+      {/* Saved options dialog */}
+      <Dialog open={showSavedOptions} onOpenChange={setShowSavedOptions}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Saved Post Options</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Button 
+              variant="outline" 
+              className="w-full justify-start" 
+              onClick={() => selectedSaved?.post?.imageUrl && downloadMedia(selectedSaved.post.imageUrl)}
+            >
+              Download Media
+            </Button>
+            <Button 
+              variant="outline" 
+              className="w-full justify-start text-destructive" 
+              onClick={() => { setShowSavedOptions(false); setSelectedSaved(null); }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 };
