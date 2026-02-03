@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 import Layout from '@/components/Layout';
 import CreatePost from '@/components/CreatePost';
 import PostCard from '@/components/PostCard';
@@ -15,22 +15,29 @@ import { SmartLoading } from '@/components/SmartLoading';
 import GlobalSearch from '@/components/GlobalSearch';
 
 // =============================================
-// PERSISTENT IN-MEMORY STORE (survives remounts)
+// PERSISTENT MODULE-LEVEL STORE (survives all remounts)
 // =============================================
 const HOME_FEED_CACHE_KEY = 'wizchat_home_feed_cache';
 const HOME_FEED_MIN_REFRESH_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
 
-// In-memory store that persists across component remounts
-const homeStore = {
-  posts: [] as any[],
+interface HomeStore {
+  posts: any[];
+  scrollY: number;
+  lastFetchTime: number;
+  isInitialized: boolean;
+}
+
+// Module-level store - persists across ALL component remounts
+const homeStore: HomeStore = {
+  posts: [],
   scrollY: 0,
   lastFetchTime: 0,
-  hasInitialized: false,
+  isInitialized: false,
 };
 
-// Sync with localStorage on page load
-const initializeFromLocalStorage = () => {
-  if (homeStore.hasInitialized) return;
+// SYNCHRONOUS initialization from localStorage on module load (BEFORE any render)
+(() => {
+  if (homeStore.isInitialized) return;
   
   try {
     const cached = localStorage.getItem(HOME_FEED_CACHE_KEY);
@@ -39,17 +46,14 @@ const initializeFromLocalStorage = () => {
       if (parsed?.data && Array.isArray(parsed.data) && parsed.data.length > 0) {
         homeStore.posts = parsed.data;
         homeStore.lastFetchTime = parsed.timestamp || 0;
-        console.debug('[Home] Restored from localStorage:', parsed.data.length, 'posts');
+        console.debug('[Home] INSTANT hydration from localStorage:', parsed.data.length, 'posts');
       }
     }
   } catch (e) {
     console.debug('[Home] localStorage parse failed:', e);
   }
-  homeStore.hasInitialized = true;
-};
-
-// Initialize immediately on module load
-initializeFromLocalStorage();
+  homeStore.isInitialized = true;
+})();
 
 const saveToLocalStorage = (posts: any[]) => {
   try {
@@ -66,35 +70,53 @@ const Home = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   
-  // Use persistent store as initial state - INSTANT display
+  // INSTANT display from module-level store - NO loading state if we have cached posts
+  const hasCachedPosts = homeStore.posts.length > 0;
+  
   const [posts, setPosts] = useState<any[]>(homeStore.posts);
-  const [loading, setLoading] = useState(homeStore.posts.length === 0);
+  const [loading, setLoading] = useState(!hasCachedPosts);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [showSearch, setShowSearch] = useState(false);
   
   const hasLoadedRef = useRef(false);
   const scrollRestoredRef = useRef(false);
+  const isRestoringScrollRef = useRef(false);
 
-  // Restore scroll position immediately on mount
+  // CRITICAL: Restore scroll position IMMEDIATELY on mount (before paint)
   useLayoutEffect(() => {
     if (scrollRestoredRef.current) return;
-    scrollRestoredRef.current = true;
+    if (!hasCachedPosts) return;
     
-    if (homeStore.scrollY > 0 && homeStore.posts.length > 0) {
-      // Use double RAF to ensure DOM is rendered
+    scrollRestoredRef.current = true;
+    isRestoringScrollRef.current = true;
+    
+    const savedScrollY = homeStore.scrollY;
+    if (savedScrollY > 0) {
+      // Immediately set scroll position without animation
+      window.scrollTo(0, savedScrollY);
+      
+      // Double RAF to ensure DOM is fully rendered, then restore again
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          window.scrollTo({ top: homeStore.scrollY, behavior: 'instant' as any });
-          console.debug('[Home] Restored scroll to:', homeStore.scrollY);
+          window.scrollTo(0, savedScrollY);
+          console.debug('[Home] Scroll restored to:', savedScrollY);
+          
+          // Small delay before allowing scroll tracking again
+          setTimeout(() => {
+            isRestoringScrollRef.current = false;
+          }, 100);
         });
       });
+    } else {
+      isRestoringScrollRef.current = false;
     }
-  }, []);
+  }, [hasCachedPosts]);
 
-  // Save scroll position on scroll
+  // Save scroll position on scroll (but not during restoration)
   useEffect(() => {
     const handleScroll = () => {
+      if (isRestoringScrollRef.current) return;
       homeStore.scrollY = window.scrollY;
     };
     
@@ -102,7 +124,7 @@ const Home = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Sync posts to in-memory store whenever they change
+  // Sync posts to module store whenever they change
   useEffect(() => {
     if (posts.length > 0) {
       homeStore.posts = posts;
@@ -110,7 +132,7 @@ const Home = () => {
     }
   }, [posts]);
 
-  // Fetch posts only when needed (not on every mount)
+  // Fetch posts - only when truly needed
   useEffect(() => {
     if (hasLoadedRef.current) return;
     hasLoadedRef.current = true;
@@ -119,16 +141,17 @@ const Home = () => {
     const timeSinceLastFetch = now - homeStore.lastFetchTime;
     const isCacheStale = timeSinceLastFetch > HOME_FEED_MIN_REFRESH_INTERVAL_MS;
     
-    if (homeStore.posts.length > 0 && !isCacheStale) {
-      // Cache is fresh - don't fetch
-      console.debug('[Home] Using cached posts, skipping fetch');
+    if (hasCachedPosts && !isCacheStale) {
+      // Cache is fresh - don't fetch, just use cached data
+      console.debug('[Home] Cache fresh, skipping network fetch. Posts:', homeStore.posts.length);
       setLoading(false);
       return;
     }
 
-    // Either no cache or cache is stale - fetch silently if we have data
-    loadPosts(homeStore.posts.length > 0);
-  }, []);
+    // Either no cache or cache is stale
+    // If we have cached data, do a SILENT background refresh (no loading indicator)
+    loadPosts(hasCachedPosts);
+  }, [hasCachedPosts]);
 
   // Event listeners
   useEffect(() => {
@@ -183,9 +206,10 @@ const Home = () => {
       homeStore.lastFetchTime = Date.now();
       saveToLocalStorage(sortedPosts);
       
-      console.debug('[Home] Fetched', sortedPosts.length, 'posts');
+      console.debug('[Home] Fetched', sortedPosts.length, 'posts (silent:', silent, ')');
     } catch (error) {
       console.error('Error fetching posts:', error);
+      // Only show error if we have no cached data to display
       if (homeStore.posts.length === 0) {
         const err = error instanceof Error ? error : new Error('Failed to fetch posts');
         setError(err);
@@ -334,6 +358,10 @@ const Home = () => {
     }
   };
 
+  // Memoize post lists
+  const regularPosts = useMemo(() => posts.filter(post => !post.isReel), [posts]);
+  const reelPosts = useMemo(() => posts.filter(post => post.isReel || post.videoUrl), [posts]);
+
   return (
     <Layout>
       <div className="container mx-auto px-4 py-6">
@@ -371,9 +399,9 @@ const Home = () => {
           </div>
 
           {/* Watch Reels Section */}
-          {posts.filter(post => post.isReel || post.videoUrl).length > 0 && (
+          {reelPosts.length > 0 && (
             <div className="mb-6">
-              <WatchReelsCard reelPosts={posts.filter(post => post.isReel || post.videoUrl)} />
+              <WatchReelsCard reelPosts={reelPosts} />
             </div>
           )}
 
@@ -398,24 +426,21 @@ const Home = () => {
             onRetry={() => loadPosts()}
           >
             <div className="space-y-6">
-              {posts
-                .filter(post => !post.isReel)
-                .map((post, index) => {
-                  const shouldShowSuggestion = (index + 1) % 60 === 0;
+              {regularPosts.map((post, index) => {
+                const shouldShowSuggestion = (index + 1) % 60 === 0;
 
-                  return (
-                    <div key={post.id}>
-                      <PostCard
-                        post={post}
-                        onPostUpdate={loadPosts}
-                      />
-                      {shouldShowSuggestion && (
-                        <FriendsSuggestionCard />
-                      )}
-                    </div>
-                  );
-                })
-              }
+                return (
+                  <div key={post.id} data-post-id={post.id}>
+                    <PostCard
+                      post={post}
+                      onPostUpdate={loadPosts}
+                    />
+                    {shouldShowSuggestion && (
+                      <FriendsSuggestionCard />
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </SmartLoading>
         </div>
