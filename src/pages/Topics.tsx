@@ -305,14 +305,23 @@ const Topics = () => {
               </div>
             </CardHeader>
             <CardContent className="p-6 pt-0 space-y-3">
-              {loading ? (
+              {loading && !isOffline ? (
                 <div className="py-4">
                   <ListSkeleton itemType="topic" count={4} />
                 </div>
-              ) : rooms.length === 0 && dataLoaded ? (
-                <p className="text-center text-muted-foreground py-8">
-                  No topic rooms yet.
-                </p>
+              ) : rooms.length === 0 ? (
+                <div className="text-center py-8">
+                  {isOffline ? (
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="w-14 h-14 rounded-full bg-muted/30 backdrop-blur-xl flex items-center justify-center">
+                        <WifiOff className="w-7 h-7 text-muted-foreground" />
+                      </div>
+                      <p className="text-muted-foreground text-sm">Connect to the internet to discover topic rooms</p>
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground">No topic rooms yet.</p>
+                  )}
+                </div>
               ) : (
                 rooms.map((room) => (
                   <Card

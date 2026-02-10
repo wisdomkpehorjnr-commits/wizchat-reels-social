@@ -362,7 +362,7 @@ const Friends = () => {
             </TabsList>
 
             <TabsContent value="friends" className="mt-6">
-              {loading ? (
+              {loading && !isOffline ? (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                   {[...Array(10)].map((_, i) => (
                     <Card key={i} className="border green-border">
@@ -426,11 +426,25 @@ const Friends = () => {
               ) : (
                 <Card className="border-2 green-border">
                   <CardContent className="p-8 text-center">
-                    <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">No friends yet</h3>
-                    <p className="text-muted-foreground">
-                      Search for people to add as friends and start connecting!
-                    </p>
+                    {isOffline ? (
+                      <>
+                        <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-muted/30 backdrop-blur-xl flex items-center justify-center">
+                          <WifiOff className="w-7 h-7 text-muted-foreground" />
+                        </div>
+                        <h3 className="text-lg font-semibold mb-2">You're offline</h3>
+                        <p className="text-muted-foreground">
+                          Connect to the internet to see your friends
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                        <h3 className="text-lg font-semibold mb-2">No friends yet</h3>
+                        <p className="text-muted-foreground">
+                          Search for people to add as friends and start connecting!
+                        </p>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
               )}

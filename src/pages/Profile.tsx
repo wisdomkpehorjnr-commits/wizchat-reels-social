@@ -89,7 +89,17 @@ const Profile = () => {
 
   // Determine if this is the current user's profile
   const isOwnProfile = !userIdentifier || (profileUser && user && profileUser.id === user.id);
-  const targetUser = profileUser || user;
+  const targetUser = profileUser || (isOffline ? {
+    name: user.name || user.email?.split('@')[0] || 'User',
+    username: user.username || user.email?.split('@')[0] || 'user',
+    avatar: user.avatar || (user as any).photoURL,
+    bio: (user as any).bio || '',
+    createdAt: (user as any).createdAt || new Date(),
+    followerCount: 0,
+    followingCount: 0,
+    is_verified: false,
+    id: user.id,
+  } : user);
 
   // Network status
   useEffect(() => {
@@ -319,8 +329,8 @@ const Profile = () => {
 
   if (!user) return null;
   
-  // Show profile shell instantly even while loading
-  if (loading && !cachedProfile) {
+  // Show loading only when online with no cached data and no fallback
+  if (loading && !cachedProfile && !isOffline && !profileUser) {
     return <Layout><div className="max-w-4xl mx-auto p-6 text-center"><LoadingDots /></div></Layout>;
   }
   
