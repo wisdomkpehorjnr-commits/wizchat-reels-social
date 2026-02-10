@@ -362,7 +362,7 @@ const Friends = () => {
             </TabsList>
 
             <TabsContent value="friends" className="mt-6">
-              {loading ? (
+              {loading && !isOffline ? (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                   {[...Array(10)].map((_, i) => (
                     <Card key={i} className="border green-border">
