@@ -305,11 +305,11 @@ const Topics = () => {
               </div>
             </CardHeader>
             <CardContent className="p-6 pt-0 space-y-3">
-              {loading ? (
+              {loading && !isOffline ? (
                 <div className="py-4">
                   <ListSkeleton itemType="topic" count={4} />
                 </div>
-              ) : rooms.length === 0 && dataLoaded ? (
+              ) : rooms.length === 0 ? (
                 <p className="text-center text-muted-foreground py-8">
                   No topic rooms yet.
                 </p>
