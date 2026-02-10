@@ -329,20 +329,8 @@ const Profile = () => {
 
   if (!user) return null;
   
-  // Derive fallback profile for offline first-visit
-  const displayUser = profileUser || (isOffline ? {
-    name: user.name || user.email?.split('@')[0] || 'User',
-    username: user.username || user.email?.split('@')[0] || 'user',
-    avatar: user.avatar || user.photoURL,
-    bio: user.bio || '',
-    createdAt: user.createdAt || new Date(),
-    followerCount: 0,
-    followingCount: 0,
-    is_verified: false,
-  } : null);
-  
-  // Show loading only when online with no cached data
-  if (loading && !cachedProfile && !isOffline && !displayUser) {
+  // Show loading only when online with no cached data and no fallback
+  if (loading && !cachedProfile && !isOffline && !profileUser) {
     return <Layout><div className="max-w-4xl mx-auto p-6 text-center"><LoadingDots /></div></Layout>;
   }
   
