@@ -319,9 +319,28 @@ const Profile = () => {
 
   if (!user) return null;
   
-  // Show profile shell instantly even while loading
+  // Show profile shell instantly even while loading — never show white screen
   if (loading && !cachedProfile) {
-    return <Layout><div className="max-w-4xl mx-auto p-6 text-center"><LoadingDots /></div></Layout>;
+    if (isOffline) {
+      // Offline with no cache: show the user's own basic info from auth context
+      const fallbackUser = {
+        name: user.name || user.email?.split('@')[0] || 'User',
+        username: user.username || user.email?.split('@')[0] || 'user',
+        avatar: user.avatar || user.photoURL,
+        bio: user.bio || '',
+        createdAt: user.createdAt || new Date(),
+        followerCount: 0,
+        followingCount: 0,
+        is_verified: false,
+      };
+      // Set it so the profile renders with basic info
+      if (!profileUser) {
+        setProfileUser(fallbackUser);
+        setLoading(false);
+      }
+    } else {
+      return <Layout><div className="max-w-4xl mx-auto p-6 text-center"><LoadingDots /></div></Layout>;
+    }
   }
   
   if (error && error === "User not found") {

@@ -407,7 +407,7 @@ const Home = () => {
 
           {/* Posts Feed with SmartLoading */}
           <SmartLoading
-            isLoading={loading && posts.length === 0}
+            isLoading={loading && posts.length === 0 && navigator.onLine}
             isError={error !== null && posts.length === 0}
             isEmpty={!loading && posts.length === 0}
             error={error}
@@ -420,7 +420,16 @@ const Home = () => {
             )}
             emptyFallback={
               <div className="text-center py-12">
-                <p className="text-muted-foreground">No posts yet. Start following people to see their posts!</p>
+                {!navigator.onLine ? (
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="w-14 h-14 rounded-full bg-muted/30 backdrop-blur-xl flex items-center justify-center">
+                      <RefreshCw className="w-7 h-7 text-muted-foreground" />
+                    </div>
+                    <p className="text-muted-foreground">You're offline. Posts will appear once you connect.</p>
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground">No posts yet. Start following people to see their posts!</p>
+                )}
               </div>
             }
             onRetry={() => loadPosts()}

@@ -316,7 +316,7 @@ const Chat = () => {
             </CardContent>
           </Card>
 
-          {loading ? (
+          {loading && !isOffline ? (
             <Card className="border-2 green-border">
               <CardContent className="p-4">
                 <div className="space-y-4">
