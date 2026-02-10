@@ -22,9 +22,46 @@ export const useAuth = () => {
   return context;
 };
 
+// Cache key for offline user hydration
+const AUTH_USER_CACHE_KEY = 'wizchat_auth_user_cache';
+
+const getCachedUser = (): User | null => {
+  try {
+    const cached = localStorage.getItem(AUTH_USER_CACHE_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (parsed?.id) {
+        // Restore Date objects
+        if (parsed.createdAt) parsed.createdAt = new Date(parsed.createdAt);
+        if (parsed.birthday) parsed.birthday = new Date(parsed.birthday);
+        return parsed as User;
+      }
+    }
+  } catch {}
+  return null;
+};
+
+const saveCachedUser = (u: User | null) => {
+  try {
+    if (u) {
+      localStorage.setItem(AUTH_USER_CACHE_KEY, JSON.stringify(u));
+    } else {
+      localStorage.removeItem(AUTH_USER_CACHE_KEY);
+    }
+  } catch {}
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  // INSTANT hydration from localStorage — never start with null if user was logged in before
+  const cachedUser = getCachedUser();
+  const [user, setUserState] = useState<User | null>(cachedUser);
+  const [loading, setLoading] = useState(!cachedUser); // If cached user exists, skip loading state entirely
+
+  // Wrapper that also persists to localStorage
+  const setUser = (u: User | null) => {
+    setUserState(u);
+    saveCachedUser(u);
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -53,6 +90,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         });
 
+        // If offline and we have a cached user, don't wait for network
+        if (!navigator.onLine && cachedUser) {
+          console.log('[Auth] Offline with cached user, skipping network check');
+          setLoading(false);
+          return () => {
+            mounted = false;
+            subscription.unsubscribe();
+          };
+        }
+
         // Check for existing session
         const { data: { session }, error } = await supabase.auth.getSession();
         console.log('Initial session check:', { session: !!session, error });
@@ -60,7 +107,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (error) {
           console.error('Session check error:', error);
           if (mounted) {
-            setUser(null);
+            // If we have cached user, keep using it
+            if (!cachedUser) setUser(null);
             setLoading(false);
           }
           return;
@@ -84,7 +132,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (error) {
         console.error('Auth initialization error:', error);
         if (mounted) {
-          setUser(null);
+          // If we have cached user, keep using it even on error
+          if (!cachedUser) setUser(null);
           setLoading(false);
         }
       }
@@ -270,7 +319,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, signUp, loginWithGoogle, logout, setUser }}>
+    <AuthContext.Provider value={{ user, loading, login, signUp, loginWithGoogle, logout, setUser: setUser }}>
       {children}
     </AuthContext.Provider>
   );

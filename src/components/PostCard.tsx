@@ -84,8 +84,8 @@ function OfflineAwareImage({ src, alt, className, ...props }: OfflineAwareImageP
         src={src}
         alt={alt}
         className={`${className} ${isLoaded ? '' : 'hidden'}`}
-        loading="lazy"
-        decoding="async"
+        loading="eager"
+        decoding="sync"
         onLoad={() => setIsLoaded(true)}
         onError={() => setHasError(true)}
         {...props}
