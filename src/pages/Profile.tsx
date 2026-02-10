@@ -470,9 +470,19 @@ const Profile = () => {
             ) : isOffline && userPosts.length === 0 ? (
               <OfflineContentPlaceholder />
             ) : userPosts.length > 0 ? (
-              <div className="grid gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {userPosts.map(post => (
-                  <PostCard key={post.id} post={post} onPostUpdate={() => {}} />
+                  <Card key={post.id} className="overflow-hidden cursor-pointer hover:ring-2 ring-primary">
+                    <div className="aspect-square relative bg-muted">
+                      {post.imageUrl ? (
+                        <img src={post.imageUrl} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center p-3">
+                          <p className="text-xs text-muted-foreground line-clamp-4">{post.content}</p>
+                        </div>
+                      )}
+                    </div>
+                  </Card>
                 ))}
               </div>
             ) : (
