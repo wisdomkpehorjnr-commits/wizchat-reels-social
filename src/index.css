@@ -100,6 +100,35 @@
     --text-strong-contrast: 0 0% 100%;
   }
 
+  /* Ghana Pride Theme - Red, Yellow & Green */
+  .ghana {
+    --background: 48 100% 97%;
+    --foreground: 0 0% 10%;
+    --card: 48 100% 99%;
+    --card-foreground: 0 0% 10%;
+    --popover: 48 100% 99%;
+    --popover-foreground: 0 0% 10%;
+    --primary: 145 63% 32%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 48 96% 53%;
+    --secondary-foreground: 0 0% 10%;
+    --muted: 48 40% 90%;
+    --muted-foreground: 0 0% 40%;
+    --accent: 0 72% 47%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 47%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 48 30% 80%;
+    --input: 48 30% 85%;
+    --ring: 145 63% 32%;
+    --chart-1: 0 72% 47%;
+    --chart-2: 48 96% 53%;
+    --chart-3: 145 63% 32%;
+    --chart-4: 0 72% 55%;
+    --chart-5: 48 96% 60%;
+    --text-strong-contrast: 0 0% 10%;
+  }
+
   /* Ultra mode - remove ALL green colors */
   .ultra .green-border,
   .ultra [class*="border-green"],
@@ -589,4 +618,68 @@ button {
 .ultra .dark\:border-amber-800,
 .ultra .dark\:border-red-800 {
   border-color: hsl(0 0% 30%) !important;
+}
+
+/* ============= ULTRA THEME NAV TAB FIX ============= */
+/* Active nav tabs: primary bg is white, so icons/text must be black */
+.ultra nav button[class*="bg-primary"] svg,
+.ultra nav button[class*="bg-primary"] span,
+.ultra nav a[class*="bg-primary"] svg,
+.ultra nav a[class*="bg-primary"] span,
+.ultra header button[class*="bg-primary"] svg,
+.ultra header button[class*="bg-primary"] span,
+.ultra header a[class*="bg-primary"] svg,
+.ultra header a[class*="bg-primary"] span,
+.ultra button[data-state="active"] svg,
+.ultra button[data-state="active"] span {
+  color: hsl(0 0% 0%) !important;
+}
+
+/* ============= GHANA PRIDE THEME OVERRIDES ============= */
+/* Ghana theme header gradient bar */
+.ghana header {
+  background: linear-gradient(135deg, 
+    hsl(0 72% 47% / 0.05), 
+    hsl(48 96% 53% / 0.08), 
+    hsl(145 63% 32% / 0.05)
+  ) !important;
+  border-bottom-color: hsl(48 96% 53% / 0.3) !important;
+}
+
+/* Ghana star accent on primary buttons */
+.ghana .bg-primary {
+  background: linear-gradient(135deg, hsl(145 63% 32%), hsl(145 63% 28%)) !important;
+}
+
+/* Ghana accent elements - red highlights */
+.ghana .text-primary {
+  color: hsl(145 63% 32%) !important;
+}
+
+/* Ghana nav active tab uses green bg */
+.ghana nav button[class*="bg-primary"],
+.ghana header button[class*="bg-primary"] {
+  background-color: hsl(145 63% 32%) !important;
+}
+
+.ghana nav button[class*="bg-primary"] svg,
+.ghana nav button[class*="bg-primary"] span,
+.ghana header button[class*="bg-primary"] svg,
+.ghana header button[class*="bg-primary"] span {
+  color: hsl(0 0% 100%) !important;
+}
+
+/* Ghana badge uses red */
+.ghana .badge[class*="destructive"],
+.ghana [class*="Badge"][class*="destructive"] {
+  background-color: hsl(0 72% 47%) !important;
+}
+
+/* Ghana gradient text for brand */
+.ghana .from-green-600,
+.ghana .to-emerald-600 {
+  -webkit-text-fill-color: transparent !important;
+  background: linear-gradient(135deg, hsl(0 72% 47%), hsl(48 96% 53%), hsl(145 63% 32%)) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
 }
