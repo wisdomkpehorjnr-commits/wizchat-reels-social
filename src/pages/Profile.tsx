@@ -11,7 +11,7 @@ import { dataService } from '@/services/dataService';
 import { ProfileService } from '@/services/profileService';
 import { Post, SavedPost, Follow } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
-import { Calendar, MapPin, Link as LinkIcon, Edit, MessageCircle, UserPlus, UserMinus, Bookmark, Users, UserCircle, WifiOff } from 'lucide-react';
+import { Calendar, MapPin, Link as LinkIcon, Edit, MessageCircle, UserPlus, UserMinus, Bookmark, Users, UserCircle, WifiOff, Trash2, X } from 'lucide-react';
 import EditProfileDialog from '@/components/EditProfileDialog';
 import PostCard from '@/components/PostCard';
 import ImageModal from '@/components/ImageModal';
@@ -315,6 +315,40 @@ const Profile = () => {
   };
   const handleUserClick = (userId: string) => navigate(`/profile/${userId}`);
 
+  // Delete post/reel permanently
+  const handleDeletePost = async (postId: string) => {
+    if (!confirm('Delete this permanently?')) return;
+    try {
+      // Delete related data first
+      await supabase.from('likes').delete().eq('post_id', postId);
+      await supabase.from('comments').delete().eq('post_id', postId);
+      await supabase.from('saved_posts').delete().eq('post_id', postId);
+      await supabase.from('reactions').delete().eq('post_id', postId);
+      await supabase.from('post_hashtags').delete().eq('post_id', postId);
+      await supabase.from('pinned_posts').delete().eq('post_id', postId);
+      const { error } = await supabase.from('posts').delete().eq('id', postId);
+      if (error) throw error;
+      setUserPosts(prev => prev.filter(p => p.id !== postId));
+      setUserReels(prev => prev.filter(r => r.id !== postId));
+      toast({ title: 'Deleted', description: 'Post deleted permanently' });
+    } catch (err) {
+      console.error('Delete error:', err);
+      toast({ title: 'Error', description: 'Failed to delete', variant: 'destructive' });
+    }
+  };
+
+  // Unsave a post
+  const handleUnsavePost = async (savedId: string, postId: string) => {
+    try {
+      await supabase.from('saved_posts').delete().eq('id', savedId);
+      setSavedPosts(prev => prev.filter(s => s.id !== savedId));
+      toast({ title: 'Removed', description: 'Post removed from saved' });
+    } catch (err) {
+      console.error('Unsave error:', err);
+      toast({ title: 'Error', description: 'Failed to remove', variant: 'destructive' });
+    }
+  };
+
   // Offline placeholder for content sections
   const OfflineContentPlaceholder = () => (
     <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -472,7 +506,7 @@ const Profile = () => {
             ) : userPosts.length > 0 ? (
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {userPosts.map(post => (
-                  <Card key={post.id} className="overflow-hidden cursor-pointer hover:ring-2 ring-primary">
+                  <Card key={post.id} className="overflow-hidden cursor-pointer hover:ring-2 ring-primary group relative">
                     <div className="aspect-square relative bg-muted">
                       {post.imageUrl ? (
                         <img src={post.imageUrl} alt="" className="w-full h-full object-cover" />
@@ -480,6 +514,14 @@ const Profile = () => {
                         <div className="w-full h-full flex items-center justify-center p-3">
                           <p className="text-xs text-muted-foreground line-clamp-4">{post.content}</p>
                         </div>
+                      )}
+                      {isOwnProfile && (
+                        <button
+                          className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-destructive/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                          onClick={(e) => { e.stopPropagation(); handleDeletePost(post.id); }}
+                        >
+                          <X className="w-3.5 h-3.5 text-white" />
+                        </button>
                       )}
                     </div>
                   </Card>
@@ -498,7 +540,7 @@ const Profile = () => {
             ) : userReels.length > 0 ? (
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {userReels.map(reel => (
-                  <Card key={reel.id} className="overflow-hidden cursor-pointer hover:ring-2 ring-primary">
+                  <Card key={reel.id} className="overflow-hidden cursor-pointer hover:ring-2 ring-primary group relative">
                     <div className="aspect-[9/16] relative bg-muted">
                       {reel.videoUrl ? (
                         <video
@@ -514,6 +556,14 @@ const Profile = () => {
                         <div className="w-full h-full flex items-center justify-center">
                           <span className="text-muted-foreground">No preview</span>
                         </div>
+                      )}
+                      {isOwnProfile && (
+                        <button
+                          className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-destructive/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                          onClick={(e) => { e.stopPropagation(); handleDeletePost(reel.id); }}
+                        >
+                          <X className="w-3.5 h-3.5 text-white" />
+                        </button>
                       )}
                     </div>
                   </Card>
@@ -533,7 +583,7 @@ const Profile = () => {
                   {savedPosts.map(saved => (
                     <Card 
                       key={saved.id} 
-                      className="overflow-hidden cursor-pointer hover:ring-2 ring-primary"
+                      className="overflow-hidden cursor-pointer hover:ring-2 ring-primary group relative"
                       onClick={() => { setSelectedSaved(saved); setShowSavedOptions(true); }}
                     >
                       <div className="aspect-square relative bg-muted">
@@ -547,6 +597,12 @@ const Profile = () => {
                         <div className="absolute bottom-2 right-2">
                           <Bookmark className="w-5 h-5 text-white drop-shadow-lg fill-current" />
                         </div>
+                        <button
+                          className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-destructive/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                          onClick={(e) => { e.stopPropagation(); handleUnsavePost(saved.id, saved.postId); }}
+                        >
+                          <X className="w-3.5 h-3.5 text-white" />
+                        </button>
                       </div>
                     </Card>
                   ))}
