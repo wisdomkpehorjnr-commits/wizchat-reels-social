@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,24 +9,85 @@ import { Notification } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 
+const NOTIF_CACHE_KEY = 'wizchat_notifications_cache';
+const NOTIF_SESSION_KEY = 'wizchat_notifs_loaded_this_session';
+
+// Persistent cache helpers
+const getCachedNotifications = (): Notification[] => {
+  try {
+    const raw = localStorage.getItem(NOTIF_CACHE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return parsed.map((n: any) => ({ ...n, createdAt: new Date(n.createdAt) }));
+    }
+  } catch {}
+  return [];
+};
+
+const saveCachedNotifications = (notifs: Notification[]) => {
+  try {
+    localStorage.setItem(NOTIF_CACHE_KEY, JSON.stringify(notifs));
+  } catch {}
+};
+
 const NotificationCenter: React.FC = () => {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const cachedNotifs = getCachedNotifications();
+  const [notifications, setNotifications] = useState<Notification[]>(cachedNotifs);
+  const [loading, setLoading] = useState(cachedNotifs.length === 0);
+  const [unreadCount, setUnreadCount] = useState(cachedNotifs.filter(n => !n.isRead).length);
+  const hasLoadedThisSession = useRef(!!sessionStorage.getItem(NOTIF_SESSION_KEY));
   const navigate = useNavigate();
 
   useEffect(() => {
-    loadNotifications();
-    
-    // Subscribe to real-time notifications
+    // Only fetch from network once per session
+    if (!hasLoadedThisSession.current && navigator.onLine) {
+      loadNotifications();
+      hasLoadedThisSession.current = true;
+      sessionStorage.setItem(NOTIF_SESSION_KEY, '1');
+    } else {
+      setLoading(false);
+    }
+
+    // Subscribe to real-time notifications for incremental updates
     const channel = supabase
       .channel('notifications-updates')
       .on('postgres_changes', {
-        event: '*',
+        event: 'INSERT',
         schema: 'public',
         table: 'notifications'
-      }, () => {
-        loadNotifications();
+      }, (payload) => {
+        const n = payload.new as any;
+        const mapped: Notification = {
+          id: n.id,
+          userId: n.user_id,
+          type: n.type,
+          title: n.title,
+          message: n.message,
+          data: n.data,
+          isRead: n.is_read,
+          createdAt: new Date(n.created_at)
+        };
+        setNotifications(prev => {
+          const updated = [mapped, ...prev];
+          saveCachedNotifications(updated);
+          return updated;
+        });
+        setUnreadCount(prev => prev + 1);
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'notifications'
+      }, (payload) => {
+        const n = payload.new as any;
+        setNotifications(prev => {
+          const updated = prev.map(notif =>
+            notif.id === n.id ? { ...notif, isRead: n.is_read } : notif
+          );
+          saveCachedNotifications(updated);
+          return updated;
+        });
+        setUnreadCount(prev => n.is_read ? Math.max(0, prev - 1) : prev);
       })
       .subscribe();
 
@@ -62,6 +123,7 @@ const NotificationCenter: React.FC = () => {
 
       setNotifications(mappedNotifications);
       setUnreadCount(mappedNotifications.filter(n => !n.isRead).length);
+      saveCachedNotifications(mappedNotifications);
     } catch (error) {
       console.error('Error loading notifications:', error);
     } finally {
@@ -70,69 +132,71 @@ const NotificationCenter: React.FC = () => {
   };
 
   const markAsRead = async (notificationId: string) => {
+    // Optimistic update
+    setNotifications(prev => {
+      const updated = prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n);
+      saveCachedNotifications(updated);
+      return updated;
+    });
+    setUnreadCount(prev => Math.max(0, prev - 1));
+
     try {
-      const { error } = await supabase
+      await supabase
         .from('notifications')
         .update({ is_read: true })
         .eq('id', notificationId);
-
-      if (error) throw error;
-      loadNotifications();
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
   };
 
   const markAllAsRead = async () => {
+    // Optimistic update
+    setNotifications(prev => {
+      const updated = prev.map(n => ({ ...n, isRead: true }));
+      saveCachedNotifications(updated);
+      return updated;
+    });
+    setUnreadCount(0);
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { error } = await supabase
+      await supabase
         .from('notifications')
         .update({ is_read: true })
         .eq('user_id', user.id)
         .eq('is_read', false);
-
-      if (error) throw error;
-      loadNotifications();
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
     }
   };
 
   const handleNotificationClick = async (notification: Notification) => {
-    // Mark as read first
     if (!notification.isRead) {
       await markAsRead(notification.id);
     }
 
-    // Navigate based on notification type and data
     switch (notification.type) {
       case 'like':
       case 'comment':
         if (notification.data?.post_id) {
-          // Navigate to home with post focus
           navigate(`/?post=${notification.data.post_id}`);
         } else if (notification.data?.reel_id) {
-          // Navigate to reels
           navigate('/reels');
         }
         break;
-        
       case 'friend_request':
       case 'friend_accept':
         navigate('/friends');
         break;
-        
       case 'follow':
       case 'profile_view':
         if (notification.data?.user_id) {
-          // Direct navigation to avoid TypeScript issues
           navigate(`/profile/${notification.data.user_id}`);
         }
         break;
-        
       case 'new_message':
         if (notification.data?.chat_id) {
           navigate(`/chat/${notification.data.chat_id}`);
@@ -140,9 +204,7 @@ const NotificationCenter: React.FC = () => {
           navigate('/chat');
         }
         break;
-        
       default:
-        // For any other notification types, try to navigate based on available data
         if (notification.data?.post_id) {
           navigate(`/?post=${notification.data.post_id}`);
         } else if (notification.data?.user_id) {
@@ -223,7 +285,7 @@ const NotificationCenter: React.FC = () => {
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() => markAsRead(notification.id)}
+                  onClick={(e) => { e.stopPropagation(); markAsRead(notification.id); }}
                 >
                   <Check className="w-3 h-3" />
                 </Button>
