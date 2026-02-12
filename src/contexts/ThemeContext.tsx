@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-type ThemeMode = 'light' | 'dark' | 'ultra';
+type ThemeMode = 'light' | 'dark' | 'ultra' | 'ghana';
 
 interface ThemeContextType {
   isDarkMode: boolean;
@@ -29,7 +29,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme') as ThemeMode;
-    if (savedTheme && ['light', 'dark', 'ultra'].includes(savedTheme)) {
+    if (savedTheme && ['light', 'dark', 'ultra', 'ghana'].includes(savedTheme)) {
       setThemeModeState(savedTheme);
       applyTheme(savedTheme);
     }
@@ -37,12 +37,14 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
 
   const applyTheme = (mode: ThemeMode) => {
     // Remove all theme classes
-    document.documentElement.classList.remove('dark', 'ultra');
+    document.documentElement.classList.remove('dark', 'ultra', 'ghana');
     
     if (mode === 'dark') {
       document.documentElement.classList.add('dark');
     } else if (mode === 'ultra') {
       document.documentElement.classList.add('ultra');
+    } else if (mode === 'ghana') {
+      document.documentElement.classList.add('ghana');
     }
   };
 

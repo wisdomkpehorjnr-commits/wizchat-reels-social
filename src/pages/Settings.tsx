@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTheme } from '@/contexts/ThemeContext';
 import Layout from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -52,6 +53,45 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useMediaOptimization } from '@/hooks/useMediaOptimization';
+
+const ThemeSelector = () => {
+  const { themeMode, setThemeMode } = useTheme();
+  const themes = [
+    { value: 'light' as const, label: 'Light', desc: 'Clean & bright', colors: ['#ffffff', '#16a34a', '#f0fdf4'] },
+    { value: 'dark' as const, label: 'Dark', desc: 'Easy on the eyes', colors: ['#0f172a', '#16a34a', '#1e293b'] },
+    { value: 'ultra' as const, label: 'Ultra', desc: 'Pure black & white', colors: ['#000000', '#ffffff', '#1a1a1a'] },
+    { value: 'ghana' as const, label: 'Ghana Pride', desc: 'Red, Gold & Green', colors: ['#ce1126', '#fcd116', '#006b3f'] },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      {themes.map((t) => (
+        <button
+          key={t.value}
+          onClick={() => setThemeMode(t.value)}
+          className={`relative p-4 rounded-xl border-2 transition-all text-left ${
+            themeMode === t.value
+              ? 'border-primary ring-2 ring-primary/30 shadow-md'
+              : 'border-border hover:border-muted-foreground/40'
+          }`}
+        >
+          <div className="flex gap-1.5 mb-3">
+            {t.colors.map((c, i) => (
+              <div key={i} className="w-5 h-5 rounded-full border border-border" style={{ backgroundColor: c }} />
+            ))}
+          </div>
+          <div className="font-semibold text-sm text-foreground">{t.label}</div>
+          <div className="text-xs text-muted-foreground">{t.desc}</div>
+          {themeMode === t.value && (
+            <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+              <span className="text-primary-foreground text-xs">✓</span>
+            </div>
+          )}
+        </button>
+      ))}
+    </div>
+  );
+};
 
 const Settings = () => {
   const { toast } = useToast();
@@ -866,22 +906,10 @@ const Settings = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-3">
-                  <Label>Dark Mode</Label>
-                  <Select value={darkMode} onValueChange={setDarkMode}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="auto">Auto</SelectItem>
-                      <SelectItem value="on">On</SelectItem>
-                      <SelectItem value="off">Off</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label>Theme</Label>
+                  <p className="text-sm text-muted-foreground">Choose a theme for your app experience</p>
+                  <ThemeSelector />
                 </div>
-
-                <Button onClick={handleSaveSettings} className="w-full">
-                  Save Changes
-                </Button>
               </CardContent>
             </Card>
           </TabsContent>
