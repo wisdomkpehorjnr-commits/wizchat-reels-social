@@ -70,21 +70,38 @@ const PremiumThemes = () => {
     if (themeId === 'light') return themeMode === 'light';
     if (themeId === 'dark') return themeMode === 'dark';
     if (themeId === 'ultra') return themeMode === 'ultra';
+    if (themeId === 'ghana') return themeMode === 'ghana';
     return false;
   };
 
   const handleThemeToggle = (themeId: string) => {
+    const currentlyActive = isThemeActive(themeId);
+
     if (themeId === 'light') {
       setThemeMode('light');
     } else if (themeId === 'dark') {
       setThemeMode('dark');
     } else if (themeId === 'ultra') {
+      if (currentlyActive) {
+        setThemeMode('light');
+        toast({ title: 'Ultra Theme Deactivated', description: 'Returned to default theme.' });
+        return;
+      }
+
       if (isThemePurchased('ultra')) {
         setThemeMode('ultra');
-        toast({
-          title: "Ultra Theme Activated",
-          description: "Black & white focus mode is now active",
-        });
+        toast({ title: 'Ultra Theme Activated', description: 'Black & white focus mode is now active' });
+      }
+    } else if (themeId === 'ghana') {
+      if (currentlyActive) {
+        setThemeMode('light');
+        toast({ title: 'Ghana Pride Deactivated', description: 'Returned to default theme.' });
+        return;
+      }
+
+      if (isThemePurchased('ghana')) {
+        setThemeMode('ghana');
+        toast({ title: 'Ghana Pride Activated', description: 'Ghana Pride theme is now active' });
       }
     }
   };
@@ -98,8 +115,16 @@ const PremiumThemes = () => {
     if (themeId === 'ultra') {
       setThemeMode('ultra');
       toast({
-        title: "Ultra Theme Purchased & Activated!",
-        description: "Your black & white focus mode is now active. Enjoy the minimal experience!",
+        title: 'Ultra Theme Purchased & Activated!',
+        description: 'Your black & white focus mode is now active. Enjoy the minimal experience!',
+      });
+    }
+
+    if (themeId === 'ghana') {
+      setThemeMode('ghana');
+      toast({
+        title: 'Ghana Pride Purchased & Activated!',
+        description: 'The Ghana Pride theme is now active. Enjoy the colors!',
       });
     }
   };
