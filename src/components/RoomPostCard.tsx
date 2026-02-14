@@ -340,8 +340,9 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
       setDislikeCount(prev => wasDisliked ? prev + 1 : prev - 1);
       loadLikes();
       toast({
-        title: "Notice",
-        description: "your like count will be updated once you are connected"
+        title: "Error",
+        description: error.message || "Failed to like post",
+        variant: "destructive"
       });
     }
   };

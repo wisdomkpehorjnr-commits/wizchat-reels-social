@@ -192,8 +192,9 @@ const TikTokReelCard: React.FC<TikTokReelCardProps> = ({
       setIsLiked(wasLiked);
       setLikeCount(prev => wasLiked ? prev : prev - 1);
       toast({
-        title: "Notice",
-        description: "your like count will be updated once you are connected"
+        title: "Error",
+        description: "Failed to like reel",
+        variant: "destructive"
       });
     }
   };
