@@ -183,6 +183,25 @@ const NotificationSystem = () => {
                 description: truncated,
               });
 
+              // Make toast clickable to open chat
+              setTimeout(() => {
+                const handleClickToOpenChat = () => {
+                  try {
+                    window.dispatchEvent(new CustomEvent('openChatWithUser', {
+                      detail: { userId: msg.user_id, chatId }
+                    }));
+                    toastRef.dismiss();
+                  } catch (e) {}
+                };
+                
+                const toastElements = document.querySelectorAll('[role="status"]');
+                if (toastElements.length > 0) {
+                  const lastToast = toastElements[toastElements.length - 1];
+                  lastToast.style.cursor = 'pointer';
+                  lastToast.addEventListener('click', handleClickToOpenChat);
+                }
+              }, 0);
+
               setTimeout(() => {
                 try { toastRef.dismiss(); } catch (e) {}
               }, 3000);

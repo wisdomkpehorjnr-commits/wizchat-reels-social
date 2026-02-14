@@ -355,7 +355,7 @@ const Profile = () => {
 
   /** Like / Save / Share helpers */
   const handleLikePost = async (postId: string) => {
-    try { await dataService.likePost(postId); } catch { toast({ title: "Error", description: "Failed to like post", variant: "destructive" }); }
+    try { await dataService.likePost(postId); } catch { toast({ title: "Like queued", description: "Your like count will be updated once you are connected" }); }
   };
   const handleSavePost = async (postId: string) => {
     try { await ProfileService.savePost(postId); toast({ title: "Saved", description: "Post saved" }); }

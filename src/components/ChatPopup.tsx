@@ -230,7 +230,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
     } catch (error) {
       console.error('Error initializing chat:', error);
       if (isNetworkOnline) {
-        toast({ title: "Error", description: "Failed to initialize chat", variant: "destructive" });
+        toast({ title: "Info", description: "Failed to initialize chat. Retrying..." });
       } else {
         // Offline: do not show destructive toast, allow user to continue with local messages
         console.debug('Offline - showing local messages where available');
@@ -479,7 +479,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         if (sendSound.current) sendSound.current.play().catch(() => {});
       } catch (error) {
         console.error('Error sending message:', error);
-        toast({ title: "Failed to send", description: "Message will be sent when online", variant: "destructive" });
+        toast({ title: "Queued", description: "Message will be sent when online" });
         await localMessageService.addToOutbox(localMsg);
       }
     } else {

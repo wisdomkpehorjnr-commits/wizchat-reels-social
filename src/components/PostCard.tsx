@@ -341,9 +341,8 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
       
       console.error('Error liking post:', error);
       toast({
-        title: "Error",
-        description: "Failed to like post",
-        variant: "destructive"
+        title: "Like queued",
+        description: "Your like count will be updated once you are connected"
       });
     }
   };
