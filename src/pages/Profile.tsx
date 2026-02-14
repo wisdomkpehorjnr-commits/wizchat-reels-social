@@ -20,6 +20,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { useNavigate, useParams } from 'react-router-dom';
 import VerificationBadge from '@/components/VerificationBadge';
 import LoadingDots from '@/components/LoadingDots';
+import { cacheService } from '@/services/cacheService';
 
 // =============================================
 // PERSISTENT PROFILE CACHE
@@ -41,6 +42,85 @@ const getProfileCache = (userId: string): ProfileCache | null => {
     }
   } catch {}
   return null;
+};
+
+// Hook to get and cache a media URL (returns a data URL if cached or fetched)
+const useCachedMedia = (src?: string) => {
+  const [cachedSrc, setCachedSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    if (!src) return;
+
+    const key = `media-poster-${encodeURIComponent(src)}`;
+
+    (async () => {
+      try {
+        const existing = await cacheService.get<string>(key);
+        if (existing) {
+          if (mounted) setCachedSrc(existing);
+          return;
+        }
+
+        if (!navigator.onLine) return;
+
+        // Fetch and cache as data URL
+        const res = await fetch(src);
+        if (!res.ok) return;
+        const blob = await res.blob();
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const dataUrl = reader.result as string;
+          try {
+            await cacheService.set(key, dataUrl, 7 * 24 * 60 * 60 * 1000); // 7 days
+          } catch (err) {
+            console.error('Failed to cache media:', err);
+          }
+          if (mounted) setCachedSrc(dataUrl);
+        };
+        reader.readAsDataURL(blob);
+      } catch (err) {
+        // ignore
+      }
+    })();
+
+    return () => { mounted = false; };
+  }, [src]);
+
+  return cachedSrc;
+};
+
+// Child component to render a reel preview (video or image) and leverage the caching hook
+const ReelPreview: React.FC<{ reel: any; isMuted: boolean; onDelete?: (id: string) => void; isOwnProfile?: boolean }> = ({ reel, isMuted, onDelete, isOwnProfile }) => {
+  const cachedPoster = useCachedMedia(reel.imageUrl);
+
+  return (
+    <>
+      {reel.videoUrl ? (
+        <video
+          src={reel.videoUrl}
+          className="w-full h-full object-cover"
+          muted={isMuted}
+          preload="none"
+          poster={cachedPoster || reel.imageUrl}
+        />
+      ) : reel.imageUrl ? (
+        <img src={cachedPoster || reel.imageUrl} alt="" className="w-full h-full object-cover" />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center">
+          <span className="text-muted-foreground">No preview</span>
+        </div>
+      )}
+      {isOwnProfile && (
+        <button
+          className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-destructive/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
+          onClick={(e) => { e.stopPropagation(); onDelete && onDelete(reel.id); }}
+        >
+          <X className="w-3.5 h-3.5 text-white" />
+        </button>
+      )}
+    </>
+  );
 };
 
 const saveProfileCache = (userId: string, data: Partial<ProfileCache>) => {
@@ -548,29 +628,7 @@ const Profile = () => {
                 {userReels.map(reel => (
                   <Card key={reel.id} className="overflow-hidden cursor-pointer hover:ring-2 ring-primary group relative">
                     <div className="aspect-[9/16] relative bg-muted">
-                      {reel.videoUrl ? (
-                        <video
-                          src={reel.videoUrl}
-                          className="w-full h-full object-cover"
-                          muted={isMuted}
-                          preload="none"
-                          poster={reel.imageUrl}
-                        />
-                      ) : reel.imageUrl ? (
-                        <img src={reel.imageUrl} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <span className="text-muted-foreground">No preview</span>
-                        </div>
-                      )}
-                      {isOwnProfile && (
-                        <button
-                          className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-destructive/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                          onClick={(e) => { e.stopPropagation(); handleDeletePost(reel.id); }}
-                        >
-                          <X className="w-3.5 h-3.5 text-white" />
-                        </button>
-                      )}
+                      <ReelPreview reel={reel} isMuted={isMuted} onDelete={handleDeletePost} isOwnProfile={isOwnProfile} />
                     </div>
                   </Card>
                 ))}
