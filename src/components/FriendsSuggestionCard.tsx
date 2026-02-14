@@ -65,11 +65,7 @@ const FriendsSuggestionCard = () => {
       setFollowingStates(states);
     } catch (error) {
       console.error('Error loading friend suggestions:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load friend suggestions",
-        variant: "destructive"
-      });
+      // Removed user-facing toast for failed friend suggestions per request
     } finally {
       setLoading(false);
     }

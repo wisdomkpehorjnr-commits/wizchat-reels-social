@@ -340,11 +340,10 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
       setLikeCount(prev => wasLiked ? prev + 1 : prev - 1);
       
       console.error('Error liking post:', error);
-      toast({
-        title: "Error",
-        description: "Failed to like post",
-        variant: "destructive"
-      });
+        toast({
+          title: "Notice",
+          description: "your like count will be updated once you are connected"
+        });
     }
   };
 

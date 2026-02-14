@@ -243,9 +243,8 @@ const Home = () => {
     } catch (error) {
       console.error('Error liking post:', error);
       toast({
-        title: "Error",
-        description: "Failed to like post",
-        variant: "destructive"
+        title: "Notice",
+        description: "your like count will be updated once you are connected"
       });
     }
   };
