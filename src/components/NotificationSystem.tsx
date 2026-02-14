@@ -71,6 +71,27 @@ const NotificationSystem = () => {
           return updated;
         });
         setUnreadCount(prev => prev + 1);
+        // If this notification represents a new chat message, show a small themed drop-in toast
+        try {
+          if (mapped.type === 'message' || mapped.type === 'new_message') {
+            const truncate = (s: string | undefined, l = 80) => {
+              if (!s) return '';
+              return s.length > l ? s.slice(0, l).trim() + '…' : s;
+            };
+
+            const toastRef = toast({
+              title: mapped.title || 'New message',
+              description: truncate(mapped.message, 100),
+            });
+
+            // Auto dismiss after 3 seconds
+            setTimeout(() => {
+              try { toastRef.dismiss(); } catch (e) {}
+            }, 3000);
+          }
+        } catch (err) {
+          // swallow any toast errors to avoid breaking realtime flow
+        }
       })
       .on('postgres_changes', {
         event: 'UPDATE',
