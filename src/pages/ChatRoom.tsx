@@ -23,16 +23,29 @@ const ChatRoom = () => {
       if (!chatId) return;
       
       try {
-        const chats = await dataService.getChats();
-        const currentChat = chats.find(c => c.id === chatId);
-        setChat(currentChat || null);
-        
-        if (currentChat) {
+        // Prefer server data when online
+        if (navigator.onLine) {
+          const chats = await dataService.getChats();
+          const currentChat = chats.find(c => c.id === chatId);
+          setChat(currentChat || null);
+
           const chatMessages = await dataService.getMessages(chatId);
           setMessages(chatMessages);
+        } else {
+          // Offline: load messages from local storage
+          const localMessages = await (await import('@/services/localMessageService')).localMessageService.getMessages(chatId);
+          setMessages(localMessages);
+          setChat(null);
         }
       } catch (error) {
         console.error('Error loading chat data:', error);
+        try {
+          // Fallback to local messages when server requests fail
+          const localMessages = await (await import('@/services/localMessageService')).localMessageService.getMessages(chatId);
+          setMessages(localMessages);
+        } catch (e) {
+          console.error('Failed to load local messages:', e);
+        }
       } finally {
         setLoading(false);
       }

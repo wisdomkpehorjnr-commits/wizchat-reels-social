@@ -127,6 +127,40 @@ class LocalMessageService {
     });
   }
 
+  // Try to find a direct chat id that contains messages from both participants
+  async findChatIdForDirectChat(userA: string, userB: string): Promise<string | null> {
+    await this.initDB();
+    if (!this.db) return null;
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction([STORES.MESSAGES], 'readonly');
+      const messagesStore = transaction.objectStore(STORES.MESSAGES);
+      const request = messagesStore.getAll();
+
+      request.onsuccess = () => {
+        const all = request.result as LocalMessage[];
+        const map = new Map<string, Set<string>>();
+
+        for (const msg of all) {
+          const set = map.get(msg.chatId) || new Set<string>();
+          set.add(msg.userId);
+          map.set(msg.chatId, set);
+        }
+
+        for (const [chatId, users] of map.entries()) {
+          if (users.has(userA) && users.has(userB)) {
+            resolve(chatId);
+            return;
+          }
+        }
+
+        resolve(null);
+      };
+
+      request.onerror = () => reject(request.error);
+    });
+  }
+
   // Save a message locally
   async saveMessage(message: LocalMessage): Promise<void> {
     await this.initDB();

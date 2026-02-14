@@ -186,16 +186,36 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
     
     try {
       setLoading(true);
-      
-      const { data: chatId, error: chatError } = await supabase.rpc('get_or_create_direct_chat', {
-        p_other_user_id: chatUser.id
-      });
+      // Attempt to get or create chat on server. If offline or RPC fails,
+      // fall back to local storage to allow full offline access.
+      let resolvedChatId: string | null = null;
 
-      if (chatError) throw chatError;
-      
-      setChatId(chatId);
-      
-      const localMessages = await localMessageService.getMessages(chatId);
+      try {
+        const { data: chatId, error: chatError } = await supabase.rpc('get_or_create_direct_chat', {
+          p_other_user_id: chatUser.id
+        });
+
+        if (chatError) throw chatError;
+
+        resolvedChatId = chatId;
+      } catch (err) {
+        // Server unavailable or offline — try to find a chat id from local messages
+        try {
+          const found = await localMessageService.findChatIdForDirectChat(user.id, chatUser.id);
+          if (found) resolvedChatId = found;
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      // If still no chatId, create a local temporary chatId so outbox and local messages work offline
+      if (!resolvedChatId) {
+        resolvedChatId = `local_${user.id}_${chatUser.id}`;
+      }
+
+      setChatId(resolvedChatId);
+
+      const localMessages = await localMessageService.getMessages(resolvedChatId);
       const convertedMessages: Message[] = localMessages.map(msg => ({
         ...msg,
         status: msg.status,
@@ -204,12 +224,17 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       
       setMessages(convertedMessages);
       
-      if (isNetworkOnline) {
-        await syncMessagesWithServer(chatId);
+      if (isNetworkOnline && resolvedChatId) {
+        await syncMessagesWithServer(resolvedChatId);
       }
     } catch (error) {
       console.error('Error initializing chat:', error);
-      toast({ title: "Error", description: "Failed to initialize chat", variant: "destructive" });
+      if (isNetworkOnline) {
+        toast({ title: "Error", description: "Failed to initialize chat", variant: "destructive" });
+      } else {
+        // Offline: do not show destructive toast, allow user to continue with local messages
+        console.debug('Offline - showing local messages where available');
+      }
     } finally {
       setLoading(false);
     }
@@ -220,6 +245,53 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
     syncInProgressRef.current = true;
 
     try {
+      // If this is a temporary local chat id created while offline, try to obtain the real
+      // server chat id and migrate local messages/outbox to it.
+      if (chatId.startsWith('local_')) {
+        try {
+          // local_{currentUserId}_{otherUserId}
+          const suffix = chatId.slice('local_'.length);
+          const idx = suffix.indexOf('_');
+          const otherUserId = idx === -1 ? suffix : suffix.slice(idx + 1);
+
+          const { data: realChatId, error: rpcErr } = await supabase.rpc('get_or_create_direct_chat', {
+            p_other_user_id: otherUserId
+          });
+
+          if (!rpcErr && realChatId) {
+            // Migrate messages: update stored messages to use realChatId
+            try {
+              const localMsgs = await localMessageService.getMessages(chatId);
+              for (const m of localMsgs) {
+                // update chatId and re-save
+                const updated = { ...m, chatId: realChatId } as LocalMessage;
+                await localMessageService.saveMessage(updated);
+              }
+
+              // Migrate outbox entries
+              const outbox = await localMessageService.getOutboxMessages();
+              for (const ob of outbox.filter(o => o.chatId === chatId)) {
+                try {
+                  // remove old outbox and re-add with new chatId
+                  if (ob.localId) await localMessageService.removeFromOutbox(ob.localId);
+                  await localMessageService.addToOutbox({ ...ob, chatId: realChatId });
+                } catch (e) {
+                  // ignore per-message errors
+                }
+              }
+
+              // Update component state chatId to real one
+              setChatId(realChatId);
+              chatId = realChatId;
+            } catch (e) {
+              console.warn('Failed to migrate local chat messages:', e);
+            }
+          }
+        } catch (e) {
+          // ignore migration errors and continue; we'll try server sync below which may fail
+        }
+      }
+
       const serverMessages = await dataService.getMessages(chatId);
       
       // Fetch reactions for each message
