@@ -180,9 +180,15 @@ const NotificationSystem = () => {
               // Store handler for this specific message
               const handleOpenChat = () => {
                 try {
-                  window.dispatchEvent(new CustomEvent('openChatWithUser', {
-                    detail: { userId: msg.user_id, chatId }
-                  }));
+                  // Navigate to chat page first
+                  navigate('/chat');
+                  
+                  // Dispatch event after a small delay to ensure Chat page listener is registered
+                  setTimeout(() => {
+                    window.dispatchEvent(new CustomEvent('openChatWithUser', {
+                      detail: { userId: msg.user_id, chatId }
+                    }));
+                  }, 100);
                 } catch (e) {
                   console.error('Error opening chat from toast:', e);
                 }
