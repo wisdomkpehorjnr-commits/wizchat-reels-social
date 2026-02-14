@@ -6,6 +6,9 @@ import VerifiedBadge from './VerifiedBadge';
 import { supabase } from '@/integrations/supabase/client';
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { User as UserIcon } from 'lucide-react';
 
 interface ClickableUserInfoProps {
   user: User | any;
@@ -24,125 +27,101 @@ const ClickableUserInfo = ({
 }: ClickableUserInfoProps) => {
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
-  const [isNavigating, setIsNavigating] = useState(false);
+  const [showPopup, setShowPopup] = useState(false);
   const isOnline = useOnlineStatus(user?.id);
   const isVerified = (user as any)?.is_verified || false;
   
-  const handleClick = async (e: React.MouseEvent) => {
+  const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
-    if (!user?.id || isNavigating) return;
+    if (!user?.id) return;
     
-    // Check if this is the current user's profile - if so, do nothing
     const isOwnProfile = currentUser && (
       user.id === currentUser.id || 
-      user.username === currentUser.username ||
-      (user.id && currentUser.id && user.id === currentUser.id)
+      user.username === currentUser.username
     );
     
-    if (isOwnProfile) {
-      return; // No action for own profile
-    }
+    if (isOwnProfile) return;
     
-    setIsNavigating(true);
-    
-    try {
-      // Verify the user exists in profiles table
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('id, username')
-        .eq('id', user.id)
-        .single();
-      
-      if (error || !profile) {
-        // If profile doesn't exist, try to find by username
-        if (user.username) {
-          const { data: profileByUsername } = await supabase
-            .from('profiles')
-            .select('id, username')
-            .eq('username', user.username)
-            .single();
-          
-          if (profileByUsername) {
-            // Double-check it's not the current user
-            if (currentUser && profileByUsername.id === currentUser.id) {
-              return; // No action for own profile
-            }
-            navigate(`/profile/${profileByUsername.username || profileByUsername.id}`);
-            return;
-          }
-        }
-        
-        // Double-check it's not the current user before navigating
-        if (currentUser && user.id === currentUser.id) {
-          return; // No action for own profile
-        }
-        
-        // If still not found, navigate with ID anyway (Profile page will handle error gracefully)
-        navigate(`/profile/${user.id}`);
-        return;
-      }
-      
-      // Double-check it's not the current user
-      if (currentUser && profile.id === currentUser.id) {
-        return; // No action for own profile
-      }
-      
-      // Navigate using username if available, otherwise ID
-      const identifier = profile.username || profile.id;
-      navigate(`/profile/${identifier}`);
-    } catch (error) {
-      console.error('Error navigating to profile:', error);
-      // Double-check it's not the current user before fallback navigation
-      if (currentUser && user.id === currentUser.id) {
-        return; // No action for own profile
-      }
-      // Fallback navigation
-      navigate(`/profile/${user.id}`);
-    } finally {
-      setTimeout(() => setIsNavigating(false), 500);
-    }
+    setShowPopup(true);
+  };
+
+  const handleViewProfile = () => {
+    setShowPopup(false);
+    const identifier = user.username || user.id;
+    navigate(`/profile/${identifier}`);
   };
   
-  if (!user) {
-    return null;
-  }
+  if (!user) return null;
   
-  // Check if this is the current user - if so, make it non-clickable
   const isOwnProfile = currentUser && (user.id === currentUser.id || user.username === currentUser.username);
   
   return (
-    <div 
-      onClick={isOwnProfile ? undefined : handleClick}
-      className={`flex items-center space-x-2 transition-opacity ${
-        isOwnProfile ? '' : 'hover:opacity-80 cursor-pointer'
-      } ${className}`}
-    >
-      {showAvatar && (
-        <div className="relative">
-          <Avatar className={`${avatarSize} ${isOnline ? 'ring-2 ring-green-500 ring-offset-2 ring-offset-background' : ''}`}>
-            <AvatarImage src={user.avatar || user.photoURL} />
-            <AvatarFallback>{user.name?.charAt(0) || user.email?.charAt(0) || 'U'}</AvatarFallback>
-          </Avatar>
-          {isVerified && (
-            <span className="absolute -bottom-1 -right-1">
-              <VerifiedBadge className="w-4 h-4" />
+    <>
+      <div 
+        onClick={isOwnProfile ? undefined : handleClick}
+        className={`flex items-center space-x-2 transition-opacity ${
+          isOwnProfile ? '' : 'hover:opacity-80 cursor-pointer'
+        } ${className}`}
+      >
+        {showAvatar && (
+          <div className="relative">
+            <Avatar className={`${avatarSize} ${isOnline ? 'ring-2 ring-green-500 ring-offset-2 ring-offset-background' : ''}`}>
+              <AvatarImage src={user.avatar || user.photoURL} />
+              <AvatarFallback>{user.name?.charAt(0) || user.email?.charAt(0) || 'U'}</AvatarFallback>
+            </Avatar>
+            {isVerified && (
+              <span className="absolute -bottom-1 -right-1">
+                <VerifiedBadge className="w-4 h-4" />
+              </span>
+            )}
+          </div>
+        )}
+        {showName && (
+          <div className="flex items-center gap-1">
+            <span className="font-medium text-foreground hover:text-primary transition-colors">
+              {user.name || user.email || 'Unknown User'}
             </span>
-          )}
-        </div>
-      )}
-      {showName && (
-        <div className="flex items-center gap-1">
-          <span className="font-medium text-foreground hover:text-primary transition-colors">
-            {user.name || user.email || 'Unknown User'}
-          </span>
-          {isVerified && (
-            <VerifiedBadge className="ml-1 w-4 h-4 align-middle" />
-          )}
-        </div>
-      )}
-    </div>
+            {isVerified && (
+              <VerifiedBadge className="ml-1 w-4 h-4 align-middle" />
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Profile action popup */}
+      <Dialog open={showPopup} onOpenChange={setShowPopup}>
+        <DialogContent className="max-w-[280px] rounded-2xl p-0 overflow-hidden border border-border bg-card shadow-xl [&>button]:hidden">
+          <div className="flex flex-col items-center pt-6 pb-2 px-4">
+            <Avatar className="w-16 h-16 mb-3">
+              <AvatarImage src={user.avatar || user.photoURL} />
+              <AvatarFallback className="text-lg">{user.name?.charAt(0) || 'U'}</AvatarFallback>
+            </Avatar>
+            <p className="font-semibold text-foreground text-base">{user.name || 'Unknown'}</p>
+            {user.username && (
+              <p className="text-sm text-muted-foreground">@{user.username}</p>
+            )}
+          </div>
+          <div className="px-4 pb-4 space-y-2">
+            <Button 
+              className="w-full rounded-xl" 
+              onClick={handleViewProfile}
+            >
+              <UserIcon className="w-4 h-4 mr-2" />
+              View Profile
+            </Button>
+            <Button 
+              variant="ghost" 
+              className="w-full rounded-xl text-muted-foreground" 
+              onClick={() => setShowPopup(false)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 

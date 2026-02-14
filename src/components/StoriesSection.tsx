@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Eye, Camera, X, Edit, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Eye, Camera, X, Edit, Trash2, ChevronLeft, ChevronRight, WifiOff } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Story } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
@@ -70,6 +70,19 @@ const saveStoriesToLocalStorage = (stories: Story[]) => {
   } catch (e) {
     console.debug('[Stories] Failed to save to localStorage:', e);
   }
+};
+
+// Story thumbnail that shows offline icon when image fails to load
+const StoryThumb: React.FC<{ src: string; name: string }> = ({ src, name }) => {
+  const [err, setErr] = useState(false);
+  if (err) {
+    return (
+      <div className="w-full h-full bg-muted flex flex-col items-center justify-center rounded-full">
+        <WifiOff className="w-5 h-5 text-muted-foreground" />
+      </div>
+    );
+  }
+  return <img src={src} alt={`${name} story`} className="w-full h-full object-cover rounded-full" onError={() => setErr(true)} />;
 };
 
 const StoriesSection: React.FC = () => {
@@ -387,15 +400,15 @@ const StoriesSection: React.FC = () => {
           <div key={storyGroup.userId} className="flex-shrink-0 text-center cursor-pointer" onClick={() => viewStoryGroup(storyGroup)}>
             <div className="relative">
               <div className="w-16 h-16 rounded-full p-0.5 bg-gradient-to-r from-green-500 to-emerald-500 overflow-hidden">
-                {storyGroup.latestStory.mediaUrl ? (
+              {storyGroup.latestStory.mediaUrl ? (
                   storyGroup.latestStory.mediaType === 'image' ? (
-                    <img src={storyGroup.latestStory.mediaUrl} alt="Story preview" className="w-full h-full object-cover rounded-full" />
+                    <StoryThumb src={storyGroup.latestStory.mediaUrl} name={storyGroup.user.name} />
                   ) : (
                     <video src={storyGroup.latestStory.mediaUrl} className="w-full h-full object-cover rounded-full" muted />
                   )
                 ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center rounded-3xl">
-                    <span className="text-white text-xs font-bold">
+                  <div className="w-full h-full bg-gradient-to-br from-primary/60 to-accent/60 flex items-center justify-center rounded-full">
+                    <span className="text-primary-foreground text-xs font-bold">
                       {storyGroup.latestStory.content?.charAt(0) || storyGroup.user.name.charAt(0)}
                     </span>
                   </div>
