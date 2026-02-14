@@ -8,45 +8,64 @@ import { supabase } from '@/integrations/supabase/client';
 import { Notification } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
+import { offlineDataManager } from '@/services/offlineDataManager';
 
 const NOTIF_CACHE_KEY = 'wizchat_notifications_cache';
 const NOTIF_SESSION_KEY = 'wizchat_notifs_loaded_this_session';
 
-// Persistent cache helpers
-const getCachedNotifications = (): Notification[] => {
+// Persistent cache helpers (use offlineDataManager for longer-lived storage)
+const getCachedNotifications = async (): Promise<Notification[]> => {
   try {
-    const raw = localStorage.getItem(NOTIF_CACHE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      return parsed.map((n: any) => ({ ...n, createdAt: new Date(n.createdAt) }));
+    const cached = await offlineDataManager.getCachedNotifications();
+    if (cached && Array.isArray(cached) && cached.length > 0) {
+      return cached.map((n: any) => ({ ...n, createdAt: new Date(n.createdAt) }));
     }
-  } catch {}
+  } catch (err) {
+    // fall back to localStorage
+    try {
+      const raw = localStorage.getItem(NOTIF_CACHE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return parsed.map((n: any) => ({ ...n, createdAt: new Date(n.createdAt) }));
+      }
+    } catch {}
+  }
   return [];
 };
 
-const saveCachedNotifications = (notifs: Notification[]) => {
+const saveCachedNotifications = async (notifs: Notification[]) => {
   try {
-    localStorage.setItem(NOTIF_CACHE_KEY, JSON.stringify(notifs));
-  } catch {}
+    // cache for 30 days by default
+    await offlineDataManager.cacheNotifications(notifs, 30 * 24 * 60 * 60 * 1000);
+  } catch (err) {
+    try { localStorage.setItem(NOTIF_CACHE_KEY, JSON.stringify(notifs)); } catch {}
+  }
 };
 
 const NotificationCenter: React.FC = () => {
-  const cachedNotifs = getCachedNotifications();
-  const [notifications, setNotifications] = useState<Notification[]>(cachedNotifs);
-  const [loading, setLoading] = useState(cachedNotifs.length === 0);
-  const [unreadCount, setUnreadCount] = useState(cachedNotifs.filter(n => !n.isRead).length);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
   const hasLoadedThisSession = useRef(!!sessionStorage.getItem(NOTIF_SESSION_KEY));
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Only fetch from network once per session
-    if (!hasLoadedThisSession.current && navigator.onLine) {
-      loadNotifications();
-      hasLoadedThisSession.current = true;
-      sessionStorage.setItem(NOTIF_SESSION_KEY, '1');
-    } else {
-      setLoading(false);
-    }
+    // Load cached notifications first (async)
+    (async () => {
+      const cached = await getCachedNotifications();
+      if (cached && cached.length > 0) {
+        setNotifications(cached);
+        setUnreadCount(cached.filter(n => !n.isRead).length);
+      }
+      // Only fetch from network once per session
+      if (!hasLoadedThisSession.current && navigator.onLine) {
+        await loadNotifications();
+        hasLoadedThisSession.current = true;
+        sessionStorage.setItem(NOTIF_SESSION_KEY, '1');
+      } else {
+        setLoading(false);
+      }
+    })();
 
     // Subscribe to real-time notifications for incremental updates
     const channel = supabase
@@ -69,7 +88,7 @@ const NotificationCenter: React.FC = () => {
         };
         setNotifications(prev => {
           const updated = [mapped, ...prev];
-          saveCachedNotifications(updated);
+          saveCachedNotifications(updated).catch(() => {});
           return updated;
         });
         setUnreadCount(prev => prev + 1);
@@ -84,7 +103,7 @@ const NotificationCenter: React.FC = () => {
           const updated = prev.map(notif =>
             notif.id === n.id ? { ...notif, isRead: n.is_read } : notif
           );
-          saveCachedNotifications(updated);
+          saveCachedNotifications(updated).catch(() => {});
           return updated;
         });
         setUnreadCount(prev => n.is_read ? Math.max(0, prev - 1) : prev);
@@ -123,7 +142,7 @@ const NotificationCenter: React.FC = () => {
 
       setNotifications(mappedNotifications);
       setUnreadCount(mappedNotifications.filter(n => !n.isRead).length);
-      saveCachedNotifications(mappedNotifications);
+      await saveCachedNotifications(mappedNotifications);
     } catch (error) {
       console.error('Error loading notifications:', error);
     } finally {
