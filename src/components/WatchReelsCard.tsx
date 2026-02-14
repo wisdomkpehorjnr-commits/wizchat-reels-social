@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Play, Video } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import reelsPreview from '@/assets/reels-preview.jpg';
+import { useEffect, useState } from 'react';
+import { cacheService } from '@/services/cacheService';
 
 interface WatchReelsCardProps {
   reelPosts: any[];
@@ -40,11 +42,7 @@ const WatchReelsCard = ({ reelPosts }: WatchReelsCardProps) => {
       
       <CardContent className="pt-0 p-0">
         <div className="relative aspect-video rounded-lg overflow-hidden bg-muted">
-          <img 
-            src={reelsPreview} 
-            alt="Watch exciting reels on WizChat"
-            className="w-full h-full object-cover"
-          />
+          <WatchPreviewImage src={reelsPreview} alt="Watch exciting reels on WizChat" />
           <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
             <div className="text-center text-white drop-shadow-lg">
               <Play className="w-16 h-16 mx-auto mb-2" />
@@ -57,3 +55,40 @@ const WatchReelsCard = ({ reelPosts }: WatchReelsCardProps) => {
 };
 
 export default WatchReelsCard;
+
+const WatchPreviewImage: React.FC<{ src: string; alt?: string }> = ({ src, alt }) => {
+  const [preview, setPreview] = useState<string>(src);
+
+  useEffect(() => {
+    let mounted = true;
+    const key = `media-poster-${encodeURIComponent(src)}`;
+
+    (async () => {
+      try {
+        const cached = await cacheService.get<string>(key);
+        if (cached) {
+          if (mounted) setPreview(cached);
+          return;
+        }
+
+        // Fetch and cache (this will work for bundled assets served by Vite)
+        const res = await fetch(src);
+        if (!res.ok) return;
+        const blob = await res.blob();
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const dataUrl = reader.result as string;
+          try { await cacheService.set(key, dataUrl, 365 * 24 * 60 * 60 * 1000); } catch {}
+          if (mounted) setPreview(dataUrl);
+        };
+        reader.readAsDataURL(blob);
+      } catch (err) {
+        // ignore
+      }
+    })();
+
+    return () => { mounted = false; };
+  }, [src]);
+
+  return <img src={preview} alt={alt} className="w-full h-full object-cover" />;
+};

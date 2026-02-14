@@ -129,6 +129,16 @@
     --text-strong-contrast: 0 0% 10%;
   }
 
+  /* Ghana-specific tab selected override: use yellow for active tabs */
+  .ghana [role="tab"][data-state="active"] {
+    background-color: #fcd116 !important;
+    color: hsl(0 0% 0%) !important;
+  }
+
+  .ghana [role="tab"][data-state="active"] svg {
+    color: hsl(0 0% 0%) !important;
+  }
+
   /* Ultra mode - remove ALL green colors */
   .ultra .green-border,
   .ultra [class*="border-green"],
