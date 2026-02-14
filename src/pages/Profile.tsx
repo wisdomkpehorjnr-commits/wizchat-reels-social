@@ -90,13 +90,16 @@ const useCachedMedia = (src?: string) => {
   return cachedSrc;
 };
 
-// offline placeholder SVG data URL used for failed images in profile posts
+// Simple offline placeholder for profile post cards
 const OFFLINE_IMG = 'data:image/svg+xml;utf8,' + encodeURIComponent(`
-<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-  <rect width="24" height="24" rx="4" ry="4" fill="#f3f4f6" />
-  <path d="M3 12h18" stroke="#9ca3af" />
-  <circle cx="12" cy="8" r="2" fill="#9ca3af" />
-  <path d="M8 16c1.333-2 3.333-2 4 0 0.667-2 2.667-2 4 0" stroke="#9ca3af" />
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
+  <rect width="120" height="120" rx="8" fill="#f3f4f6"/>
+  <g transform="translate(40,36)">
+    <line x1="0" y1="24" x2="40" y2="24" stroke="#d1d5db" stroke-width="2" stroke-linecap="round"/>
+    <line x1="12" y1="18" x2="28" y2="30" stroke="#d1d5db" stroke-width="2" stroke-linecap="round"/>
+    <line x1="28" y1="18" x2="12" y2="30" stroke="#d1d5db" stroke-width="2" stroke-linecap="round"/>
+  </g>
+  <text x="60" y="88" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#9ca3af">Offline</text>
 </svg>
 `);
 

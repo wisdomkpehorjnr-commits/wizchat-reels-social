@@ -12,6 +12,7 @@ import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
+import ImageModal from './ImageModal';
 
 interface GlobalSearchProps {
   isOpen: boolean;
@@ -113,13 +114,42 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
     }
   };
 
+  const [imageModalOpen, setImageModalOpen] = useState(false);
+  const [imageModalSrc, setImageModalSrc] = useState('');
+
   const handleResultClick = async (result: SearchResult) => {
-    // Don't navigate, just close search
-    // User can click again if they want to navigate
     onClose();
-    
-    // Optionally, you can add navigation here if needed
-    // But per user request, it should do nothing
+
+    switch (result.type) {
+      case 'people': {
+        const identifier = result.data?.username || result.data?.id || result.id;
+        navigate(`/profile/${identifier}`);
+        break;
+      }
+      case 'post': {
+        // Scroll to post on home or just go home
+        navigate('/');
+        break;
+      }
+      case 'image': {
+        // Open image in a modal
+        if (result.image) {
+          setImageModalSrc(result.image);
+          setImageModalOpen(true);
+        }
+        break;
+      }
+      case 'group': {
+        navigate(`/topics/${result.id}`);
+        break;
+      }
+      case 'reel': {
+        navigate('/reels');
+        break;
+      }
+      default:
+        navigate('/');
+    }
   };
 
   const handleHistoryClick = (historyQuery: string) => {
@@ -320,9 +350,16 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
           </div>
         </Tabs>
       </div>
+
+      {/* Image modal for image search results */}
+      <ImageModal
+        src={imageModalSrc}
+        alt="Search result"
+        isOpen={imageModalOpen}
+        onClose={() => setImageModalOpen(false)}
+      />
     </div>
   );
 };
 
 export default GlobalSearch;
-
