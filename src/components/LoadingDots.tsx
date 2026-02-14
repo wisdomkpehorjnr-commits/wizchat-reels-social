@@ -10,9 +10,9 @@ const LoadingDots: React.FC = () => {
         }
       `}</style>
       <div className="flex items-end gap-2" style={{ height: 20 }}>
-        <div style={{ width: 10, height: 10, borderRadius: 9999, background: '#10B981', boxShadow: '0 0 0 2px rgba(16,185,129,0.08)' , animation: 'ld-bounce 0.8s infinite', animationDelay: '0s' }} />
-        <div style={{ width: 10, height: 10, borderRadius: 9999, background: '#10B981', boxShadow: '0 0 0 2px rgba(16,185,129,0.08)' , animation: 'ld-bounce 0.8s infinite', animationDelay: '0.12s' }} />
-        <div style={{ width: 10, height: 10, borderRadius: 9999, background: '#10B981', boxShadow: '0 0 0 2px rgba(16,185,129,0.08)' , animation: 'ld-bounce 0.8s infinite', animationDelay: '0.24s' }} />
+        <div style={{ width: 10, height: 10, borderRadius: 9999, background: 'hsl(var(--primary))', boxShadow: '0 0 0 2px hsl(var(--primary) / 0.08)' , animation: 'ld-bounce 0.8s infinite', animationDelay: '0s' }} />
+        <div style={{ width: 10, height: 10, borderRadius: 9999, background: 'hsl(var(--primary))', boxShadow: '0 0 0 2px hsl(var(--primary) / 0.08)' , animation: 'ld-bounce 0.8s infinite', animationDelay: '0.12s' }} />
+        <div style={{ width: 10, height: 10, borderRadius: 9999, background: 'hsl(var(--primary))', boxShadow: '0 0 0 2px hsl(var(--primary) / 0.08)' , animation: 'ld-bounce 0.8s infinite', animationDelay: '0.24s' }} />
       </div>
     </div>
   );

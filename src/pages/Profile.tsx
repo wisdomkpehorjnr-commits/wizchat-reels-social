@@ -365,7 +365,13 @@ const Profile = () => {
   
   // Show loading only when online with no cached data and no fallback
   if (loading && !cachedProfile && !isOffline && !profileUser) {
-    return <Layout><div className="max-w-4xl mx-auto p-6 text-center"><LoadingDots /></div></Layout>;
+    return (
+      <Layout>
+        <div className="min-h-[60vh] flex items-center justify-center">
+          <LoadingDots />
+        </div>
+      </Layout>
+    );
   }
   
   if (error && error === "User not found") {
@@ -537,8 +543,8 @@ const Profile = () => {
               <div className="text-center py-8"><LoadingDots /></div>
             ) : isOffline && userReels.length === 0 ? (
               <OfflineContentPlaceholder />
-            ) : userReels.length > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              ) : userReels.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                 {userReels.map(reel => (
                   <Card key={reel.id} className="overflow-hidden cursor-pointer hover:ring-2 ring-primary group relative">
                     <div className="aspect-[9/16] relative bg-muted">
