@@ -5,8 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Notification } from '@/types';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';import { ToastAction } from '@/components/ui/toast';import { Notification } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -178,31 +177,33 @@ const NotificationSystem = () => {
               const fullText = getPreview(msg);
               const truncated = fullText.length > 140 ? fullText.slice(0, 140).trim() + '…' : fullText;
 
+              // Store handler for this specific message
+              const handleOpenChat = () => {
+                try {
+                  window.dispatchEvent(new CustomEvent('openChatWithUser', {
+                    detail: { userId: msg.user_id, chatId }
+                  }));
+                } catch (e) {
+                  console.error('Error opening chat from toast:', e);
+                }
+              };
+
               const toastRef = toast({
                 title: senderName,
                 description: truncated,
+                action: (
+                  <ToastAction
+                    altText="Open chat"
+                    onClick={handleOpenChat}
+                    className="text-xs font-medium"
+                  >
+                    View
+                  </ToastAction>
+                ),
               });
 
-              // Make toast clickable to open chat
-              setTimeout(() => {
-                const handleClickToOpenChat = () => {
-                  try {
-                    window.dispatchEvent(new CustomEvent('openChatWithUser', {
-                      detail: { userId: msg.user_id, chatId }
-                    }));
-                    toastRef.dismiss();
-                  } catch (e) {}
-                };
-                
-                const toastElements = document.querySelectorAll('[role="status"]');
-                if (toastElements.length > 0) {
-                  const lastToast = toastElements[toastElements.length - 1];
-                  lastToast.style.cursor = 'pointer';
-                  lastToast.addEventListener('click', handleClickToOpenChat);
-                }
-              }, 0);
-
-              setTimeout(() => {
+              // Auto-dismiss after 3 seconds
+              const dismissTimer = setTimeout(() => {
                 try { toastRef.dismiss(); } catch (e) {}
               }, 3000);
             })
