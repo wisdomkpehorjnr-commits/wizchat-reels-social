@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
+import { offlineDataManager } from '@/services/offlineDataManager';
 
 const NotificationSystem = () => {
   const { user } = useAuth();
@@ -22,27 +23,74 @@ const NotificationSystem = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (user) {
-      loadNotifications();
-      
-      // Set up real-time subscription for notifications
-      const channel = supabase
-        .channel('notifications-updates')
-        .on('postgres_changes', {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`
-        }, (payload) => {
-          console.log('New notification:', payload);
-          loadNotifications();
-        })
-        .subscribe();
+    let mounted = true;
+    if (!user) return;
 
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
+    // Load cached notifications first
+    (async () => {
+      try {
+        const cached = await offlineDataManager.getCachedNotifications();
+        if (mounted && cached && Array.isArray(cached) && cached.length > 0) {
+          const mapped = cached.map((n: any) => ({ ...n, createdAt: new Date(n.createdAt) })) as Notification[];
+          setNotifications(mapped);
+          setUnreadCount(mapped.filter(n => !n.isRead).length);
+        }
+      } catch (err) {
+        // ignore
+      }
+
+      // Then fetch fresh notifications if online
+      if (navigator.onLine) {
+        await loadNotifications();
+      }
+    })();
+
+    // Set up real-time subscription for notifications
+    const channel = supabase
+      .channel('notifications-updates')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'notifications',
+        filter: `user_id=eq.${user.id}`
+      }, (payload) => {
+        const n = payload.new as any;
+        const mapped: Notification = {
+          id: n.id,
+          userId: n.user_id,
+          type: n.type,
+          title: n.title,
+          message: n.message,
+          data: n.data,
+          isRead: n.is_read,
+          createdAt: new Date(n.created_at)
+        };
+        setNotifications(prev => {
+          const updated = [mapped, ...prev];
+          offlineDataManager.cacheNotifications(updated, 30 * 24 * 60 * 60 * 1000).catch(() => {});
+          return updated;
+        });
+        setUnreadCount(prev => prev + 1);
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'notifications',
+      }, (payload) => {
+        const n = payload.new as any;
+        setNotifications(prev => {
+          const updated = prev.map(notif => notif.id === n.id ? { ...notif, isRead: n.is_read } : notif);
+          offlineDataManager.cacheNotifications(updated, 30 * 24 * 60 * 60 * 1000).catch(() => {});
+          return updated;
+        });
+        setUnreadCount(prev => n.is_read ? Math.max(0, prev - 1) : prev);
+      })
+      .subscribe();
+
+    return () => {
+      mounted = false;
+      supabase.removeChannel(channel);
+    };
   }, [user]);
 
   const loadNotifications = async () => {
@@ -71,6 +119,8 @@ const NotificationSystem = () => {
 
       setNotifications(mappedNotifications);
       setUnreadCount(mappedNotifications.filter(n => !n.isRead).length);
+      // save to offline cache for persistence (30 days)
+      offlineDataManager.cacheNotifications(mappedNotifications, 30 * 24 * 60 * 60 * 1000).catch(() => {});
     } catch (error) {
       console.error('Error loading notifications:', error);
     }

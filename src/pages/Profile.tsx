@@ -624,7 +624,7 @@ const Profile = () => {
             ) : isOffline && userReels.length === 0 ? (
               <OfflineContentPlaceholder />
               ) : userReels.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
                 {userReels.map(reel => (
                   <Card key={reel.id} className="overflow-hidden cursor-pointer hover:ring-2 ring-primary group relative">
                     <div className="aspect-[9/16] relative bg-muted">
