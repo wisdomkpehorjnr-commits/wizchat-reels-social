@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { offlineDataManager } from '@/services/offlineDataManager';
 
 const NotificationSystem = () => {
@@ -21,6 +22,7 @@ const NotificationSystem = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
+  const location = useLocation();
 
   useEffect(() => {
     let mounted = true;
@@ -113,6 +115,92 @@ const NotificationSystem = () => {
       supabase.removeChannel(channel);
     };
   }, [user]);
+
+  // Subscribe to messages for user's chats and show a top-drop toast on new incoming messages
+  useEffect(() => {
+    if (!user) return;
+
+    let mounted = true;
+    const channels: ReturnType<typeof supabase.channel>[] = [];
+
+    (async () => {
+      try {
+        // Get all chat IDs where the user participates
+        const { data: myChats } = await supabase
+          .from('chat_participants')
+          .select('chat_id')
+          .eq('user_id', user.id);
+
+        if (!mounted || !myChats || myChats.length === 0) return;
+
+        const chatIds = myChats.map((c: any) => c.chat_id);
+
+        chatIds.forEach((chatId: string) => {
+          const channel = supabase
+            .channel(`messages_for_${chatId}`)
+            .on('postgres_changes', {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'messages',
+              filter: `chat_id=eq.${chatId}`
+            }, async (payload) => {
+              const msg = payload.new as any;
+              if (!msg) return;
+              // Ignore messages sent by current user
+              if (msg.user_id === user.id) return;
+
+              // Suppress if user is currently viewing this chat
+              try {
+                if (location.pathname === `/chat/${chatId}`) return;
+              } catch (e) {}
+
+              // Resolve sender name (lightweight)
+              let senderName = 'New message';
+              try {
+                const { data: profile } = await supabase
+                  .from('profiles')
+                  .select('name, username')
+                  .eq('id', msg.user_id)
+                  .single();
+                if (profile) senderName = profile.name || profile.username || senderName;
+              } catch (e) {
+                // ignore
+              }
+
+              const getPreview = (m: any) => {
+                if (!m) return '';
+                if (m.type === 'image') return '📷 Photo';
+                if (m.type === 'video') return '🎥 Video';
+                if (m.type === 'voice') return '🎤 Voice message';
+                return m.content || '';
+              };
+
+              const fullText = getPreview(msg);
+              const truncated = fullText.length > 140 ? fullText.slice(0, 140).trim() + '…' : fullText;
+
+              const toastRef = toast({
+                title: senderName,
+                description: truncated,
+              });
+
+              setTimeout(() => {
+                try { toastRef.dismiss(); } catch (e) {}
+              }, 3000);
+            })
+            .subscribe();
+
+          channels.push(channel);
+        });
+      } catch (err) {
+        // ignore
+      }
+    })();
+
+    return () => {
+      mounted = false;
+      channels.forEach(ch => supabase.removeChannel(ch));
+    };
+  }, [user, location.pathname]);
 
   const loadNotifications = async () => {
     if (!user) return;
