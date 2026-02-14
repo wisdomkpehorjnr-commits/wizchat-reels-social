@@ -90,16 +90,16 @@ const useCachedMedia = (src?: string) => {
   return cachedSrc;
 };
 
-// Simple offline placeholder for profile post cards
+// Simple wifi-off offline placeholder for profile post cards
 const OFFLINE_IMG = 'data:image/svg+xml;utf8,' + encodeURIComponent(`
 <svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
   <rect width="120" height="120" rx="8" fill="#f3f4f6"/>
-  <g transform="translate(40,36)">
-    <line x1="0" y1="24" x2="40" y2="24" stroke="#d1d5db" stroke-width="2" stroke-linecap="round"/>
-    <line x1="12" y1="18" x2="28" y2="30" stroke="#d1d5db" stroke-width="2" stroke-linecap="round"/>
-    <line x1="28" y1="18" x2="12" y2="30" stroke="#d1d5db" stroke-width="2" stroke-linecap="round"/>
+  <g transform="translate(60,52)" fill="none" stroke="#b0b0b0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M-18,-12 C-12,-16 -6,-18 0,-18 C6,-18 12,-16 18,-12"/>
+    <path d="M-12,-4 C-8,-8 -4,-10 0,-10 C4,-10 8,-8 12,-4"/>
+    <circle cx="0" cy="4" r="2" fill="#b0b0b0" stroke="none"/>
+    <line x1="-20" y1="-16" x2="20" y2="16" stroke="#b0b0b0" stroke-width="2.5"/>
   </g>
-  <text x="60" y="88" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#9ca3af">Offline</text>
 </svg>
 `);
 
@@ -603,9 +603,9 @@ const Profile = () => {
             ) : isOffline && userPosts.length === 0 ? (
               <OfflineContentPlaceholder />
             ) : userPosts.length > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 md:grid-cols-4 gap-1.5">
                 {userPosts.map(post => (
-                  <Card key={post.id} className="overflow-hidden cursor-pointer hover:ring-2 ring-primary group relative">
+                  <Card key={post.id} className="overflow-hidden cursor-pointer hover:ring-2 ring-primary group relative rounded-md">
                     <div className="aspect-square relative bg-muted">
                       {post.imageUrl ? (
                         <img

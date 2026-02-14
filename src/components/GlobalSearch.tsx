@@ -118,21 +118,20 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
   const [imageModalSrc, setImageModalSrc] = useState('');
 
   const handleResultClick = async (result: SearchResult) => {
-    onClose();
-
     switch (result.type) {
       case 'people': {
+        onClose();
         const identifier = result.data?.username || result.data?.id || result.id;
         navigate(`/profile/${identifier}`);
         break;
       }
       case 'post': {
-        // Scroll to post on home or just go home
+        onClose();
         navigate('/');
         break;
       }
       case 'image': {
-        // Open image in a modal
+        // Stay in search — just open the image modal
         if (result.image) {
           setImageModalSrc(result.image);
           setImageModalOpen(true);
@@ -140,14 +139,17 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
         break;
       }
       case 'group': {
-        navigate(`/topics/${result.id}`);
+        onClose();
+        navigate(`/topic-room/${result.id}`);
         break;
       }
       case 'reel': {
+        onClose();
         navigate('/reels');
         break;
       }
       default:
+        onClose();
         navigate('/');
     }
   };
