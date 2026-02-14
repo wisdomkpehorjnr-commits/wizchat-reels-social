@@ -1,6 +1,13 @@
 /**
- * Service Worker - Offline-first caching strategy
+ * Service Worker - True offline-first caching strategy
  * Implements app shell pattern, background sync, and instant loading
+ * 
+ * Strategy:
+ * - HTML pages: Network-first with 5s timeout, fallback to cache
+ * - Static assets (JS, CSS): Cache-first for instant loading
+ * - Images: Cache-first, fallback to network
+ * - API: Network-first, fallback to cache
+ * - Offline fallback: Redirect to root (/) to let React app handle routing
  */
 
 declare const self: ServiceWorkerGlobalScope;
@@ -68,7 +75,7 @@ self.addEventListener('fetch', (event: FetchEvent) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip non-GET requests and external requests in some cases
+  // Skip non-GET requests
   if (request.method !== 'GET') {
     return;
   }
@@ -81,19 +88,57 @@ self.addEventListener('fetch', (event: FetchEvent) => {
   else if (isImageRequest(request)) {
     event.respondWith(cacheFirstStrategy(request, IMAGE_CACHE));
   }
-  // Static assets - cache first
+  // Static assets (JS, CSS, fonts) - cache first
   else if (isStaticAsset(request)) {
     event.respondWith(cacheFirstStrategy(request, ASSET_CACHE));
   }
-  // HTML pages - stale while revalidate
+  // HTML pages - network first with timeout, offline fallback to redirect
   else if (request.headers.get('accept')?.includes('text/html')) {
-    event.respondWith(staleWhileRevalidateStrategy(request, ASSET_CACHE));
+    event.respondWith(networkFirstStrategyWithTimeout(request, ASSET_CACHE));
   }
 });
 
 /**
- * Network first strategy (good for API calls)
- * Try network, fallback to cache if offline
+ * Network first strategy with timeout for HTML pages
+ * Try network for 5 seconds, fallback to cache, then return redirect to root
+ */
+async function networkFirstStrategyWithTimeout(
+  request: Request,
+  cacheName: string
+): Promise<Response> {
+  try {
+    // Create a timeout promise that rejects after 5 seconds
+    const timeoutPromise = new Promise<Response>((_, reject) => {
+      setTimeout(() => reject(new Error('Network timeout')), 5000);
+    });
+
+    // Race between network fetch and timeout
+    const response = await Promise.race([
+      fetch(request),
+      timeoutPromise,
+    ]);
+
+    // Cache successful responses
+    if (response.ok) {
+      const cache = await caches.open(cacheName);
+      cache.put(request, response.clone());
+    }
+
+    return response;
+  } catch (error) {
+    // Network failed or timed out - try cache
+    const cached = await caches.match(request);
+    if (cached) {
+      return cached;
+    }
+
+    // Nothing in cache - redirect to root (let React app handle routing)
+    return offlinePageResponse();
+  }
+}
+
+/**
+ * Network first strategy (for API requests, no timeout)
  */
 async function networkFirstStrategy(
   request: Request,
@@ -101,13 +146,13 @@ async function networkFirstStrategy(
 ): Promise<Response> {
   try {
     const response = await fetch(request);
-    
+
     // Cache successful responses
     if (response.ok) {
       const cache = await caches.open(cacheName);
       cache.put(request, response.clone());
     }
-    
+
     return response;
   } catch (error) {
     // Fall back to cache
@@ -115,14 +160,20 @@ async function networkFirstStrategy(
     if (cached) {
       return cached;
     }
-    
-    // Return offline response
-    return offlineResponse();
+
+    // Return offline error response
+    return new Response(
+      JSON.stringify({ error: 'Offline - no cached data available' }),
+      {
+        status: 503,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
   }
 }
 
 /**
- * Cache first strategy (good for static assets)
+ * Cache first strategy (for static assets)
  * Use cache if available, fetch from network if not cached
  */
 async function cacheFirstStrategy(
@@ -135,16 +186,16 @@ async function cacheFirstStrategy(
     if (cached) {
       return cached;
     }
-    
+
     // Fetch from network
     const response = await fetch(request);
-    
+
     // Cache successful responses
     if (response.ok) {
       const cache = await caches.open(cacheName);
       cache.put(request, response.clone());
     }
-    
+
     return response;
   } catch (error) {
     // Return placeholder for images
@@ -157,83 +208,53 @@ async function cacheFirstStrategy(
         }
       );
     }
-    
-    return offlineResponse();
+
+    // Return error response
+    return new Response('Asset not available offline', {
+      status: 503,
+      headers: { 'Content-Type': 'text/plain' },
+    });
   }
 }
 
 /**
- * Stale while revalidate strategy (good for HTML)
- * Return cached immediately, fetch fresh in background
+ * Generate offline page response - redirect to root
+ * React app will serve cached HTML and handle routing client-side
  */
-async function staleWhileRevalidateStrategy(
-  request: Request,
-  cacheName: string
-): Promise<Response> {
-  const cached = await caches.match(request);
-  
-  // Fetch fresh in background
-  fetch(request)
-    .then(response => {
-      if (response.ok) {
-        const cache = caches.open(cacheName);
-        cache.then(c => c.put(request, response.clone()));
-      }
-    })
-    .catch(error => console.debug('[ServiceWorker] Background fetch failed:', error));
-  
-  // Return cached version immediately
-  if (cached) {
-    return cached;
-  }
-  
-  // If not cached, wait for network
-  try {
-    return await fetch(request);
-  } catch (error) {
-    return offlineResponse();
-  }
-}
-
-/**
- * Generate offline fallback response
- */
-function offlineResponse(): Response {
+function offlinePageResponse(): Response {
   return new Response(
     `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Offline</title>
+  <title>Loading...</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body {
-      font-family: system-ui, -apple-system, sans-serif;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
       margin: 0;
-      background: #f5f5f5;
-      color: #333;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #fff;
     }
-    .message {
-      text-align: center;
-      padding: 2rem;
+    #root {
+      width: 100%;
+      height: 100vh;
     }
-    h1 { margin: 0 0 0.5rem; font-size: 1.5rem; }
-    p { margin: 0; color: #666; }
   </style>
 </head>
 <body>
-  <div class="message">
-    <h1>You are offline</h1>
-    <p>Check your connection or try accessing cached content</p>
-  </div>
+  <div id="root"></div>
+  <script>
+    // Redirect to root so React app handles routing
+    if (window.location.pathname !== '/') {
+      window.location.href = '/';
+    }
+  </script>
 </body>
 </html>`,
     {
-      status: 503,
-      statusText: 'Service Unavailable',
+      status: 200,
+      statusText: 'OK',
       headers: { 'Content-Type': 'text/html; charset=utf-8' },
     }
   );
@@ -249,10 +270,12 @@ function isImageRequest(request: Request): boolean {
 
 /**
  * Detect if request is for a static asset
+ * Includes JS, CSS, fonts, JSON, XML, etc.
  */
 function isStaticAsset(request: Request): boolean {
   const url = new URL(request.url);
-  return /\.(js|css|woff2?|ttf|eot|svg)$/.test(url.pathname);
+  const pathname = url.pathname.toLowerCase();
+  return /\.(js|css|woff|woff2|ttf|eot|svg|json|xml|txt|ico)$/.test(pathname);
 }
 
 // Background sync for offline queue
@@ -272,16 +295,20 @@ self.addEventListener('sync', (event: any) => {
 // Push notifications for real-time updates
 self.addEventListener('push', (event: PushEvent) => {
   if (!event.data) return;
-  
-  const data = event.data.json();
-  
-  event.waitUntil(
-    self.registration.showNotification(data.title, {
-      body: data.body,
-      icon: '/icon-192x192.png',
-      badge: '/badge-72x72.png',
-      tag: data.tag,
-      data: data.data,
-    })
-  );
+
+  try {
+    const data = event.data.json();
+
+    event.waitUntil(
+      self.registration.showNotification(data.title, {
+        body: data.body,
+        icon: '/icon-192x192.png',
+        badge: '/badge-72x72.png',
+        tag: data.tag,
+        data: data.data,
+      })
+    );
+  } catch (error) {
+    console.error('[ServiceWorker] Push notification failed:', error);
+  }
 });

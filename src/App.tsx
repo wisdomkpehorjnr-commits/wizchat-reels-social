@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -9,6 +9,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { ScrollPositionProvider } from "./contexts/ScrollPositionContext";
+import PreloadManager from "./components/PreloadManager";
 
 import Login from "./pages/Login";
 import Home from "./pages/Home";
@@ -53,12 +54,34 @@ const queryClient = new QueryClient({
   },
 });
 
-// ✅ Simple fallback loader
-const PageLoader = () => (
-  <div className="min-h-screen flex items-center justify-center bg-background">
-    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-  </div>
-);
+// ✅ Simple fallback loader with offline support
+const PageLoader = () => {
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+        <p className="text-foreground text-sm">
+          {isOffline ? 'Loading from cache...' : 'Loading...'}
+        </p>
+      </div>
+    </div>
+  );
+};
 
 const App = () => {
   // Register service worker for offline support
@@ -84,6 +107,7 @@ const App = () => {
         <AuthProvider>
           <BrowserRouter>
             <ScrollPositionProvider>
+              <PreloadManager />
               <Suspense fallback={<PageLoader />}>
                 <Routes>
                 {/* Public routes */}
