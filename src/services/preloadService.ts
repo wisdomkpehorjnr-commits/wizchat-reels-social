@@ -2,35 +2,10 @@
  * Service to preload and cache post images in parallel
  * Runs in background without blocking renders
  */
-import { IMAGE_CACHE_NAME, cacheImageAsync, loadImageFromCacheSync } from '@/hooks/useImageCache';
+import { IMAGE_CACHE_NAME, cacheImageAsync } from '@/hooks/useImageCache';
 
 const PRELOAD_BATCH_SIZE = 5; // Load 5 images in parallel
 const preloadingSet = new Set<string>();
-
-/**
- * CRITICAL: Batch load all images from Cache API into memory BEFORE rendering
- * This ensures PostCards render with images already cached (no delay)
- * Called from Home before rendering posts
- */
-export async function preloadCachedImagesFromCache(imageUrls: (string | undefined)[]): Promise<void> {
-  const validUrls = imageUrls.filter((url): url is string => !!url);
-  if (validUrls.length === 0) return;
-
-  console.debug('[PreloadService] Batch loading', validUrls.length, 'images from Cache API...');
-  
-  // Load in parallel batches of 5
-  for (let i = 0; i < validUrls.length; i += PRELOAD_BATCH_SIZE) {
-    const batch = validUrls.slice(i, i + PRELOAD_BATCH_SIZE);
-    await Promise.all(
-      batch.map(url => 
-        loadImageFromCacheSync(url)
-          .catch(e => console.debug('[PreloadService] Failed to load from cache:', e))
-      )
-    );
-  }
-  
-  console.debug('[PreloadService] Batch cache load complete');
-}
 
 /**
  * Preload multiple images in parallel (fire and forget)
