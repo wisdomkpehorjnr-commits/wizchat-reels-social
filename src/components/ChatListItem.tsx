@@ -128,15 +128,23 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
         if (lastMsgResult.data && lastMsgResult.data.length > 0) {
           const msg = lastMsgResult.data[0];
           const isMe = msg.user_id === user?.id;
-          preview = msg.type === 'image'
-            ? `${isMe ? 'You: ' : ''}📷 Photo`
-            : msg.type === 'video'
-            ? `${isMe ? 'You: ' : ''}🎥 Video`
-            : msg.type === 'voice'
-            ? `${isMe ? 'You: ' : ''}🎤 Voice message`
-            : msg.content && msg.content.length > 30
-            ? `${isMe ? 'You: ' : ''}${msg.content.substring(0, 30)}...`
-            : `${isMe ? 'You: ' : ''}${msg.content || 'Media'}`;
+          
+          // Generate preview with better formatting
+          if (msg.type === 'image') {
+            preview = `${isMe ? 'You: ' : ''}📷 Photo`;
+          } else if (msg.type === 'video') {
+            preview = `${isMe ? 'You: ' : ''}🎥 Video`;
+          } else if (msg.type === 'voice') {
+            preview = `${isMe ? 'You: ' : ''}🎤 Voice message`;
+          } else if (msg.content) {
+            // Limit text preview to 60 characters for better readability in list
+            const contentPreview = msg.content.length > 60 
+              ? `${msg.content.substring(0, 60)}...` 
+              : msg.content;
+            preview = `${isMe ? 'You: ' : ''}${contentPreview}`;
+          } else {
+            preview = `${isMe ? 'You: ' : ''}Media`;
+          }
           
           msgTime = new Date(msg.created_at);
         }
@@ -171,15 +179,23 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
             // Directly update from payload - no refetch needed
             const msg = payload.new as any;
             const isMe = msg.user_id === user?.id;
-            const preview = msg.type === 'image'
-              ? `${isMe ? 'You: ' : ''}📷 Photo`
-              : msg.type === 'video'
-              ? `${isMe ? 'You: ' : ''}🎥 Video`
-              : msg.type === 'voice'
-              ? `${isMe ? 'You: ' : ''}🎤 Voice message`
-              : msg.content && msg.content.length > 30
-              ? `${isMe ? 'You: ' : ''}${msg.content.substring(0, 30)}...`
-              : `${isMe ? 'You: ' : ''}${msg.content || 'Media'}`;
+            
+            // Generate preview with consistent formatting
+            let preview = '';
+            if (msg.type === 'image') {
+              preview = `${isMe ? 'You: ' : ''}📷 Photo`;
+            } else if (msg.type === 'video') {
+              preview = `${isMe ? 'You: ' : ''}🎥 Video`;
+            } else if (msg.type === 'voice') {
+              preview = `${isMe ? 'You: ' : ''}🎤 Voice message`;
+            } else if (msg.content) {
+              const contentPreview = msg.content.length > 60 
+                ? `${msg.content.substring(0, 60)}...` 
+                : msg.content;
+              preview = `${isMe ? 'You: ' : ''}${contentPreview}`;
+            } else {
+              preview = `${isMe ? 'You: ' : ''}Media`;
+            }
             
             setLastMessage(preview);
             setLastMessageTime(new Date(msg.created_at));
@@ -321,7 +337,8 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
           {!isWizAi && <OnlineStatusIndicator userId={friend.id} />}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2">
+          {/* Header: Name, Pin Icon, Time */}
+          <div className="flex items-center justify-between gap-2 mb-1.5">
             <div className="flex items-center gap-2 flex-1 min-w-0">
               <p className={`font-semibold truncate ${isWizAi ? 'text-primary' : ''}`}>
                 {friend.name}
@@ -329,17 +346,26 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
               {pinned && <Pin className="w-3 h-3 text-primary flex-shrink-0" />}
             </div>
             {lastMessageTime && (
-              <span className="text-xs text-muted-foreground flex-shrink-0">
+              <span className={`text-xs flex-shrink-0 ${unreadCount > 0 ? 'font-semibold text-primary' : 'text-muted-foreground'}`}>
                 {formatMessageTime(lastMessageTime)}
               </span>
             )}
           </div>
-          <div className="flex items-center justify-between gap-2 mt-1">
-            <p className={`text-sm truncate flex-1 ${unreadCount > 0 ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
-              {lastMessage}
+          
+          {/* Message Preview */}
+          <div className="flex items-center justify-between gap-2">
+            <p className={`text-sm line-clamp-2 flex-1 ${
+              unreadCount > 0 
+                ? 'font-semibold text-foreground' 
+                : 'text-muted-foreground'
+            }`}>
+              {lastMessage || (isWizAi ? "Ask me anything — I'm here to help!" : 'No messages yet')}
             </p>
             {unreadCount > 0 && (
-              <Badge variant="destructive" className="rounded-full min-w-[20px] h-5 flex-shrink-0 border border-green-500">
+              <Badge 
+                variant="destructive" 
+                className="rounded-full min-w-[24px] h-6 flex items-center justify-center flex-shrink-0 text-xs font-bold border-2 border-green-500 bg-red-500 text-white"
+              >
                 {unreadCount > 99 ? '99+' : unreadCount}
               </Badge>
             )}
