@@ -42,10 +42,9 @@ interface OfflineAwareImageProps extends React.ImgHTMLAttributes<HTMLImageElemen
 
 function OfflineAwareImage({ src, alt, className = '', ...props }: OfflineAwareImageProps) {
   const [hasError, setHasError] = useState(false);
-  const [isLoaded, setIsLoaded] = useState(false);
   const { cachedUrl } = useImageCache(src);
   
-  // Import module-level loaded images set to check if already rendered
+  // Check if already rendered before — if so, skip placeholder entirely
   const isAlreadyLoaded = src ? (window as any).__loadedImages?.has(src) ?? false : false;
 
   if (hasError) {
@@ -69,37 +68,23 @@ function OfflineAwareImage({ src, alt, className = '', ...props }: OfflineAwareI
     );
   }
 
-  // For already-loaded images, skip placeholder - render directly
-  const shouldShowPlaceholder = !isLoaded && !isAlreadyLoaded;
-
+  // ALWAYS render the img tag visible — use synchronous decoding to prevent flash
   return (
-    <>
-      {shouldShowPlaceholder && (
-        <div 
-          className={`flex items-center justify-center bg-muted/20 backdrop-blur-sm animate-pulse rounded-lg ${className}`}
-          style={{ minHeight: '200px', aspectRatio: '16/9' }}
-        >
-          <div className="w-12 h-12 rounded-full bg-muted/30 backdrop-blur-sm" />
-        </div>
-      )}
-      <img
-        src={cachedUrl}
-        alt={alt}
-        className={`${className} ${!shouldShowPlaceholder || isLoaded ? '' : 'hidden'}`}
-        loading="eager"
-        decoding="async"
-        onLoad={() => {
-          setIsLoaded(true);
-          // Mark this image as loaded globally to prevent blinking on tab switch
-          if (!((window as any).__loadedImages instanceof Set)) {
-            (window as any).__loadedImages = new Set();
-          }
-          (window as any).__loadedImages?.add(src);
-        }}
-        onError={() => setHasError(true)}
-        {...props}
-      />
-    </>
+    <img
+      src={cachedUrl}
+      alt={alt}
+      className={className}
+      loading="eager"
+      decoding="sync"
+      onLoad={() => {
+        if (!((window as any).__loadedImages instanceof Set)) {
+          (window as any).__loadedImages = new Set();
+        }
+        (window as any).__loadedImages?.add(src);
+      }}
+      onError={() => setHasError(true)}
+      {...props}
+    />
   );
 }
 
