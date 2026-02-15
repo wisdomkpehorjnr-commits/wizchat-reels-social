@@ -63,6 +63,7 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
     const cacheKey = `${user?.id}-${friend.id}`;
     const cached = chatMetadataCache.get(cacheKey);
     
+    // Use cache if available and fresh
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
       setLastMessage(cached.lastMessage);
       setLastMessageTime(cached.lastMessageTime);
@@ -71,40 +72,68 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
       return;
     }
     
-    // Only fetch once per mount
-    if (hasFetchedRef.current) return;
-    hasFetchedRef.current = true;
+    // Reset fetch flag for new friend
+    hasFetchedRef.current = false;
     
     const fetchChatData = async () => {
       try {
+        console.log(`[ChatListItem] Fetching data for friend: ${friend.name} (${friend.id})`);
+        
         // Find existing chat between users - optimized single query
-        const { data: myChats } = await supabase
+        const { data: myChats, error: myChatsError } = await supabase
           .from('chat_participants')
           .select('chat_id')
           .eq('user_id', user?.id || '');
         
+        if (myChatsError) {
+          console.error('[ChatListItem] Error fetching user chats:', myChatsError);
+          setLastMessage('');
+          setLastMessageTime(null);
+          setUnreadCount(0);
+          return;
+        }
+        
+        console.log(`[ChatListItem] User has ${myChats?.length || 0} chats`);
+        
         if (!myChats || myChats.length === 0) {
-          updateCache(cacheKey, '', null, 0, null);
+          console.log('[ChatListItem] User has no chats');
+          setLastMessage('');
+          setLastMessageTime(null);
+          setUnreadCount(0);
           return;
         }
         
         const chatIds = myChats.map(c => c.chat_id);
         
         // Find chats where friend is also a participant
-        const { data: friendChats } = await supabase
+        const { data: friendChats, error: friendChatsError } = await supabase
           .from('chat_participants')
           .select('chat_id')
           .eq('user_id', friend.id)
           .in('chat_id', chatIds);
         
+        if (friendChatsError) {
+          console.error('[ChatListItem] Error fetching friend chats:', friendChatsError);
+          setLastMessage('');
+          setLastMessageTime(null);
+          setUnreadCount(0);
+          return;
+        }
+        
+        console.log(`[ChatListItem] Friend ${friend.name} has ${friendChats?.length || 0} mutual chats`);
+        
         if (!friendChats || friendChats.length === 0) {
-          updateCache(cacheKey, '', null, 0, null);
+          console.log(`[ChatListItem] No mutual chat found with ${friend.name}`);
+          setLastMessage('');
+          setLastMessageTime(null);
+          setUnreadCount(0);
           return;
         }
 
         // Get the first matching chat (should be direct chat)
         const foundChatId = friendChats[0].chat_id;
         chatIdRef.current = foundChatId;
+        console.log(`[ChatListItem] Found chat ID: ${foundChatId}`);
         
         // Get last message and unread count in a single query batch
         const [lastMsgResult, unreadResult] = await Promise.all([
@@ -122,12 +151,27 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
             .neq('user_id', user?.id)
         ]);
         
+        if (lastMsgResult.error) {
+          console.error('[ChatListItem] Error fetching last message:', lastMsgResult.error);
+          setLastMessage('');
+          setLastMessageTime(null);
+          return;
+        }
+        
+        if (unreadResult.error) {
+          console.error('[ChatListItem] Error fetching unread count:', unreadResult.error);
+        }
+        
+        console.log(`[ChatListItem] Found ${lastMsgResult.data?.length || 0} messages in chat`);
+        
         let preview = '';
         let msgTime: Date | null = null;
         
         if (lastMsgResult.data && lastMsgResult.data.length > 0) {
           const msg = lastMsgResult.data[0];
           const isMe = msg.user_id === user?.id;
+          
+          console.log(`[ChatListItem] Last message content:`, msg.content?.substring(0, 50));
           
           // Generate preview with better formatting
           if (msg.type === 'image') {
@@ -147,9 +191,12 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
           }
           
           msgTime = new Date(msg.created_at);
+        } else {
+          console.log('[ChatListItem] No messages found in this chat');
         }
         
         const unread = unreadResult.count || 0;
+        console.log(`[ChatListItem] Setting preview: "${preview}", unread: ${unread}`);
         
         setLastMessage(preview);
         setLastMessageTime(msgTime);
@@ -157,7 +204,9 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
         updateCache(cacheKey, preview, msgTime, unread, foundChatId);
         
       } catch (error) {
-        console.error('Error fetching chat data:', error);
+        console.error('[ChatListItem] Error fetching chat data:', error);
+        setLastMessage('');
+        setLastMessageTime(null);
       }
     };
     
