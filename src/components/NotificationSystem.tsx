@@ -13,6 +13,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { useLocation } from 'react-router-dom';
 import { offlineDataManager } from '@/services/offlineDataManager';
+import { useOfflineMessageQueue } from '@/hooks/useOfflineMessageQueue';
 
 const NotificationSystem = () => {
   const { user } = useAuth();
@@ -22,6 +23,9 @@ const NotificationSystem = () => {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   const location = useLocation();
+
+  // Initialize offline message queue - will replay messages when reconnected
+  useOfflineMessageQueue();
 
   useEffect(() => {
     let mounted = true;
@@ -207,6 +211,9 @@ const NotificationSystem = () => {
                   </ToastAction>
                 ),
               });
+
+              // Update sync time to prevent replaying this message when offline
+              localStorage.setItem('wizchat-last-message-sync', Date.now().toString());
 
               // Auto-dismiss after 3 seconds
               const dismissTimer = setTimeout(() => {
