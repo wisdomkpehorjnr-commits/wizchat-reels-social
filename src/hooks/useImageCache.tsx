@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 // ULTRA-FAST MODULE-LEVEL IN-MEMORY CACHE
 // ============================================
 const imageMemoryCache = new Map<string, string>(); // URL -> cached blob URL
+const loadedImageUrls = new Set<string>(); // Track which images have been rendered successfully
 const IMAGE_CACHE_NAME = 'wizchat-post-images-v2';
 
 // Preload cache from storage at module init (fire and forget)

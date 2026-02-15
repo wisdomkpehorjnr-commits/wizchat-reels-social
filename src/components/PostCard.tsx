@@ -44,6 +44,9 @@ function OfflineAwareImage({ src, alt, className = '', ...props }: OfflineAwareI
   const [hasError, setHasError] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const { cachedUrl } = useImageCache(src);
+  
+  // Import module-level loaded images set to check if already rendered
+  const isAlreadyLoaded = src ? (window as any).__loadedImages?.has(src) ?? false : false;
 
   if (hasError) {
     return (
@@ -66,9 +69,12 @@ function OfflineAwareImage({ src, alt, className = '', ...props }: OfflineAwareI
     );
   }
 
+  // For already-loaded images, skip placeholder - render directly
+  const shouldShowPlaceholder = !isLoaded && !isAlreadyLoaded;
+
   return (
     <>
-      {!isLoaded && (
+      {shouldShowPlaceholder && (
         <div 
           className={`flex items-center justify-center bg-muted/20 backdrop-blur-sm animate-pulse rounded-lg ${className}`}
           style={{ minHeight: '200px', aspectRatio: '16/9' }}
@@ -79,10 +85,17 @@ function OfflineAwareImage({ src, alt, className = '', ...props }: OfflineAwareI
       <img
         src={cachedUrl}
         alt={alt}
-        className={`${className} ${isLoaded ? '' : 'hidden'}`}
+        className={`${className} ${!shouldShowPlaceholder || isLoaded ? '' : 'hidden'}`}
         loading="eager"
         decoding="async"
-        onLoad={() => setIsLoaded(true)}
+        onLoad={() => {
+          setIsLoaded(true);
+          // Mark this image as loaded globally to prevent blinking on tab switch
+          if (!((window as any).__loadedImages instanceof Set)) {
+            (window as any).__loadedImages = new Set();
+          }
+          (window as any).__loadedImages?.add(src);
+        }}
         onError={() => setHasError(true)}
         {...props}
       />
