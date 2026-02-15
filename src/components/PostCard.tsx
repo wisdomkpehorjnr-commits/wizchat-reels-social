@@ -43,7 +43,7 @@ interface OfflineAwareImageProps extends React.ImgHTMLAttributes<HTMLImageElemen
 function OfflineAwareImage({ src, alt, className = '', ...props }: OfflineAwareImageProps) {
   const [hasError, setHasError] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
-  const { cachedUrl, isLoading } = useImageCache(src);
+  const { cachedUrl } = useImageCache(src);
 
   if (hasError) {
     return (
@@ -68,7 +68,7 @@ function OfflineAwareImage({ src, alt, className = '', ...props }: OfflineAwareI
 
   return (
     <>
-      {(!isLoaded || isLoading) && (
+      {!isLoaded && (
         <div 
           className={`flex items-center justify-center bg-muted/20 backdrop-blur-sm animate-pulse rounded-lg ${className}`}
           style={{ minHeight: '200px', aspectRatio: '16/9' }}
@@ -79,7 +79,7 @@ function OfflineAwareImage({ src, alt, className = '', ...props }: OfflineAwareI
       <img
         src={cachedUrl}
         alt={alt}
-        className={`${className} ${isLoaded && !isLoading ? '' : 'hidden'}`}
+        className={`${className} ${isLoaded ? '' : 'hidden'}`}
         loading="eager"
         decoding="async"
         onLoad={() => setIsLoaded(true)}

@@ -14,6 +14,7 @@ import { FeedSkeleton } from '@/components/SkeletonLoaders';
 import { SmartLoading } from '@/components/SmartLoading';
 import GlobalSearch from '@/components/GlobalSearch';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { preloadPostsImages } from '@/services/preloadService';
 
 // =============================================
 // PERSISTENT MODULE-LEVEL STORE (survives all remounts)
@@ -158,6 +159,13 @@ const Home = () => {
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Preload all post images in background (fire and forget)
+  useEffect(() => {
+    if (posts.length > 0) {
+      preloadPostsImages(posts);
+    }
+  }, [posts]);
 
   // Sync posts to module store whenever they change
   useEffect(() => {

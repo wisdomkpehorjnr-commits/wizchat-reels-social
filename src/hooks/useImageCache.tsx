@@ -1,157 +1,87 @@
 import { useState, useEffect, useRef } from 'react';
 
 // ============================================
-// MODULE-LEVEL IN-MEMORY CACHE (survives remounts)
+// ULTRA-FAST MODULE-LEVEL IN-MEMORY CACHE
 // ============================================
-const imageMemoryCache = new Map<string, {
-  blobUrl: string;
-  timestamp: number;
-}>();
+const imageMemoryCache = new Map<string, string>(); // URL -> cached blob URL
+const IMAGE_CACHE_NAME = 'wizchat-post-images-v2';
 
-const IMAGE_DB_NAME = 'WizChatImageCache';
-const IMAGE_DB_STORE = 'images';
-const IMAGE_MEMORY_TTL = 24 * 60 * 60 * 1000; // 24 hours
-
-let dbInstance: IDBDatabase | null = null;
-
-// Initialize IndexedDB at module load
-async function initializeImageDB(): Promise<IDBDatabase> {
-  if (dbInstance) return dbInstance;
-
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(IMAGE_DB_NAME, 1);
-
-    request.onerror = () => reject(request.error);
-    
-    request.onsuccess = () => {
-      dbInstance = request.result;
-      resolve(dbInstance);
-    };
-
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains(IMAGE_DB_STORE)) {
-        db.createObjectStore(IMAGE_DB_STORE, { keyPath: 'url' });
-      }
-    };
+// Preload cache from storage at module init (fire and forget)
+const initCachePreload = () => {
+  if (typeof caches === 'undefined') return;
+  
+  _requestIdleCallback(() => {
+    caches.open(IMAGE_CACHE_NAME).catch(e => {
+      console.debug('[ImageCache] Cache init failed:', e);
+    });
   });
-}
+};
 
-// Get image from IndexedDB
-async function getImageFromDB(imageUrl: string): Promise<Blob | null> {
-  try {
-    const db = await initializeImageDB();
-    return new Promise((resolve) => {
-      const transaction = db.transaction([IMAGE_DB_STORE], 'readonly');
-      const store = transaction.objectStore(IMAGE_DB_STORE);
-      const request = store.get(imageUrl);
+const _requestIdleCallback = (typeof requestIdleCallback !== 'undefined')
+  ? requestIdleCallback
+  : (cb: IdleRequestCallback) => setTimeout(cb, 0);
 
-      request.onsuccess = () => {
-        const result = request.result;
-        if (result && result.blob) {
-          resolve(new Blob([result.blob], { type: result.mimeType }));
-        } else {
-          resolve(null);
-        }
-      };
+// Initialize on module load
+initCachePreload();
 
-      request.onerror = () => resolve(null);
-    });
-  } catch (e) {
-    console.debug('[ImageCache] DB read failed:', e);
-    return null;
-  }
-}
-
-// Save image to IndexedDB
-async function saveImageToDB(imageUrl: string, blob: Blob): Promise<void> {
-  try {
-    const db = await initializeImageDB();
-    return new Promise((resolve) => {
-      const transaction = db.transaction([IMAGE_DB_STORE], 'readwrite');
-      const store = transaction.objectStore(IMAGE_DB_STORE);
-
-      blob.arrayBuffer().then(buffer => {
-        store.put({
-          url: imageUrl,
-          blob: new Blob([buffer], { type: blob.type }),
-          mimeType: blob.type,
-          timestamp: Date.now(),
-        });
-        resolve();
-      });
-    });
-  } catch (e) {
-    console.debug('[ImageCache] DB write failed:', e);
-  }
-}
-
-// Fetch and cache image
-async function getCachedImageUrl(originalSrc: string, ignoreMemoryCache = false): Promise<string> {
+// Ultra-fast cache lookup - returns immediately, caches in background
+function getCachedImageUrl(originalSrc: string): string {
   if (!originalSrc) return '';
 
-  // STEP 1: Check memory cache first (fastest)
-  if (!ignoreMemoryCache) {
-    const memCached = imageMemoryCache.get(originalSrc);
-    if (memCached) {
-      // Validate URL is still valid
-      try {
-        // Test if blob URL still works by attempting to create an image
-        const testImg = new Image();
-        testImg.src = memCached.blobUrl;
-        return memCached.blobUrl;
-      } catch (e) {
-        // Blob URL invalid, remove from memory cache
-        imageMemoryCache.delete(originalSrc);
-      }
-    }
+  // INSTANT RETURN: Check memory cache first
+  if (imageMemoryCache.has(originalSrc)) {
+    return imageMemoryCache.get(originalSrc) || originalSrc;
   }
 
-  // STEP 2: Try to get from IndexedDB
-  try {
-    const blob = await getImageFromDB(originalSrc);
-    if (blob) {
-      const blobUrl = URL.createObjectURL(blob);
-      // Store in memory cache for instant access next time
-      imageMemoryCache.set(originalSrc, {
-        blobUrl,
-        timestamp: Date.now(),
-      });
-      console.debug('[ImageCache] Loaded from IndexedDB:', originalSrc.substring(0, 50));
-      return blobUrl;
-    }
-  } catch (e) {
-    console.debug('[ImageCache] DB retrieval failed:', e);
-  }
-
-  // STEP 3: Fetch from network, cache it, and return
-  try {
-    const response = await fetch(originalSrc);
-    if (!response.ok) {
-      return originalSrc; // Fallback to original
-    }
-
-    const blob = await response.blob();
-
-    // Save to IndexedDB for offline access
-    await saveImageToDB(originalSrc, blob);
-
-    // Create blob URL and store in memory cache
-    const blobUrl = URL.createObjectURL(blob);
-    imageMemoryCache.set(originalSrc, {
-      blobUrl,
-      timestamp: Date.now(),
+  // INSTANT RETURN: Return original src while caching happens in background
+  // Start caching operations WITHOUT blocking render
+  _requestIdleCallback(() => {
+    cacheImageAsync(originalSrc).catch(e => {
+      console.debug('[ImageCache] Background cache failed:', e);
     });
+  });
 
-    console.debug('[ImageCache] Cached new image:', originalSrc.substring(0, 50));
-    return blobUrl;
-  } catch (error) {
-    console.debug('[ImageCache] Fetch failed, returning original:', error);
-    return originalSrc; // Fallback to original if fetch fails
+  return originalSrc;
+}
+
+// Background caching - doesn't block anything
+async function cacheImageAsync(imageUrl: string): Promise<void> {
+  if (!imageUrl) return;
+
+  // Already in memory cache?
+  if (imageMemoryCache.has(imageUrl)) return;
+
+  // Try Cache API (fast)
+  if (typeof caches !== 'undefined') {
+    try {
+      const cache = await caches.open(IMAGE_CACHE_NAME);
+      const cached = await cache.match(imageUrl);
+      
+      if (cached) {
+        const blob = await cached.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        imageMemoryCache.set(imageUrl, blobUrl);
+        console.debug('[ImageCache] Loaded from Cache API:', imageUrl.substring(0, 50));
+        return;
+      }
+
+      // Not in cache - fetch and store
+      const response = await fetch(imageUrl);
+      if (response.ok) {
+        const cloned = response.clone();
+        await cache.put(imageUrl, cloned);
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        imageMemoryCache.set(imageUrl, blobUrl);
+        console.debug('[ImageCache] Cached new image:', imageUrl.substring(0, 50));
+      }
+    } catch (e) {
+      console.debug('[ImageCache] Cache API failed:', e);
+    }
   }
 }
 
-// Hook for using cached images
+// Hook for using cached images - INSTANT RETURN, no waiting
 export function useImageCache(imageUrl: string | undefined): { 
   cachedUrl: string; 
   isLoading: boolean; 
@@ -160,7 +90,6 @@ export function useImageCache(imageUrl: string | undefined): {
   const [cachedUrl, setCachedUrl] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
-  const loadingRef = useRef(false);
 
   useEffect(() => {
     if (!imageUrl) {
@@ -168,27 +97,24 @@ export function useImageCache(imageUrl: string | undefined): {
       return;
     }
 
-    // Skip if already loading
-    if (loadingRef.current) return;
-    loadingRef.current = true;
-
-    setIsLoading(true);
+    // IMMEDIATE: Get URL right away (either cached or original)
+    const url = getCachedImageUrl(imageUrl);
+    setCachedUrl(url);
     setError(null);
 
-    getCachedImageUrl(imageUrl)
-      .then((url) => {
-        setCachedUrl(url || imageUrl);
-        setError(null);
-      })
-      .catch((err) => {
-        console.error('[ImageCache] Hook error:', err);
-        setCachedUrl(imageUrl);
-        setError(err instanceof Error ? err : new Error('Image cache failed'));
-      })
-      .finally(() => {
-        setIsLoading(false);
-        loadingRef.current = false;
-      });
+    // Background caching will update memory cache if not already there
+    // Component will re-render if image becomes available from memory cache
+    const checkForCachedVersion = setInterval(() => {
+      if (imageMemoryCache.has(imageUrl)) {
+        const cached = imageMemoryCache.get(imageUrl);
+        if (cached !== url) {
+          setCachedUrl(cached || imageUrl);
+          clearInterval(checkForCachedVersion);
+        }
+      }
+    }, 100);
+
+    return () => clearInterval(checkForCachedVersion);
   }, [imageUrl]);
 
   return { 
@@ -199,4 +125,4 @@ export function useImageCache(imageUrl: string | undefined): {
 }
 
 // Export for direct use
-export { getCachedImageUrl, getImageFromDB, saveImageToDB, imageMemoryCache };
+export { getCachedImageUrl, cacheImageAsync, imageMemoryCache, IMAGE_CACHE_NAME };
