@@ -27,61 +27,23 @@ import { useNavigate } from 'react-router-dom';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import ShareBoard from './ShareBoard';
 import PremiumCodeVerification from './PremiumCodeVerification';
+import { useImageCache } from '@/hooks/useImageCache';
 
 interface PostCardProps {
   post: any;
   onPostUpdate: () => void;
 }
 
-// Offline-aware image component with glass placeholder
+// Offline-aware image component with glass placeholder and automatic caching
 interface OfflineAwareImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   src: string;
   alt: string;
 }
 
-const IMAGE_CACHE_NAME = 'wizchat-post-images-v1';
-
-// Cache an image locally so it never re-downloads
-async function getCachedImageUrl(originalSrc: string): Promise<string> {
-  try {
-    const cache = await caches.open(IMAGE_CACHE_NAME);
-    const cached = await cache.match(originalSrc);
-    if (cached) {
-      const blob = await cached.blob();
-      return URL.createObjectURL(blob);
-    }
-    // Not cached yet — fetch, store, and return blob URL
-    const response = await fetch(originalSrc);
-    if (response.ok) {
-      const cloned = response.clone();
-      await cache.put(originalSrc, cloned);
-      const blob = await response.blob();
-      return URL.createObjectURL(blob);
-    }
-  } catch {}
-  return originalSrc; // fallback to original
-}
-
-function OfflineAwareImage({ src, alt, className, ...props }: OfflineAwareImageProps) {
+function OfflineAwareImage({ src, alt, className = '', ...props }: OfflineAwareImageProps) {
   const [hasError, setHasError] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [displaySrc, setDisplaySrc] = useState<string>(src);
-
-  // On mount / src change, try to load from local cache first
-  useEffect(() => {
-    setHasError(false);
-    setIsLoaded(false);
-    let revoke: string | null = null;
-
-    getCachedImageUrl(src).then(url => {
-      setDisplaySrc(url);
-      if (url !== src) revoke = url;
-    });
-
-    return () => {
-      if (revoke) URL.revokeObjectURL(revoke);
-    };
-  }, [src]);
+  const { cachedUrl, isLoading } = useImageCache(src);
 
   if (hasError) {
     return (
@@ -106,7 +68,7 @@ function OfflineAwareImage({ src, alt, className, ...props }: OfflineAwareImageP
 
   return (
     <>
-      {!isLoaded && (
+      {(!isLoaded || isLoading) && (
         <div 
           className={`flex items-center justify-center bg-muted/20 backdrop-blur-sm animate-pulse rounded-lg ${className}`}
           style={{ minHeight: '200px', aspectRatio: '16/9' }}
@@ -115,11 +77,11 @@ function OfflineAwareImage({ src, alt, className, ...props }: OfflineAwareImageP
         </div>
       )}
       <img
-        src={displaySrc}
+        src={cachedUrl}
         alt={alt}
-        className={`${className} ${isLoaded ? '' : 'hidden'}`}
+        className={`${className} ${isLoaded && !isLoading ? '' : 'hidden'}`}
         loading="eager"
-        decoding="sync"
+        decoding="async"
         onLoad={() => setIsLoaded(true)}
         onError={() => setHasError(true)}
         {...props}

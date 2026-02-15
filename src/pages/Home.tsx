@@ -13,18 +13,21 @@ import { useToast } from '@/hooks/use-toast';
 import { FeedSkeleton } from '@/components/SkeletonLoaders';
 import { SmartLoading } from '@/components/SmartLoading';
 import GlobalSearch from '@/components/GlobalSearch';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 
 // =============================================
 // PERSISTENT MODULE-LEVEL STORE (survives all remounts)
 // =============================================
 const HOME_FEED_CACHE_KEY = 'wizchat_home_feed_cache';
-const HOME_FEED_MIN_REFRESH_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
+const HOME_FEED_SCROLL_KEY = 'wizchat_home_feed_scroll';
+const HOME_FEED_MIN_REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes (longer to prevent data drain)
 
 interface HomeStore {
   posts: any[];
   scrollY: number;
   lastFetchTime: number;
   isInitialized: boolean;
+  postCount: number;
 }
 
 // Module-level store - persists across ALL component remounts
@@ -33,20 +36,40 @@ const homeStore: HomeStore = {
   scrollY: 0,
   lastFetchTime: 0,
   isInitialized: false,
+  postCount: 0,
 };
+
+// Track tab visibility to prevent fetches when tab is hidden
+let tabVisible = !document.hidden;
+document.addEventListener('visibilitychange', () => {
+  tabVisible = !document.hidden;
+  console.debug('[Home] Tab visibility changed to:', tabVisible);
+});
 
 // SYNCHRONOUS initialization from localStorage on module load (BEFORE any render)
 (() => {
   if (homeStore.isInitialized) return;
   
   try {
+    // Load posts
     const cached = localStorage.getItem(HOME_FEED_CACHE_KEY);
     if (cached) {
       const parsed = JSON.parse(cached);
       if (parsed?.data && Array.isArray(parsed.data) && parsed.data.length > 0) {
         homeStore.posts = parsed.data;
         homeStore.lastFetchTime = parsed.timestamp || 0;
+        homeStore.postCount = parsed.data.length;
         console.debug('[Home] INSTANT hydration from localStorage:', parsed.data.length, 'posts');
+      }
+    }
+
+    // Load scroll position
+    const scrollCached = localStorage.getItem(HOME_FEED_SCROLL_KEY);
+    if (scrollCached) {
+      const scrollPos = JSON.parse(scrollCached);
+      if (typeof scrollPos === 'number' && scrollPos > 0) {
+        homeStore.scrollY = scrollPos;
+        console.debug('[Home] Loaded scroll position:', scrollPos);
       }
     }
   } catch (e) {
@@ -55,12 +78,13 @@ const homeStore: HomeStore = {
   homeStore.isInitialized = true;
 })();
 
-const saveToLocalStorage = (posts: any[]) => {
+const saveToLocalStorage = (posts: any[], scrollY: number = homeStore.scrollY) => {
   try {
     localStorage.setItem(HOME_FEED_CACHE_KEY, JSON.stringify({
       data: posts,
       timestamp: Date.now()
     }));
+    localStorage.setItem(HOME_FEED_SCROLL_KEY, JSON.stringify(scrollY));
   } catch (e) {
     console.debug('[Home] Failed to save to localStorage:', e);
   }
@@ -69,6 +93,7 @@ const saveToLocalStorage = (posts: any[]) => {
 const Home = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const isOnline = useOnlineStatus();
   
   // INSTANT display from module-level store - NO loading state if we have cached posts
   const hasCachedPosts = homeStore.posts.length > 0;
@@ -82,9 +107,13 @@ const Home = () => {
   const hasLoadedRef = useRef(false);
   const scrollRestoredRef = useRef(false);
   const isRestoringScrollRef = useRef(false);
+  const componentMountTracker = useRef(0);
 
   // CRITICAL: Restore scroll position IMMEDIATELY on mount (before paint)
   useLayoutEffect(() => {
+    componentMountTracker.current++;
+    const mountId = componentMountTracker.current;
+    
     if (scrollRestoredRef.current) return;
     if (!hasCachedPosts) return;
     
@@ -96,17 +125,21 @@ const Home = () => {
       // Immediately set scroll position without animation
       window.scrollTo(0, savedScrollY);
       
-      // Double RAF to ensure DOM is fully rendered, then restore again
+      // Verify scroll was applied
       requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          window.scrollTo(0, savedScrollY);
-          console.debug('[Home] Scroll restored to:', savedScrollY);
-          
-          // Small delay before allowing scroll tracking again
-          setTimeout(() => {
+        if (componentMountTracker.current === mountId) {
+          const currentScroll = window.scrollY;
+          if (currentScroll === savedScrollY) {
+            console.debug('[Home] Scroll perfectly restored to:', savedScrollY);
             isRestoringScrollRef.current = false;
-          }, 100);
-        });
+          } else {
+            // Try again if it didn't stick
+            window.scrollTo(0, savedScrollY);
+            requestAnimationFrame(() => {
+              isRestoringScrollRef.current = false;
+            });
+          }
+        }
       });
     } else {
       isRestoringScrollRef.current = false;
@@ -118,6 +151,8 @@ const Home = () => {
     const handleScroll = () => {
       if (isRestoringScrollRef.current) return;
       homeStore.scrollY = window.scrollY;
+      // Periodically save to localStorage while scrolling
+      saveToLocalStorage(homeStore.posts, window.scrollY);
     };
     
     window.addEventListener('scroll', handleScroll, { passive: true });
@@ -128,7 +163,8 @@ const Home = () => {
   useEffect(() => {
     if (posts.length > 0) {
       homeStore.posts = posts;
-      saveToLocalStorage(posts);
+      homeStore.postCount = posts.length;
+      saveToLocalStorage(posts, homeStore.scrollY);
     }
   }, [posts]);
 
@@ -149,7 +185,18 @@ const Home = () => {
     }
 
     // Either no cache or cache is stale
-    // If we have cached data, do a SILENT background refresh (no loading indicator)
+    // ONLY fetch if:
+    // 1. Tab is visible (don't drain data in background)
+    // 2. We're online or have no cached data
+    // 3. We're not refreshing already
+    
+    if (!tabVisible && hasCachedPosts) {
+      console.debug('[Home] Tab not visible, skipping fetch. Using cached data.');
+      setLoading(false);
+      return;
+    }
+
+    // Do a fetch, but silently if we have cached data
     loadPosts(hasCachedPosts);
   }, [hasCachedPosts]);
 
@@ -186,6 +233,12 @@ const Home = () => {
   const loadPosts = useCallback(async (silent = false) => {
     if (!user) return;
     
+    // Don't fetch if tab is not visible and we have cached data
+    if (!tabVisible && hasCachedPosts) {
+      console.debug('[Home] Tab hidden, skipping fetch');
+      return;
+    }
+    
     try {
       if (!silent) {
         setLoading(true);
@@ -204,7 +257,8 @@ const Home = () => {
       setPosts(sortedPosts);
       homeStore.posts = sortedPosts;
       homeStore.lastFetchTime = Date.now();
-      saveToLocalStorage(sortedPosts);
+      homeStore.postCount = sortedPosts.length;
+      saveToLocalStorage(sortedPosts, homeStore.scrollY);
       
       console.debug('[Home] Fetched', sortedPosts.length, 'posts (silent:', silent, ')');
     } catch (error) {
@@ -222,7 +276,7 @@ const Home = () => {
     } finally {
       setLoading(false);
     }
-  }, [user, toast]);
+  }, [user, toast, hasCachedPosts]);
 
   const handleLikePost = async (postId: string) => {
     try {
@@ -302,9 +356,10 @@ const Home = () => {
 
       setPosts(freshPosts);
       homeStore.posts = freshPosts;
+      homeStore.postCount = freshPosts.length;
       homeStore.lastFetchTime = Date.now();
       homeStore.scrollY = 0;
-      saveToLocalStorage(freshPosts);
+      saveToLocalStorage(freshPosts, 0);
       
       window.scrollTo({ top: 0, behavior: 'smooth' });
 
@@ -333,13 +388,15 @@ const Home = () => {
       setPosts(prevPosts => {
         const updated = [createdPost, ...prevPosts];
         homeStore.posts = updated;
-        saveToLocalStorage(updated);
+        homeStore.postCount = updated.length;
+        saveToLocalStorage(updated, homeStore.scrollY);
         return updated;
       });
 
       setTimeout(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
         homeStore.scrollY = 0;
+        saveToLocalStorage(homeStore.posts, 0);
       }, 100);
 
       toast({
