@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { Pin, PinOff, BellOff, Ban, AlertTriangle, Trash2, Archive } from 'lucide-react';
 import { User } from '@/types';
 import OnlineStatusIndicator from './OnlineStatusIndicator';
@@ -38,6 +37,31 @@ const chatMetadataCache = new Map<string, {
 }>();
 
 const CACHE_TTL = 30000; // 30 seconds cache
+const OFFLINE_STORAGE_KEY = 'wizchat_message_previews';
+
+// Load persisted offline previews from localStorage
+const loadOfflinePreviewsFromStorage = () => {
+  try {
+    const stored = localStorage.getItem(OFFLINE_STORAGE_KEY);
+    if (stored) {
+      const previews = JSON.parse(stored);
+      Object.entries(previews).forEach(([key, value]: any) => {
+        if (value && typeof value === 'object') {
+          chatMetadataCache.set(key, {
+            ...value,
+            lastMessageTime: value.lastMessageTime ? new Date(value.lastMessageTime) : null,
+            timestamp: Date.now() - 1000 // Make them slightly stale so they refresh but show immediately
+          });
+        }
+      });
+    }
+  } catch (e) {
+    console.debug('[ChatListItem] Failed to load offline previews');
+  }
+};
+
+// Initialize on load
+loadOfflinePreviewsFromStorage();
 
 const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelete }: ChatListItemProps) => {
   const { toast } = useToast();
@@ -210,13 +234,30 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
   }, [friend.id, user?.id, isWizAi]);
   
   const updateCache = (key: string, message: string, time: Date | null, unread: number, chatId: string | null) => {
-    chatMetadataCache.set(key, {
+    const cacheEntry = {
       lastMessage: message,
       lastMessageTime: time,
       unreadCount: unread,
       chatId,
       timestamp: Date.now()
-    });
+    };
+    chatMetadataCache.set(key, cacheEntry);
+    
+    // Persist to localStorage for offline access
+    try {
+      const allPreviews: Record<string, any> = {};
+      chatMetadataCache.forEach((value, cacheKey) => {
+        allPreviews[cacheKey] = {
+          lastMessage: value.lastMessage,
+          lastMessageTime: value.lastMessageTime?.toISOString() || null,
+          unreadCount: value.unreadCount,
+          chatId: value.chatId
+        };
+      });
+      localStorage.setItem(OFFLINE_STORAGE_KEY, JSON.stringify(allPreviews));
+    } catch (e) {
+      console.debug('[ChatListItem] Failed to persist offline previews');
+    }
   };
   
   const formatMessageTime = (date: Date | null) => {
@@ -331,30 +372,16 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
               {pinned && <Pin className="w-3 h-3 text-primary flex-shrink-0" />}
             </div>
             {lastMessageTime && (
-              <span className={`text-xs flex-shrink-0 ${unreadCount > 0 ? 'font-semibold text-primary' : 'text-muted-foreground'}`}>
+              <span className="text-xs text-muted-foreground flex-shrink-0">
                 {formatMessageTime(lastMessageTime)}
               </span>
             )}
           </div>
           
           {/* Message Preview */}
-          <div className="flex items-center justify-between gap-2">
-            <p className={`text-sm line-clamp-2 flex-1 ${
-              unreadCount > 0 
-                ? 'font-semibold text-foreground' 
-                : 'text-muted-foreground'
-            }`}>
-              {lastMessage || (isWizAi ? "Ask me anything — I'm here to help!" : 'No messages yet')}
-            </p>
-            {unreadCount > 0 && (
-              <Badge 
-                variant="destructive" 
-                className="rounded-full min-w-[24px] h-6 flex items-center justify-center flex-shrink-0 text-xs font-bold border-2 border-green-500 bg-red-500 text-white"
-              >
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </Badge>
-            )}
-          </div>
+          <p className="text-sm line-clamp-2 text-muted-foreground">
+            {lastMessage || (isWizAi ? "Ask me anything — I'm here to help!" : '')}
+          </p>
         </div>
       </div>
 
