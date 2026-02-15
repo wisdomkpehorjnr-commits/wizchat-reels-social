@@ -71,96 +71,83 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
       return;
     }
     
-    const fetchChatData = async () => {
+    const fetchData = async () => {
+      if (!user?.id) return;
+
       try {
-        if (!user?.id || !friend.id) return;
-        
-        // Get chat_id directly from chat_participants junction
-        const { data: userChats } = await supabase
-          .from('chat_participants')
-          .select('chat_id')
-          .eq('user_id', user.id);
-        
-        if (!userChats || userChats.length === 0) {
+        // Use the exact same RPC that ChatPopup uses
+        const { data: chatId, error: rpcError } = await supabase.rpc('get_or_create_direct_chat', {
+          p_other_user_id: friend.id
+        });
+
+        if (rpcError || !chatId) {
           setLastMessage('');
           setLastMessageTime(null);
           setUnreadCount(0);
           return;
         }
 
-        const chatIds = userChats.map(c => c.chat_id);
+        chatIdRef.current = chatId;
 
-        // Find which of these chats includes the friend
-        const { data: friendParticipation } = await supabase
-          .from('chat_participants')
-          .select('chat_id')
-          .eq('user_id', friend.id)
-          .in('chat_id', chatIds);
-
-        if (!friendParticipation || friendParticipation.length === 0) {
-          setLastMessage('');
-          setLastMessageTime(null);
-          setUnreadCount(0);
-          return;
-        }
-
-        const directChatId = friendParticipation[0].chat_id;
-        chatIdRef.current = directChatId;
-
-        // Get the last message (most recent first)
-        const { data: lastMessages } = await supabase
+        // Fetch all messages for this chat
+        const { data: messages, error: messagesError } = await supabase
           .from('messages')
           .select('id, content, created_at, user_id, type, media_url')
-          .eq('chat_id', directChatId)
-          .order('created_at', { ascending: false })
-          .limit(1);
+          .eq('chat_id', chatId)
+          .order('created_at', { ascending: false });
+
+        if (messagesError || !messages) {
+          setLastMessage('');
+          setLastMessageTime(null);
+          setUnreadCount(0);
+          return;
+        }
 
         let preview = '';
         let msgTime: Date | null = null;
+        let unreadCount = 0;
 
-        if (lastMessages && lastMessages.length > 0) {
-          const msg = lastMessages[0];
-          const isMe = msg.user_id === user.id;
+        if (messages.length > 0) {
+          const lastMsg = messages[0];
+          const isMe = lastMsg.user_id === user.id;
 
-          // Build preview text
-          if (msg.type === 'image') {
+          // Build preview from last message
+          if (lastMsg.type === 'image') {
             preview = `${isMe ? 'You: ' : ''}📷 Photo`;
-          } else if (msg.type === 'video') {
+          } else if (lastMsg.type === 'video') {
             preview = `${isMe ? 'You: ' : ''}🎥 Video`;
-          } else if (msg.type === 'voice') {
+          } else if (lastMsg.type === 'voice') {
             preview = `${isMe ? 'You: ' : ''}🎤 Voice message`;
-          } else if (msg.content && msg.content.trim().length > 0) {
-            const trimmed = msg.content.trim();
-            const contentPreview = trimmed.length > 60 
-              ? `${trimmed.substring(0, 60)}...` 
-              : trimmed;
-            preview = `${isMe ? 'You: ' : ''}${contentPreview}`;
-          } else if (msg.media_url) {
-            preview = `${isMe ? 'You: ' : ''}📎 Attachment`;
+          } else if (lastMsg.content) {
+            const text = lastMsg.content.trim();
+            if (text.length > 0) {
+              const shortened = text.length > 60 ? text.substring(0, 60) + '...' : text;
+              preview = `${isMe ? 'You: ' : ''}${shortened}`;
+            }
+          } else if (lastMsg.media_url) {
+            preview = `${isMe ? 'You: ' : ''}📎 File`;
           }
 
-          msgTime = new Date(msg.created_at);
-        }
+          msgTime = new Date(lastMsg.created_at);
 
-        // Get unread count for this chat from this friend
-        const { count } = await supabase
-          .from('messages')
-          .select('id', { count: 'exact', head: true })
-          .eq('chat_id', directChatId)
-          .eq('seen', false)
-          .neq('user_id', user.id);
+          // Count unread messages from friend (not 'seen')
+          unreadCount = messages.filter(m => m.user_id === friend.id).length || 0;
+        }
 
         setLastMessage(preview);
         setLastMessageTime(msgTime);
-        setUnreadCount(count || 0);
-        updateCache(cacheKey, preview, msgTime, count || 0, directChatId);
+        setUnreadCount(unreadCount);
+        updateCache(cacheKey, preview, msgTime, unreadCount, chatId);
 
       } catch (error) {
-        console.error('[ChatListItem] Fetch error:', error);
+        console.error('[ChatListItem] Error:', error);
+        setLastMessage('');
+        setLastMessageTime(null);
+        setUnreadCount(0);
       }
     };
 
-    fetchChatData();
+    fetchData();
 
     // Real-time subscription for new messages
     let channel: ReturnType<typeof supabase.channel> | null = null;
