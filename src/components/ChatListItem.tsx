@@ -83,10 +83,34 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
       return;
     }
 
-    // Check cache first
     const cacheKey = `${user?.id}-${friend.id}`;
-    const cached = chatMetadataCache.get(cacheKey);
     
+    // STEP 1: Always try localStorage first (offline-first)
+    let loadedFromOfflineStorage = false;
+    try {
+      const stored = localStorage.getItem(OFFLINE_STORAGE_KEY);
+      if (stored) {
+        const previews = JSON.parse(stored);
+        const cached = previews[cacheKey];
+        if (cached && cached.lastMessage) {
+          setLastMessage(cached.lastMessage);
+          setLastMessageTime(cached.lastMessageTime ? new Date(cached.lastMessageTime) : null);
+          setUnreadCount(cached.unreadCount || 0);
+          chatIdRef.current = cached.chatId || null;
+          loadedFromOfflineStorage = true;
+        }
+      }
+    } catch (e) {
+      console.debug('[ChatListItem] Failed to load offline storage');
+    }
+
+    // If offline and we have data from localStorage, stop here
+    if (!navigator.onLine && loadedFromOfflineStorage) {
+      return;
+    }
+
+    // STEP 2: Check memory cache
+    const cached = chatMetadataCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
       setLastMessage(cached.lastMessage);
       setLastMessageTime(cached.lastMessageTime);
@@ -95,25 +119,26 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
       return;
     }
     
+    // STEP 3: Fetch from server if online
+    if (!navigator.onLine && loadedFromOfflineStorage) {
+      return; // Already loaded from storage, don't try to fetch
+    }
+
     const fetchData = async () => {
       if (!user?.id) return;
 
       try {
-        // Use the exact same RPC that ChatPopup uses
         const { data: chatId, error: rpcError } = await supabase.rpc('get_or_create_direct_chat', {
           p_other_user_id: friend.id
         });
 
         if (rpcError || !chatId) {
-          setLastMessage('');
-          setLastMessageTime(null);
-          setUnreadCount(0);
+          // Fetch failed - keep showing offline data if available
           return;
         }
 
         chatIdRef.current = chatId;
 
-        // Fetch all messages for this chat
         const { data: messages, error: messagesError } = await supabase
           .from('messages')
           .select('id, content, created_at, user_id, type, media_url')
@@ -121,9 +146,7 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
           .order('created_at', { ascending: false });
 
         if (messagesError || !messages) {
-          setLastMessage('');
-          setLastMessageTime(null);
-          setUnreadCount(0);
+          // Fetch failed - keep showing offline data if available
           return;
         }
 
@@ -135,7 +158,6 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
           const lastMsg = messages[0];
           const isMe = lastMsg.user_id === user.id;
 
-          // Build preview from last message
           if (lastMsg.type === 'image') {
             preview = `${isMe ? 'You: ' : ''}📷 Photo`;
           } else if (lastMsg.type === 'video') {
@@ -153,8 +175,6 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
           }
 
           msgTime = new Date(lastMsg.created_at);
-
-          // Count unread messages from friend (not 'seen')
           unreadCount = messages.filter(m => m.user_id === friend.id).length || 0;
         }
 
@@ -164,10 +184,7 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
         updateCache(cacheKey, preview, msgTime, unreadCount, chatId);
 
       } catch (error) {
-        console.error('[ChatListItem] Error:', error);
-        setLastMessage('');
-        setLastMessageTime(null);
-        setUnreadCount(0);
+        console.debug('[ChatListItem] Fetch error (keeping offline data):', error);
       }
     };
 
@@ -177,9 +194,8 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
     let channel: ReturnType<typeof supabase.channel> | null = null;
     let subscribed = false;
 
-    // Check subscription status after a brief delay to ensure chatIdRef is set
     const subscriptionTimer = setTimeout(() => {
-      if (chatIdRef.current && !subscribed) {
+      if (chatIdRef.current && !subscribed && navigator.onLine) {
         subscribed = true;
         channel = supabase
           .channel(`chat_messages_${friend.id}_${user?.id}`)
@@ -193,7 +209,7 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
             },
             (payload) => {
               const msg = payload.new as any;
-              if (!msg || msg.user_id === user?.id) return; // Skip own messages for unread count
+              if (!msg) return;
               
               const isMe = msg.user_id === user?.id;
               let preview = '';
@@ -216,9 +232,9 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
               
               setLastMessage(preview);
               setLastMessageTime(new Date(msg.created_at));
-              if (!isMe) {
-                setUnreadCount(prev => prev + 1);
-              }
+              
+              // Always save to localStorage when message changes
+              updateCache(cacheKey, preview, new Date(msg.created_at), unreadCount, chatIdRef.current);
             }
           )
           .subscribe();
