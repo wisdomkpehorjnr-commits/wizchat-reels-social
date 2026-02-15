@@ -82,6 +82,39 @@ async function cacheImageAsync(imageUrl: string): Promise<void> {
   }
 }
 
+// Synchronously load image from Cache API (fast path for already cached images)
+async function loadImageFromCacheSync(imageUrl: string): Promise<string | null> {
+  if (!imageUrl) return null;
+  
+  // Check memory cache first
+  if (imageMemoryCache.has(imageUrl)) {
+    return imageMemoryCache.get(imageUrl) || null;
+  }
+
+  // Try Cache API without waiting for network
+  if (typeof caches !== 'undefined') {
+    try {
+      const cache = await caches.open(IMAGE_CACHE_NAME);
+      const cached = await cache.match(imageUrl);
+      
+      if (cached) {
+        try {
+          const blob = await cached.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          imageMemoryCache.set(imageUrl, blobUrl);
+          return blobUrl;
+        } catch (e) {
+          console.debug('[ImageCache] Blob creation failed:', e);
+        }
+      }
+    } catch (e) {
+      console.debug('[ImageCache] Cache check failed:', e);
+    }
+  }
+
+  return null;
+}
+
 // Hook for using cached images - INSTANT RETURN, no waiting
 export function useImageCache(imageUrl: string | undefined): { 
   cachedUrl: string; 
@@ -126,4 +159,4 @@ export function useImageCache(imageUrl: string | undefined): {
 }
 
 // Export for direct use
-export { getCachedImageUrl, cacheImageAsync, imageMemoryCache, IMAGE_CACHE_NAME };
+export { getCachedImageUrl, cacheImageAsync, loadImageFromCacheSync, imageMemoryCache, IMAGE_CACHE_NAME };

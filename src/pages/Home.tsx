@@ -14,7 +14,7 @@ import { FeedSkeleton } from '@/components/SkeletonLoaders';
 import { SmartLoading } from '@/components/SmartLoading';
 import GlobalSearch from '@/components/GlobalSearch';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
-import { preloadPostsImages } from '@/services/preloadService';
+import { preloadCachedImagesFromCache, preloadPostsImages } from '@/services/preloadService';
 
 // =============================================
 // PERSISTENT MODULE-LEVEL STORE (survives all remounts)
@@ -155,7 +155,7 @@ const Home = () => {
       // Lock scroll position during render and image loading
       lockScrollPosition(savedScrollY);
       
-      // Verify and enforce scroll position
+      // Single RAF to verify and enforce if needed
       requestAnimationFrame(() => {
         if (componentMountTracker.current === mountId && window.scrollY !== savedScrollY) {
           window.scrollTo(0, savedScrollY);
@@ -183,10 +183,39 @@ const Home = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Preload all post images in background (fire and forget)
+  // Preload cached images from Cache API into memory (instant rendering)
+  useEffect(() => {
+    if (posts.length === 0) return;
+
+    // Extract all image URLs
+    const imageUrls = new Set<string>();
+    posts.forEach(post => {
+      if (post.imageUrl) imageUrls.add(post.imageUrl);
+      if (post.images && Array.isArray(post.images)) {
+        post.images.forEach((img: any) => {
+          if (typeof img === 'string') imageUrls.add(img);
+          else if (img?.url) imageUrls.add(img.url);
+        });
+      }
+      if (post.posterUrl) imageUrls.add(post.posterUrl);
+    });
+
+    // Batch load from Cache API (blocking, ensures instant render)
+    if (imageUrls.size > 0) {
+      preloadCachedImagesFromCache(Array.from(imageUrls));
+    }
+  }, [posts.length]); // Only run when post count changes
+
+  // Start background caching for images not yet in cache
   useEffect(() => {
     if (posts.length > 0) {
-      preloadPostsImages(posts);
+      preloadPostsImages(
+        posts.flatMap(p => [
+          p.imageUrl,
+          ...(Array.isArray(p.images) ? p.images.map((img: any) => typeof img === 'string' ? img : img?.url) : []),
+          p.posterUrl
+        ])
+      );
     }
   }, [posts]);
 

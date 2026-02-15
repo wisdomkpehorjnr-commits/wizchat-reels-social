@@ -27,7 +27,7 @@ import { useNavigate } from 'react-router-dom';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import ShareBoard from './ShareBoard';
 import PremiumCodeVerification from './PremiumCodeVerification';
-import { useImageCache } from '@/hooks/useImageCache';
+import { useImageCache, imageMemoryCache } from '@/hooks/useImageCache';
 
 interface PostCardProps {
   post: any;
@@ -45,8 +45,11 @@ function OfflineAwareImage({ src, alt, className = '', ...props }: OfflineAwareI
   const [isLoaded, setIsLoaded] = useState(false);
   const { cachedUrl } = useImageCache(src);
   
-  // Import module-level loaded images set to check if already rendered
-  const isAlreadyLoaded = src ? (window as any).__loadedImages?.has(src) ?? false : false;
+  // Check if image is already in memory cache (was preloaded)
+  const isInMemoryCache = src ? imageMemoryCache.has(src) : false;
+  
+  // If image is in memory cache, it means it's ready -> no placeholder needed
+  const isCached = isInMemoryCache || cachedUrl !== src;
 
   if (hasError) {
     return (
@@ -69,8 +72,8 @@ function OfflineAwareImage({ src, alt, className = '', ...props }: OfflineAwareI
     );
   }
 
-  // For already-loaded images, skip placeholder - render directly
-  const shouldShowPlaceholder = !isLoaded && !isAlreadyLoaded;
+  // Only show placeholder if image is NOT cached
+  const shouldShowPlaceholder = !isCached && !isLoaded;
 
   return (
     <>
@@ -90,7 +93,7 @@ function OfflineAwareImage({ src, alt, className = '', ...props }: OfflineAwareI
         decoding="async"
         onLoad={() => {
           setIsLoaded(true);
-          // Mark this image as loaded globally to prevent blinking on tab switch
+          // Mark this image as loaded globally
           if (!((window as any).__loadedImages instanceof Set)) {
             (window as any).__loadedImages = new Set();
           }
