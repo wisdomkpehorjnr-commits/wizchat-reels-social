@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Layout from '@/components/Layout';
 import ChatPopup from '@/components/ChatPopup';
+import GroupChatPopup from '@/components/GroupChatPopup';
 import WizAiChat from '@/components/WizAiChat';
 import ChatListItem from '@/components/ChatListItem';
+import CreateGroupDialog from '@/components/CreateGroupDialog';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, MessageCircle, Bot, WifiOff } from 'lucide-react';
+import { Search, MessageCircle, Bot, WifiOff, Plus } from 'lucide-react';
 import { Friend, User } from '@/types';
 import { dataService } from '@/services/dataService';
 import { useAuth } from '@/contexts/AuthContext';
@@ -87,11 +90,15 @@ const Chat = () => {
   const hasCachedData = chatStore.friends.length > 0;
   
   const [friends, setFriends] = useState<Friend[]>(chatStore.friends);
+  const [groups, setGroups] = useState<any[]>([]);
   const [selectedFriend, setSelectedFriend] = useState<User | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(!hasCachedData);
   const [pinnedFriends, setPinnedFriends] = useState<Set<string>>(new Set());
+  const [pinnedGroups, setPinnedGroups] = useState<Set<string>>(new Set());
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
   const hasLoadedRef = useRef(false);
 
   // Network status listener
@@ -206,6 +213,15 @@ const Chat = () => {
       
       // Persist to localStorage for instant hydration next time
       saveChatListToCache(userFriends);
+
+      // Load user groups
+      try {
+        const userGroups = await dataService.getUserGroups(user.id);
+        setGroups(userGroups);
+      } catch (error) {
+        console.debug('[Chat] Error loading groups:', error);
+        // Groups are optional, don't fail the entire load
+      }
     } catch (error) {
       console.error('Error loading friends:', error);
       if (!silent) {
@@ -224,6 +240,38 @@ const Chat = () => {
     setSelectedFriend(friend);
   };
 
+  const handleGroupCreated = (groupId: string) => {
+    // Reload chat list to show new group
+    loadData(false);
+    
+    // Open the group chat
+    setSelectedGroup(groupId);
+  };
+
+  const handlePinToggle = (friendId: string) => {
+    setPinnedFriends(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(friendId)) {
+        newSet.delete(friendId);
+      } else {
+        newSet.add(friendId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleGroupPinToggle = (groupId: string) => {
+    setPinnedGroups(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(groupId)) {
+        newSet.delete(groupId);
+      } else {
+        newSet.add(groupId);
+      }
+      return newSet;
+    });
+  };
+
   const acceptedFriends = friends.filter(f => f.status === 'accepted');
   
   // Get friend user data
@@ -239,6 +287,11 @@ const Chat = () => {
 
   const filteredFriends = visibleFriends.filter(friend =>
     friend.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Filter groups by search term
+  const filteredGroups = groups.filter(group =>
+    group.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   // Handle delete (hide) user from chat list
@@ -272,6 +325,18 @@ const Chat = () => {
     });
   };
 
+  // Show group chat if selected
+  if (selectedGroup) {
+    return (
+      <div className="fixed inset-0 bg-background z-50 flex flex-col">
+        <GroupChatPopup 
+          groupId={selectedGroup}
+          onClose={() => setSelectedGroup(null)}
+        />
+      </div>
+    );
+  }
+
   if (selectedFriend) {
     if (selectedFriend.id === 'wizai') {
       return <WizAiChat onClose={() => setSelectedFriend(null)} />;
@@ -295,12 +360,23 @@ const Chat = () => {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-2xl font-bold text-foreground">Chat</CardTitle>
-                {isOffline && (
-                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                    <WifiOff className="w-4 h-4" />
-                    Offline
-                  </div>
-                )}
+                <div className="flex items-center gap-3">
+                  <Button
+                    onClick={() => setIsCreateGroupOpen(true)}
+                    size="sm"
+                    className="gap-2 bg-blue-500 hover:bg-blue-600 text-white"
+                    title="Create a new group"
+                  >
+                    <Plus className="w-4 h-4" />
+                    New Group
+                  </Button>
+                  {isOffline && (
+                    <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                      <WifiOff className="w-4 h-4" />
+                      Offline
+                    </div>
+                  )}
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -344,6 +420,39 @@ const Chat = () => {
                     isWizAi
                   />
                   
+                  {/* Groups */}
+                  {filteredGroups.map((group) => (
+                    <div
+                      key={group.id}
+                      onClick={() => setSelectedGroup(group.id)}
+                      className="flex items-center justify-between p-4 hover:bg-muted cursor-pointer transition-colors border-b last:border-b-0 last:rounded-b-lg"
+                    >
+                      <div className="flex items-center space-x-3 flex-1 min-w-0">
+                        <div className="flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold text-lg">
+                          {group.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-foreground truncate">
+                            {group.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {group.member_count || 0} members
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleGroupPinToggle(group.id);
+                        }}
+                        className="text-muted-foreground hover:text-foreground transition-colors ml-2"
+                        title={pinnedGroups.has(group.id) ? 'Unpin' : 'Pin'}
+                      >
+                        📌
+                      </button>
+                    </div>
+                  ))}
+                  
                   {/* Friends list for chatting */}
                    {sortedFriends.map((friend) => (
                      <ChatListItem
@@ -356,14 +465,14 @@ const Chat = () => {
                      />
                    ))}
                   
-                  {filteredFriends.length === 0 && (
+                  {filteredFriends.length === 0 && filteredGroups.length === 0 && (
                     <div className="p-8 text-center">
                       <MessageCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                       <p className="text-muted-foreground">
-                        {searchTerm ? 'No friends found' : 'No friends to chat with'}
+                        {searchTerm ? 'No results found' : 'No chats to display'}
                       </p>
                       <p className="text-sm text-muted-foreground mt-2">
-                        Add friends to start conversations
+                        Create a group or add friends to start conversations
                       </p>
                     </div>
                   )}
@@ -373,6 +482,13 @@ const Chat = () => {
           )}
         </div>
       </div>
+
+      <CreateGroupDialog
+        isOpen={isCreateGroupOpen}
+        onClose={() => setIsCreateGroupOpen(false)}
+        friends={acceptedFriends}
+        onGroupCreated={handleGroupCreated}
+      />
     </Layout>
   );
 };
