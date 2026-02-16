@@ -6,6 +6,8 @@ import { cacheService } from '@/services/cacheService';
 // ============================================
 const imageMemoryCache = new Map<string, string>(); // URL -> cached blob URL
 const IMAGE_CACHE_NAME = 'wizchat-post-images-v2';
+// Persist images for 2 hours by default
+const IMAGE_PERSIST_TTL = 2 * 60 * 60 * 1000; // 2 hours
 
 // Preload cache from storage at module init (fire and forget)
 const initCachePreload = () => {
@@ -77,9 +79,9 @@ async function cacheImageAsync(imageUrl: string): Promise<void> {
         const blobUrl = URL.createObjectURL(blob);
         imageMemoryCache.set(imageUrl, blobUrl);
         console.debug('[ImageCache] Loaded from Cache API:', imageUrl.substring(0, 50));
-        // Persist to IndexedDB for extra durability
+        // Persist to IndexedDB for extra durability with TTL
         try {
-          await cacheService.set(`perm-image-${imageUrl}`, blob);
+          await cacheService.set(`perm-image-${imageUrl}`, blob, IMAGE_PERSIST_TTL);
         } catch (e) {
           console.debug('[ImageCache] Persist to IndexedDB failed:', e);
         }
@@ -96,9 +98,9 @@ async function cacheImageAsync(imageUrl: string): Promise<void> {
         imageMemoryCache.set(imageUrl, blobUrl);
         console.debug('[ImageCache] Cached new image:', imageUrl.substring(0, 50));
 
-        // Persist to IndexedDB for durable offline access
+        // Persist to IndexedDB for durable offline access with TTL
         try {
-          await cacheService.set(`perm-image-${imageUrl}`, blob);
+          await cacheService.set(`perm-image-${imageUrl}`, blob, IMAGE_PERSIST_TTL);
         } catch (e) {
           console.debug('[ImageCache] Persist to IndexedDB failed:', e);
         }
