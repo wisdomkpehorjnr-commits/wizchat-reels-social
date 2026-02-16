@@ -352,7 +352,7 @@ const Chat = () => {
                   <Button
                     onClick={() => setIsCreateGroupOpen(true)}
                     size="sm"
-                    className="gap-2 bg-blue-500 hover:bg-blue-600 text-white"
+                    className="gap-2 bg-green-500 hover:bg-green-600 text-white"
                     title="Create a new group"
                   >
                     <Plus className="w-4 h-4" />

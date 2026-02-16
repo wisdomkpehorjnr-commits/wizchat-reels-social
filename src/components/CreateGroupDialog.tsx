@@ -132,59 +132,57 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
 
     setIsCreating(true);
     try {
-      let groupIcon_url = '';
-
-      // Upload group icon if provided
-      if (groupIcon) {
-        groupIcon_url = await MediaService.uploadAvatar(groupIcon);
-      } else {
-        // Generate default icon with first letter
-        groupIcon_url = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%234F46E5'/%3E%3Ctext x='100' y='115' font-size='80' font-weight='bold' fill='white' text-anchor='middle'%3E${groupName.charAt(0).toUpperCase()}%3C/text%3E%3C/svg%3E`;
-      }
-
       // Create group in database
       const { data: groupData, error: groupError } = await supabase
         .from('groups')
         .insert({
           name: groupName.trim(),
           created_by: user.id,
-          is_private: false, // Default to non-private for new groups
-          icon_url: groupIcon_url,
+          is_private: false,
           invite_code: Math.random().toString(36).substring(2, 15),
           member_count: selectedMembers.size + 1,
         })
         .select('id')
         .single();
 
-      if (groupError || !groupData) {
-        throw new Error('Failed to create group');
+      if (groupError) {
+        console.error('Supabase error creating group:', groupError);
+        throw groupError;
+      }
+
+      if (!groupData || !groupData.id) {
+        throw new Error('No group ID returned from server');
       }
 
       const groupId = groupData.id;
 
-      // Add creator as admin
-      await supabase.from('group_members').insert({
-        group_id: groupId,
-        user_id: user.id,
-        role: 'admin',
-      });
+      // Build member inserts: creator as admin + selected members
+      const allMembers = [
+        { user_id: user.id, role: 'admin' },
+        ...Array.from(selectedMembers).map(memberId => ({
+          user_id: memberId,
+          role: 'member'
+        }))
+      ];
 
-      // Add selected members
-      const memberInserts = Array.from(selectedMembers).map(memberId => ({
+      const memberInserts = allMembers.map(m => ({
         group_id: groupId,
-        user_id: memberId,
-        role: 'member',
+        user_id: m.user_id,
+        role: m.role,
       }));
 
-      await supabase.from('group_members').insert(memberInserts);
+      console.log('Inserting members:', memberInserts);
 
-      // Add system welcome message
-      await supabase.from('messages').insert({
-        chat_id: groupId,
-        sender_id: user.id,
-        content: `Group "${groupName}" created`,
-        is_system_message: true,
-      });
+      const { error: memberError } = await supabase
+        .from('group_members')
+        .insert(memberInserts);
+
+      if (memberError) {
+        console.error('Supabase error adding members:', memberError);
+        throw memberError;
+      }
+
+      console.log('Group created successfully:', groupId);
 
       toast({
         title: 'Success',
@@ -204,11 +202,12 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
       if (onGroupCreated) {
         onGroupCreated(groupId);
       }
-    } catch (error) {
-      console.error('Error creating group:', error);
+    } catch (error: any) {
+      console.error('Full error creating group:', error);
+      const errorMessage = error?.message || error?.details || 'Failed to create group. Please try again.';
       toast({
         title: 'Error',
-        description: 'Failed to create group. Please try again.',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
