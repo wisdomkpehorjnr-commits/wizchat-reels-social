@@ -1,10 +1,16 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { cacheService } from '@/services/cacheService';
 
 // ============================================
 // ULTRA-FAST MODULE-LEVEL IN-MEMORY CACHE
 // ============================================
-const imageMemoryCache = new Map<string, string>(); // URL -> cached blob URL
+interface CachedImageEntry {
+  blob: Blob;
+  expiresAt: number;
+}
+
+const imageMemoryCache = new Map<string, CachedImageEntry>(); // URL -> {blob, expiresAt}
+const imageBlobUrlCache = new Map<string, string>(); // URL -> blob URL (transient, recreated as needed)
 const IMAGE_CACHE_NAME = 'wizchat-post-images-v2';
 // Persist images for 2 hours by default
 const IMAGE_PERSIST_TTL = 2 * 60 * 60 * 1000; // 2 hours
@@ -27,13 +33,51 @@ const _requestIdleCallback = (typeof requestIdleCallback !== 'undefined')
 // Initialize on module load
 initCachePreload();
 
+/**
+ * Get or create a blob URL from a cached entry, ensuring it's valid and not expired
+ */
+function getBlobUrl(imageUrl: string): string | null {
+  const entry = imageMemoryCache.get(imageUrl);
+  
+  if (!entry) return null;
+  
+  // Check if expired
+  if (Date.now() > entry.expiresAt) {
+    imageMemoryCache.delete(imageUrl);
+    imageBlobUrlCache.delete(imageUrl);
+    return null;
+  }
+  
+  // Reuse blob URL if it exists
+  if (imageBlobUrlCache.has(imageUrl)) {
+    return imageBlobUrlCache.get(imageUrl) || null;
+  }
+  
+  // Create fresh blob URL from the stored blob
+  const blobUrl = URL.createObjectURL(entry.blob);
+  imageBlobUrlCache.set(imageUrl, blobUrl);
+  return blobUrl;
+}
+
+/**
+ * Store blob + expiry in memory cache
+ */
+function setCachedBlob(imageUrl: string, blob: Blob, expiresAt: number): void {
+  imageMemoryCache.set(imageUrl, { blob, expiresAt });
+  // Create blob URL on first access
+  const blobUrl = URL.createObjectURL(blob);
+  imageBlobUrlCache.set(imageUrl, blobUrl);
+  console.debug('[ImageCache] Cached blob in memory for:', imageUrl.substring(0, 50));
+}
+
 // Ultra-fast cache lookup - returns immediately, caches in background
 function getCachedImageUrl(originalSrc: string): string {
   if (!originalSrc) return '';
 
-  // INSTANT RETURN: Check memory cache first
-  if (imageMemoryCache.has(originalSrc)) {
-    return imageMemoryCache.get(originalSrc) || originalSrc;
+  // INSTANT RETURN: Check memory cache first (blob + expiry)
+  const cachedUrl = getBlobUrl(originalSrc);
+  if (cachedUrl) {
+    return cachedUrl;
   }
 
   // INSTANT RETURN: Return original src while caching happens in background
@@ -51,42 +95,46 @@ function getCachedImageUrl(originalSrc: string): string {
 async function cacheImageAsync(imageUrl: string): Promise<void> {
   if (!imageUrl) return;
 
-  // Already in memory cache?
-  if (imageMemoryCache.has(imageUrl)) return;
+  // Already in memory cache and not expired?
+  const existing = imageMemoryCache.get(imageUrl);
+  if (existing && Date.now() <= existing.expiresAt) {
+    return;
+  }
 
   // Try Cache API (fast)
   if (typeof caches !== 'undefined') {
     try {
       const cache = await caches.open(IMAGE_CACHE_NAME);
+      const expiresAt = Date.now() + IMAGE_PERSIST_TTL;
 
-          // 1) Check metadata in IndexedDB (durable storage) to enforce TTL,
-          //    then use the Cache API response (which is better for storing large blobs)
-          try {
-            const meta = await cacheService.get<{ expiresAt: number }>(`perm-image-meta-${imageUrl}`);
-            if (meta && meta.expiresAt && Date.now() <= meta.expiresAt) {
-              const cachedResp = await cache.match(imageUrl);
-              if (cachedResp) {
-                const blob = await cachedResp.blob();
-                const blobUrl = URL.createObjectURL(blob);
-                imageMemoryCache.set(imageUrl, blobUrl);
-                console.debug('[ImageCache] Loaded from Cache API (via valid meta):', imageUrl.substring(0, 50));
-                return;
-              }
-            }
-          } catch (e) {
-            console.debug('[ImageCache] IndexedDB metadata read failed:', e);
+      // 1) Check metadata in IndexedDB (durable storage) to enforce TTL,
+      //    then use the Cache API response (which is better for storing large blobs)
+      try {
+        const meta = await cacheService.get<{ expiresAt: number }>(`perm-image-meta-${imageUrl}`);
+        if (meta && meta.expiresAt && Date.now() <= meta.expiresAt) {
+          const cachedResp = await cache.match(imageUrl);
+          if (cachedResp) {
+            const blob = await cachedResp.blob();
+            // Store blob + expiry in memory cache for fast repeated access
+            setCachedBlob(imageUrl, blob, meta.expiresAt);
+            console.debug('[ImageCache] Loaded from Cache API (via valid meta):', imageUrl.substring(0, 50));
+            return;
           }
+        }
+      } catch (e) {
+        console.debug('[ImageCache] IndexedDB metadata read failed:', e);
+      }
 
       // 2) Check Cache API
       const cached = await cache.match(imageUrl);
       if (cached) {
         const blob = await cached.blob();
-        const blobUrl = URL.createObjectURL(blob);
-        imageMemoryCache.set(imageUrl, blobUrl);
+        // Store blob + expiry in memory cache
+        setCachedBlob(imageUrl, blob, expiresAt);
         console.debug('[ImageCache] Loaded from Cache API:', imageUrl.substring(0, 50));
         // Persist metadata to IndexedDB for TTL enforcement. Cache API holds the response.
         try {
-          await cacheService.set(`perm-image-meta-${imageUrl}`, { expiresAt: Date.now() + IMAGE_PERSIST_TTL }, IMAGE_PERSIST_TTL);
+          await cacheService.set(`perm-image-meta-${imageUrl}`, { expiresAt }, IMAGE_PERSIST_TTL);
         } catch (e) {
           console.debug('[ImageCache] Persist meta to IndexedDB failed:', e);
         }
@@ -99,13 +147,13 @@ async function cacheImageAsync(imageUrl: string): Promise<void> {
         const cloned = response.clone();
         await cache.put(imageUrl, cloned);
         const blob = await response.blob();
-        const blobUrl = URL.createObjectURL(blob);
-        imageMemoryCache.set(imageUrl, blobUrl);
+        // Store blob + expiry in memory cache
+        setCachedBlob(imageUrl, blob, expiresAt);
         console.debug('[ImageCache] Cached new image:', imageUrl.substring(0, 50));
 
         // Persist metadata to IndexedDB for TTL enforcement. Cache API holds the response.
         try {
-          await cacheService.set(`perm-image-meta-${imageUrl}`, { expiresAt: Date.now() + IMAGE_PERSIST_TTL }, IMAGE_PERSIST_TTL);
+          await cacheService.set(`perm-image-meta-${imageUrl}`, { expiresAt }, IMAGE_PERSIST_TTL);
         } catch (e) {
           console.debug('[ImageCache] Persist meta to IndexedDB failed:', e);
         }
@@ -138,18 +186,16 @@ export function useImageCache(imageUrl: string | undefined): {
     setError(null);
 
     // Background caching will update memory cache if not already there
-    // Component will re-render if image becomes available from memory cache
-    const checkForCachedVersion = setInterval(() => {
-      if (imageMemoryCache.has(imageUrl)) {
-        const cached = imageMemoryCache.get(imageUrl);
-        if (cached !== url) {
-          setCachedUrl(cached || imageUrl);
-          clearInterval(checkForCachedVersion);
-        }
+    // Component will re-render when blob URL becomes available
+    const checkInterval = setInterval(() => {
+      const blobUrl = getBlobUrl(imageUrl);
+      if (blobUrl && blobUrl !== url) {
+        setCachedUrl(blobUrl);
+        clearInterval(checkInterval);
       }
     }, 100);
 
-    return () => clearInterval(checkForCachedVersion);
+    return () => clearInterval(checkInterval);
   }, [imageUrl]);
 
   return { 
