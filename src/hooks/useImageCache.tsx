@@ -59,18 +59,23 @@ async function cacheImageAsync(imageUrl: string): Promise<void> {
     try {
       const cache = await caches.open(IMAGE_CACHE_NAME);
 
-      // 1) Check persisted IndexedDB first (durable storage)
-      try {
-        const storedBlob = await cacheService.get<Blob>(`perm-image-${imageUrl}`);
-        if (storedBlob instanceof Blob) {
-          const blobUrl = URL.createObjectURL(storedBlob);
-          imageMemoryCache.set(imageUrl, blobUrl);
-          console.debug('[ImageCache] Loaded from IndexedDB:', imageUrl.substring(0, 50));
-          return;
-        }
-      } catch (e) {
-        console.debug('[ImageCache] IndexedDB read failed:', e);
-      }
+          // 1) Check metadata in IndexedDB (durable storage) to enforce TTL,
+          //    then use the Cache API response (which is better for storing large blobs)
+          try {
+            const meta = await cacheService.get<{ expiresAt: number }>(`perm-image-meta-${imageUrl}`);
+            if (meta && meta.expiresAt && Date.now() <= meta.expiresAt) {
+              const cachedResp = await cache.match(imageUrl);
+              if (cachedResp) {
+                const blob = await cachedResp.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                imageMemoryCache.set(imageUrl, blobUrl);
+                console.debug('[ImageCache] Loaded from Cache API (via valid meta):', imageUrl.substring(0, 50));
+                return;
+              }
+            }
+          } catch (e) {
+            console.debug('[ImageCache] IndexedDB metadata read failed:', e);
+          }
 
       // 2) Check Cache API
       const cached = await cache.match(imageUrl);
@@ -79,11 +84,11 @@ async function cacheImageAsync(imageUrl: string): Promise<void> {
         const blobUrl = URL.createObjectURL(blob);
         imageMemoryCache.set(imageUrl, blobUrl);
         console.debug('[ImageCache] Loaded from Cache API:', imageUrl.substring(0, 50));
-        // Persist to IndexedDB for extra durability with TTL
+        // Persist metadata to IndexedDB for TTL enforcement. Cache API holds the response.
         try {
-          await cacheService.set(`perm-image-${imageUrl}`, blob, IMAGE_PERSIST_TTL);
+          await cacheService.set(`perm-image-meta-${imageUrl}`, { expiresAt: Date.now() + IMAGE_PERSIST_TTL }, IMAGE_PERSIST_TTL);
         } catch (e) {
-          console.debug('[ImageCache] Persist to IndexedDB failed:', e);
+          console.debug('[ImageCache] Persist meta to IndexedDB failed:', e);
         }
         return;
       }
@@ -98,11 +103,11 @@ async function cacheImageAsync(imageUrl: string): Promise<void> {
         imageMemoryCache.set(imageUrl, blobUrl);
         console.debug('[ImageCache] Cached new image:', imageUrl.substring(0, 50));
 
-        // Persist to IndexedDB for durable offline access with TTL
+        // Persist metadata to IndexedDB for TTL enforcement. Cache API holds the response.
         try {
-          await cacheService.set(`perm-image-${imageUrl}`, blob, IMAGE_PERSIST_TTL);
+          await cacheService.set(`perm-image-meta-${imageUrl}`, { expiresAt: Date.now() + IMAGE_PERSIST_TTL }, IMAGE_PERSIST_TTL);
         } catch (e) {
-          console.debug('[ImageCache] Persist to IndexedDB failed:', e);
+          console.debug('[ImageCache] Persist meta to IndexedDB failed:', e);
         }
       }
     } catch (e) {
