@@ -125,11 +125,25 @@ const TopicRoom = () => {
     if (data) setRoomName(data.name);
   };
 
+  const CACHE_KEY = `topic_room_posts_${roomId}`;
+
   const loadPosts = async () => {
     setRefreshing(true);
     setLoadingPosts(true);
+
+    // Load from cache first for instant display
     try {
-      // Fix: Use correct foreign key relationship syntax
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const cachedPosts = JSON.parse(cached);
+        if (Array.isArray(cachedPosts) && cachedPosts.length > 0) {
+          setPosts(cachedPosts);
+          setLoadingPosts(false); // Show cached data immediately
+        }
+      }
+    } catch {}
+
+    try {
       const { data, error } = await supabase
         .from('room_posts')
         .select(`
@@ -147,7 +161,6 @@ const TopicRoom = () => {
         .order('created_at', { ascending: false });
       
       if (error) {
-        // Fallback: Try alternative query syntax
         const { data: fallbackData, error: fallbackError } = await supabase
           .from('room_posts')
           .select('*')
@@ -159,7 +172,6 @@ const TopicRoom = () => {
           return;
         }
         
-        // Manually fetch profiles for each post
         const postsWithUsers = await Promise.all(
           (fallbackData || []).map(async (post: any) => {
             const { data: profile } = await supabase
@@ -171,14 +183,17 @@ const TopicRoom = () => {
           })
         );
         
-        setPosts(postsWithUsers.filter((p:any) => !(typeof p.id === 'string' && p.id.startsWith('temp-'))));
+        const filtered = postsWithUsers.filter((p:any) => !(typeof p.id === 'string' && p.id.startsWith('temp-')));
+        setPosts(filtered);
+        try { localStorage.setItem(CACHE_KEY, JSON.stringify(filtered)); } catch {}
       } else {
-        // Map the data to include user properly
         const mappedPosts = (data || []).map((post: any) => ({
           ...post,
           user: post.profiles || null
         }));
-        setPosts(mappedPosts.filter((p:any) => !(typeof p.id === 'string' && p.id.startsWith('temp-'))));
+        const filtered = mappedPosts.filter((p:any) => !(typeof p.id === 'string' && p.id.startsWith('temp-')));
+        setPosts(filtered);
+        try { localStorage.setItem(CACHE_KEY, JSON.stringify(filtered)); } catch {}
       }
       
       if (!error) {
@@ -186,7 +201,10 @@ const TopicRoom = () => {
       }
     } catch (err: any) {
       console.error('Error loading posts:', err);
-      toast({ title: 'Refresh failed', description: err.message || 'Failed to load posts', variant: 'destructive' });
+      // If offline, cached data is already displayed
+      if (posts.length === 0) {
+        toast({ title: 'Offline', description: 'No cached posts available', variant: 'destructive' });
+      }
     } finally {
       setRefreshing(false);
       setLoadingPosts(false);

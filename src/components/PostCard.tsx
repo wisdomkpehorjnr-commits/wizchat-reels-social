@@ -573,7 +573,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
 
           {/* Actions */}
           <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between border border-black dark:border-white rounded-lg p-0.5 sm:p-1 overflow-hidden">
+            <div className="flex items-center justify-between border border-border rounded-lg p-0.5 sm:p-1 overflow-hidden">
               <Button 
                 variant="ghost" 
                 size="sm" 
@@ -594,7 +594,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
                   <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full animate-ping"></span>
                 )}
               </Button>
-              <div className="w-px h-4 sm:h-6 bg-black dark:bg-white flex-shrink-0"></div>
+              <div className="w-px h-4 sm:h-6 bg-foreground flex-shrink-0"></div>
               <Button 
                 variant="ghost" 
                 size="sm" 
@@ -606,7 +606,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
                 <span className="text-xs sm:text-sm truncate">Comment</span>
                 {comments.length > 0 && <span className="ml-0.5 sm:ml-1 text-xs sm:text-sm flex-shrink-0">({comments.length})</span>}
               </Button>
-              <div className="w-px h-4 sm:h-6 bg-black dark:bg-white flex-shrink-0"></div>
+              <div className="w-px h-4 sm:h-6 bg-foreground flex-shrink-0"></div>
               <Button 
                 variant="ghost" 
                 size="sm"

@@ -233,7 +233,7 @@ const Settings = () => {
           <p className="text-muted-foreground">Manage your account and preferences</p>
         </div>
 
-        <Tabs defaultValue="help" className="w-full">
+        <Tabs defaultValue="datasaver" className="w-full">
           <TabsList className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-9 w-full mb-6 h-auto p-1 bg-muted/50">
             <TabsTrigger value="datasaver" className="flex flex-col items-center justify-center p-4 h-auto text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
               <Zap className="w-5 h-5 mb-2" />
