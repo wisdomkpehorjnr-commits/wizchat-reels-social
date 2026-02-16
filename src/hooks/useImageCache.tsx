@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { cacheService } from '@/services/cacheService';
 
 // ============================================
 // ULTRA-FAST MODULE-LEVEL IN-MEMORY CACHE
@@ -55,17 +56,37 @@ async function cacheImageAsync(imageUrl: string): Promise<void> {
   if (typeof caches !== 'undefined') {
     try {
       const cache = await caches.open(IMAGE_CACHE_NAME);
+
+      // 1) Check persisted IndexedDB first (durable storage)
+      try {
+        const storedBlob = await cacheService.get<Blob>(`perm-image-${imageUrl}`);
+        if (storedBlob instanceof Blob) {
+          const blobUrl = URL.createObjectURL(storedBlob);
+          imageMemoryCache.set(imageUrl, blobUrl);
+          console.debug('[ImageCache] Loaded from IndexedDB:', imageUrl.substring(0, 50));
+          return;
+        }
+      } catch (e) {
+        console.debug('[ImageCache] IndexedDB read failed:', e);
+      }
+
+      // 2) Check Cache API
       const cached = await cache.match(imageUrl);
-      
       if (cached) {
         const blob = await cached.blob();
         const blobUrl = URL.createObjectURL(blob);
         imageMemoryCache.set(imageUrl, blobUrl);
         console.debug('[ImageCache] Loaded from Cache API:', imageUrl.substring(0, 50));
+        // Persist to IndexedDB for extra durability
+        try {
+          await cacheService.set(`perm-image-${imageUrl}`, blob);
+        } catch (e) {
+          console.debug('[ImageCache] Persist to IndexedDB failed:', e);
+        }
         return;
       }
 
-      // Not in cache - fetch and store
+      // 3) Not in cache - fetch and store
       const response = await fetch(imageUrl);
       if (response.ok) {
         const cloned = response.clone();
@@ -74,6 +95,13 @@ async function cacheImageAsync(imageUrl: string): Promise<void> {
         const blobUrl = URL.createObjectURL(blob);
         imageMemoryCache.set(imageUrl, blobUrl);
         console.debug('[ImageCache] Cached new image:', imageUrl.substring(0, 50));
+
+        // Persist to IndexedDB for durable offline access
+        try {
+          await cacheService.set(`perm-image-${imageUrl}`, blob);
+        } catch (e) {
+          console.debug('[ImageCache] Persist to IndexedDB failed:', e);
+        }
       }
     } catch (e) {
       console.debug('[ImageCache] Cache API failed:', e);

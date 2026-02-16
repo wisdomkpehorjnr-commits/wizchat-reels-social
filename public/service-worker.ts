@@ -50,14 +50,21 @@ self.addEventListener('activate', (event: ExtendableEvent) => {
   event.waitUntil(
     (async () => {
       try {
-        const cacheNames = await caches.keys();
-        
-        // Delete old cache versions
-        await Promise.all(
-          cacheNames
-            .filter(name => !name.startsWith(CACHE_VERSION))
-            .map(name => caches.delete(name))
-        );
+          const cacheNames = await caches.keys();
+
+          // Delete old cache versions BUT preserve image caches created by the page
+          await Promise.all(
+            cacheNames.map(name => {
+              // Keep our current versioned caches
+              if (name === ASSET_CACHE || name === API_CACHE || name === IMAGE_CACHE) return Promise.resolve(true);
+
+              // Preserve any client-side image cache used by the app (e.g. wizchat-post-images-*)
+              if (name.startsWith('wizchat-post-images')) return Promise.resolve(true);
+
+              // Otherwise delete unknown/old caches
+              return caches.delete(name);
+            })
+          );
         
         console.log('[ServiceWorker] Old caches cleaned');
         
