@@ -49,6 +49,10 @@ function OfflineAwareImage({ src, alt, className = '', ...props }: OfflineAwareI
   const [isLoaded, setIsLoaded] = useState(alreadyLoaded);
   const { cachedUrl } = useImageCache(src);
 
+  // Use the original src for already-loaded images (browser memory cache is instant)
+  // Only use cachedUrl for first-time loads (service worker / cache API)
+  const displayUrl = alreadyLoaded ? src : cachedUrl;
+
   if (hasError) {
     return (
       <div 
@@ -70,11 +74,11 @@ function OfflineAwareImage({ src, alt, className = '', ...props }: OfflineAwareI
     );
   }
 
-  // If already loaded before, render directly with no placeholder
+  // If already loaded before, render ONLY the image — no wrapper, no placeholder
   if (alreadyLoaded) {
     return (
       <img
-        src={cachedUrl}
+        src={displayUrl}
         alt={alt}
         className={className}
         loading="eager"
@@ -85,18 +89,18 @@ function OfflineAwareImage({ src, alt, className = '', ...props }: OfflineAwareI
     );
   }
 
+  // First-time load: show image on top of a same-size placeholder so there's no layout shift
   return (
-    <>
+    <div className="relative" style={{ minHeight: '200px' }}>
       {!isLoaded && (
         <div 
-          className={`flex items-center justify-center bg-muted/20 rounded-lg ${className}`}
-          style={{ minHeight: '200px', aspectRatio: '16/9' }}
+          className={`absolute inset-0 bg-muted/20 rounded-lg`}
         />
       )}
       <img
-        src={cachedUrl}
+        src={displayUrl}
         alt={alt}
-        className={`${className} ${isLoaded ? '' : 'hidden'}`}
+        className={className}
         loading="eager"
         decoding="sync"
         onLoad={() => {
@@ -106,7 +110,7 @@ function OfflineAwareImage({ src, alt, className = '', ...props }: OfflineAwareI
         onError={() => setHasError(true)}
         {...props}
       />
-    </>
+    </div>
   );
 }
 
