@@ -313,18 +313,6 @@ const Chat = () => {
     return a.name.localeCompare(b.name);
   });
 
-  const handlePinToggle = (friendId: string) => {
-    setPinnedFriends(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(friendId)) {
-        newSet.delete(friendId);
-      } else {
-        newSet.add(friendId);
-      }
-      return newSet;
-    });
-  };
-
   // Show group chat if selected
   if (selectedGroup) {
     return (
