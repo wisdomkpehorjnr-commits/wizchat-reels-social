@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { FeedSkeleton } from '@/components/SkeletonLoaders';
 import { SmartLoading } from '@/components/SmartLoading';
 import GlobalSearch from '@/components/GlobalSearch';
-import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { preloadPostsImages } from '@/services/preloadService';
 
 // =============================================
@@ -94,7 +94,7 @@ const saveToLocalStorage = (posts: any[], scrollY: number = homeStore.scrollY) =
 const Home = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const isOnline = useOnlineStatus();
+  const isOnline = useNetworkStatus();
   
   // INSTANT display from module-level store - NO loading state if we have cached posts
   const hasCachedPosts = homeStore.posts.length > 0;
@@ -113,7 +113,6 @@ const Home = () => {
   // CRITICAL: Restore scroll position IMMEDIATELY on mount (before paint)
   useLayoutEffect(() => {
     componentMountTracker.current++;
-    const mountId = componentMountTracker.current;
     
     if (scrollRestoredRef.current) return;
     if (!hasCachedPosts) return;
@@ -123,24 +122,16 @@ const Home = () => {
     
     const savedScrollY = homeStore.scrollY;
     if (savedScrollY > 0) {
-      // Immediately set scroll position without animation
+      // Force immediate scroll restore - try multiple times to ensure it sticks
       window.scrollTo(0, savedScrollY);
       
-      // Verify scroll was applied
+      // Double-check after layout
       requestAnimationFrame(() => {
-        if (componentMountTracker.current === mountId) {
-          const currentScroll = window.scrollY;
-          if (currentScroll === savedScrollY) {
-            console.debug('[Home] Scroll perfectly restored to:', savedScrollY);
-            isRestoringScrollRef.current = false;
-          } else {
-            // Try again if it didn't stick
-            window.scrollTo(0, savedScrollY);
-            requestAnimationFrame(() => {
-              isRestoringScrollRef.current = false;
-            });
-          }
-        }
+        window.scrollTo(0, savedScrollY);
+        requestAnimationFrame(() => {
+          window.scrollTo(0, savedScrollY);
+          isRestoringScrollRef.current = false;
+        });
       });
     } else {
       isRestoringScrollRef.current = false;
