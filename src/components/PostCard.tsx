@@ -40,9 +40,13 @@ interface OfflineAwareImageProps extends React.ImgHTMLAttributes<HTMLImageElemen
   alt: string;
 }
 
+// Track images that have been successfully loaded in this session
+const loadedImagesSet = new Set<string>();
+
 function OfflineAwareImage({ src, alt, className = '', ...props }: OfflineAwareImageProps) {
+  const alreadyLoaded = loadedImagesSet.has(src);
   const [hasError, setHasError] = useState(false);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(alreadyLoaded);
   const { cachedUrl } = useImageCache(src);
 
   if (hasError) {
@@ -66,23 +70,39 @@ function OfflineAwareImage({ src, alt, className = '', ...props }: OfflineAwareI
     );
   }
 
+  // If already loaded before, render directly with no placeholder
+  if (alreadyLoaded) {
+    return (
+      <img
+        src={cachedUrl}
+        alt={alt}
+        className={className}
+        loading="eager"
+        decoding="sync"
+        onError={() => setHasError(true)}
+        {...props}
+      />
+    );
+  }
+
   return (
     <>
       {!isLoaded && (
         <div 
-          className={`flex items-center justify-center bg-muted/20 backdrop-blur-sm animate-pulse rounded-lg ${className}`}
+          className={`flex items-center justify-center bg-muted/20 rounded-lg ${className}`}
           style={{ minHeight: '200px', aspectRatio: '16/9' }}
-        >
-          <div className="w-12 h-12 rounded-full bg-muted/30 backdrop-blur-sm" />
-        </div>
+        />
       )}
       <img
         src={cachedUrl}
         alt={alt}
         className={`${className} ${isLoaded ? '' : 'hidden'}`}
         loading="eager"
-        decoding="async"
-        onLoad={() => setIsLoaded(true)}
+        decoding="sync"
+        onLoad={() => {
+          loadedImagesSet.add(src);
+          setIsLoaded(true);
+        }}
         onError={() => setHasError(true)}
         {...props}
       />
