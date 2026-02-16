@@ -132,21 +132,45 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
 
     setIsCreating(true);
     try {
-      // Use dataService to create the group (server-friendly)
-      const group = await dataService.createGroup({
-        name: groupName.trim(),
-        description: '',
-        isPublic: false,
-        members: Array.from(selectedMembers),
-      });
+      // Prefer server-side RPC that creates group + members + chat atomically
+      let group: any = null;
+      let chat: any = null;
 
-      if (!group || !group.id) {
-        throw new Error('Group creation failed: invalid response');
+      try {
+        const rpcRes = await supabase.rpc('create_group_with_members', {
+          p_name: groupName.trim(),
+          p_member_ids: Array.from(selectedMembers),
+        });
+
+        // Expect RPC to return { group_id, chat_id }
+        // depending on RPC implementation it may return row(s)
+        if (rpcRes.error) throw rpcRes.error;
+        const rpcData: any = rpcRes.data;
+        if (rpcData) {
+          group = rpcData.group || rpcData[0]?.group || { id: rpcData.group_id || rpcData[0]?.group_id };
+          chat = rpcData.chat || rpcData[0]?.chat || { id: rpcData.chat_id || rpcData[0]?.chat_id };
+        }
+      } catch (rpcErr) {
+        console.debug('create_group_with_members RPC not available or failed, falling back', rpcErr);
       }
 
-      // Create a chat for the group using RPC (avoids client RLS issues)
-      const participantIds = [user.id, ...Array.from(selectedMembers)];
-      const chat = await dataService.createChat(participantIds, true, groupName.trim());
+      if (!group) {
+        // Fallback: create group via dataService then create chat
+        group = await dataService.createGroup({
+          name: groupName.trim(),
+          description: '',
+          isPublic: false,
+          members: Array.from(selectedMembers),
+        });
+
+        if (!group || !group.id) {
+          throw new Error('Group creation failed: invalid response');
+        }
+
+        // Create a chat for the group using RPC (avoids client RLS issues)
+        const participantIds = [user.id, ...Array.from(selectedMembers)];
+        chat = await dataService.createChat(participantIds, true, groupName.trim());
+      }
 
       toast({
         title: 'Success',

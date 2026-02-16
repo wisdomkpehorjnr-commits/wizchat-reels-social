@@ -15,6 +15,7 @@ import { SmartLoading } from '@/components/SmartLoading';
 import GlobalSearch from '@/components/GlobalSearch';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { preloadPostsImages } from '@/services/preloadService';
+import { offlineDataManager } from '@/services/offlineDataManager';
 
 // =============================================
 // PERSISTENT MODULE-LEVEL STORE (survives all remounts)
@@ -258,6 +259,12 @@ const Home = () => {
       homeStore.lastFetchTime = Date.now();
       homeStore.postCount = sortedPosts.length;
       saveToLocalStorage(sortedPosts, homeStore.scrollY);
+      // Persist feed to offline manager for durable caching
+      try {
+        offlineDataManager.cacheFeed(sortedPosts, 2 * 60 * 60 * 1000).catch(() => {});
+      } catch (e) {
+        console.debug('[Home] offlineDataManager.cacheFeed failed:', e);
+      }
       
       console.debug('[Home] Fetched', sortedPosts.length, 'posts (silent:', silent, ')');
     } catch (error) {
@@ -359,6 +366,12 @@ const Home = () => {
       homeStore.lastFetchTime = Date.now();
       homeStore.scrollY = 0;
       saveToLocalStorage(freshPosts, 0);
+      // Persist refreshed feed
+      try {
+        offlineDataManager.cacheFeed(freshPosts, 2 * 60 * 60 * 1000).catch(() => {});
+      } catch (e) {
+        console.debug('[Home] offlineDataManager.cacheFeed failed:', e);
+      }
       
       window.scrollTo({ top: 0, behavior: 'smooth' });
 
@@ -389,6 +402,12 @@ const Home = () => {
         homeStore.posts = updated;
         homeStore.postCount = updated.length;
         saveToLocalStorage(updated, homeStore.scrollY);
+        // Persist updated feed
+        try {
+          offlineDataManager.cacheFeed(updated, 2 * 60 * 60 * 1000).catch(() => {});
+        } catch (e) {
+          console.debug('[Home] offlineDataManager.cacheFeed failed:', e);
+        }
         return updated;
       });
 

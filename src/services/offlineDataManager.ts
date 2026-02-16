@@ -22,8 +22,8 @@ interface CacheMetadata {
   lastAccessAt: number;
 }
 
-const DEFAULT_TTL = 30 * 60 * 1000; // 30 minutes
-const CRITICAL_TTL = 60 * 60 * 1000; // 1 hour for critical data
+const DEFAULT_TTL = 2 * 60 * 60 * 1000; // 2 hours - default persistence for feed/data
+const CRITICAL_TTL = 4 * 60 * 60 * 1000; // 4 hours for critical data
 const TEMP_TTL = 5 * 60 * 1000; // 5 minutes for temporary data
 
 class OfflineDataManager {

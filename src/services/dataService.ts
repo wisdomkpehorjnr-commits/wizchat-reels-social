@@ -1288,23 +1288,6 @@ export const dataService = {
       console.error('Error creating group:', groupError);
       throw groupError;
     }
-
-    const allMembers = [user.id, ...groupData.members];
-    const memberInserts = allMembers.map(memberId => ({
-      group_id: group.id,
-      user_id: memberId,
-      role: memberId === user.id ? 'admin' : 'member'
-    }));
-
-    const { error: memberError } = await supabase
-      .from('group_members')
-      .insert(memberInserts);
-
-    if (memberError) {
-      console.error('Error adding group members:', memberError);
-      throw memberError;
-    }
-
     return group;
   },
 

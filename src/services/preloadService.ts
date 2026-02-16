@@ -15,12 +15,12 @@ export function preloadPostImages(imageUrls: (string | undefined)[]): void {
   const validUrls = imageUrls.filter((url): url is string => !!url);
   if (validUrls.length === 0) return;
 
-  // Use requestIdleCallback to avoid blocking main thread
-  const callback = typeof requestIdleCallback !== 'undefined'
-    ? requestIdleCallback
-    : (cb: IdleRequestCallback) => setTimeout(cb, 0);
+  // Schedule immediate background caching using microtasks for fastest non-blocking behavior
+  const schedule = typeof queueMicrotask !== 'undefined'
+    ? queueMicrotask
+    : (cb: () => void) => Promise.resolve().then(cb);
 
-  callback(() => {
+  schedule(() => {
     validUrls.forEach(url => {
       if (!preloadingSet.has(url)) {
         preloadingSet.add(url);
