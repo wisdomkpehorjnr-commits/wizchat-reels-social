@@ -132,57 +132,21 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
 
     setIsCreating(true);
     try {
-      // Create group in database
-      const { data: groupData, error: groupError } = await supabase
-        .from('groups')
-        .insert({
-          name: groupName.trim(),
-          created_by: user.id,
-          is_private: false,
-          invite_code: Math.random().toString(36).substring(2, 15),
-          member_count: selectedMembers.size + 1,
-        })
-        .select('id')
-        .single();
+      // Use dataService to create the group (server-friendly)
+      const group = await dataService.createGroup({
+        name: groupName.trim(),
+        description: '',
+        isPublic: false,
+        members: Array.from(selectedMembers),
+      });
 
-      if (groupError) {
-        console.error('Supabase error creating group:', groupError);
-        throw groupError;
+      if (!group || !group.id) {
+        throw new Error('Group creation failed: invalid response');
       }
 
-      if (!groupData || !groupData.id) {
-        throw new Error('No group ID returned from server');
-      }
-
-      const groupId = groupData.id;
-
-      // Build member inserts: creator as admin + selected members
-      const allMembers = [
-        { user_id: user.id, role: 'admin' },
-        ...Array.from(selectedMembers).map(memberId => ({
-          user_id: memberId,
-          role: 'member'
-        }))
-      ];
-
-      const memberInserts = allMembers.map(m => ({
-        group_id: groupId,
-        user_id: m.user_id,
-        role: m.role,
-      }));
-
-      console.log('Inserting members:', memberInserts);
-
-      const { error: memberError } = await supabase
-        .from('group_members')
-        .insert(memberInserts);
-
-      if (memberError) {
-        console.error('Supabase error adding members:', memberError);
-        throw memberError;
-      }
-
-      console.log('Group created successfully:', groupId);
+      // Create a chat for the group using RPC (avoids client RLS issues)
+      const participantIds = [user.id, ...Array.from(selectedMembers)];
+      const chat = await dataService.createChat(participantIds, true, groupName.trim());
 
       toast({
         title: 'Success',
@@ -198,12 +162,12 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
       setStep('enter_name');
       onClose();
 
-      // Navigate to new group chat
+      // Navigate to new group chat (use chat.id if available, else group.id)
       if (onGroupCreated) {
-        onGroupCreated(groupId);
+        onGroupCreated(chat?.id || group.id);
       }
     } catch (error: any) {
-      console.error('Full error creating group:', error);
+      console.error('Full error creating group via service:', error);
       const errorMessage = error?.message || error?.details || 'Failed to create group. Please try again.';
       toast({
         title: 'Error',
