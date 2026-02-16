@@ -80,13 +80,21 @@ function getCachedImageUrl(originalSrc: string): string {
     return cachedUrl;
   }
 
-  // INSTANT RETURN: Return original src while caching happens in background
-  // Start caching operations WITHOUT blocking render
-  _requestIdleCallback(() => {
-    cacheImageAsync(originalSrc).catch(e => {
-      console.debug('[ImageCache] Background cache failed:', e);
+  // START CACHING IMMEDIATELY (NOT deferred, fires in next microtask)
+  // queueMicrotask is fastest non-blocking way to schedule caching
+  if (typeof queueMicrotask !== 'undefined') {
+    queueMicrotask(() => {
+      cacheImageAsync(originalSrc).catch(e => {
+        console.debug('[ImageCache] Background cache failed:', e);
+      });
     });
-  });
+  } else {
+    Promise.resolve().then(() => {
+      cacheImageAsync(originalSrc).catch(e => {
+        console.debug('[ImageCache] Background cache failed:', e);
+      });
+    });
+  }
 
   return originalSrc;
 }

@@ -10,6 +10,8 @@ import { Story } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { MediaService } from '@/services/mediaService';
 import { useToast } from '@/components/ui/use-toast';
+import { useImageCache } from '@/hooks/useImageCache';
+import { preloadStoriesMedia } from '@/services/preloadService';
 
 interface GroupedStory {
   userId: string;
@@ -61,6 +63,135 @@ const initializeStoriesFromLocalStorage = () => {
 
 initializeStoriesFromLocalStorage();
 
+/**
+ * Story Viewer Component with Image Caching
+ */
+interface StoryViewerProps {
+  story: Story;
+  stories: Story[];
+  currentIndex: number;
+  onNext: () => void;
+  onPrev: () => void;
+  onClose: () => void;
+  onDelete: (storyId: string) => void;
+}
+
+const StoryViewer: React.FC<StoryViewerProps> = ({
+  story,
+  stories,
+  currentIndex,
+  onNext,
+  onPrev,
+  onClose,
+  onDelete,
+}) => {
+  const { user } = useAuth();
+  const { cachedUrl: cachedMediaUrl } = useImageCache(story.mediaUrl);
+
+  return (
+    <div className="relative w-full h-96">
+      {/* Story progress indicators */}
+      <div className="absolute top-2 left-2 right-2 z-20 flex gap-1">
+        {stories.map((_, index) => (
+          <div
+            key={index}
+            className={`flex-1 h-1 rounded-full ${
+              index <= currentIndex ? 'bg-white' : 'bg-white/30'
+            }`}
+          />
+        ))}
+      </div>
+
+      {/* Story Header */}
+      <div className="absolute top-6 left-0 right-0 z-10 p-4 bg-gradient-to-b from-black/50 to-transparent">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <Avatar className="w-8 h-8">
+              <AvatarImage src={story.user.avatar} />
+              <AvatarFallback className="text-foreground">
+                {story.user.name.charAt(0)}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <p className="font-medium text-white">{story.user.name}</p>
+              <p className="text-xs text-white/70">
+                {new Date(story.createdAt).toLocaleString()}
+              </p>
+            </div>
+          </div>
+
+          {story.userId === user?.id && (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onDelete(story.id)}
+                className="text-white hover:bg-white/20"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Story Content - Uses cached URL */}
+      <div className="w-full h-full flex items-center justify-center">
+        {story.mediaUrl ? (
+          story.mediaType === 'image' ? (
+            <img
+              src={cachedMediaUrl}
+              alt="Story"
+              className="max-w-full max-h-full object-contain"
+              loading="eager"
+              decoding="async"
+            />
+          ) : (
+            <video
+              src={story.mediaUrl}
+              controls
+              className="max-w-full max-h-full object-contain"
+              preload="metadata"
+            />
+          )
+        ) : (
+          <div className="text-center p-8">
+            <p className="text-white text-lg">{story.content}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Navigation */}
+      <div className="absolute inset-0 flex">
+        <div className="flex-1 cursor-pointer" onClick={onPrev} />
+        <div className="flex-1 cursor-pointer" onClick={onNext} />
+      </div>
+
+      {currentIndex > 0 && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="absolute left-2 top-1/2 transform -translate-y-1/2 text-white hover:bg-white/20"
+          onClick={onPrev}
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </Button>
+      )}
+
+      {currentIndex < stories.length - 1 && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="absolute right-2 top-1/2 transform -translate-y-1/2 text-white hover:bg-white/20"
+          onClick={onNext}
+        >
+          <ChevronRight className="w-4 h-4" />
+        </Button>
+      )}
+    </div>
+  );
+};
+
 const saveStoriesToLocalStorage = (stories: Story[]) => {
   try {
     localStorage.setItem(STORIES_CACHE_KEY, JSON.stringify({
@@ -72,9 +203,11 @@ const saveStoriesToLocalStorage = (stories: Story[]) => {
   }
 };
 
-// Story thumbnail that shows offline icon when image fails to load
+// Story thumbnail that caches images with 2-hour TTL
 const StoryThumb: React.FC<{ src: string; name: string }> = ({ src, name }) => {
   const [err, setErr] = useState(false);
+  const { cachedUrl } = useImageCache(src);
+
   if (err) {
     return (
       <div className="w-full h-full bg-muted flex flex-col items-center justify-center rounded-full">
@@ -82,7 +215,16 @@ const StoryThumb: React.FC<{ src: string; name: string }> = ({ src, name }) => {
       </div>
     );
   }
-  return <img src={src} alt={`${name} story`} className="w-full h-full object-cover rounded-full" onError={() => setErr(true)} />;
+  return (
+    <img
+      src={cachedUrl}
+      alt={`${name} story`}
+      className="w-full h-full object-cover rounded-full"
+      onError={() => setErr(true)}
+      loading="eager"
+      decoding="async"
+    />
+  );
 };
 
 const StoriesSection: React.FC = () => {
@@ -239,6 +381,9 @@ const StoriesSection: React.FC = () => {
       storiesStore.stories = storiesWithProfiles;
       storiesStore.lastFetchTime = Date.now();
       saveStoriesToLocalStorage(storiesWithProfiles);
+
+      // Preload all story media in background (fire and forget)
+      preloadStoriesMedia(storiesWithProfiles);
     } catch (error) {
       console.error('Error loading stories:', error);
       if (storiesStore.stories.length === 0) {
@@ -439,75 +584,15 @@ const StoriesSection: React.FC = () => {
       <Dialog open={!!viewingStories} onOpenChange={() => setViewingStories(null)}>
         <DialogContent className="max-w-md p-0 bg-black/90 border-green-500/30 [&>button]:hidden">
           {viewingStories && viewingStories[currentStoryIndex] && (
-            <div className="relative w-full h-96">
-              {/* Story progress indicators */}
-              <div className="absolute top-2 left-2 right-2 z-20 flex gap-1">
-                {viewingStories.map((_, index) => (
-                  <div key={index} className={`flex-1 h-1 rounded-full ${index <= currentStoryIndex ? 'bg-white' : 'bg-white/30'}`} />
-                ))}
-              </div>
-
-              {/* Story Header */}
-              <div className="absolute top-6 left-0 right-0 z-10 p-4 bg-gradient-to-b from-black/50 to-transparent">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <Avatar className="w-8 h-8">
-                      <AvatarImage src={viewingStories[currentStoryIndex].user.avatar} />
-                      <AvatarFallback className="text-foreground">
-                        {viewingStories[currentStoryIndex].user.name.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="font-medium text-white">{viewingStories[currentStoryIndex].user.name}</p>
-                      <p className="text-xs text-white/70">
-                        {new Date(viewingStories[currentStoryIndex].createdAt).toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  {viewingStories[currentStoryIndex].userId === user?.id && (
-                    <div className="flex items-center gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => deleteStory(viewingStories[currentStoryIndex].id)} className="text-white hover:bg-white/20">
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Story Content */}
-              <div className="w-full h-full flex items-center justify-center">
-                {viewingStories[currentStoryIndex].mediaUrl ? (
-                  viewingStories[currentStoryIndex].mediaType === 'image' ? (
-                    <img src={viewingStories[currentStoryIndex].mediaUrl} alt="Story" className="max-w-full max-h-full object-contain" loading="lazy" decoding="async" />
-                  ) : (
-                    <video src={viewingStories[currentStoryIndex].mediaUrl} controls className="max-w-full max-h-full object-contain" preload="none" />
-                  )
-                ) : (
-                  <div className="text-center p-8">
-                    <p className="text-white text-lg">{viewingStories[currentStoryIndex].content}</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Navigation */}
-              <div className="absolute inset-0 flex">
-                <div className="flex-1 cursor-pointer" onClick={prevStory} />
-                <div className="flex-1 cursor-pointer" onClick={nextStory} />
-              </div>
-
-              {currentStoryIndex > 0 && (
-                <Button variant="ghost" size="sm" className="absolute left-2 top-1/2 transform -translate-y-1/2 text-white hover:bg-white/20" onClick={prevStory}>
-                  <ChevronLeft className="w-4 h-4" />
-                </Button>
-              )}
-              
-              {currentStoryIndex < viewingStories.length - 1 && (
-                <Button variant="ghost" size="sm" className="absolute right-2 top-1/2 transform -translate-y-1/2 text-white hover:bg-white/20" onClick={nextStory}>
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
-              )}
-            </div>
+            <StoryViewer
+              story={viewingStories[currentStoryIndex]}
+              stories={viewingStories}
+              currentIndex={currentStoryIndex}
+              onNext={nextStory}
+              onPrev={prevStory}
+              onClose={() => setViewingStories(null)}
+              onDelete={deleteStory}
+            />
           )}
         </DialogContent>
       </Dialog>

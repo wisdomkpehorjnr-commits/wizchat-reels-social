@@ -57,6 +57,23 @@ export function preloadPostsImages(posts: any[]): void {
 }
 
 /**
+ * Preload story images/media
+ * Extract all media URLs from stories and start caching them immediately
+ */
+export function preloadStoriesMedia(stories: any[]): void {
+  const mediaUrls = new Set<string>();
+
+  stories.forEach(story => {
+    // Collect story media URLs (images and videos)
+    if (story.mediaUrl) mediaUrls.add(story.mediaUrl);
+  });
+
+  if (mediaUrls.size > 0) {
+    preloadPostImages(Array.from(mediaUrls));
+  }
+}
+
+/**
  * Clear preload cache
  */
 export function clearPreloadCache(): void {
