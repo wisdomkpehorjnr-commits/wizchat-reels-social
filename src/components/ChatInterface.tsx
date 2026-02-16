@@ -14,7 +14,7 @@ import { Chat, Message, User } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { dataService } from '@/services/dataService';
 import { MediaService } from '@/services/mediaService';
-import VoiceRecorder from './VoiceRecorder';
+import VoiceRecorder from './chat/VoiceRecorder';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
@@ -398,7 +398,7 @@ const ChatInterface = ({ chat, onClose }: ChatInterfaceProps) => {
             />
             
             <VoiceRecorder
-              onVoiceMessage={handleVoiceMessage}
+              onSend={handleVoiceMessage}
               onCancel={() => setIsRecording(false)}
             />
           </div>

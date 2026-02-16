@@ -448,8 +448,8 @@ button {
 }
 
 .ultra [role="tab"][data-state="active"] {
-  color: hsl(0 0% 100%) !important;
-  background-color: hsl(0 0% 0%) !important;
+  color: hsl(0 0% 0%) !important;
+  background-color: hsl(0 0% 100%) !important;
 }
 
 /* Scrollbars for ultra mode */
