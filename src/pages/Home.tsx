@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { FeedSkeleton } from '@/components/SkeletonLoaders';
 import { SmartLoading } from '@/components/SmartLoading';
 import GlobalSearch from '@/components/GlobalSearch';
-import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { preloadPostsImages } from '@/services/preloadService';
 
 // =============================================
@@ -40,38 +40,12 @@ const homeStore: HomeStore = {
   postCount: 0,
 };
 
-// Scroll lock to prevent position changes during restoration
-let isScrollLocked = false;
-let lockedScrollY = 0;
-
 // Track tab visibility to prevent fetches when tab is hidden
 let tabVisible = !document.hidden;
 document.addEventListener('visibilitychange', () => {
   tabVisible = !document.hidden;
   console.debug('[Home] Tab visibility changed to:', tabVisible);
 });
-
-// CRITICAL: Lock scroll to specific position
-function lockScrollPosition(targetY: number) {
-  if (targetY <= 0) return;
-  isScrollLocked = true;
-  lockedScrollY = targetY;
-  
-  const lockHandler = (e: Event) => {
-    if (isScrollLocked && window.scrollY !== lockedScrollY) {
-      window.scrollTo(0, lockedScrollY);
-    }
-  };
-  
-  // Use capture phase to intercept scroll before other listeners
-  window.addEventListener('scroll', lockHandler, { capture: true, passive: true });
-  
-  // Release lock after images load (2 seconds should be enough)
-  setTimeout(() => {
-    isScrollLocked = false;
-    window.removeEventListener('scroll', lockHandler, true as any);
-  }, 2000);
-}
 
 // SYNCHRONOUS initialization from localStorage on module load (BEFORE any render)
 (() => {
@@ -120,7 +94,7 @@ const saveToLocalStorage = (posts: any[], scrollY: number = homeStore.scrollY) =
 const Home = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const isOnline = useNetworkStatus();
+  const isOnline = useOnlineStatus();
   
   // INSTANT display from module-level store - NO loading state if we have cached posts
   const hasCachedPosts = homeStore.posts.length > 0;
@@ -149,31 +123,34 @@ const Home = () => {
     
     const savedScrollY = homeStore.scrollY;
     if (savedScrollY > 0) {
-      // AGGRESSIVE scroll restoration - happens in layout phase before paint
+      // Immediately set scroll position without animation
       window.scrollTo(0, savedScrollY);
       
-      // Lock scroll position during render and image loading
-      lockScrollPosition(savedScrollY);
-      
-      // Verify and enforce scroll position
+      // Verify scroll was applied
       requestAnimationFrame(() => {
-        if (componentMountTracker.current === mountId && window.scrollY !== savedScrollY) {
-          window.scrollTo(0, savedScrollY);
-          console.debug('[Home] Enforced scroll position:', savedScrollY);
+        if (componentMountTracker.current === mountId) {
+          const currentScroll = window.scrollY;
+          if (currentScroll === savedScrollY) {
+            console.debug('[Home] Scroll perfectly restored to:', savedScrollY);
+            isRestoringScrollRef.current = false;
+          } else {
+            // Try again if it didn't stick
+            window.scrollTo(0, savedScrollY);
+            requestAnimationFrame(() => {
+              isRestoringScrollRef.current = false;
+            });
+          }
         }
-        isRestoringScrollRef.current = false;
       });
     } else {
       isRestoringScrollRef.current = false;
     }
   }, [hasCachedPosts]);
 
-  // Save scroll position on scroll (but not during restoration or locking)
+  // Save scroll position on scroll (but not during restoration)
   useEffect(() => {
     const handleScroll = () => {
-      // Don't save while scroll is locked or being restored
-      if (isRestoringScrollRef.current || isScrollLocked) return;
-      
+      if (isRestoringScrollRef.current) return;
       homeStore.scrollY = window.scrollY;
       // Periodically save to localStorage while scrolling
       saveToLocalStorage(homeStore.posts, window.scrollY);
