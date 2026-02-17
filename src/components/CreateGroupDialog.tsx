@@ -137,7 +137,7 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
       let chat: any = null;
 
       try {
-        const rpcRes = await supabase.rpc('create_group_with_members', {
+        const rpcRes = await (supabase.rpc as any)('create_group_with_members', {
           p_name: groupName.trim(),
           p_member_ids: Array.from(selectedMembers),
         });

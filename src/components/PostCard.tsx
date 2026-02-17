@@ -42,17 +42,24 @@ interface OfflineAwareImageProps extends React.ImgHTMLAttributes<HTMLImageElemen
 
 // Track images that have been successfully loaded in this session
 const loadedImagesSet = new Set<string>();
+// Track images that failed to load (offline / broken) — persists across remounts
+const failedImagesSet = new Set<string>();
 
 function OfflineAwareImage({ src, alt, className = '', ...props }: OfflineAwareImageProps) {
   const alreadyLoaded = loadedImagesSet.has(src);
-  const [hasError, setHasError] = useState(false);
+  const alreadyFailed = failedImagesSet.has(src);
+  const [hasError, setHasError] = useState(alreadyFailed);
   const [isLoaded, setIsLoaded] = useState(alreadyLoaded);
   const { cachedUrl } = useImageCache(src);
 
-  // Use the original src for already-loaded images (browser memory cache is instant)
-  // Only use cachedUrl for first-time loads (service worker / cache API)
   const displayUrl = alreadyLoaded ? src : cachedUrl;
 
+  const handleError = () => {
+    failedImagesSet.add(src);
+    setHasError(true);
+  };
+
+  // Offline placeholder — shown instantly for known-failed images (no blink)
   if (hasError) {
     return (
       <div 
@@ -74,7 +81,7 @@ function OfflineAwareImage({ src, alt, className = '', ...props }: OfflineAwareI
     );
   }
 
-  // If already loaded before, render ONLY the image — no wrapper, no placeholder
+  // Already loaded in this session — render instantly from browser memory cache
   if (alreadyLoaded) {
     return (
       <img
@@ -83,31 +90,30 @@ function OfflineAwareImage({ src, alt, className = '', ...props }: OfflineAwareI
         className={className}
         loading="eager"
         decoding="sync"
-        onError={() => setHasError(true)}
+        onError={handleError}
         {...props}
       />
     );
   }
 
-  // First-time load: show image on top of a same-size placeholder so there's no layout shift
+  // First-time load: image layered on top of placeholder to prevent empty card flash
   return (
     <div className="relative" style={{ minHeight: '200px' }}>
       {!isLoaded && (
-        <div 
-          className={`absolute inset-0 bg-muted/20 rounded-lg`}
-        />
+        <div className="absolute inset-0 bg-muted/20 rounded-lg" />
       )}
       <img
         src={displayUrl}
-        alt={alt}
+        alt=""
         className={className}
         loading="eager"
         decoding="sync"
         onLoad={() => {
           loadedImagesSet.add(src);
+          failedImagesSet.delete(src);
           setIsLoaded(true);
         }}
-        onError={() => setHasError(true)}
+        onError={handleError}
         {...props}
       />
     </div>
