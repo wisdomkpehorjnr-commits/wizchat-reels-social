@@ -56,10 +56,17 @@ const WatchReelsCard = ({ reelPosts }: WatchReelsCardProps) => {
 
 export default WatchReelsCard;
 
+// Module-level cache so the image URL persists across remounts (tab switches)
+let cachedReelsPreviewUrl: string | null = null;
+
 const WatchPreviewImage: React.FC<{ src: string; alt?: string }> = ({ src, alt }) => {
-  const [preview, setPreview] = useState<string>(src);
+  // If we already resolved a cached URL in this session, use it instantly
+  const [preview, setPreview] = useState<string>(cachedReelsPreviewUrl || src);
 
   useEffect(() => {
+    // If already cached in memory, nothing to do
+    if (cachedReelsPreviewUrl) return;
+
     let mounted = true;
     const key = `media-poster-${encodeURIComponent(src)}`;
 
@@ -67,6 +74,7 @@ const WatchPreviewImage: React.FC<{ src: string; alt?: string }> = ({ src, alt }
       try {
         const cached = await cacheService.get<string>(key);
         if (cached) {
+          cachedReelsPreviewUrl = cached;
           if (mounted) setPreview(cached);
           return;
         }
@@ -78,6 +86,7 @@ const WatchPreviewImage: React.FC<{ src: string; alt?: string }> = ({ src, alt }
         const reader = new FileReader();
         reader.onloadend = async () => {
           const dataUrl = reader.result as string;
+          cachedReelsPreviewUrl = dataUrl;
           try { await cacheService.set(key, dataUrl, 365 * 24 * 60 * 60 * 1000); } catch {}
           if (mounted) setPreview(dataUrl);
         };
@@ -90,5 +99,5 @@ const WatchPreviewImage: React.FC<{ src: string; alt?: string }> = ({ src, alt }
     return () => { mounted = false; };
   }, [src]);
 
-  return <img src={preview} alt={alt} className="w-full h-full object-cover" />;
+  return <img src={preview} alt="" className="w-full h-full object-cover" />;
 };
