@@ -132,44 +132,63 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
 
     setIsCreating(true);
     try {
-      // Prefer server-side RPC that creates group + members + chat atomically
-      let group: any = null;
-      let chat: any = null;
+      const memberIds = Array.from(selectedMembers);
+      const participantIds = [user.id, ...memberIds];
 
-      try {
-        const rpcRes = await (supabase.rpc as any)('create_group_with_members', {
-          p_name: groupName.trim(),
-          p_member_ids: Array.from(selectedMembers),
-        });
-
-        // Expect RPC to return { group_id, chat_id }
-        // depending on RPC implementation it may return row(s)
-        if (rpcRes.error) throw rpcRes.error;
-        const rpcData: any = rpcRes.data;
-        if (rpcData) {
-          group = rpcData.group || rpcData[0]?.group || { id: rpcData.group_id || rpcData[0]?.group_id };
-          chat = rpcData.chat || rpcData[0]?.chat || { id: rpcData.chat_id || rpcData[0]?.chat_id };
-        }
-      } catch (rpcErr) {
-        console.debug('create_group_with_members RPC not available or failed, falling back', rpcErr);
-      }
-
-      if (!group) {
-        // Fallback: create group via dataService then create chat
-        group = await dataService.createGroup({
+      // 1. Create the group row
+      const { data: group, error: groupError } = await supabase
+        .from('groups')
+        .insert({
           name: groupName.trim(),
           description: '',
-          isPublic: false,
-          members: Array.from(selectedMembers),
-        });
+          is_private: false,
+          created_by: user.id,
+          invite_code: Math.random().toString(36).substring(2, 15),
+          member_count: participantIds.length,
+        })
+        .select()
+        .single();
 
-        if (!group || !group.id) {
-          throw new Error('Group creation failed: invalid response');
+      if (groupError) throw groupError;
+
+      // 2. Add creator as admin member
+      await supabase.from('group_members').insert({
+        group_id: group.id,
+        user_id: user.id,
+        role: 'admin',
+      });
+
+      // 3. Add selected members
+      if (memberIds.length > 0) {
+        await supabase.from('group_members').insert(
+          memberIds.map((id) => ({
+            group_id: group.id,
+            user_id: id,
+            role: 'member',
+          }))
+        );
+      }
+
+      // 4. Create a group chat using the existing RPC
+      const { data: chatId, error: chatError } = await supabase.rpc(
+        'create_chat_with_participants',
+        {
+          p_participant_ids: participantIds,
+          p_is_group: true,
+          p_name: groupName.trim(),
         }
+      );
 
-        // Create a chat for the group using RPC (avoids client RLS issues)
-        const participantIds = [user.id, ...Array.from(selectedMembers)];
-        chat = await dataService.createChat(participantIds, true, groupName.trim());
+      if (chatError) throw chatError;
+
+      // 5. Send a welcome message
+      if (chatId) {
+        await supabase.from('messages').insert({
+          chat_id: chatId,
+          user_id: user.id,
+          content: `👋 Welcome to "${groupName.trim()}"! This group was just created. Say hello!`,
+          type: 'text',
+        });
       }
 
       toast({
@@ -186,16 +205,15 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
       setStep('enter_name');
       onClose();
 
-      // Navigate to new group chat (use chat.id if available, else group.id)
+      // Navigate to new group chat
       if (onGroupCreated) {
-        onGroupCreated(chat?.id || group.id);
+        onGroupCreated(chatId || group.id);
       }
     } catch (error: any) {
-      console.error('Full error creating group via service:', error);
-      const errorMessage = error?.message || error?.details || 'Failed to create group. Please try again.';
+      console.error('Error creating group:', error);
       toast({
         title: 'Error',
-        description: errorMessage,
+        description: error?.message || 'Failed to create group. Please try again.',
         variant: 'destructive',
       });
     } finally {
