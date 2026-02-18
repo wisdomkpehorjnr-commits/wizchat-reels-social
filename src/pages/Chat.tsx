@@ -217,29 +217,29 @@ const Chat = () => {
 
   const loadData = async (silent = false) => {
     if (!user) return;
+
+    try {
+      // Only show loading if no cached data and not silent
+      if (!silent && !hasCachedData) {
+        setLoading(true);
+      }
+
+      const userFriends = await dataService.getFriends();
+      setFriends(userFriends);
+
+      // Persist to localStorage for instant hydration next time
+      saveChatListToCache(userFriends);
+
+      // Load user groups
       try {
-        const userFriends = await dataService.getFriends();
-        setFriends(userFriends);
-
-        // Persist to localStorage for instant hydration next time
-        saveChatListToCache(userFriends);
-
-        // Load user groups
-        try {
-          const userGroups = await dataService.getUserGroups(user.id);
-          setGroups(userGroups);
-          // cache groups for offline
-          try {
-            localStorage.setItem(GROUPS_CACHE_KEY, JSON.stringify({ data: userGroups, timestamp: Date.now() }));
-          } catch (e) {
-            console.debug('[Chat] Failed to cache groups:', e);
-          }
-        } catch (error) {
-          console.debug('[Chat] Error loading groups:', error);
-          // Groups are optional, don't fail the entire load
-        }
-      } catch (error) {
+        const userGroups = await dataService.getUserGroups(user.id);
         setGroups(userGroups);
+        // cache groups for offline
+        try {
+          localStorage.setItem(GROUPS_CACHE_KEY, JSON.stringify({ data: userGroups, timestamp: Date.now() }));
+        } catch (e) {
+          console.debug('[Chat] Failed to cache groups:', e);
+        }
       } catch (error) {
         console.debug('[Chat] Error loading groups:', error);
         // Groups are optional, don't fail the entire load
