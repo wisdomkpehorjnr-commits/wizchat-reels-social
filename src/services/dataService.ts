@@ -1270,7 +1270,7 @@ export const dataService = {
   async createGroup(groupData: { name: string; description: string; isPublic: boolean; members: string[] }): Promise<any> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
-
+    // Create the group row
     const { data: group, error: groupError } = await supabase
       .from('groups')
       .insert({
@@ -1288,7 +1288,69 @@ export const dataService = {
       console.error('Error creating group:', groupError);
       throw groupError;
     }
-    return group;
+
+    // Add creator as admin member
+    const { error: creatorMemberError } = await supabase.from('group_members').insert({
+      group_id: group.id,
+      user_id: user.id,
+      role: 'admin'
+    });
+
+    if (creatorMemberError) {
+      console.error('Error adding creator to group_members:', creatorMemberError);
+      throw creatorMemberError;
+    }
+
+    // Add selected members
+    if (groupData.members && groupData.members.length > 0) {
+      const membersInsert = groupData.members.map(id => ({
+        group_id: group.id,
+        user_id: id,
+        role: 'member'
+      }));
+
+      const { error: membersError } = await supabase.from('group_members').insert(membersInsert);
+      if (membersError) {
+        console.error('Error adding members to group_members:', membersError);
+        throw membersError;
+      }
+    }
+
+    // Create a group chat using the existing RPC
+    try {
+      const participantIds = [user.id, ...(groupData.members || [])];
+      const { data: chatId, error: chatError } = await supabase.rpc('create_chat_with_participants', {
+        p_participant_ids: participantIds,
+        p_is_group: true,
+        p_name: groupData.name,
+        p_description: groupData.description
+      });
+
+      if (chatError) {
+        console.error('Error creating group chat via RPC:', chatError);
+        throw chatError;
+      }
+
+      // Send welcome message
+      if (chatId) {
+        const { error: msgError } = await supabase.from('messages').insert({
+          chat_id: chatId,
+          user_id: user.id,
+          content: `👋 Welcome to "${groupData.name}"! This group was just created. Say hello!`,
+          type: 'text'
+        });
+
+        if (msgError) {
+          console.error('Error inserting welcome message:', msgError);
+          // Do not block group creation for message failure, but log it
+        }
+      }
+
+      return { group, chatId };
+    } catch (error) {
+      console.error('Error creating group chat:', error);
+      throw error;
+    }
   },
 
   async getUserGroups(userId: string): Promise<any[]> {

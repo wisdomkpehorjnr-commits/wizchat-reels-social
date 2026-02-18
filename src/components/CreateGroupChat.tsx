@@ -78,25 +78,34 @@ const CreateGroupChat = ({ onGroupCreated, onClose }: CreateGroupChatProps) => {
 
     setLoading(true);
     try {
-      // Create the group first
-      const group = await dataService.createGroup({
+      // Create the group (this will also create group_members, a chat and send a welcome message)
+      const result = await dataService.createGroup({
         name: groupData.name,
         description: groupData.description,
         isPublic: groupData.isPublic,
         members: selectedUsers.map(u => u.id)
       });
 
-      // Create a chat for the group
-      const chat = await dataService.createChat(
-        selectedUsers.map(u => u.id), 
-        true, 
-        groupData.name
-      );
+      // dataService.createGroup now returns { group, chatId }
+      const chatId = result?.chatId ?? null;
 
-      await onGroupCreated(chat.id);
-      
-      // Set the created group ID to open the chat popup
-      setCreatedGroupId(chat.id);
+      // Fallback: if no chatId returned, create the chat explicitly
+      let finalChatId = chatId;
+      if (!finalChatId) {
+        const chat = await dataService.createChat(
+          selectedUsers.map(u => u.id),
+          true,
+          groupData.name
+        );
+        finalChatId = chat.id;
+      }
+
+      if (finalChatId) {
+        await onGroupCreated(finalChatId);
+        setCreatedGroupId(finalChatId);
+      } else {
+        throw new Error('Failed to obtain chat id for created group');
+      }
       
       // Reset form
       setGroupData({ name: '', description: '', isPublic: false });
