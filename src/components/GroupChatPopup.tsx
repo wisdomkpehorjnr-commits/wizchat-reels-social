@@ -55,6 +55,29 @@ const GroupChatPopup = ({ groupId, onClose }: GroupChatPopupProps) => {
         const chatMessages = await dataService.getMessages(groupChat.id);
         setMessages(chatMessages);
       } else {
+        // Fallback: try to read cached groups from localStorage (offline or optimistic case)
+        try {
+          const cached = localStorage.getItem('wizchat_groups_cache');
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            const found = (parsed?.data || []).find((g: any) => g.id === groupId);
+            if (found) {
+              const placeholderChat: any = {
+                id: found.id,
+                name: found.name,
+                isGroup: true,
+                participants: []
+              };
+              setChat(placeholderChat);
+              // Try to load cached messages if available (future improvement)
+              setMessages([]);
+              return;
+            }
+          }
+        } catch (e) {
+          console.debug('Failed to load cached group:', e);
+        }
+
         throw new Error('Group chat not found');
       }
     } catch (error) {

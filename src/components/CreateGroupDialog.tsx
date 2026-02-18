@@ -30,7 +30,7 @@ interface CreateGroupDialogProps {
   isOpen: boolean;
   onClose: () => void;
   friends: Friend[];
-  onGroupCreated?: (groupId: string) => void;
+  onGroupCreated?: (groupId: string, groupName?: string) => void;
 }
 
 type Step = 'enter_name' | 'select_members' | 'summary';
@@ -170,7 +170,7 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
       }
 
       // 4. Create a group chat using the existing RPC
-      const { data: chatId, error: chatError } = await supabase.rpc(
+      const { data: rawChatId, error: chatError } = await supabase.rpc(
         'create_chat_with_participants',
         {
           p_participant_ids: participantIds,
@@ -181,10 +181,23 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
 
       if (chatError) throw chatError;
 
+      // Normalize chatId return (some supabase clients return wrapped values)
+      let newChatId: string | null = null;
+      if (!rawChatId) {
+        newChatId = null;
+      } else if (typeof rawChatId === 'string') {
+        newChatId = rawChatId;
+      } else if (Array.isArray(rawChatId) && rawChatId.length > 0) {
+        newChatId = (rawChatId[0] as any) || null;
+      } else if (typeof rawChatId === 'object') {
+        const vals = Object.values(rawChatId).filter(v => typeof v === 'string');
+        newChatId = (vals.length > 0 ? (vals[0] as string) : null);
+      }
+
       // 5. Send a welcome message
-      if (chatId) {
+      if (newChatId) {
         await supabase.from('messages').insert({
-          chat_id: chatId,
+          chat_id: newChatId,
           user_id: user.id,
           content: `👋 Welcome to "${groupName.trim()}"! This group was just created. Say hello!`,
           type: 'text',
@@ -205,9 +218,9 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
       setStep('enter_name');
       onClose();
 
-      // Navigate to new group chat
+      // Navigate to new group chat - pass chat id and name for optimistic UI
       if (onGroupCreated) {
-        onGroupCreated(chatId || group.id);
+        onGroupCreated(newChatId || group.id, groupName.trim());
       }
     } catch (error: any) {
       console.error('Error creating group:', error);
@@ -520,7 +533,7 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
                 <Button
                   onClick={handleCreateGroup}
                   disabled={isCreating}
-                  className="gap-2 bg-green-500 hover:bg-green-600 text-white"
+                  className="gap-2 btn-primary"
                 >
                   {isCreating ? 'Creating...' : 'Create Group'}
                   <Check className="w-4 h-4" />

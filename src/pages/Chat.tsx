@@ -82,6 +82,22 @@ const WIZAI_USER: User = {
   createdAt: new Date(),
 };
 
+const GROUPS_CACHE_KEY = 'wizchat_groups_cache';
+
+// Load cached groups synchronously for instant display
+let _cachedGroups: any[] = [];
+try {
+  const cached = localStorage.getItem(GROUPS_CACHE_KEY);
+  if (cached) {
+    const parsed = JSON.parse(cached);
+    if (parsed?.data && Array.isArray(parsed.data)) {
+      _cachedGroups = parsed.data;
+    }
+  }
+} catch (e) {
+  console.debug('[Chat] groups localStorage hydration failed:', e);
+}
+
 const Chat = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -90,7 +106,7 @@ const Chat = () => {
   const hasCachedData = chatStore.friends.length > 0;
   
   const [friends, setFriends] = useState<Friend[]>(chatStore.friends);
-  const [groups, setGroups] = useState<any[]>([]);
+  const [groups, setGroups] = useState<any[]>(_cachedGroups);
   const [selectedFriend, setSelectedFriend] = useState<User | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -201,22 +217,28 @@ const Chat = () => {
 
   const loadData = async (silent = false) => {
     if (!user) return;
-    
-    try {
-      // Only show loading if no cached data and not silent
-      if (!silent && !hasCachedData) {
-        setLoading(true);
-      }
-      
-      const userFriends = await dataService.getFriends();
-      setFriends(userFriends);
-      
-      // Persist to localStorage for instant hydration next time
-      saveChatListToCache(userFriends);
-
-      // Load user groups
       try {
-        const userGroups = await dataService.getUserGroups(user.id);
+        const userFriends = await dataService.getFriends();
+        setFriends(userFriends);
+
+        // Persist to localStorage for instant hydration next time
+        saveChatListToCache(userFriends);
+
+        // Load user groups
+        try {
+          const userGroups = await dataService.getUserGroups(user.id);
+          setGroups(userGroups);
+          // cache groups for offline
+          try {
+            localStorage.setItem(GROUPS_CACHE_KEY, JSON.stringify({ data: userGroups, timestamp: Date.now() }));
+          } catch (e) {
+            console.debug('[Chat] Failed to cache groups:', e);
+          }
+        } catch (error) {
+          console.debug('[Chat] Error loading groups:', error);
+          // Groups are optional, don't fail the entire load
+        }
+      } catch (error) {
         setGroups(userGroups);
       } catch (error) {
         console.debug('[Chat] Error loading groups:', error);
@@ -240,10 +262,18 @@ const Chat = () => {
     setSelectedFriend(friend);
   };
 
-  const handleGroupCreated = (groupId: string) => {
+  const handleGroupCreated = (groupId: string, groupName?: string) => {
     // Reload chat list to show new group
     loadData(false);
-    
+
+    // Optimistically add a placeholder group if not present (helps offline UX)
+    setGroups(prev => {
+      if (prev.find(g => g.id === groupId)) return prev;
+      // Minimal placeholder - real data will arrive on next successful loadData
+      const placeholder = { id: groupId, name: groupName || 'New Group', member_count: 0 };
+      return [placeholder, ...prev];
+    });
+
     // Open the group chat
     setSelectedGroup(groupId);
   };
@@ -352,7 +382,7 @@ const Chat = () => {
                   <Button
                     onClick={() => setIsCreateGroupOpen(true)}
                     size="sm"
-                    className="gap-2 bg-green-500 hover:bg-green-600 text-white"
+                    className="gap-2 btn-primary"
                     title="Create a new group"
                   >
                     <Plus className="w-4 h-4" />

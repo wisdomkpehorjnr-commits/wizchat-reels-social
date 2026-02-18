@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import GroupChatPopup from './GroupChatPopup';
 
 interface CreateGroupChatProps {
-  onGroupCreated: (groupId?: string) => Promise<void>;
+  onGroupCreated: (groupId?: string, groupName?: string) => Promise<void>;
   onClose: () => void;
 }
 
@@ -101,7 +101,7 @@ const CreateGroupChat = ({ onGroupCreated, onClose }: CreateGroupChatProps) => {
       }
 
       if (finalChatId) {
-        await onGroupCreated(finalChatId);
+        await onGroupCreated(finalChatId, groupData.name);
         setCreatedGroupId(finalChatId);
       } else {
         throw new Error('Failed to obtain chat id for created group');
