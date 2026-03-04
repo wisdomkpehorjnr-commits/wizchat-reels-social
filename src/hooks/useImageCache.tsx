@@ -229,7 +229,11 @@ export function useImageCache(imageUrl: string | undefined): {
   isLoading: boolean;
   error: Error | null;
 } {
-  const [cachedUrl, setCachedUrl] = useState<string>('');
+  // CRITICAL: Initialize synchronously from memory cache to prevent ANY empty-render blink
+  const [cachedUrl, setCachedUrl] = useState<string>(() => {
+    if (!imageUrl) return '';
+    return getCachedImageUrl(imageUrl);
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
@@ -244,7 +248,7 @@ export function useImageCache(imageUrl: string | undefined): {
 
     // IMMEDIATE: return memory-cached blob URL if available
     const instantUrl = getCachedImageUrl(imageUrl);
-    setCachedUrl(instantUrl);
+    if (mounted) setCachedUrl(instantUrl);
     setError(null);
 
     if (instantUrl !== imageUrl) {
