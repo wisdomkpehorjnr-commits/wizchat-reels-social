@@ -75,14 +75,13 @@ function OfflineAwareImage({ src, alt, className = '', ...props }: OfflineAwareI
   }, [src]);
 
   const handleError = () => {
-    // Persist failure only when offline; online errors should retry on reconnection
     if (!navigator.onLine) {
       failedImagesSet.add(src);
     }
     setHasError(true);
   };
 
-  // Offline placeholder — shown instantly for known-failed images (no blink)
+  // Offline placeholder — clean icon, no broken emoji image
   if (hasError) {
     return (
       <div
@@ -104,7 +103,7 @@ function OfflineAwareImage({ src, alt, className = '', ...props }: OfflineAwareI
     );
   }
 
-  // Already loaded in this session — render instantly
+  // Already loaded in this session — render instantly, fully static, no blink
   if (alreadyLoaded) {
     return (
       <img
@@ -125,12 +124,10 @@ function OfflineAwareImage({ src, alt, className = '', ...props }: OfflineAwareI
     );
   }
 
-  // First-time load: image layered on top of placeholder to prevent empty card flash
+  // First-time load: HIDE img until loaded to prevent broken-image/alt-text flash
   return (
     <div className="relative" style={{ minHeight: '200px' }}>
-      {!isLoaded && (
-        <div className="absolute inset-0 bg-muted/20 rounded-lg" />
-      )}
+      <div className={`absolute inset-0 bg-muted/20 rounded-lg transition-opacity ${isLoaded ? 'opacity-0 pointer-events-none' : 'opacity-100'}`} />
       <img
         key={`${src}-${retryKey}`}
         src={displayUrl}
@@ -138,6 +135,7 @@ function OfflineAwareImage({ src, alt, className = '', ...props }: OfflineAwareI
         className={className}
         loading="eager"
         decoding="sync"
+        style={{ opacity: isLoaded ? 1 : 0, transition: 'opacity 0.15s ease-in' }}
         onLoad={() => {
           loadedImagesSet.add(src);
           failedImagesSet.delete(src);
