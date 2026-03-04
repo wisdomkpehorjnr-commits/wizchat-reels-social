@@ -181,17 +181,18 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
 
       if (chatError) throw chatError;
 
-      // Normalize chatId return (some supabase clients return wrapped values)
+      // Normalize chatId return (some clients return wrapped values)
+      const chatIdValue = rawChatId as unknown;
       let newChatId: string | null = null;
-      if (!rawChatId) {
+      if (!chatIdValue) {
         newChatId = null;
-      } else if (typeof rawChatId === 'string') {
-        newChatId = rawChatId;
-      } else if (Array.isArray(rawChatId) && rawChatId.length > 0) {
-        newChatId = (rawChatId[0] as any) || null;
-      } else if (typeof rawChatId === 'object') {
-        const vals = Object.values(rawChatId).filter(v => typeof v === 'string');
-        newChatId = (vals.length > 0 ? (vals[0] as string) : null);
+      } else if (typeof chatIdValue === 'string') {
+        newChatId = chatIdValue;
+      } else if (Array.isArray(chatIdValue) && chatIdValue.length > 0) {
+        newChatId = (chatIdValue[0] as string) || null;
+      } else if (typeof chatIdValue === 'object') {
+        const vals = Object.values(chatIdValue as Record<string, unknown>).filter(v => typeof v === 'string');
+        newChatId = vals.length > 0 ? (vals[0] as string) : null;
       }
 
       // 5. Send a welcome message

@@ -11,14 +11,16 @@ interface CachedImageEntry {
 
 const imageMemoryCache = new Map<string, CachedImageEntry>(); // URL -> {blob, expiresAt}
 const imageBlobUrlCache = new Map<string, string>(); // URL -> blob URL (transient, recreated as needed)
+const inFlightCachePromises = new Map<string, Promise<void>>();
+const cacheSubscribers = new Map<string, Set<(blobUrl: string) => void>>();
 const IMAGE_CACHE_NAME = 'wizchat-post-images-v2';
-// Persist images for 2 hours by default
-const IMAGE_PERSIST_TTL = 2 * 60 * 60 * 1000; // 2 hours
+// Keep seen images effectively permanent for offline-first UX
+const IMAGE_PERSIST_TTL = 365 * 24 * 60 * 60 * 1000; // 365 days
 
 // Preload cache from storage at module init (fire and forget)
 const initCachePreload = () => {
   if (typeof caches === 'undefined') return;
-  
+
   _requestIdleCallback(() => {
     caches.open(IMAGE_CACHE_NAME).catch(e => {
       console.debug('[ImageCache] Cache init failed:', e);
@@ -33,26 +35,58 @@ const _requestIdleCallback = (typeof requestIdleCallback !== 'undefined')
 // Initialize on module load
 initCachePreload();
 
+function notifySubscribers(imageUrl: string, blobUrl: string): void {
+  const listeners = cacheSubscribers.get(imageUrl);
+  if (!listeners?.size) return;
+
+  listeners.forEach(listener => {
+    try {
+      listener(blobUrl);
+    } catch (e) {
+      console.debug('[ImageCache] Subscriber callback failed:', e);
+    }
+  });
+}
+
+function subscribeToCachedImage(imageUrl: string, listener: (blobUrl: string) => void): () => void {
+  const existing = cacheSubscribers.get(imageUrl) || new Set<(blobUrl: string) => void>();
+  existing.add(listener);
+  cacheSubscribers.set(imageUrl, existing);
+
+  return () => {
+    const listeners = cacheSubscribers.get(imageUrl);
+    if (!listeners) return;
+    listeners.delete(listener);
+    if (listeners.size === 0) {
+      cacheSubscribers.delete(imageUrl);
+    }
+  };
+}
+
 /**
  * Get or create a blob URL from a cached entry, ensuring it's valid and not expired
  */
 function getBlobUrl(imageUrl: string): string | null {
   const entry = imageMemoryCache.get(imageUrl);
-  
+
   if (!entry) return null;
-  
+
   // Check if expired
   if (Date.now() > entry.expiresAt) {
     imageMemoryCache.delete(imageUrl);
+    const previousBlobUrl = imageBlobUrlCache.get(imageUrl);
+    if (previousBlobUrl) {
+      URL.revokeObjectURL(previousBlobUrl);
+    }
     imageBlobUrlCache.delete(imageUrl);
     return null;
   }
-  
+
   // Reuse blob URL if it exists
   if (imageBlobUrlCache.has(imageUrl)) {
     return imageBlobUrlCache.get(imageUrl) || null;
   }
-  
+
   // Create fresh blob URL from the stored blob
   const blobUrl = URL.createObjectURL(entry.blob);
   imageBlobUrlCache.set(imageUrl, blobUrl);
@@ -64,9 +98,15 @@ function getBlobUrl(imageUrl: string): string | null {
  */
 function setCachedBlob(imageUrl: string, blob: Blob, expiresAt: number): void {
   imageMemoryCache.set(imageUrl, { blob, expiresAt });
-  // Create blob URL on first access
+
+  const previousBlobUrl = imageBlobUrlCache.get(imageUrl);
+  if (previousBlobUrl) {
+    URL.revokeObjectURL(previousBlobUrl);
+  }
+
   const blobUrl = URL.createObjectURL(blob);
   imageBlobUrlCache.set(imageUrl, blobUrl);
+  notifySubscribers(imageUrl, blobUrl);
   console.debug('[ImageCache] Cached blob in memory for:', imageUrl.substring(0, 50));
 }
 
@@ -81,7 +121,6 @@ function getCachedImageUrl(originalSrc: string): string {
   }
 
   // START CACHING IMMEDIATELY (NOT deferred, fires in next microtask)
-  // queueMicrotask is fastest non-blocking way to schedule caching
   if (typeof queueMicrotask !== 'undefined') {
     queueMicrotask(() => {
       cacheImageAsync(originalSrc).catch(e => {
@@ -99,7 +138,7 @@ function getCachedImageUrl(originalSrc: string): string {
   return originalSrc;
 }
 
-// Background caching - doesn't block anything
+// Background caching - deduped and non-blocking
 async function cacheImageAsync(imageUrl: string): Promise<void> {
   if (!imageUrl) return;
 
@@ -109,21 +148,26 @@ async function cacheImageAsync(imageUrl: string): Promise<void> {
     return;
   }
 
-  // Try Cache API (fast)
-  if (typeof caches !== 'undefined') {
+  // Reuse in-flight task to prevent repeated fetches on tab switches/remounts
+  const inFlight = inFlightCachePromises.get(imageUrl);
+  if (inFlight) {
+    return inFlight;
+  }
+
+  const task = (async () => {
+    if (typeof caches === 'undefined') return;
+
     try {
       const cache = await caches.open(IMAGE_CACHE_NAME);
       const expiresAt = Date.now() + IMAGE_PERSIST_TTL;
 
-      // 1) Check metadata in IndexedDB (durable storage) to enforce TTL,
-      //    then use the Cache API response (which is better for storing large blobs)
+      // 1) Check metadata in IndexedDB for TTL enforcement
       try {
         const meta = await cacheService.get<{ expiresAt: number }>(`perm-image-meta-${imageUrl}`);
         if (meta && meta.expiresAt && Date.now() <= meta.expiresAt) {
           const cachedResp = await cache.match(imageUrl);
           if (cachedResp) {
             const blob = await cachedResp.blob();
-            // Store blob + expiry in memory cache for fast repeated access
             setCachedBlob(imageUrl, blob, meta.expiresAt);
             console.debug('[ImageCache] Loaded from Cache API (via valid meta):', imageUrl.substring(0, 50));
             return;
@@ -133,14 +177,13 @@ async function cacheImageAsync(imageUrl: string): Promise<void> {
         console.debug('[ImageCache] IndexedDB metadata read failed:', e);
       }
 
-      // 2) Check Cache API
+      // 2) Check Cache API directly
       const cached = await cache.match(imageUrl);
       if (cached) {
         const blob = await cached.blob();
-        // Store blob + expiry in memory cache
         setCachedBlob(imageUrl, blob, expiresAt);
         console.debug('[ImageCache] Loaded from Cache API:', imageUrl.substring(0, 50));
-        // Persist metadata to IndexedDB for TTL enforcement. Cache API holds the response.
+
         try {
           await cacheService.set(`perm-image-meta-${imageUrl}`, { expiresAt }, IMAGE_PERSIST_TTL);
         } catch (e) {
@@ -150,32 +193,40 @@ async function cacheImageAsync(imageUrl: string): Promise<void> {
       }
 
       // 3) Not in cache - fetch and store
-      const response = await fetch(imageUrl);
-      if (response.ok) {
-        const cloned = response.clone();
-        await cache.put(imageUrl, cloned);
-        const blob = await response.blob();
-        // Store blob + expiry in memory cache
-        setCachedBlob(imageUrl, blob, expiresAt);
-        console.debug('[ImageCache] Cached new image:', imageUrl.substring(0, 50));
+      const response = await fetch(imageUrl, { cache: 'force-cache' });
+      if (!response.ok) return;
 
-        // Persist metadata to IndexedDB for TTL enforcement. Cache API holds the response.
-        try {
-          await cacheService.set(`perm-image-meta-${imageUrl}`, { expiresAt }, IMAGE_PERSIST_TTL);
-        } catch (e) {
-          console.debug('[ImageCache] Persist meta to IndexedDB failed:', e);
-        }
+      const cloned = response.clone();
+      await cache.put(imageUrl, cloned);
+      const blob = await response.blob();
+      setCachedBlob(imageUrl, blob, expiresAt);
+      console.debug('[ImageCache] Cached new image:', imageUrl.substring(0, 50));
+
+      try {
+        await cacheService.set(`perm-image-meta-${imageUrl}`, { expiresAt }, IMAGE_PERSIST_TTL);
+      } catch (e) {
+        console.debug('[ImageCache] Persist meta to IndexedDB failed:', e);
       }
     } catch (e) {
       console.debug('[ImageCache] Cache API failed:', e);
     }
+  })();
+
+  inFlightCachePromises.set(imageUrl, task);
+
+  try {
+    await task;
+  } finally {
+    if (inFlightCachePromises.get(imageUrl) === task) {
+      inFlightCachePromises.delete(imageUrl);
+    }
   }
 }
 
-// Hook for using cached images - INSTANT RETURN, no waiting
-export function useImageCache(imageUrl: string | undefined): { 
-  cachedUrl: string; 
-  isLoading: boolean; 
+// Hook for using cached images - instant URL + subscriber updates
+export function useImageCache(imageUrl: string | undefined): {
+  cachedUrl: string;
+  isLoading: boolean;
   error: Error | null;
 } {
   const [cachedUrl, setCachedUrl] = useState<string>('');
@@ -185,31 +236,57 @@ export function useImageCache(imageUrl: string | undefined): {
   useEffect(() => {
     if (!imageUrl) {
       setCachedUrl('');
+      setIsLoading(false);
       return;
     }
 
-    // IMMEDIATE: Get URL right away (either cached or original)
-    const url = getCachedImageUrl(imageUrl);
-    setCachedUrl(url);
+    let mounted = true;
+
+    // IMMEDIATE: return memory-cached blob URL if available
+    const instantUrl = getCachedImageUrl(imageUrl);
+    setCachedUrl(instantUrl);
     setError(null);
 
-    // Background caching will update memory cache if not already there
-    // Component will re-render when blob URL becomes available
-    const checkInterval = setInterval(() => {
-      const blobUrl = getBlobUrl(imageUrl);
-      if (blobUrl && blobUrl !== url) {
-        setCachedUrl(blobUrl);
-        clearInterval(checkInterval);
-      }
-    }, 100);
+    if (instantUrl !== imageUrl) {
+      setIsLoading(false);
+      return;
+    }
 
-    return () => clearInterval(checkInterval);
+    setIsLoading(true);
+
+    const unsubscribe = subscribeToCachedImage(imageUrl, (blobUrl) => {
+      if (!mounted) return;
+      setCachedUrl(blobUrl);
+      setIsLoading(false);
+    });
+
+    cacheImageAsync(imageUrl)
+      .then(() => {
+        if (!mounted) return;
+        const freshBlobUrl = getBlobUrl(imageUrl);
+        if (freshBlobUrl) {
+          setCachedUrl(freshBlobUrl);
+        }
+      })
+      .catch((e) => {
+        if (!mounted) return;
+        setError(e instanceof Error ? e : new Error('Failed to cache image'));
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setIsLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
   }, [imageUrl]);
 
-  return { 
-    cachedUrl: cachedUrl || imageUrl || '', 
-    isLoading, 
-    error 
+  return {
+    cachedUrl: cachedUrl || imageUrl || '',
+    isLoading,
+    error,
   };
 }
 

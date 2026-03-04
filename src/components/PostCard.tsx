@@ -42,27 +42,50 @@ interface OfflineAwareImageProps extends React.ImgHTMLAttributes<HTMLImageElemen
 
 // Track images that have been successfully loaded in this session
 const loadedImagesSet = new Set<string>();
-// Track images that failed to load (offline / broken) — persists across remounts
+// Track images that failed to load while offline — persists across remounts
 const failedImagesSet = new Set<string>();
 
 function OfflineAwareImage({ src, alt, className = '', ...props }: OfflineAwareImageProps) {
   const alreadyLoaded = loadedImagesSet.has(src);
-  const alreadyFailed = failedImagesSet.has(src);
-  const [hasError, setHasError] = useState(alreadyFailed);
+  const alreadyFailedOffline = failedImagesSet.has(src) && !navigator.onLine;
+  const [hasError, setHasError] = useState(alreadyFailedOffline);
   const [isLoaded, setIsLoaded] = useState(alreadyLoaded);
+  const [retryKey, setRetryKey] = useState(0);
   const { cachedUrl } = useImageCache(src);
 
-  const displayUrl = alreadyLoaded ? src : cachedUrl;
+  const displayUrl = cachedUrl || src;
+
+  useEffect(() => {
+    if (navigator.onLine && failedImagesSet.has(src)) {
+      failedImagesSet.delete(src);
+      setHasError(false);
+      setRetryKey(prev => prev + 1);
+    }
+  }, [src]);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      failedImagesSet.delete(src);
+      setHasError(false);
+      setRetryKey(prev => prev + 1);
+    };
+
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [src]);
 
   const handleError = () => {
-    failedImagesSet.add(src);
+    // Persist failure only when offline; online errors should retry on reconnection
+    if (!navigator.onLine) {
+      failedImagesSet.add(src);
+    }
     setHasError(true);
   };
 
   // Offline placeholder — shown instantly for known-failed images (no blink)
   if (hasError) {
     return (
-      <div 
+      <div
         className={`flex flex-col items-center justify-center bg-muted/30 backdrop-blur-xl border border-border/50 rounded-lg ${className}`}
         style={{ minHeight: '200px', aspectRatio: '16/9' }}
       >
@@ -81,15 +104,21 @@ function OfflineAwareImage({ src, alt, className = '', ...props }: OfflineAwareI
     );
   }
 
-  // Already loaded in this session — render instantly from browser memory cache
+  // Already loaded in this session — render instantly
   if (alreadyLoaded) {
     return (
       <img
+        key={`${src}-${retryKey}`}
         src={displayUrl}
-        alt={alt}
+        alt=""
         className={className}
         loading="eager"
         decoding="sync"
+        onLoad={() => {
+          loadedImagesSet.add(src);
+          failedImagesSet.delete(src);
+          setIsLoaded(true);
+        }}
         onError={handleError}
         {...props}
       />
@@ -103,6 +132,7 @@ function OfflineAwareImage({ src, alt, className = '', ...props }: OfflineAwareI
         <div className="absolute inset-0 bg-muted/20 rounded-lg" />
       )}
       <img
+        key={`${src}-${retryKey}`}
         src={displayUrl}
         alt=""
         className={className}
