@@ -150,11 +150,11 @@ const VerifyAccount = () => {
                 onOpenChange={setShowVerification}
                 onVerified={() => {
                   toast({ 
-                    title: "Success! ✅", 
-                    description: "Account verified! Check your profile for the blue tick." 
+                    title: "✅ Account Verified!", 
+                    description: "You now have the blue verification badge on your profile." 
                   });
                 }}
-                featureName="Verification"
+                featureName="Verify Account"
               />
     </Layout>
   );
