@@ -45,7 +45,7 @@ const VerificationBadge: React.FC<VerificationBadgeProps> = ({
         />
       </svg>
       {showText && (
-        <span className="text-xs font-medium text-blue-500">Verified</span>
+        <span className="text-xs font-medium text-blue-500">User Verified</span>
       )}
     </span>
   );
