@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { MoreVertical, ThumbsUp, MessageSquare, Share2, Edit, Trash2, Download, Pin, Send, X, ImageOff } from 'lucide-react';
+import { MoreVertical, ThumbsUp, MessageSquare, Share2, Edit, Trash2, Download, Pin, Send, X, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -81,24 +81,14 @@ function OfflineAwareImage({ src, alt, className = '', ...props }: OfflineAwareI
     setHasError(true);
   };
 
-  // Offline placeholder — clean icon, no broken emoji image
+  // Offline placeholder — minimal, no emoji, no text
   if (hasError) {
     return (
       <div
-        className={`flex flex-col items-center justify-center bg-muted/30 backdrop-blur-xl border border-border/50 rounded-lg ${className}`}
+        className={`flex items-center justify-center bg-muted/20 rounded-lg ${className}`}
         style={{ minHeight: '200px', aspectRatio: '16/9' }}
       >
-        <div className="p-6 text-center">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted/50 backdrop-blur-sm flex items-center justify-center">
-            <ImageOff className="w-8 h-8 text-muted-foreground/70" />
-          </div>
-          <p className="text-sm font-medium text-muted-foreground">
-            Image not available offline
-          </p>
-          <p className="text-xs text-muted-foreground/70 mt-1">
-            Connect to view this content
-          </p>
-        </div>
+        <WifiOff className="w-10 h-10 text-muted-foreground/40" />
       </div>
     );
   }
