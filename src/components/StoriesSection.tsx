@@ -12,7 +12,6 @@ import { MediaService } from '@/services/mediaService';
 import { useToast } from '@/components/ui/use-toast';
 import { useImageCache } from '@/hooks/useImageCache';
 import { preloadStoriesMedia } from '@/services/preloadService';
-import FullScreenStoryViewer from './FullScreenStoryViewer';
 
 interface GroupedStory {
   userId: string;
@@ -581,16 +580,22 @@ const StoriesSection: React.FC = () => {
         )}
       </div>
 
-      {/* Full-Screen Story Viewer */}
-      {viewingStories && viewingStories[currentStoryIndex] && (
-        <FullScreenStoryViewer
-          stories={viewingStories}
-          initialIndex={currentStoryIndex}
-          onClose={() => setViewingStories(null)}
-          onDelete={deleteStory}
-          onStoriesUpdate={() => loadStories(true)}
-        />
-      )}
+      {/* Story Viewer Dialog */}
+      <Dialog open={!!viewingStories} onOpenChange={() => setViewingStories(null)}>
+        <DialogContent className="max-w-md p-0 bg-black/90 border-green-500/30 [&>button]:hidden">
+          {viewingStories && viewingStories[currentStoryIndex] && (
+            <StoryViewer
+              story={viewingStories[currentStoryIndex]}
+              stories={viewingStories}
+              currentIndex={currentStoryIndex}
+              onNext={nextStory}
+              onPrev={prevStory}
+              onClose={() => setViewingStories(null)}
+              onDelete={deleteStory}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Create Story Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
