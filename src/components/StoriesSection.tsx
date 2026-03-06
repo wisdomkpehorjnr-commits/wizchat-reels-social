@@ -12,6 +12,8 @@ import { MediaService } from '@/services/mediaService';
 import { useToast } from '@/components/ui/use-toast';
 import { useImageCache } from '@/hooks/useImageCache';
 import { preloadStoriesMedia } from '@/services/preloadService';
+import FullScreenStoryViewer from '@/components/FullScreenStoryViewer';
+import { preloadStoriesMedia } from '@/services/preloadService';
 
 interface GroupedStory {
   userId: string;
@@ -394,11 +396,33 @@ const StoriesSection: React.FC = () => {
     }
   };
 
+  // Track which stories the current user has viewed (from local state)
+  const [viewedStoryIds, setViewedStoryIds] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem('wizchat_viewed_stories');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch { return new Set(); }
+  });
+
+  const markStoriesViewed = (storyIds: string[]) => {
+    setViewedStoryIds(prev => {
+      const next = new Set(prev);
+      storyIds.forEach(id => next.add(id));
+      try { localStorage.setItem('wizchat_viewed_stories', JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  };
+
+  const hasUnwatchedStory = (group: GroupedStory) => {
+    return group.stories.some(s => !viewedStoryIds.has(s.id));
+  };
+
   const viewStoryGroup = async (storyGroup: GroupedStory) => {
     try {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       if (!currentUser) return;
 
+      // Record views in DB
       const storiesToView = storyGroup.stories.filter(story => story.userId !== currentUser.id);
       if (storiesToView.length > 0) {
         await Promise.all(storiesToView.map(story => supabase.from('story_views').insert({
@@ -408,6 +432,10 @@ const StoriesSection: React.FC = () => {
           viewer_count: (story.viewerCount || 0) + 1
         }).eq('id', story.id))));
       }
+
+      // Mark all in this group as viewed locally
+      markStoriesViewed(storyGroup.stories.map(s => s.id));
+
       setViewingStories(storyGroup.stories);
       setCurrentStoryIndex(0);
     } catch (error) {
