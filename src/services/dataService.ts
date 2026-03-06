@@ -14,7 +14,8 @@ export const dataService = {
           name,
           username,
           email,
-          avatar
+          avatar,
+          is_verified
         ),
         comments:comments (
           id,
