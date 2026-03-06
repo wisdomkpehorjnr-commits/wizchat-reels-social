@@ -154,7 +154,7 @@ const VerifyAccount = () => {
                     description: "Account verified! Check your profile for the blue tick." 
                   });
                 }}
-                featureName="Verification"
+                featureName="Verify Account"
               />
     </Layout>
   );

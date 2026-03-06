@@ -12,6 +12,7 @@ import { MediaService } from '@/services/mediaService';
 import { useToast } from '@/components/ui/use-toast';
 import { useImageCache } from '@/hooks/useImageCache';
 import { preloadStoriesMedia } from '@/services/preloadService';
+import FullScreenStoryViewer from '@/components/FullScreenStoryViewer';
 
 interface GroupedStory {
   userId: string;
@@ -394,11 +395,33 @@ const StoriesSection: React.FC = () => {
     }
   };
 
+  // Track which stories the current user has viewed (from local state)
+  const [viewedStoryIds, setViewedStoryIds] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem('wizchat_viewed_stories');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch { return new Set(); }
+  });
+
+  const markStoriesViewed = (storyIds: string[]) => {
+    setViewedStoryIds(prev => {
+      const next = new Set(prev);
+      storyIds.forEach(id => next.add(id));
+      try { localStorage.setItem('wizchat_viewed_stories', JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  };
+
+  const hasUnwatchedStory = (group: GroupedStory) => {
+    return group.stories.some(s => !viewedStoryIds.has(s.id));
+  };
+
   const viewStoryGroup = async (storyGroup: GroupedStory) => {
     try {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       if (!currentUser) return;
 
+      // Record views in DB
       const storiesToView = storyGroup.stories.filter(story => story.userId !== currentUser.id);
       if (storiesToView.length > 0) {
         await Promise.all(storiesToView.map(story => supabase.from('story_views').insert({
@@ -408,6 +431,10 @@ const StoriesSection: React.FC = () => {
           viewer_count: (story.viewerCount || 0) + 1
         }).eq('id', story.id))));
       }
+
+      // Mark all in this group as viewed locally
+      markStoriesViewed(storyGroup.stories.map(s => s.id));
+
       setViewingStories(storyGroup.stories);
       setCurrentStoryIndex(0);
     } catch (error) {
@@ -560,6 +587,11 @@ const StoriesSection: React.FC = () => {
                 )}
               </div>
               
+              {/* Unwatched dot indicator */}
+              {hasUnwatchedStory(storyGroup) && (
+                <div className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-primary border-2 border-background" />
+              )}
+
               {storyGroup.stories.length > 1 && (
                 <div className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground rounded-full text-xs px-1 flex items-center gap-1">
                   <Eye className="w-2 h-2" />
@@ -580,22 +612,16 @@ const StoriesSection: React.FC = () => {
         )}
       </div>
 
-      {/* Story Viewer Dialog */}
-      <Dialog open={!!viewingStories} onOpenChange={() => setViewingStories(null)}>
-        <DialogContent className="max-w-md p-0 bg-black/90 border-green-500/30 [&>button]:hidden">
-          {viewingStories && viewingStories[currentStoryIndex] && (
-            <StoryViewer
-              story={viewingStories[currentStoryIndex]}
-              stories={viewingStories}
-              currentIndex={currentStoryIndex}
-              onNext={nextStory}
-              onPrev={prevStory}
-              onClose={() => setViewingStories(null)}
-              onDelete={deleteStory}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Full Screen Story Viewer */}
+      {viewingStories && viewingStories.length > 0 && (
+        <FullScreenStoryViewer
+          stories={viewingStories}
+          initialIndex={currentStoryIndex}
+          onClose={() => setViewingStories(null)}
+          onDelete={deleteStory}
+          onStoriesUpdate={() => loadStories(true)}
+        />
+      )}
 
       {/* Create Story Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
