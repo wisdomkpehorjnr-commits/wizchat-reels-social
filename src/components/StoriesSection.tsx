@@ -587,6 +587,11 @@ const StoriesSection: React.FC = () => {
                 )}
               </div>
               
+              {/* Unwatched dot indicator */}
+              {hasUnwatchedStory(storyGroup) && (
+                <div className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-primary border-2 border-background" />
+              )}
+
               {storyGroup.stories.length > 1 && (
                 <div className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground rounded-full text-xs px-1 flex items-center gap-1">
                   <Eye className="w-2 h-2" />
@@ -607,22 +612,16 @@ const StoriesSection: React.FC = () => {
         )}
       </div>
 
-      {/* Story Viewer Dialog */}
-      <Dialog open={!!viewingStories} onOpenChange={() => setViewingStories(null)}>
-        <DialogContent className="max-w-md p-0 bg-black/90 border-green-500/30 [&>button]:hidden">
-          {viewingStories && viewingStories[currentStoryIndex] && (
-            <StoryViewer
-              story={viewingStories[currentStoryIndex]}
-              stories={viewingStories}
-              currentIndex={currentStoryIndex}
-              onNext={nextStory}
-              onPrev={prevStory}
-              onClose={() => setViewingStories(null)}
-              onDelete={deleteStory}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Full Screen Story Viewer */}
+      {viewingStories && viewingStories.length > 0 && (
+        <FullScreenStoryViewer
+          stories={viewingStories}
+          initialIndex={currentStoryIndex}
+          onClose={() => setViewingStories(null)}
+          onDelete={deleteStory}
+          onStoriesUpdate={() => loadStories(true)}
+        />
+      )}
 
       {/* Create Story Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
