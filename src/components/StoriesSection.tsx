@@ -13,7 +13,6 @@ import { useToast } from '@/components/ui/use-toast';
 import { useImageCache } from '@/hooks/useImageCache';
 import { preloadStoriesMedia } from '@/services/preloadService';
 import FullScreenStoryViewer from '@/components/FullScreenStoryViewer';
-import { preloadStoriesMedia } from '@/services/preloadService';
 
 interface GroupedStory {
   userId: string;
