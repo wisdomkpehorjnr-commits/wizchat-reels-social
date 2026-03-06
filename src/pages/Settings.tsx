@@ -56,39 +56,63 @@ import { useMediaOptimization } from '@/hooks/useMediaOptimization';
 
 const ThemeSelector = () => {
   const { themeMode, setThemeMode } = useTheme();
+  const { toast } = useToast();
+  const [purchasedThemes, setPurchasedThemes] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('purchased-themes') || '[]'); } catch { return []; }
+  });
+
   const themes = [
-    { value: 'light' as const, label: 'Light', desc: 'Clean & bright', colors: ['#ffffff', '#16a34a', '#f0fdf4'] },
-    { value: 'dark' as const, label: 'Dark', desc: 'Easy on the eyes', colors: ['#0f172a', '#16a34a', '#1e293b'] },
-    { value: 'ultra' as const, label: 'Ultra', desc: 'Pure black & white', colors: ['#000000', '#ffffff', '#1a1a1a'] },
-    { value: 'ghana' as const, label: 'Ghana Pride', desc: 'Red, Gold & Green', colors: ['#ce1126', '#fcd116', '#006b3f'] },
+    { value: 'light' as const, label: 'Light', desc: 'Clean & bright', colors: ['#ffffff', '#16a34a', '#f0fdf4'], premium: false },
+    { value: 'dark' as const, label: 'Dark', desc: 'Easy on the eyes', colors: ['#0f172a', '#16a34a', '#1e293b'], premium: false },
+    { value: 'ultra' as const, label: 'Ultra', desc: 'Pure black & white', colors: ['#000000', '#ffffff', '#1a1a1a'], premium: true },
+    { value: 'ghana' as const, label: 'Ghana Pride', desc: 'Red, Gold & Green', colors: ['#ce1126', '#fcd116', '#006b3f'], premium: true },
   ];
+
+  const isUnlocked = (t: typeof themes[0]) => !t.premium || purchasedThemes.includes(t.value);
+
+  const handleThemeClick = (t: typeof themes[0]) => {
+    if (!isUnlocked(t)) {
+      toast({
+        title: "🔒 Theme Locked",
+        description: "Purchase from Premium to unlock this theme.",
+      });
+      return;
+    }
+    setThemeMode(t.value);
+  };
 
   return (
     <div className="grid grid-cols-2 gap-3">
-      {themes.map((t) => (
-        <button
-          key={t.value}
-          onClick={() => setThemeMode(t.value)}
-          className={`relative p-4 rounded-xl border-2 transition-all text-left ${
-            themeMode === t.value
-              ? 'border-primary ring-2 ring-primary/30 shadow-md'
-              : 'border-border hover:border-muted-foreground/40'
-          }`}
-        >
-          <div className="flex gap-1.5 mb-3">
-            {t.colors.map((c, i) => (
-              <div key={i} className="w-5 h-5 rounded-full border border-border" style={{ backgroundColor: c }} />
-            ))}
-          </div>
-          <div className="font-semibold text-sm text-foreground">{t.label}</div>
-          <div className="text-xs text-muted-foreground">{t.desc}</div>
-          {themeMode === t.value && (
-            <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground text-xs">✓</span>
+      {themes.map((t) => {
+        const unlocked = isUnlocked(t);
+        return (
+          <button
+            key={t.value}
+            onClick={() => handleThemeClick(t)}
+            className={`relative p-4 rounded-xl border-2 transition-all text-left ${
+              themeMode === t.value
+                ? 'border-primary ring-2 ring-primary/30 shadow-md'
+                : 'border-border hover:border-muted-foreground/40'
+            } ${!unlocked ? 'opacity-70' : ''}`}
+          >
+            <div className="flex gap-1.5 mb-3">
+              {t.colors.map((c, i) => (
+                <div key={i} className="w-5 h-5 rounded-full border border-border" style={{ backgroundColor: c }} />
+              ))}
             </div>
-          )}
-        </button>
-      ))}
+            <div className="font-semibold text-sm text-foreground flex items-center gap-1.5">
+              {t.label}
+              {!unlocked && <Lock className="w-3.5 h-3.5 text-muted-foreground" />}
+            </div>
+            <div className="text-xs text-muted-foreground">{t.desc}</div>
+            {themeMode === t.value && unlocked && (
+              <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                <span className="text-primary-foreground text-xs">✓</span>
+              </div>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 };
