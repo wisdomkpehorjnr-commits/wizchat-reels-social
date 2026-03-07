@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import PremiumCodeVerification from '@/components/PremiumCodeVerification';
 import { useToast } from '@/hooks/use-toast';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 const PremiumThemes = () => {
   const navigate = useNavigate();

@@ -304,7 +304,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('Logging out...');
     
     try {
-      const { error } = await supabase.auth.signOut();
+      // scope: 'local' ensures only this user/browser session is logged out
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
       if (error) {
         console.error('Logout error:', error);
         throw error;
