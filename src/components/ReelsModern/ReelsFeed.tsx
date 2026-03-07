@@ -9,13 +9,16 @@ import { Post } from '@/types';
 import { dataService } from '@/services/dataService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMediaOptimization } from '@/hooks/useMediaOptimization';
-import { WifiOff } from 'lucide-react';
+import { WifiOff, Plus, ChevronDown, ChevronUp } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import VerifiedBadge from '@/components/VerifiedBadge';
+import { supabase } from '@/integrations/supabase/client';
 
 // =============================================
-// PERSISTENT MODULE-LEVEL STORE (survives all remounts)
+// PERSISTENT MODULE-LEVEL STORE
 // =============================================
 const REELS_CACHE_KEY = 'wizchat_reels_cache';
-const REELS_MIN_REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const REELS_MIN_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 
 interface ReelsStore {
   reels: Post[];
@@ -29,10 +32,8 @@ const reelsStore: ReelsStore = {
   isInitialized: false,
 };
 
-// SYNCHRONOUS initialization from localStorage on module load
 (() => {
   if (reelsStore.isInitialized) return;
-  
   try {
     const cached = localStorage.getItem(REELS_CACHE_KEY);
     if (cached) {
@@ -40,24 +41,16 @@ const reelsStore: ReelsStore = {
       if (parsed?.data && Array.isArray(parsed.data) && parsed.data.length > 0) {
         reelsStore.reels = parsed.data;
         reelsStore.lastFetchTime = parsed.timestamp || 0;
-        console.debug('[Reels] INSTANT hydration from localStorage:', parsed.data.length, 'reels');
       }
     }
-  } catch (e) {
-    console.debug('[Reels] localStorage parse failed:', e);
-  }
+  } catch {}
   reelsStore.isInitialized = true;
 })();
 
 const saveReelsToLocalStorage = (reels: Post[]) => {
   try {
-    localStorage.setItem(REELS_CACHE_KEY, JSON.stringify({
-      data: reels,
-      timestamp: Date.now()
-    }));
-  } catch (e) {
-    console.debug('[Reels] Failed to save to localStorage:', e);
-  }
+    localStorage.setItem(REELS_CACHE_KEY, JSON.stringify({ data: reels, timestamp: Date.now() }));
+  } catch {}
 };
 
 export const ReelsFeed: React.FC = () => {
@@ -65,7 +58,6 @@ export const ReelsFeed: React.FC = () => {
   const obsRef = useRef<IntersectionObserver | null>(null);
   const hasLoadedRef = useRef(false);
   
-  // INSTANT display from module store
   const hasCachedReels = reelsStore.reels.length > 0;
   
   const [posts, setPosts] = useState<Post[]>(reelsStore.reels);
@@ -74,89 +66,62 @@ export const ReelsFeed: React.FC = () => {
   const [likes, setLikes] = useState<Record<string, boolean>>({});
   const [commentsOpenFor, setCommentsOpenFor] = useState<string | null>(null);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [expandedDesc, setExpandedDesc] = useState<Record<string, boolean>>({});
+  const [followedUsers, setFollowedUsers] = useState<Set<string>>(new Set());
   
   const { isDarkMode } = useTheme();
   const { toast } = useToast();
   const { user } = useAuth();
   const { isDataSaverEnabled, networkInfo } = useMediaOptimization();
   
-  // Only load 5 reels at a time to save data
   const [visibleRange, setVisibleRange] = useState({ start: 0, end: 5 });
 
-  // Network status listener
   useEffect(() => {
-    const handleOnline = () => {
-      setIsOffline(false);
-      // Silent refresh when coming back online
-      if (hasLoadedRef.current) {
-        loadReels(true);
-      }
-    };
+    const handleOnline = () => { setIsOffline(false); if (hasLoadedRef.current) loadReels(true); };
     const handleOffline = () => setIsOffline(true);
-    
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-    
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
+    return () => { window.removeEventListener('online', handleOnline); window.removeEventListener('offline', handleOffline); };
   }, []);
 
-  // Fetch reels with caching
+  // Load followed users
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase.from('follows').select('following_id').eq('follower_id', user.id);
+      if (data) setFollowedUsers(new Set(data.map(f => f.following_id)));
+    })();
+  }, [user?.id]);
+
   useEffect(() => {
     if (hasLoadedRef.current) return;
     hasLoadedRef.current = true;
-
     const now = Date.now();
-    const timeSinceLastFetch = now - reelsStore.lastFetchTime;
-    const isCacheStale = timeSinceLastFetch > REELS_MIN_REFRESH_INTERVAL_MS;
-    
-    if (hasCachedReels && !isCacheStale) {
-      console.debug('[Reels] Cache fresh, skipping network fetch');
-      setLoading(false);
-      return;
-    }
-
-    // Background refresh if we have cached data
+    const isCacheStale = (now - reelsStore.lastFetchTime) > REELS_MIN_REFRESH_INTERVAL_MS;
+    if (hasCachedReels && !isCacheStale) { setLoading(false); return; }
     loadReels(hasCachedReels);
   }, [hasCachedReels]);
 
   const loadReels = async (silent = false) => {
     try {
-      if (!silent) {
-        setLoading(true);
-      }
-      
+      if (!silent) setLoading(true);
       const all = await dataService.getPosts();
       const reels = (all || []).filter(p => p.videoUrl || p.isReel || p.mediaType === 'video');
-      
       setPosts(reels);
       reelsStore.reels = reels;
       reelsStore.lastFetchTime = Date.now();
       saveReelsToLocalStorage(reels);
-      
-      console.debug(`[Reels] Loaded ${reels.length} reels. Data saver: ${isDataSaverEnabled}, Network: ${networkInfo.type}`);
     } catch (err) {
       console.error('Failed to load reels', err);
-      if (reelsStore.reels.length === 0) {
-        toast({ title: 'Failed to load reels', variant: 'destructive' });
-      }
-    } finally {
-      setLoading(false);
-    }
+      if (reelsStore.reels.length === 0) toast({ title: 'Failed to load reels', variant: 'destructive' });
+    } finally { setLoading(false); }
   };
 
-  // Sync posts to store
   useEffect(() => {
-    if (posts.length > 0) {
-      reelsStore.reels = posts;
-      saveReelsToLocalStorage(posts);
-    }
+    if (posts.length > 0) { reelsStore.reels = posts; saveReelsToLocalStorage(posts); }
   }, [posts]);
 
   useEffect(() => {
-    // Initialize likes from loaded posts' isLiked flag
     setLikes(() => {
       const map: Record<string, boolean> = {};
       posts.forEach(p => { if ((p as any).isLiked) map[p.id] = true; });
@@ -166,22 +131,12 @@ export const ReelsFeed: React.FC = () => {
 
   const handleLike = useCallback(async (id: string) => {
     try {
-      if (!user) {
-        toast({ title: 'Login required', description: 'Please sign in to like videos' });
-        return;
-      }
-
+      if (!user) { toast({ title: 'Login required' }); return; }
       await dataService.likePost(id);
-
-      // Refresh likes for this post
       const likesData = await dataService.getLikes(id);
       setPosts(prev => prev.map(p => p.id === id ? { ...p, likes: likesData, likeCount: likesData.length, isLiked: likesData.some((l: any) => l.userId === user.id) } : p));
-
       setLikes(prev => ({ ...prev, [id]: !prev[id] }));
-    } catch (err) {
-      console.error('Like failed', err);
-      toast({ title: 'Like failed', variant: 'destructive' });
-    }
+    } catch { toast({ title: 'Like failed', variant: 'destructive' }); }
   }, [toast, user]);
 
   const handleShare = useCallback(async (post: Post) => {
@@ -190,43 +145,41 @@ export const ReelsFeed: React.FC = () => {
         await navigator.share({ title: post.content || 'Video', url: `${window.location.origin}/reels?reel=${post.id}` });
       } else {
         await navigator.clipboard.writeText(`${window.location.origin}/reels?reel=${post.id}`);
-        toast({ title: 'Link copied to clipboard' });
+        toast({ title: 'Link copied' });
       }
-    } catch (err) { console.error('Share failed', err); }
+    } catch {}
   }, [toast]);
+
+  const handleFollow = useCallback(async (userId: string) => {
+    if (!user) { toast({ title: 'Login required' }); return; }
+    if (userId === user.id) return;
+    try {
+      await supabase.from('follows').insert({ follower_id: user.id, following_id: userId });
+      setFollowedUsers(prev => new Set(prev).add(userId));
+      toast({ title: 'Followed!', description: 'You are now following this user.' });
+    } catch (err) {
+      console.error('Follow failed', err);
+      toast({ title: 'Already following', variant: 'destructive' });
+    }
+  }, [user, toast]);
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetPost, setSheetPost] = useState<Post | null>(null);
 
-  const handleMore = useCallback((post: Post) => {
-    setSheetPost(post);
-    setSheetOpen(true);
-  }, []);
+  const handleMore = useCallback((post: Post) => { setSheetPost(post); setSheetOpen(true); }, []);
 
   const handleSave = useCallback(() => {
     if (!sheetPost) return;
     const saved = JSON.parse(localStorage.getItem('saved_reels') || '[]');
-    if (!saved.includes(sheetPost.id)) {
-      saved.push(sheetPost.id);
-      localStorage.setItem('saved_reels', JSON.stringify(saved));
-      toast({ title: 'Saved' });
-    } else {
-      toast({ title: 'Already saved' });
-    }
+    if (!saved.includes(sheetPost.id)) { saved.push(sheetPost.id); localStorage.setItem('saved_reels', JSON.stringify(saved)); toast({ title: 'Saved' }); }
+    else toast({ title: 'Already saved' });
     setSheetOpen(false);
   }, [sheetPost, toast]);
 
   const handleDownload = useCallback(() => {
     if (!sheetPost) return;
-    if (sheetPost.videoUrl) {
-      const a = document.createElement('a');
-      a.href = sheetPost.videoUrl;
-      a.download = `reel_${sheetPost.id}.mp4`;
-      a.click();
-      toast({ title: 'Download started' });
-    } else {
-      toast({ title: 'No video', description: 'This reel has no downloadable video.' });
-    }
+    if (sheetPost.videoUrl) { const a = document.createElement('a'); a.href = sheetPost.videoUrl; a.download = `reel_${sheetPost.id}.mp4`; a.click(); toast({ title: 'Download started' }); }
+    else toast({ title: 'No video' });
     setSheetOpen(false);
   }, [sheetPost, toast]);
 
@@ -235,120 +188,146 @@ export const ReelsFeed: React.FC = () => {
     const reports = JSON.parse(localStorage.getItem('reported_reels') || '[]');
     reports.push({ id: sheetPost.id, at: Date.now() });
     localStorage.setItem('reported_reels', JSON.stringify(reports));
-    toast({ title: 'Reported', description: 'We will review this content.' });
+    toast({ title: 'Reported' });
     setSheetOpen(false);
   }, [sheetPost, toast]);
 
-  // Intersection observer with optimized lazy loading
   useEffect(() => {
     if (!containerRef.current) return;
-    
     const options = { root: containerRef.current, threshold: [0.6] };
     obsRef.current = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         const index = Number((entry.target as HTMLElement).dataset.index);
         if (entry.isIntersecting) {
           setActiveIndex(index);
-          
-          // Update visible range to only load nearby reels (saves data)
-          setVisibleRange({
-            start: Math.max(0, index - 1),
-            end: Math.min(posts.length, index + 3)
-          });
+          setVisibleRange({ start: Math.max(0, index - 1), end: Math.min(posts.length, index + 3) });
         }
       });
     }, options);
-
     const els = containerRef.current.querySelectorAll('.reel-item');
     els.forEach(el => obsRef.current?.observe(el));
-
     return () => { obsRef.current?.disconnect(); };
   }, [posts]);
 
-  // Get only the reels we should render (for memory optimization)
-  const visiblePosts = posts.map((p, i) => ({
-    ...p,
-    shouldRender: i >= visibleRange.start && i <= visibleRange.end
-  }));
+  const visiblePosts = posts.map((p, i) => ({ ...p, shouldRender: i >= visibleRange.start && i <= visibleRange.end }));
 
-  // Loading skeleton
   if (loading && posts.length === 0) {
     return (
-      <div className={`fixed inset-0 ${isDarkMode ? 'bg-black' : 'bg-white'} flex items-center justify-center`}>
+      <div className="fixed inset-0 bg-black flex items-center justify-center">
         <div className="animate-pulse flex flex-col items-center gap-4">
-          <div className="w-20 h-20 rounded-full bg-muted" />
-          <div className="w-32 h-4 bg-muted rounded" />
+          <div className="w-20 h-20 rounded-full bg-white/10" />
+          <div className="w-32 h-4 bg-white/10 rounded" />
         </div>
       </div>
     );
   }
 
-  // Offline with no cached reels
   if (isOffline && posts.length === 0) {
     return (
-      <div className={`fixed inset-0 ${isDarkMode ? 'bg-black' : 'bg-white'} flex items-center justify-center`}>
+      <div className="fixed inset-0 bg-black flex items-center justify-center">
         <div className="text-center p-8">
-          <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-muted/20 backdrop-blur-xl flex items-center justify-center">
-            <WifiOff className="w-10 h-10 text-muted-foreground" />
-          </div>
-          <h3 className="text-lg font-semibold text-foreground mb-2">You're offline</h3>
-          <p className="text-muted-foreground text-sm">
-            Connect to the internet to load reels
-          </p>
+          <WifiOff className="w-12 h-12 text-white/50 mx-auto mb-4" />
+          <h3 className="text-lg font-bold text-white mb-2">You're offline</h3>
+          <p className="text-white/60 text-sm">Connect to load reels</p>
         </div>
       </div>
     );
   }
 
+  const DESC_MAX_LENGTH = 80;
+
   return (
-    <div className={`fixed inset-0 ${isDarkMode ? 'bg-black' : 'bg-white'}`}>
-      {/* Data saver banner */}
+    <div className="fixed inset-0 bg-black">
       {isDataSaverEnabled && (
-        <div className="absolute top-0 left-0 right-0 z-50 bg-yellow-500/90 text-black text-center py-1 text-sm font-medium">
-          Data Saver Mode - Tap videos to play
+        <div className="absolute top-0 left-0 right-0 z-50 bg-yellow-500/90 text-black text-center py-1 text-sm font-bold">
+          Data Saver Mode
         </div>
       )}
       
-      {/* Offline indicator */}
       {isOffline && posts.length > 0 && (
-        <div className="absolute top-0 left-0 right-0 z-50 bg-muted/80 backdrop-blur-xl text-foreground text-center py-2 text-sm">
+        <div className="absolute top-0 left-0 right-0 z-50 bg-white/10 backdrop-blur-xl text-white text-center py-2 text-sm font-bold">
           <WifiOff className="w-4 h-4 inline-block mr-2" />
-          Offline - Showing cached reels
+          Offline - Cached reels
         </div>
       )}
       
       <div ref={containerRef} className="h-full w-full overflow-y-auto snap-y snap-mandatory touch-pan-y" style={{ WebkitOverflowScrolling: 'touch' }}>
-        {visiblePosts.map((p, i) => (
-          <div key={p.id} data-index={i} className="reel-item snap-start w-full h-screen relative">
-            {/* Only render video component for visible range to save memory */}
-            {p.shouldRender ? (
-              <OptimizedReelPlayer 
-                src={p.videoUrl} 
-                isActive={i === activeIndex} 
-                poster={(p as any).thumbnail || p.imageUrl}
-              />
-            ) : (
-              // Placeholder for non-visible reels
-              <div className="w-full h-full bg-gray-900 flex items-center justify-center">
-                <div className="w-16 h-16 rounded-full bg-gray-800 animate-pulse" />
+        {visiblePosts.map((p, i) => {
+          const isDescLong = (p.content || '').length > DESC_MAX_LENGTH;
+          const isExpanded = expandedDesc[p.id];
+          const descText = isDescLong && !isExpanded ? p.content?.slice(0, DESC_MAX_LENGTH) + '...' : p.content;
+          const postUser = p.user;
+          const isVerified = !!(postUser as any)?.is_verified;
+          const isFollowing = followedUsers.has(p.userId);
+          const isOwnPost = p.userId === user?.id;
+
+          return (
+            <div key={p.id} data-index={i} className="reel-item snap-start w-full h-screen relative">
+              {p.shouldRender ? (
+                <OptimizedReelPlayer 
+                  src={p.videoUrl} 
+                  isActive={i === activeIndex} 
+                  poster={(p as any).thumbnail || p.imageUrl}
+                />
+              ) : (
+                <div className="w-full h-full bg-black flex items-center justify-center">
+                  <div className="w-16 h-16 rounded-full bg-white/5 animate-pulse" />
+                </div>
+              )}
+
+              {/* User info + description at bottom left */}
+              <div className="absolute left-4 bottom-8 z-40 max-w-[65%]">
+                {/* User row with profile pic, name, verification, follow */}
+                <div className="flex items-center gap-2 mb-2">
+                  <Avatar className="w-9 h-9 border-2 border-white/40">
+                    <AvatarImage src={postUser?.avatar || postUser?.photoURL} />
+                    <AvatarFallback className="text-white bg-white/20 text-xs font-bold">
+                      {postUser?.name?.charAt(0) || '?'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex items-center gap-1">
+                    <span className="text-white font-bold text-base">{postUser?.name}</span>
+                    {isVerified && <VerifiedBadge className="w-4 h-4" />}
+                  </div>
+                  {/* Follow button */}
+                  {!isOwnPost && !isFollowing && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleFollow(p.userId); }}
+                      className="ml-1 w-5 h-5 rounded-full bg-white/20 border border-white/40 flex items-center justify-center hover:bg-white/30"
+                      title="Follow"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-white" strokeWidth={3} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Description with read more */}
+                {p.content && (
+                  <div className="text-white font-medium text-sm leading-snug">
+                    <span>{descText}</span>
+                    {isDescLong && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setExpandedDesc(prev => ({ ...prev, [p.id]: !prev[p.id] })); }}
+                        className="ml-1 text-white/70 font-bold text-xs"
+                      >
+                        {isExpanded ? 'hide' : 'read more'}
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
-            )}
 
-            <div className="absolute left-4 bottom-8 text-white z-40 max-w-[60%]">
-              <div className="font-semibold text-lg">{p.user?.name}</div>
-              <div className="text-sm mt-1 line-clamp-3">{p.content}</div>
+              <ReelControls
+                likesCount={Array.isArray(p.likes) ? p.likes.length : ((p as any).likeCount || 0)}
+                isLiked={!!(p as any).isLiked || !!likes[p.id]}
+                onLike={() => handleLike(p.id)}
+                onComment={() => setCommentsOpenFor(p.id)}
+                onShare={() => handleShare(p)}
+                onMore={() => handleMore(p)}
+              />
             </div>
-
-            <ReelControls
-              likesCount={Array.isArray(p.likes) ? p.likes.length : ((p as any).likeCount || 0)}
-              isLiked={!!(p as any).isLiked || !!likes[p.id]}
-              onLike={() => handleLike(p.id)}
-              onComment={() => setCommentsOpenFor(p.id)}
-              onShare={() => handleShare(p)}
-              onMore={() => handleMore(p)}
-            />
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {commentsOpenFor && (
@@ -356,13 +335,7 @@ export const ReelsFeed: React.FC = () => {
       )}
       
       {sheetOpen && sheetPost && (
-        <MoreBottomSheet
-          open={sheetOpen}
-          onClose={() => setSheetOpen(false)}
-          onSave={handleSave}
-          onDownload={handleDownload}
-          onReport={handleReport}
-        />
+        <MoreBottomSheet open={sheetOpen} onClose={() => setSheetOpen(false)} onSave={handleSave} onDownload={handleDownload} onReport={handleReport} />
       )}
     </div>
   );

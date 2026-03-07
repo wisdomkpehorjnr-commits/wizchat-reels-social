@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import PremiumCodeVerification from '@/components/PremiumCodeVerification';
 import { useToast } from '@/hooks/use-toast';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 const PremiumThemes = () => {
   const navigate = useNavigate();
@@ -17,11 +18,13 @@ const PremiumThemes = () => {
   const [selectedFeature, setSelectedFeature] = useState('');
   const [purchasedThemes, setPurchasedThemes] = useState<string[]>([]);
 
+  const { user } = useAuth();
+
   useEffect(() => {
-    // Load purchased themes from localStorage
-    const purchased = JSON.parse(localStorage.getItem('purchased-themes') || '[]');
+    if (!user?.id) return;
+    const purchased = JSON.parse(localStorage.getItem(`purchased-themes-${user.id}`) || '[]');
     setPurchasedThemes(purchased);
-  }, []);
+  }, [user?.id]);
 
   const themes = [
     {
@@ -107,9 +110,10 @@ const PremiumThemes = () => {
   };
 
   const handlePurchaseSuccess = (themeId: string) => {
+    if (!user?.id) return;
     const newPurchased = [...purchasedThemes, themeId];
     setPurchasedThemes(newPurchased);
-    localStorage.setItem('purchased-themes', JSON.stringify(newPurchased));
+    localStorage.setItem(`purchased-themes-${user.id}`, JSON.stringify(newPurchased));
     
     // Activate the theme immediately after purchase
     if (themeId === 'ultra') {

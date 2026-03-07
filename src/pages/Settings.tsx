@@ -57,8 +57,10 @@ import { useMediaOptimization } from '@/hooks/useMediaOptimization';
 const ThemeSelector = () => {
   const { themeMode, setThemeMode } = useTheme();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [purchasedThemes, setPurchasedThemes] = useState<string[]>(() => {
-    try { return JSON.parse(localStorage.getItem('purchased-themes') || '[]'); } catch { return []; }
+    if (!user?.id) return [];
+    try { return JSON.parse(localStorage.getItem(`purchased-themes-${user.id}`) || '[]'); } catch { return []; }
   });
 
   const themes = [

@@ -20,6 +20,12 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 
+interface StoryGroup {
+  userId: string;
+  user: Story['user'];
+  stories: Story[];
+}
+
 interface FullScreenStoryViewerProps {
   stories: Story[];
   initialIndex: number;
@@ -28,7 +34,7 @@ interface FullScreenStoryViewerProps {
   onStoriesUpdate: () => void;
 }
 
-const STORY_DURATION = 5000; // 5 seconds per story
+const STORY_DURATION = 5000;
 
 const StoryImage: React.FC<{ src: string }> = ({ src }) => {
   const { cachedUrl } = useImageCache(src);
@@ -52,7 +58,33 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
 }) => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+
+  // Group stories by user, preserving order
+  const storyGroups = useRef<StoryGroup[]>([]);
+  const groupMap = useRef<Map<string, number>>(new Map());
+
+  // Build groups once
+  if (storyGroups.current.length === 0) {
+    const groups: StoryGroup[] = [];
+    const map = new Map<string, number>();
+    stories.forEach(s => {
+      if (map.has(s.userId)) {
+        groups[map.get(s.userId)!].stories.push(s);
+      } else {
+        map.set(s.userId, groups.length);
+        groups.push({ userId: s.userId, user: s.user, stories: [s] });
+      }
+    });
+    storyGroups.current = groups;
+    groupMap.current = map;
+  }
+
+  // Find initial group/index from the clicked story
+  const initialStory = stories[initialIndex];
+  const initGroupIdx = groupMap.current.get(initialStory?.userId || '') || 0;
+
+  const [groupIndex, setGroupIndex] = useState(initGroupIdx);
+  const [storyIndex, setStoryIndex] = useState(0);
   const [progress, setProgress] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
@@ -68,7 +100,9 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
   const startTimeRef = useRef(0);
   const elapsedRef = useRef(0);
 
-  const story = stories[currentIndex];
+  const currentGroup = storyGroups.current[groupIndex];
+  const currentStories = currentGroup?.stories || [];
+  const story = currentStories[storyIndex];
   const isOwnStory = story?.userId === user?.id;
 
   // Check like status
@@ -94,7 +128,21 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
     getLikeCount();
   }, [story?.id, user?.id]);
 
-  // Auto-advance timer
+  // Auto-advance within group, then across groups
+  const advanceStory = useCallback(() => {
+    if (storyIndex < currentStories.length - 1) {
+      // Next story in same group
+      setStoryIndex(prev => prev + 1);
+    } else if (groupIndex < storyGroups.current.length - 1) {
+      // Move to next user's group
+      setGroupIndex(prev => prev + 1);
+      setStoryIndex(0);
+    } else {
+      // All stories viewed
+      onClose();
+    }
+  }, [storyIndex, currentStories.length, groupIndex, onClose]);
+
   const startTimer = useCallback(() => {
     if (timerRef.current) cancelAnimationFrame(timerRef.current);
     startTimeRef.current = performance.now() - elapsedRef.current;
@@ -104,18 +152,13 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
       const pct = Math.min((elapsed / STORY_DURATION) * 100, 100);
       setProgress(pct);
       if (pct >= 100) {
-        // Auto-advance
-        if (currentIndex < stories.length - 1) {
-          setCurrentIndex(prev => prev + 1);
-        } else {
-          onClose();
-        }
+        advanceStory();
         return;
       }
       timerRef.current = requestAnimationFrame(tick);
     };
     timerRef.current = requestAnimationFrame(tick);
-  }, [currentIndex, stories.length, onClose]);
+  }, [advanceStory]);
 
   const pauseTimer = useCallback(() => {
     if (timerRef.current) {
@@ -130,28 +173,22 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
     setProgress(0);
     if (!isPaused) startTimer();
     return () => { if (timerRef.current) cancelAnimationFrame(timerRef.current); };
-  }, [currentIndex, isPaused, startTimer]);
+  }, [groupIndex, storyIndex, isPaused, startTimer]);
 
   // Long press to pause
-  const handlePressStart = () => {
-    setIsPaused(true);
-    pauseTimer();
-  };
-  const handlePressEnd = () => {
-    setIsPaused(false);
-    startTimer();
-  };
+  const handlePressStart = () => { setIsPaused(true); pauseTimer(); };
+  const handlePressEnd = () => { setIsPaused(false); startTimer(); };
 
   // Navigation
-  const goNext = () => {
-    if (currentIndex < stories.length - 1) {
-      setCurrentIndex(prev => prev + 1);
-    } else {
-      onClose();
-    }
-  };
+  const goNext = () => advanceStory();
   const goPrev = () => {
-    if (currentIndex > 0) setCurrentIndex(prev => prev - 1);
+    if (storyIndex > 0) {
+      setStoryIndex(prev => prev - 1);
+    } else if (groupIndex > 0) {
+      setGroupIndex(prev => prev - 1);
+      const prevGroup = storyGroups.current[groupIndex - 1];
+      setStoryIndex(prevGroup.stories.length - 1);
+    }
   };
 
   // Like
@@ -184,21 +221,19 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
     setShowViewers(true);
   };
 
-  // Reply
+  // Reply — sends "Stories" as message head
   const handleReply = async () => {
     if (!replyText.trim() || !user || !story) return;
     try {
-      // Get or create chat with story owner
       const { data: chatId, error } = await supabase.rpc('get_or_create_direct_chat', {
         p_other_user_id: story.userId
       });
       if (error) throw error;
 
-      // Send as a story reply message
       await supabase.from('messages').insert({
         chat_id: chatId,
         user_id: user.id,
-        content: `📸 Replied to your story: "${replyText.trim()}"`,
+        content: `Stories\n${replyText.trim()}`,
         type: 'story_reply',
       });
 
@@ -217,10 +252,17 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
   const handleDelete = () => {
     if (!story) return;
     onDelete(story.id);
-    if (stories.length <= 1) {
-      onClose();
-    } else if (currentIndex >= stories.length - 1) {
-      setCurrentIndex(prev => prev - 1);
+    if (currentStories.length <= 1) {
+      if (groupIndex < storyGroups.current.length - 1) {
+        storyGroups.current.splice(groupIndex, 1);
+        setStoryIndex(0);
+      } else {
+        onClose();
+      }
+    } else {
+      if (storyIndex >= currentStories.length - 1) {
+        setStoryIndex(prev => prev - 1);
+      }
     }
   };
 
@@ -231,6 +273,8 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
       await supabase.from('stories').update({ content: editCaption }).eq('id', story.id);
       toast({ title: 'Caption Updated' });
       setIsEditingCaption(false);
+      setIsPaused(false);
+      startTimer();
       onStoriesUpdate();
     } catch {
       toast({ title: 'Error', description: 'Failed to update caption.', variant: 'destructive' });
@@ -241,14 +285,14 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
 
   return (
     <div className="fixed inset-0 z-[100] bg-black flex flex-col">
-      {/* Progress bars */}
+      {/* Progress bars — one per story in current group */}
       <div className="absolute top-0 left-0 right-0 z-30 flex gap-1 px-2 pt-2">
-        {stories.map((_, i) => (
+        {currentStories.map((_, i) => (
           <div key={i} className="flex-1 h-[3px] rounded-full bg-white/30 overflow-hidden">
             <div
               className="h-full bg-white rounded-full transition-none"
               style={{
-                width: i < currentIndex ? '100%' : i === currentIndex ? `${progress}%` : '0%',
+                width: i < storyIndex ? '100%' : i === storyIndex ? `${progress}%` : '0%',
               }}
             />
           </div>
@@ -263,7 +307,7 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
             <AvatarFallback className="text-sm">{story.user.name.charAt(0)}</AvatarFallback>
           </Avatar>
           <div>
-            <p className="text-white font-semibold text-sm">{story.user.name}</p>
+            <p className="text-white font-bold text-sm">{story.user.name}</p>
             <p className="text-white/60 text-xs">
               {new Date(story.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </p>
@@ -273,9 +317,9 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
           {isOwnStory && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="text-white hover:bg-white/20 h-8 w-8 p-0">
-                  <MoreVertical className="w-5 h-5" />
-                </Button>
+                <button className="text-white p-2 rounded-full hover:bg-white/20">
+                  <MoreVertical className="w-6 h-6 font-bold" strokeWidth={2.5} />
+                </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="bg-card border-border">
                 <DropdownMenuItem onClick={() => { setEditCaption(story.content || ''); setIsEditingCaption(true); setIsPaused(true); pauseTimer(); }}>
@@ -287,9 +331,9 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          <Button variant="ghost" size="sm" className="text-white hover:bg-white/20 h-8 w-8 p-0" onClick={onClose}>
-            <X className="w-5 h-5" />
-          </Button>
+          <button className="text-white p-2 rounded-full hover:bg-white/20" onClick={onClose}>
+            <X className="w-6 h-6" strokeWidth={2.5} />
+          </button>
         </div>
       </div>
 
@@ -332,51 +376,47 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
         )}
       </div>
 
-      {/* Caption */}
+      {/* Caption — centered beneath media */}
       {story.content && story.mediaUrl && (
-        <div className="absolute bottom-24 left-0 right-0 z-20 px-6">
-          <p className="text-white text-sm bg-black/40 backdrop-blur-sm rounded-lg px-4 py-2">
+        <div className="absolute bottom-28 left-0 right-0 z-20 px-6">
+          <p className="text-white text-sm font-medium text-center bg-black/40 backdrop-blur-sm rounded-lg px-4 py-2 mx-auto max-w-[80%]">
             {story.content}
           </p>
         </div>
       )}
 
-      {/* Bottom actions */}
+      {/* Bottom actions — all buttons bold & white */}
       <div className="absolute bottom-0 left-0 right-0 z-30 px-4 pb-6 pt-3 bg-gradient-to-t from-black/70 to-transparent">
         <div className="flex items-center justify-between">
-          {/* Views (own stories) */}
+          {/* Left: Views (own) or Reply (others) */}
           {isOwnStory ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-white hover:bg-white/20 gap-1.5"
+            <button
+              className="flex items-center gap-2 text-white font-bold px-3 py-2 rounded-full hover:bg-white/20"
               onClick={handleShowViewers}
             >
-              <Eye className="w-5 h-5" />
-              <span className="text-sm">{story.viewerCount || 0}</span>
-            </Button>
+              <Eye className="w-6 h-6" strokeWidth={2.5} />
+              <span className="text-sm font-bold">{story.viewerCount || 0}</span>
+            </button>
           ) : (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-white hover:bg-white/20 gap-1.5"
+            <button
+              className="flex items-center gap-2 text-white font-bold px-3 py-2 rounded-full hover:bg-white/20"
               onClick={() => { setShowReply(true); setIsPaused(true); pauseTimer(); }}
             >
-              <MessageCircle className="w-5 h-5" />
-              <span className="text-sm">Reply</span>
-            </Button>
+              <MessageCircle className="w-6 h-6" strokeWidth={2.5} />
+              <span className="text-sm font-bold">Reply</span>
+            </button>
           )}
 
-          {/* Like */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className={`hover:bg-white/20 gap-1.5 ${isLiked ? 'text-red-500' : 'text-white'}`}
+          {/* Right: Like — show count only if own story */}
+          <button
+            className={`flex items-center gap-2 px-3 py-2 rounded-full hover:bg-white/20 font-bold ${isLiked ? 'text-red-500' : 'text-white'}`}
             onClick={handleLike}
           >
-            <Heart className={`w-5 h-5 ${isLiked ? 'fill-red-500' : ''}`} />
-            <span className="text-sm">{likeCount > 0 ? likeCount : ''}</span>
-          </Button>
+            <Heart className={`w-6 h-6 ${isLiked ? 'fill-red-500' : ''}`} strokeWidth={2.5} />
+            {isOwnStory && likeCount > 0 && (
+              <span className="text-sm font-bold">{likeCount}</span>
+            )}
+          </button>
         </div>
       </div>
 
