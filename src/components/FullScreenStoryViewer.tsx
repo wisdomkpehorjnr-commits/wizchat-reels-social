@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { 
-  X, Eye, Heart, MessageCircle, MoreVertical, Trash2, Edit, Send
+  Eye, Heart, MessageCircle, MoreVertical, Trash2, Edit, Send
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Story } from '@/types';
@@ -59,11 +59,9 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
   const { user } = useAuth();
   const { toast } = useToast();
 
-  // Group stories by user, preserving order
   const storyGroups = useRef<StoryGroup[]>([]);
   const groupMap = useRef<Map<string, number>>(new Map());
 
-  // Build groups once
   if (storyGroups.current.length === 0) {
     const groups: StoryGroup[] = [];
     const map = new Map<string, number>();
@@ -79,7 +77,6 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
     groupMap.current = map;
   }
 
-  // Find initial group/index from the clicked story
   const initialStory = stories[initialIndex];
   const initGroupIdx = groupMap.current.get(initialStory?.userId || '') || 0;
 
@@ -105,7 +102,6 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
   const story = currentStories[storyIndex];
   const isOwnStory = story?.userId === user?.id;
 
-  // Check like status
   useEffect(() => {
     if (!story || !user) return;
     const checkLike = async () => {
@@ -128,17 +124,13 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
     getLikeCount();
   }, [story?.id, user?.id]);
 
-  // Auto-advance within group, then across groups
   const advanceStory = useCallback(() => {
     if (storyIndex < currentStories.length - 1) {
-      // Next story in same group
       setStoryIndex(prev => prev + 1);
     } else if (groupIndex < storyGroups.current.length - 1) {
-      // Move to next user's group
       setGroupIndex(prev => prev + 1);
       setStoryIndex(0);
     } else {
-      // All stories viewed
       onClose();
     }
   }, [storyIndex, currentStories.length, groupIndex, onClose]);
@@ -146,7 +138,6 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
   const startTimer = useCallback(() => {
     if (timerRef.current) cancelAnimationFrame(timerRef.current);
     startTimeRef.current = performance.now() - elapsedRef.current;
-
     const tick = (now: number) => {
       const elapsed = now - startTimeRef.current;
       const pct = Math.min((elapsed / STORY_DURATION) * 100, 100);
@@ -175,11 +166,9 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
     return () => { if (timerRef.current) cancelAnimationFrame(timerRef.current); };
   }, [groupIndex, storyIndex, isPaused, startTimer]);
 
-  // Long press to pause
   const handlePressStart = () => { setIsPaused(true); pauseTimer(); };
   const handlePressEnd = () => { setIsPaused(false); startTimer(); };
 
-  // Navigation
   const goNext = () => advanceStory();
   const goPrev = () => {
     if (storyIndex > 0) {
@@ -191,12 +180,10 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
     }
   };
 
-  // Like
   const handleLike = async () => {
     if (!user || !story) return;
     setShowHeartAnim(true);
     setTimeout(() => setShowHeartAnim(false), 800);
-
     if (isLiked) {
       setIsLiked(false);
       setLikeCount(prev => Math.max(0, prev - 1));
@@ -208,7 +195,6 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
     }
   };
 
-  // View viewers
   const handleShowViewers = async () => {
     if (!story) return;
     pauseTimer();
@@ -221,7 +207,6 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
     setShowViewers(true);
   };
 
-  // Reply — sends "Stories" as message head
   const handleReply = async () => {
     if (!replyText.trim() || !user || !story) return;
     try {
@@ -229,14 +214,12 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
         p_other_user_id: story.userId
       });
       if (error) throw error;
-
       await supabase.from('messages').insert({
         chat_id: chatId,
         user_id: user.id,
         content: `Stories\n${replyText.trim()}`,
         type: 'story_reply',
       });
-
       toast({ title: 'Reply Sent', description: 'Your reply was sent as a message.' });
       setReplyText('');
       setShowReply(false);
@@ -248,7 +231,6 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
     }
   };
 
-  // Delete
   const handleDelete = () => {
     if (!story) return;
     onDelete(story.id);
@@ -266,7 +248,6 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
     }
   };
 
-  // Edit caption
   const handleSaveCaption = async () => {
     if (!story) return;
     try {
@@ -285,8 +266,8 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
 
   return (
     <div className="fixed inset-0 z-[100] bg-black flex flex-col">
-      {/* Progress bars — one per story in current group */}
-      <div className="absolute top-0 left-0 right-0 z-30 flex gap-1 px-2 pt-2">
+      {/* Progress bars */}
+      <div className="absolute top-0 left-0 right-0 z-50 flex gap-1 px-2 pt-2">
         {currentStories.map((_, i) => (
           <div key={i} className="flex-1 h-[3px] rounded-full bg-white/30 overflow-hidden">
             <div
@@ -299,12 +280,12 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
         ))}
       </div>
 
-      {/* Header */}
-      <div className="absolute top-5 left-0 right-0 z-30 flex items-center justify-between px-4 py-2">
-        <div className="flex items-center gap-3">
+      {/* Header — z-50 so it's above touch zones */}
+      <div className="absolute top-5 left-0 right-0 z-50 flex items-center justify-between px-4 py-2">
+        <div className="flex items-center gap-3 cursor-pointer" onClick={onClose}>
           <Avatar className="w-9 h-9 border-2 border-white/40">
             <AvatarImage src={story.user.avatar} />
-            <AvatarFallback className="text-sm">{story.user.name.charAt(0)}</AvatarFallback>
+            <AvatarFallback className="text-sm text-white">{story.user.name.charAt(0)}</AvatarFallback>
           </Avatar>
           <div>
             <p className="text-white font-bold text-sm">{story.user.name}</p>
@@ -317,11 +298,11 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
           {isOwnStory && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="text-white p-2 rounded-full hover:bg-white/20">
-                  <MoreVertical className="w-6 h-6 font-bold" strokeWidth={2.5} />
+                <button className="text-white p-2 rounded-full hover:bg-white/20 relative z-50">
+                  <MoreVertical className="w-6 h-6" strokeWidth={2.5} />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-card border-border">
+              <DropdownMenuContent align="end" className="bg-card border-border z-[200]">
                 <DropdownMenuItem onClick={() => { setEditCaption(story.content || ''); setIsEditingCaption(true); setIsPaused(true); pauseTimer(); }}>
                   <Edit className="w-4 h-4 mr-2" /> Edit Caption
                 </DropdownMenuItem>
@@ -331,13 +312,10 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          <button className="text-white p-2 rounded-full hover:bg-white/20" onClick={onClose}>
-            <X className="w-6 h-6" strokeWidth={2.5} />
-          </button>
         </div>
       </div>
 
-      {/* Story content — touch zones */}
+      {/* Story content — touch zones for nav + long press */}
       <div
         className="flex-1 flex items-center justify-center relative select-none"
         onTouchStart={handlePressStart}
@@ -345,7 +323,7 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
         onMouseDown={handlePressStart}
         onMouseUp={handlePressEnd}
       >
-        {/* Left tap zone */}
+        {/* Left tap zone — z-20 so buttons above at z-50 work */}
         <div className="absolute left-0 top-0 bottom-0 w-1/3 z-20" onClick={goPrev} />
         {/* Right tap zone */}
         <div className="absolute right-0 top-0 bottom-0 w-1/3 z-20" onClick={goNext} />
@@ -376,53 +354,51 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
         )}
       </div>
 
-      {/* Caption — centered beneath media */}
+      {/* Caption */}
       {story.content && story.mediaUrl && (
-        <div className="absolute bottom-28 left-0 right-0 z-20 px-6">
+        <div className="absolute bottom-28 left-0 right-0 z-40 px-6">
           <p className="text-white text-sm font-medium text-center bg-black/40 backdrop-blur-sm rounded-lg px-4 py-2 mx-auto max-w-[80%]">
             {story.content}
           </p>
         </div>
       )}
 
-      {/* Bottom actions — all buttons bold & white */}
-      <div className="absolute bottom-0 left-0 right-0 z-30 px-4 pb-6 pt-3 bg-gradient-to-t from-black/70 to-transparent">
+      {/* Bottom actions — z-50 so they are clickable above touch zones */}
+      <div className="absolute bottom-0 left-0 right-0 z-50 px-4 pb-6 pt-3 bg-gradient-to-t from-black/70 to-transparent">
         <div className="flex items-center justify-between">
-          {/* Left: Views (own) or Reply (others) */}
           {isOwnStory ? (
             <button
               className="flex items-center gap-2 text-white font-bold px-3 py-2 rounded-full hover:bg-white/20"
-              onClick={handleShowViewers}
+              onClick={(e) => { e.stopPropagation(); handleShowViewers(); }}
             >
-              <Eye className="w-6 h-6" strokeWidth={2.5} />
-              <span className="text-sm font-bold">{story.viewerCount || 0}</span>
+              <Eye className="w-6 h-6 text-white" strokeWidth={2.5} />
+              <span className="text-sm font-bold text-white">{story.viewerCount || 0}</span>
             </button>
           ) : (
             <button
               className="flex items-center gap-2 text-white font-bold px-3 py-2 rounded-full hover:bg-white/20"
-              onClick={() => { setShowReply(true); setIsPaused(true); pauseTimer(); }}
+              onClick={(e) => { e.stopPropagation(); setShowReply(true); setIsPaused(true); pauseTimer(); }}
             >
-              <MessageCircle className="w-6 h-6" strokeWidth={2.5} />
-              <span className="text-sm font-bold">Reply</span>
+              <MessageCircle className="w-6 h-6 text-white" strokeWidth={2.5} />
+              <span className="text-sm font-bold text-white">Reply</span>
             </button>
           )}
 
-          {/* Right: Like — show count only if own story */}
           <button
             className={`flex items-center gap-2 px-3 py-2 rounded-full hover:bg-white/20 font-bold ${isLiked ? 'text-red-500' : 'text-white'}`}
-            onClick={handleLike}
+            onClick={(e) => { e.stopPropagation(); handleLike(); }}
           >
-            <Heart className={`w-6 h-6 ${isLiked ? 'fill-red-500' : ''}`} strokeWidth={2.5} />
+            <Heart className={`w-6 h-6 ${isLiked ? 'fill-red-500 text-red-500' : 'text-white'}`} strokeWidth={2.5} />
             {isOwnStory && likeCount > 0 && (
-              <span className="text-sm font-bold">{likeCount}</span>
+              <span className="text-sm font-bold text-white">{likeCount}</span>
             )}
           </button>
         </div>
       </div>
 
-      {/* Viewers sheet */}
+      {/* Viewers dialog */}
       <Dialog open={showViewers} onOpenChange={(open) => { setShowViewers(open); if (!open) { setIsPaused(false); startTimer(); } }}>
-        <DialogContent className="max-w-sm bg-card border-border">
+        <DialogContent className="max-w-sm bg-card border-border z-[200]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Eye className="w-5 h-5" /> Story Views ({viewers.length})
@@ -451,9 +427,9 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
         </DialogContent>
       </Dialog>
 
-      {/* Reply sheet */}
+      {/* Reply dialog */}
       <Dialog open={showReply} onOpenChange={(open) => { setShowReply(open); if (!open) { setIsPaused(false); startTimer(); } }}>
-        <DialogContent className="max-w-sm bg-card border-border">
+        <DialogContent className="max-w-sm bg-card border-border z-[200]">
           <DialogHeader>
             <DialogTitle>Reply to {story.user.name}'s Story</DialogTitle>
           </DialogHeader>
@@ -474,7 +450,7 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
 
       {/* Edit caption dialog */}
       <Dialog open={isEditingCaption} onOpenChange={(open) => { setIsEditingCaption(open); if (!open) { setIsPaused(false); startTimer(); } }}>
-        <DialogContent className="max-w-sm bg-card border-border">
+        <DialogContent className="max-w-sm bg-card border-border z-[200]">
           <DialogHeader>
             <DialogTitle>Edit Caption</DialogTitle>
           </DialogHeader>
