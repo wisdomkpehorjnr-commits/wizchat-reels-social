@@ -501,36 +501,39 @@ const Profile = () => {
             <CachedCoverImage src={targetUser.coverImage} />
           )}
           <CardContent className="relative p-6">
-            <div className="flex flex-col md:flex-row items-start md:items-end space-y-4 md:space-y-0 md:space-x-6 -mt-12 md:-mt-10">
+            {/* Avatar - overlaps cover */}
+            <div className="flex items-end -mt-16 md:-mt-14 mb-2">
               <div className="relative">
                 <Avatar
-                  className="w-32 h-32 border-4 border-white/20 backdrop-blur-sm bg-white/10 cursor-pointer hover:scale-105 transition-transform"
+                  className="w-24 h-24 border-4 border-background cursor-pointer hover:scale-105 transition-transform"
                   onClick={() => targetUser?.avatar && setShowImageModal(targetUser.avatar)}
                 >
                   <AvatarImage src={targetUser?.avatar || targetUser?.photoURL} />
-                  <AvatarFallback className="text-4xl bg-gradient-to-br from-purple-400 to-pink-400 text-white">
+                  <AvatarFallback className="text-3xl bg-gradient-to-br from-purple-400 to-pink-400 text-white">
                     {targetUser?.name?.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
                 {targetUser?.is_verified && (
-                  <div className="absolute bottom-2 right-2">
+                  <div className="absolute bottom-1 right-1">
                     <VerificationBadge isVerified={true} size="md" />
                   </div>
                 )}
                 {targetUser?.isPrivate && <Badge className="absolute -bottom-2 -right-2 bg-orange-500">Private</Badge>}
               </div>
+            </div>
 
-              <div className="flex-1 space-y-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h1 className="text-3xl font-bold text-strong-contrast">{targetUser?.name}</h1>
-                    {targetUser?.is_verified && (
-                      <VerificationBadge isVerified={true} size="lg" showText />
-                    )}
-                  </div>
-                  <p className="text-strong-contrast/80">@{targetUser?.username}</p>
-                  {targetUser?.bio && <p className="text-strong-contrast/90 mt-2">{targetUser.bio}</p>}
+            {/* Name & info - fully below the cover on background */}
+            <div className="space-y-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-2xl font-bold text-foreground">{targetUser?.name}</h1>
+                  {targetUser?.is_verified && (
+                    <VerificationBadge isVerified={true} size="lg" showText />
+                  )}
                 </div>
+                <p className="text-muted-foreground">@{targetUser?.username}</p>
+                {targetUser?.bio && <p className="text-foreground/90 mt-1">{targetUser.bio}</p>}
+              </div>
 
                 <div className="flex flex-wrap gap-4 text-sm text-strong-contrast/80">
                   <div className="flex items-center space-x-1"><Calendar className="w-4 h-4" /><span>Joined {targetUser?.createdAt ? new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(targetUser.createdAt) : 'Unknown'}</span></div>
