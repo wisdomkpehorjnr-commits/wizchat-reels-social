@@ -61,7 +61,34 @@ const CachedPostImage = ({ src, onClick }: { src: string; onClick: () => void })
   );
 };
 
-interface RoomPostCardProps {
+/** Fullscreen image modal with offline cache support */
+const CachedImageModal = ({ src, onClose }: { src: string; onClose: () => void }) => {
+  const { cachedUrl } = useImageCache(src);
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+      onClick={onClose}
+    >
+      <div className="relative max-w-7xl max-h-full">
+        <img
+          src={cachedUrl}
+          alt="Post content"
+          className="max-w-full max-h-[90vh] object-contain rounded-lg"
+          onClick={(e) => e.stopPropagation()}
+        />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white"
+          onClick={onClose}
+        >
+          <X className="h-6 w-6" />
+        </Button>
+      </div>
+    </div>
+  );
+};
+
   post: any;
   onPostUpdate: () => void;
 }
