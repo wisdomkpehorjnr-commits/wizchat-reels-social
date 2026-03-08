@@ -89,6 +89,7 @@ const CachedImageModal = ({ src, onClose }: { src: string; onClose: () => void }
   );
 };
 
+interface RoomPostCardProps {
   post: any;
   onPostUpdate: () => void;
 }
