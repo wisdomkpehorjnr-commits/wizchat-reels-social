@@ -182,16 +182,42 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
 
   const handleLike = async () => {
     if (!user || !story) return;
+    const wasLiked = isLiked;
     setShowHeartAnim(true);
     setTimeout(() => setShowHeartAnim(false), 800);
-    if (isLiked) {
+    
+    // Optimistic update
+    if (wasLiked) {
       setIsLiked(false);
       setLikeCount(prev => Math.max(0, prev - 1));
-      await supabase.from('story_likes').delete().eq('story_id', story.id).eq('user_id', user.id);
     } else {
       setIsLiked(true);
       setLikeCount(prev => prev + 1);
-      await supabase.from('story_likes').insert({ story_id: story.id, user_id: user.id });
+    }
+
+    try {
+      if (wasLiked) {
+        const { error } = await supabase.from('story_likes').delete().eq('story_id', story.id).eq('user_id', user.id);
+        if (error) throw error;
+      } else {
+        // Check if already exists to avoid duplicate key error
+        const { data: existing } = await supabase
+          .from('story_likes')
+          .select('id')
+          .eq('story_id', story.id)
+          .eq('user_id', user.id)
+          .maybeSingle();
+        
+        if (!existing) {
+          const { error } = await supabase.from('story_likes').insert({ story_id: story.id, user_id: user.id });
+          if (error && error.code !== '23505') throw error;
+        }
+      }
+    } catch (err) {
+      console.error('Error toggling story like:', err);
+      // Revert optimistic update
+      setIsLiked(wasLiked);
+      setLikeCount(prev => wasLiked ? prev + 1 : Math.max(0, prev - 1));
     }
   };
 

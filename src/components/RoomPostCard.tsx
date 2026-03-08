@@ -210,46 +210,55 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
     }
   }, [showCommentModal]);
 
+  const REACTIONS_CACHE_KEY = `room_post_reactions_${post.id}`;
+
   const loadLikes = async () => {
+    // Load from cache first for instant display
     try {
-      // Try room_post_reactions first (for room posts)
+      const cached = localStorage.getItem(REACTIONS_CACHE_KEY);
+      if (cached) {
+        const { likes: cLikes, dislikes: cDislikes, userLiked, userDisliked } = JSON.parse(cached);
+        setLikeCount(cLikes ?? 0);
+        setDislikeCount(cDislikes ?? 0);
+        setIsLiked(userLiked ?? false);
+        setIsDisliked(userDisliked ?? false);
+      }
+    } catch {}
+
+    try {
       const { data: roomReactions, error: roomError } = await (supabase as any)
         .from('room_post_reactions')
         .select('*')
         .eq('post_id', post.id);
       
-      if (!roomError && roomReactions) {
-        const likes = roomReactions.filter((r: any) => r.emoji === '👍');
-        const dislikes = roomReactions.filter((r: any) => r.emoji === '👎');
-        setLikeCount(likes.length);
-        setDislikeCount(dislikes.length);
-        if (user) {
-          setIsLiked(!!likes.find((r: any) => r.user_id === user.id));
-          setIsDisliked(!!dislikes.find((r: any) => r.user_id === user.id));
-        }
-        return;
+      if (roomError) {
+        console.error('Error loading room reactions:', roomError);
+        return; // Keep cached values
       }
 
-      // Fallback to reactions table
-      const { data: reactions, error } = await supabase
-        .from('reactions')
-        .select('*')
-        .eq('post_id', post.id);
-      
-      if (!error && reactions) {
-        const likes = reactions.filter(r => r.emoji === '👍');
-        const dislikes = reactions.filter(r => r.emoji === '👎');
-        
-        setLikeCount(likes.length);
-        setDislikeCount(dislikes.length);
-        
-        if (user) {
-          setIsLiked(!!likes.find(r => r.user_id === user.id));
-          setIsDisliked(!!dislikes.find(r => r.user_id === user.id));
-        }
-      }
+      const reactions = roomReactions || [];
+      const likes = reactions.filter((r: any) => r.emoji === '👍');
+      const dislikes = reactions.filter((r: any) => r.emoji === '👎');
+      const userLiked = user ? !!likes.find((r: any) => r.user_id === user.id) : false;
+      const userDisliked = user ? !!dislikes.find((r: any) => r.user_id === user.id) : false;
+
+      setLikeCount(likes.length);
+      setDislikeCount(dislikes.length);
+      setIsLiked(userLiked);
+      setIsDisliked(userDisliked);
+
+      // Cache for offline / instant re-display
+      try {
+        localStorage.setItem(REACTIONS_CACHE_KEY, JSON.stringify({
+          likes: likes.length,
+          dislikes: dislikes.length,
+          userLiked,
+          userDisliked,
+        }));
+      } catch {}
     } catch (error) {
       console.error('Error loading likes:', error);
+      // Cached values remain displayed
     }
   };
 
