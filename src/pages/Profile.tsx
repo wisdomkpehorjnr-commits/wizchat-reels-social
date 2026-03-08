@@ -486,13 +486,10 @@ const Profile = () => {
         {/* Profile Header - Always shows from cache */}
         <Card className="relative overflow-hidden backdrop-blur-md bg-white/10 border-white/20 shadow-xl">
           {targetUser?.coverImage && (
-            <div className="h-48 md:h-64 relative">
-              <img src={targetUser.coverImage} alt="Cover" className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-            </div>
+            <CachedCoverImage src={targetUser.coverImage} />
           )}
           <CardContent className="relative p-6">
-            <div className="flex flex-col md:flex-row items-start md:items-end space-y-4 md:space-y-0 md:space-x-6 -mt-16 md:-mt-12">
+            <div className="flex flex-col md:flex-row items-start md:items-end space-y-4 md:space-y-0 md:space-x-6 -mt-12 md:-mt-10">
               <div className="relative">
                 <Avatar
                   className="w-32 h-32 border-4 border-white/20 backdrop-blur-sm bg-white/10 cursor-pointer hover:scale-105 transition-transform"
