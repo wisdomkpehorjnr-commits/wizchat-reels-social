@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { MoreVertical, ThumbsUp, ThumbsDown, MessageSquare, Share2, Edit, Trash2, X, Send } from 'lucide-react';
+import { MoreVertical, ThumbsUp, ThumbsDown, MessageSquare, Share2, Edit, Trash2, X, Send, WifiOff, ImageOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -21,6 +21,45 @@ import ConfirmationDialog from './ui/confirmation-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import ShareBoard from './ShareBoard';
+import { useImageCache } from '@/hooks/useImageCache';
+
+/** Offline placeholder for media that couldn't be cached */
+const OfflineMediaPlaceholder = ({ type = 'image' }: { type?: 'image' | 'video' }) => (
+  <div className="w-full rounded-xl bg-gradient-to-br from-muted/60 to-muted/30 border border-border/50 flex flex-col items-center justify-center gap-3 py-12 px-6">
+    <div className="rounded-full bg-muted/80 p-4">
+      <WifiOff className="h-7 w-7 text-muted-foreground/70" />
+    </div>
+    <div className="text-center space-y-1">
+      <p className="text-sm font-medium text-muted-foreground">
+        {type === 'video' ? 'Video unavailable offline' : 'Image unavailable offline'}
+      </p>
+      <p className="text-xs text-muted-foreground/60">
+        Connect to the internet to view this content
+      </p>
+    </div>
+  </div>
+);
+
+/** Cached image component for room posts */
+const CachedPostImage = ({ src, onClick }: { src: string; onClick: () => void }) => {
+  const { cachedUrl, isLoading, error } = useImageCache(src);
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  if (loadFailed || (error && !cachedUrl)) {
+    return <OfflineMediaPlaceholder type="image" />;
+  }
+
+  return (
+    <div className="mt-2 rounded-lg overflow-hidden cursor-pointer" onClick={onClick}>
+      <img
+        src={cachedUrl}
+        alt="Post content"
+        className="w-full object-cover max-h-96 rounded-lg hover:opacity-90 transition-opacity"
+        onError={() => setLoadFailed(true)}
+      />
+    </div>
+  );
+};
 
 interface RoomPostCardProps {
   post: any;
