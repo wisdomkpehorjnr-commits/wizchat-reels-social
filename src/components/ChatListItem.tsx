@@ -77,6 +77,7 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
   const isOnline = useOnlineStatus(friend.id);
   const hasFetchedRef = useRef(false);
   const chatIdRef = useRef<string | null>(null);
+  const { cachedUrl: cachedAvatarUrl } = useImageCache(friend.avatar);
 
   useEffect(() => {
     if (isWizAi) {
