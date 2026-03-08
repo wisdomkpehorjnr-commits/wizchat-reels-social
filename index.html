@@ -20,15 +20,7 @@
   <body>
     <div id="root">
       <div id="initial-loader" style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:transparent;">
-        <svg width="40" height="40" viewBox="0 0 40 40" style="animation:init-spin 0.75s linear infinite;">
-          <defs>
-            <linearGradient id="g" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stop-color="#22c55e" stop-opacity="0.1"/>
-              <stop offset="100%" stop-color="#22c55e"/>
-            </linearGradient>
-          </defs>
-          <circle cx="20" cy="20" r="17" fill="none" stroke="url(#g)" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="80 27"/>
-        </svg>
+        <div style="width:128px;height:128px;border-radius:9999px;border-bottom:2px solid #22c55e;animation:init-spin 1s linear infinite;"></div>
         <style>@keyframes init-spin{to{transform:rotate(360deg)}}</style>
       </div>
     </div>
