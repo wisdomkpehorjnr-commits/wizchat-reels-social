@@ -21,6 +21,18 @@ import { useNavigate, useParams } from 'react-router-dom';
 import VerificationBadge from '@/components/VerificationBadge';
 import LoadingDots from '@/components/LoadingDots';
 import { cacheService } from '@/services/cacheService';
+import { useImageCache } from '@/hooks/useImageCache';
+
+// Cached cover image component - permanently cached, no re-downloads
+const CachedCoverImage: React.FC<{ src: string }> = ({ src }) => {
+  const { cachedUrl } = useImageCache(src);
+  return (
+    <div className="h-48 md:h-64 relative">
+      <img src={cachedUrl} alt="Cover" className="w-full h-full object-cover" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+    </div>
+  );
+};
 
 // =============================================
 // PERSISTENT PROFILE CACHE
@@ -486,103 +498,96 @@ const Profile = () => {
         {/* Profile Header - Always shows from cache */}
         <Card className="relative overflow-hidden backdrop-blur-md bg-white/10 border-white/20 shadow-xl">
           {targetUser?.coverImage && (
-            <div className="h-48 md:h-64 relative">
-              <img src={targetUser.coverImage} alt="Cover" className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-            </div>
+            <CachedCoverImage src={targetUser.coverImage} />
           )}
           <CardContent className="relative p-6">
-            <div className="flex flex-col md:flex-row items-start md:items-end space-y-4 md:space-y-0 md:space-x-6 -mt-16 md:-mt-12">
+            {/* Avatar - overlaps cover */}
+            <div className="flex items-end -mt-16 md:-mt-14 mb-2">
               <div className="relative">
                 <Avatar
-                  className="w-32 h-32 border-4 border-white/20 backdrop-blur-sm bg-white/10 cursor-pointer hover:scale-105 transition-transform"
+                  className="w-24 h-24 border-4 border-background cursor-pointer hover:scale-105 transition-transform"
                   onClick={() => targetUser?.avatar && setShowImageModal(targetUser.avatar)}
                 >
                   <AvatarImage src={targetUser?.avatar || targetUser?.photoURL} />
-                  <AvatarFallback className="text-4xl bg-gradient-to-br from-purple-400 to-pink-400 text-white">
+                  <AvatarFallback className="text-3xl bg-gradient-to-br from-purple-400 to-pink-400 text-white">
                     {targetUser?.name?.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
                 {targetUser?.is_verified && (
-                  <div className="absolute bottom-2 right-2">
+                  <div className="absolute bottom-1 right-1">
                     <VerificationBadge isVerified={true} size="md" />
                   </div>
                 )}
                 {targetUser?.isPrivate && <Badge className="absolute -bottom-2 -right-2 bg-orange-500">Private</Badge>}
               </div>
+            </div>
 
-              <div className="flex-1 space-y-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h1 className="text-3xl font-bold text-strong-contrast">{targetUser?.name}</h1>
-                    {targetUser?.is_verified && (
-                      <VerificationBadge isVerified={true} size="lg" showText />
-                    )}
-                  </div>
-                  <p className="text-strong-contrast/80">@{targetUser?.username}</p>
-                  {targetUser?.bio && <p className="text-strong-contrast/90 mt-2">{targetUser.bio}</p>}
+            {/* Name & info - fully below the cover on background */}
+            <div className="space-y-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-2xl font-bold text-foreground">{targetUser?.name}</h1>
+                  {targetUser?.is_verified && (
+                    <VerificationBadge isVerified={true} size="lg" showText />
+                  )}
                 </div>
-
-                <div className="flex flex-wrap gap-4 text-sm text-strong-contrast/80">
-                  <div className="flex items-center space-x-1"><Calendar className="w-4 h-4" /><span>Joined {targetUser?.createdAt ? new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(targetUser.createdAt) : 'Unknown'}</span></div>
-                  {targetUser?.location && <div className="flex items-center space-x-1"><MapPin className="w-4 h-4" /><span>{targetUser.location}</span></div>}
-                  {targetUser?.website && <div className="flex items-center space-x-1"><LinkIcon className="w-4 h-4" /><a href={targetUser.website} target="_blank" rel="noopener noreferrer">{targetUser.website}</a></div>}
-                </div>
-
-                <div className="flex space-x-6">
-                  <div className="text-center"><p className="text-2xl font-bold">{userPosts.length}</p><p className="text-sm text-strong-contrast/80">Posts</p></div>
-                  <div className="text-center"><p className="text-2xl font-bold">{userReels.length}</p><p className="text-sm text-strong-contrast/80">Reels</p></div>
-                  <div className="text-center"><p className="text-2xl font-bold">{targetUser?.followerCount || 0}</p><p className="text-sm text-strong-contrast/80">Followers</p></div>
-                  <div className="text-center"><p className="text-2xl font-bold">{targetUser?.followingCount || 0}</p><p className="text-sm text-strong-contrast/80">Following</p></div>
-                </div>
+                <p className="text-muted-foreground">@{targetUser?.username}</p>
+                {targetUser?.bio && <p className="text-foreground/90 mt-1">{targetUser.bio}</p>}
               </div>
 
-              <div className="flex space-x-2">
-                {isOwnProfile ? (
-                  <>
-                    <Button variant="outline" className="backdrop-blur-sm bg-white/10 border-white/20" onClick={() => setShowEditDialog(true)}><Edit className="w-4 h-4 mr-2" />Edit Profile</Button>
-                    <Button variant="outline" className="backdrop-blur-sm bg-green-600 text-white" onClick={() => setShowAvatarStudio(true)}><UserCircle className="w-4 h-4 mr-2" />Customize Avatar</Button>
-                  </>
-                ) : (
-                  <>
-                    <Button variant="outline" className="backdrop-blur-sm bg-white/10 border-white/20" onClick={handleFollow}>
-                      {isFollowing ? <UserMinus className="w-4 h-4 mr-2" /> : <UserPlus className="w-4 h-4 mr-2" />}
-                      {isFollowing ? 'Unfollow' : 'Follow'}
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      className="backdrop-blur-sm bg-white/10 border-white/20"
-                      onClick={async () => {
-                        if (!targetUser?.id || !user?.id) return;
-                        try {
-                          const { data: chatId, error } = await supabase.rpc('get_or_create_direct_chat', {
-                            p_other_user_id: targetUser.id
-                          });
-                          
-                          if (error) throw error;
-                          
-                          navigate('/chat');
-                          
-                          setTimeout(() => {
-                            window.dispatchEvent(new CustomEvent('openChatWithUser', { 
-                              detail: { userId: targetUser.id, chatId } 
-                            }));
-                          }, 300);
-                        } catch (error) {
-                          console.error('Error opening chat:', error);
-                          toast({
-                            title: "Error",
-                            description: "Failed to open chat. Please try again.",
-                            variant: "destructive"
-                          });
-                        }
-                      }}
-                    >
-                      <MessageCircle className="w-4 h-4 mr-2" />
-                      Message
-                    </Button>
-                  </>
-                )}
+              <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                <div className="flex items-center space-x-1"><Calendar className="w-4 h-4" /><span>Joined {targetUser?.createdAt ? new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(targetUser.createdAt) : 'Unknown'}</span></div>
+                {targetUser?.location && <div className="flex items-center space-x-1"><MapPin className="w-4 h-4" /><span>{targetUser.location}</span></div>}
+                {targetUser?.website && <div className="flex items-center space-x-1"><LinkIcon className="w-4 h-4" /><a href={targetUser.website} target="_blank" rel="noopener noreferrer">{targetUser.website}</a></div>}
+              </div>
+
+              <div className="flex items-center gap-4 flex-wrap">
+                <div className="flex space-x-6">
+                  <div className="text-center"><p className="text-2xl font-bold">{userPosts.length}</p><p className="text-sm text-muted-foreground">Posts</p></div>
+                  <div className="text-center"><p className="text-2xl font-bold">{userReels.length}</p><p className="text-sm text-muted-foreground">Reels</p></div>
+                  <div className="text-center"><p className="text-2xl font-bold">{targetUser?.followerCount || 0}</p><p className="text-sm text-muted-foreground">Followers</p></div>
+                  <div className="text-center"><p className="text-2xl font-bold">{targetUser?.followingCount || 0}</p><p className="text-sm text-muted-foreground">Following</p></div>
+                </div>
+
+                <div className="flex space-x-2 ml-auto">
+                  {isOwnProfile ? (
+                    <>
+                      <Button variant="outline" onClick={() => setShowEditDialog(true)}><Edit className="w-4 h-4 mr-2" />Edit Profile</Button>
+                      <Button variant="outline" className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setShowAvatarStudio(true)}><UserCircle className="w-4 h-4 mr-2" />Customize Avatar</Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button variant="outline" onClick={handleFollow}>
+                        {isFollowing ? <UserMinus className="w-4 h-4 mr-2" /> : <UserPlus className="w-4 h-4 mr-2" />}
+                        {isFollowing ? 'Unfollow' : 'Follow'}
+                      </Button>
+                      <Button 
+                        variant="outline"
+                        onClick={async () => {
+                          if (!targetUser?.id || !user?.id) return;
+                          try {
+                            const { data: chatId, error } = await supabase.rpc('get_or_create_direct_chat', {
+                              p_other_user_id: targetUser.id
+                            });
+                            if (error) throw error;
+                            navigate('/chat');
+                            setTimeout(() => {
+                              window.dispatchEvent(new CustomEvent('openChatWithUser', { 
+                                detail: { userId: targetUser.id, chatId } 
+                              }));
+                            }, 300);
+                          } catch (error) {
+                            console.error('Error opening chat:', error);
+                            toast({ title: "Error", description: "Failed to open chat.", variant: "destructive" });
+                          }
+                        }}
+                      >
+                        <MessageCircle className="w-4 h-4 mr-2" />
+                        Message
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           </CardContent>
