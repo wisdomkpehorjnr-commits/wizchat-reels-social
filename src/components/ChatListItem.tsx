@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useImageCache } from '@/hooks/useImageCache';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -76,6 +77,7 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
   const isOnline = useOnlineStatus(friend.id);
   const hasFetchedRef = useRef(false);
   const chatIdRef = useRef<string | null>(null);
+  const { cachedUrl: cachedAvatarUrl } = useImageCache(friend.avatar);
 
   useEffect(() => {
     if (isWizAi) {
@@ -371,7 +373,7 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
       >
         <div className="relative">
           <Avatar className={`${isOnline && !isWizAi ? 'ring-2 ring-green-500 ring-offset-2 ring-offset-background' : ''}`}>
-            <AvatarImage src={friend.avatar} />
+            <AvatarImage src={cachedAvatarUrl} />
             <AvatarFallback className={isWizAi ? 'bg-primary text-primary-foreground' : ''}>
               {friend.name.charAt(0)}
             </AvatarFallback>
