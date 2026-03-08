@@ -866,29 +866,12 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
         </DialogContent>
       </Dialog>
 
-      {/* Image Modal */}
+      {/* Image Modal - uses CachedModalImage for offline support */}
       {showImageModal && post.image_url && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
-          onClick={() => setShowImageModal(false)}
-        >
-          <div className="relative max-w-7xl max-h-full">
-            <img 
-              src={post.image_url} 
-              alt="Post content" 
-              className="max-w-full max-h-[90vh] object-contain rounded-lg"
-              onClick={(e) => e.stopPropagation()}
-            />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white"
-              onClick={() => setShowImageModal(false)}
-            >
-              <X className="h-6 w-6" />
-            </Button>
-          </div>
-        </div>
+        <CachedImageModal
+          src={post.image_url}
+          onClose={() => setShowImageModal(false)}
+        />
       )}
       
       <ShareBoard
