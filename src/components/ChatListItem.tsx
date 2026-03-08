@@ -373,7 +373,7 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
       >
         <div className="relative">
           <Avatar className={`${isOnline && !isWizAi ? 'ring-2 ring-green-500 ring-offset-2 ring-offset-background' : ''}`}>
-            <AvatarImage src={friend.avatar} />
+            <AvatarImage src={cachedAvatarUrl} />
             <AvatarFallback className={isWizAi ? 'bg-primary text-primary-foreground' : ''}>
               {friend.name.charAt(0)}
             </AvatarFallback>
