@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { MoreVertical, ThumbsUp, ThumbsDown, MessageSquare, Share2, Edit, Trash2, X, Send, WifiOff, ImageOff } from 'lucide-react';
+import { MoreVertical, ThumbsUp, ThumbsDown, MessageSquare, Share2, Edit, Trash2, X, Send, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
