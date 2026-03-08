@@ -683,16 +683,10 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
               
               {/* Media content */}
               {post.image_url && (
-                <div 
-                  className="mt-2 rounded-lg overflow-hidden cursor-pointer"
+                <CachedPostImage
+                  src={post.image_url}
                   onClick={() => setShowImageModal(true)}
-                >
-                  <img 
-                    src={post.image_url} 
-                    alt="Post content" 
-                    className="w-full object-cover max-h-96 rounded-lg hover:opacity-90 transition-opacity"
-                  />
-                </div>
+                />
               )}
               
               {post.video_url && (
@@ -702,6 +696,17 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
                     controls 
                     className="w-full max-h-96 rounded-lg cursor-pointer" 
                     preload="metadata"
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      const parent = target.parentElement;
+                      if (parent) {
+                        target.style.display = 'none';
+                        // Show offline placeholder if video fails
+                        const placeholder = document.createElement('div');
+                        placeholder.id = `offline-video-${post.id}`;
+                        parent.appendChild(placeholder);
+                      }
+                    }}
                   >
                     Your browser does not support the video tag.
                   </video>
