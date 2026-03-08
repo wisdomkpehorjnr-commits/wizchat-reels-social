@@ -535,66 +535,59 @@ const Profile = () => {
                 {targetUser?.bio && <p className="text-foreground/90 mt-1">{targetUser.bio}</p>}
               </div>
 
-                <div className="flex flex-wrap gap-4 text-sm text-strong-contrast/80">
-                  <div className="flex items-center space-x-1"><Calendar className="w-4 h-4" /><span>Joined {targetUser?.createdAt ? new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(targetUser.createdAt) : 'Unknown'}</span></div>
-                  {targetUser?.location && <div className="flex items-center space-x-1"><MapPin className="w-4 h-4" /><span>{targetUser.location}</span></div>}
-                  {targetUser?.website && <div className="flex items-center space-x-1"><LinkIcon className="w-4 h-4" /><a href={targetUser.website} target="_blank" rel="noopener noreferrer">{targetUser.website}</a></div>}
-                </div>
-
-                <div className="flex space-x-6">
-                  <div className="text-center"><p className="text-2xl font-bold">{userPosts.length}</p><p className="text-sm text-strong-contrast/80">Posts</p></div>
-                  <div className="text-center"><p className="text-2xl font-bold">{userReels.length}</p><p className="text-sm text-strong-contrast/80">Reels</p></div>
-                  <div className="text-center"><p className="text-2xl font-bold">{targetUser?.followerCount || 0}</p><p className="text-sm text-strong-contrast/80">Followers</p></div>
-                  <div className="text-center"><p className="text-2xl font-bold">{targetUser?.followingCount || 0}</p><p className="text-sm text-strong-contrast/80">Following</p></div>
-                </div>
+              <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                <div className="flex items-center space-x-1"><Calendar className="w-4 h-4" /><span>Joined {targetUser?.createdAt ? new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(targetUser.createdAt) : 'Unknown'}</span></div>
+                {targetUser?.location && <div className="flex items-center space-x-1"><MapPin className="w-4 h-4" /><span>{targetUser.location}</span></div>}
+                {targetUser?.website && <div className="flex items-center space-x-1"><LinkIcon className="w-4 h-4" /><a href={targetUser.website} target="_blank" rel="noopener noreferrer">{targetUser.website}</a></div>}
               </div>
 
-              <div className="flex space-x-2">
-                {isOwnProfile ? (
-                  <>
-                    <Button variant="outline" className="backdrop-blur-sm bg-white/10 border-white/20" onClick={() => setShowEditDialog(true)}><Edit className="w-4 h-4 mr-2" />Edit Profile</Button>
-                    <Button variant="outline" className="backdrop-blur-sm bg-green-600 text-white" onClick={() => setShowAvatarStudio(true)}><UserCircle className="w-4 h-4 mr-2" />Customize Avatar</Button>
-                  </>
-                ) : (
-                  <>
-                    <Button variant="outline" className="backdrop-blur-sm bg-white/10 border-white/20" onClick={handleFollow}>
-                      {isFollowing ? <UserMinus className="w-4 h-4 mr-2" /> : <UserPlus className="w-4 h-4 mr-2" />}
-                      {isFollowing ? 'Unfollow' : 'Follow'}
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      className="backdrop-blur-sm bg-white/10 border-white/20"
-                      onClick={async () => {
-                        if (!targetUser?.id || !user?.id) return;
-                        try {
-                          const { data: chatId, error } = await supabase.rpc('get_or_create_direct_chat', {
-                            p_other_user_id: targetUser.id
-                          });
-                          
-                          if (error) throw error;
-                          
-                          navigate('/chat');
-                          
-                          setTimeout(() => {
-                            window.dispatchEvent(new CustomEvent('openChatWithUser', { 
-                              detail: { userId: targetUser.id, chatId } 
-                            }));
-                          }, 300);
-                        } catch (error) {
-                          console.error('Error opening chat:', error);
-                          toast({
-                            title: "Error",
-                            description: "Failed to open chat. Please try again.",
-                            variant: "destructive"
-                          });
-                        }
-                      }}
-                    >
-                      <MessageCircle className="w-4 h-4 mr-2" />
-                      Message
-                    </Button>
-                  </>
-                )}
+              <div className="flex items-center gap-4 flex-wrap">
+                <div className="flex space-x-6">
+                  <div className="text-center"><p className="text-2xl font-bold">{userPosts.length}</p><p className="text-sm text-muted-foreground">Posts</p></div>
+                  <div className="text-center"><p className="text-2xl font-bold">{userReels.length}</p><p className="text-sm text-muted-foreground">Reels</p></div>
+                  <div className="text-center"><p className="text-2xl font-bold">{targetUser?.followerCount || 0}</p><p className="text-sm text-muted-foreground">Followers</p></div>
+                  <div className="text-center"><p className="text-2xl font-bold">{targetUser?.followingCount || 0}</p><p className="text-sm text-muted-foreground">Following</p></div>
+                </div>
+
+                <div className="flex space-x-2 ml-auto">
+                  {isOwnProfile ? (
+                    <>
+                      <Button variant="outline" onClick={() => setShowEditDialog(true)}><Edit className="w-4 h-4 mr-2" />Edit Profile</Button>
+                      <Button variant="outline" className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setShowAvatarStudio(true)}><UserCircle className="w-4 h-4 mr-2" />Customize Avatar</Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button variant="outline" onClick={handleFollow}>
+                        {isFollowing ? <UserMinus className="w-4 h-4 mr-2" /> : <UserPlus className="w-4 h-4 mr-2" />}
+                        {isFollowing ? 'Unfollow' : 'Follow'}
+                      </Button>
+                      <Button 
+                        variant="outline"
+                        onClick={async () => {
+                          if (!targetUser?.id || !user?.id) return;
+                          try {
+                            const { data: chatId, error } = await supabase.rpc('get_or_create_direct_chat', {
+                              p_other_user_id: targetUser.id
+                            });
+                            if (error) throw error;
+                            navigate('/chat');
+                            setTimeout(() => {
+                              window.dispatchEvent(new CustomEvent('openChatWithUser', { 
+                                detail: { userId: targetUser.id, chatId } 
+                              }));
+                            }, 300);
+                          } catch (error) {
+                            console.error('Error opening chat:', error);
+                            toast({ title: "Error", description: "Failed to open chat.", variant: "destructive" });
+                          }
+                        }}
+                      >
+                        <MessageCircle className="w-4 h-4 mr-2" />
+                        Message
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           </CardContent>
