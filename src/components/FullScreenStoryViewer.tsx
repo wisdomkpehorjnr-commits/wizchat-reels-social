@@ -396,36 +396,45 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
         </div>
       </div>
 
-      {/* Viewers dialog */}
-      <Dialog open={showViewers} onOpenChange={(open) => { setShowViewers(open); if (!open) { setIsPaused(false); startTimer(); } }}>
-        <DialogContent className="max-w-sm bg-card border-border z-[200]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Eye className="w-5 h-5" /> Story Views ({viewers.length})
-            </DialogTitle>
-          </DialogHeader>
-          <ScrollArea className="max-h-[300px]">
-            {viewers.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8 text-sm">No views yet</p>
-            ) : (
-              <div className="space-y-3">
-                {viewers.map((v) => (
-                  <div key={v.id} className="flex items-center gap-3">
-                    <Avatar className="w-9 h-9">
-                      <AvatarImage src={v.profiles?.avatar} />
-                      <AvatarFallback>{v.profiles?.name?.charAt(0) || '?'}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{v.profiles?.name}</p>
-                      <p className="text-xs text-muted-foreground">@{v.profiles?.username}</p>
+      {/* Viewers bottom sheet */}
+      {showViewers && (
+        <div className="fixed inset-0 z-[200]" onClick={() => { setShowViewers(false); setIsPaused(false); startTimer(); }}>
+          <div
+            className="absolute bottom-0 left-0 right-0 bg-background rounded-t-2xl shadow-2xl animate-in slide-in-from-bottom duration-300 max-h-[50vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+              <h3 className="text-base font-semibold text-foreground">Story Views ({viewers.length})</h3>
+              <button
+                onClick={() => { setShowViewers(false); setIsPaused(false); startTimer(); }}
+                className="text-foreground p-1 rounded-full hover:bg-muted"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <ScrollArea className="flex-1 overflow-y-auto">
+              {viewers.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8 text-sm">No views yet</p>
+              ) : (
+                <div className="px-4 py-2 space-y-3">
+                  {viewers.map((v) => (
+                    <div key={v.id} className="flex items-center gap-3 py-1">
+                      <Avatar className="w-9 h-9">
+                        <AvatarImage src={v.profiles?.avatar} />
+                        <AvatarFallback>{v.profiles?.name?.charAt(0) || '?'}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">{v.profiles?.name}</p>
+                        <p className="text-xs text-muted-foreground">@{v.profiles?.username}</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </ScrollArea>
-        </DialogContent>
-      </Dialog>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </div>
+        </div>
+      )}
 
       {/* Reply dialog */}
       <Dialog open={showReply} onOpenChange={(open) => { setShowReply(open); if (!open) { setIsPaused(false); startTimer(); } }}>
