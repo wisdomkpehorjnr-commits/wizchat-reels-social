@@ -1,16 +1,25 @@
-import { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Bell, Send, Plus, Bot } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { ArrowLeft, Bell, Send, Plus, Menu, ImagePlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import ReactMarkdown from 'react-markdown';
-
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-}
+import WizAiNotificationsPanel from './wizai/WizAiNotificationsPanel';
+import WizAiChatSidebar from './wizai/WizAiChatSidebar';
+import {
+  isPremiumUnlocked,
+  getNotifications,
+  markAllNotificationsRead,
+  getChatSessions,
+  saveChatSessions,
+  getActiveChatId,
+  setActiveChatId,
+  createNewSession,
+  WizAiMessage,
+  WizAiChatSession,
+  WizAiNotification,
+} from './wizai/WizAiPremiumUtils';
 
 interface WizAiChatProps {
   onClose: () => void;
@@ -69,10 +78,7 @@ async function streamChat({
       if (!line.startsWith('data: ')) continue;
 
       const jsonStr = line.slice(6).trim();
-      if (jsonStr === '[DONE]') {
-        streamDone = true;
-        break;
-      }
+      if (jsonStr === '[DONE]') { streamDone = true; break; }
 
       try {
         const parsed = JSON.parse(jsonStr);
@@ -85,7 +91,6 @@ async function streamChat({
     }
   }
 
-  // Final flush
   if (textBuffer.trim()) {
     for (let raw of textBuffer.split('\n')) {
       if (!raw) continue;
@@ -107,36 +112,158 @@ async function streamChat({
 
 const WizAiChat = ({ onClose }: WizAiChatProps) => {
   const { toast } = useToast();
-  const [messages, setMessages] = useState<Message[]>([]);
+  const { user } = useAuth();
+  const userId = user?.id || 'anonymous';
+
+  // Premium
+  const hasPremium = isPremiumUnlocked(userId);
+
+  // Notifications
+  const [notifications, setNotifications] = useState<WizAiNotification[]>(() => getNotifications(userId));
+  const [showNotifications, setShowNotifications] = useState(false);
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  // Chat sessions
+  const [sessions, setSessions] = useState<WizAiChatSession[]>(() => {
+    const existing = getChatSessions(userId);
+    if (existing.length === 0) {
+      const first = createNewSession();
+      saveChatSessions(userId, [first]);
+      setActiveChatId(userId, first.id);
+      return [first];
+    }
+    return existing;
+  });
+  const [activeChatId, setActiveChat] = useState<string>(() => {
+    const stored = getActiveChatId(userId);
+    if (stored && sessions.find(s => s.id === stored)) return stored;
+    return sessions[0]?.id || '';
+  });
+  const [showSidebar, setShowSidebar] = useState(false);
+
+  const activeSession = sessions.find(s => s.id === activeChatId);
+  const messages = activeSession?.messages || [];
+
   const [inputValue, setInputValue] = useState('');
   const [isThinking, setIsThinking] = useState(false);
-  const [showWelcome, setShowWelcome] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSend = async () => {
-    if (!inputValue.trim() || isThinking) return;
+  // Persist sessions on change
+  const updateSessions = useCallback((newSessions: WizAiChatSession[]) => {
+    setSessions(newSessions);
+    saveChatSessions(userId, newSessions);
+  }, [userId]);
 
-    if (showWelcome) setShowWelcome(false);
+  const updateActiveMessages = useCallback((updater: (msgs: WizAiMessage[]) => WizAiMessage[]) => {
+    setSessions(prev => {
+      const next = prev.map(s =>
+        s.id === activeChatId
+          ? { ...s, messages: updater(s.messages), updatedAt: Date.now(), title: s.messages.length === 0 ? s.title : s.title }
+          : s
+      );
+      saveChatSessions(userId, next);
+      return next;
+    });
+  }, [activeChatId, userId]);
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: inputValue,
-      timestamp: new Date(),
+  const handleNewChat = () => {
+    const session = createNewSession();
+    const newSessions = [session, ...sessions];
+    updateSessions(newSessions);
+    setActiveChat(session.id);
+    setActiveChatId(userId, session.id);
+    setShowSidebar(false);
+  };
+
+  const handleSelectChat = (id: string) => {
+    setActiveChat(id);
+    setActiveChatId(userId, id);
+    setShowSidebar(false);
+  };
+
+  const handleDeleteChat = (id: string) => {
+    const filtered = sessions.filter(s => s.id !== id);
+    if (filtered.length === 0) {
+      const fresh = createNewSession();
+      updateSessions([fresh]);
+      setActiveChat(fresh.id);
+      setActiveChatId(userId, fresh.id);
+    } else {
+      updateSessions(filtered);
+      if (activeChatId === id) {
+        setActiveChat(filtered[0].id);
+        setActiveChatId(userId, filtered[0].id);
+      }
+    }
+    toast({ title: 'Chat deleted' });
+  };
+
+  const handleImageUpload = () => {
+    if (!hasPremium) {
+      toast({
+        title: "Premium Feature",
+        description: "Upgrade to WizAi Pro to upload images! Go to Premium → Unlimited WizAi.",
+        variant: "destructive",
+      });
+      return;
+    }
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Only images are supported', variant: 'destructive' });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: 'Image must be under 5MB', variant: 'destructive' });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result as string;
+      const userMsg: WizAiMessage = {
+        id: Date.now().toString(),
+        role: 'user',
+        content: '📷 [Image uploaded]',
+        imageUrl: base64,
+        timestamp: Date.now(),
+      };
+
+      updateActiveMessages(prev => [...prev, userMsg]);
+
+      // Auto-title
+      if (activeSession && activeSession.messages.length === 0) {
+        setSessions(prev => {
+          const next = prev.map(s => s.id === activeChatId ? { ...s, title: 'Image Chat' } : s);
+          saveChatSessions(userId, next);
+          return next;
+        });
+      }
+
+      setIsThinking(true);
+      sendToAI([...messages, userMsg]);
     };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
 
-    setMessages(prev => [...prev, userMessage]);
-    setInputValue('');
-    setIsThinking(true);
-
-    // Build conversation history for context
-    const conversationHistory = [...messages, userMessage].map(m => ({
+  const sendToAI = async (allMessages: WizAiMessage[]) => {
+    const conversationHistory = allMessages.map(m => ({
       role: m.role,
-      content: m.content,
+      content: m.imageUrl
+        ? `[User uploaded an image] ${m.content}`
+        : m.content,
     }));
 
     let assistantSoFar = '';
@@ -144,7 +271,7 @@ const WizAiChat = ({ onClose }: WizAiChatProps) => {
     const upsertAssistant = (chunk: string) => {
       assistantSoFar += chunk;
       const currentContent = assistantSoFar;
-      setMessages(prev => {
+      updateActiveMessages(prev => {
         const last = prev[prev.length - 1];
         if (last?.role === 'assistant') {
           return prev.map((m, i) =>
@@ -155,7 +282,7 @@ const WizAiChat = ({ onClose }: WizAiChatProps) => {
           id: (Date.now() + 1).toString(),
           role: 'assistant' as const,
           content: currentContent,
-          timestamp: new Date(),
+          timestamp: Date.now(),
         }];
       });
     };
@@ -166,52 +293,124 @@ const WizAiChat = ({ onClose }: WizAiChatProps) => {
         onDelta: (chunk) => upsertAssistant(chunk),
         onDone: () => setIsThinking(false),
         onError: (error) => {
-          setMessages(prev => [...prev, {
+          updateActiveMessages(prev => [...prev, {
             id: (Date.now() + 1).toString(),
             role: 'assistant',
             content: error,
-            timestamp: new Date(),
+            timestamp: Date.now(),
           }]);
           setIsThinking(false);
         },
       });
     } catch (e) {
       console.error('WizAi stream error:', e);
-      setMessages(prev => [...prev, {
+      updateActiveMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: "Hmm, I'm having trouble connecting. Please try again! 🔄",
-        timestamp: new Date(),
+        timestamp: Date.now(),
       }]);
       setIsThinking(false);
     }
   };
 
-  const handleImageUpload = () => {
-    toast({
-      title: "Premium Feature",
-      description: "Upgrade to Pro to upload images!",
-      variant: "destructive",
-    });
+  const handleSend = async () => {
+    if (!inputValue.trim() || isThinking) return;
+
+    const userMessage: WizAiMessage = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: inputValue,
+      timestamp: Date.now(),
+    };
+
+    // Auto-title from first message
+    if (activeSession && activeSession.messages.length === 0) {
+      const title = inputValue.slice(0, 30) + (inputValue.length > 30 ? '...' : '');
+      setSessions(prev => {
+        const next = prev.map(s => s.id === activeChatId ? { ...s, title } : s);
+        saveChatSessions(userId, next);
+        return next;
+      });
+    }
+
+    updateActiveMessages(prev => [...prev, userMessage]);
+    setInputValue('');
+    setIsThinking(true);
+
+    await sendToAI([...messages, userMessage]);
   };
+
+  const handleMarkAllRead = () => {
+    markAllNotificationsRead(userId);
+    setNotifications(getNotifications(userId));
+  };
+
+  const showWelcome = messages.length === 0;
 
   return (
     <div className="fixed inset-0 bg-background z-50 flex flex-col">
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleFileSelected}
+      />
+
       {/* Header */}
-      <div className="border-b border-border bg-card px-4 py-3 flex items-center justify-between">
-        <button onClick={onClose} className="p-2 -ml-2">
-          <ArrowLeft className="w-5 h-5 text-foreground" />
-        </button>
+      <div className="border-b border-border bg-card px-4 py-3 flex items-center justify-between relative">
+        <div className="flex items-center gap-1">
+          <button onClick={onClose} className="p-2 -ml-2">
+            <ArrowLeft className="w-5 h-5 text-foreground" />
+          </button>
+          <button onClick={() => setShowSidebar(!showSidebar)} className="p-2">
+            <Menu className="w-5 h-5 text-foreground" />
+          </button>
+        </div>
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center overflow-hidden">
             <svg width="32" height="32" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="200" rx="100" fill="white"/><ellipse cx="100" cy="85" rx="55" ry="45" fill="black"/><ellipse cx="82" cy="80" rx="6" ry="6" fill="white"/><ellipse cx="118" cy="80" rx="6" ry="6" fill="white"/><rect x="70" y="124" width="60" height="19" rx="9.5" fill="black" stroke="white" strokeWidth="4"/></svg>
           </div>
           <span className="font-bold text-primary">WizAi</span>
+          {hasPremium && (
+            <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded-full font-semibold">PRO</span>
+          )}
         </div>
-        <button className="p-2 -mr-2">
+        <button
+          className="p-2 -mr-2 relative"
+          onClick={() => { setShowNotifications(!showNotifications); }}
+        >
           <Bell className="w-5 h-5 text-foreground" />
+          {unreadCount > 0 && (
+            <span className="absolute top-1 right-1 w-4 h-4 bg-destructive text-destructive-foreground text-[10px] rounded-full flex items-center justify-center font-bold">
+              {unreadCount}
+            </span>
+          )}
         </button>
       </div>
+
+      {/* Notifications Panel */}
+      {showNotifications && (
+        <WizAiNotificationsPanel
+          notifications={notifications}
+          onClose={() => setShowNotifications(false)}
+          onMarkRead={handleMarkAllRead}
+        />
+      )}
+
+      {/* Sidebar */}
+      {showSidebar && (
+        <WizAiChatSidebar
+          sessions={sessions}
+          activeId={activeChatId}
+          onSelect={handleSelectChat}
+          onNew={handleNewChat}
+          onDelete={handleDeleteChat}
+          onClose={() => setShowSidebar(false)}
+        />
+      )}
 
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto px-4 py-6 relative">
@@ -220,6 +419,11 @@ const WizAiChat = ({ onClose }: WizAiChatProps) => {
             <p className="text-primary text-lg font-medium italic">
               I'm WizAi — how may I assist you? 🤖
             </p>
+            {!hasPremium && (
+              <p className="text-xs text-muted-foreground mt-2">
+                Upgrade to Pro for image uploads & more!
+              </p>
+            )}
           </div>
         )}
 
@@ -236,6 +440,13 @@ const WizAiChat = ({ onClose }: WizAiChatProps) => {
                     : 'bg-background border-2 border-primary text-foreground'
                 }`}
               >
+                {message.imageUrl && (
+                  <img
+                    src={message.imageUrl}
+                    alt="Uploaded"
+                    className="rounded-lg mb-2 max-h-48 object-cover"
+                  />
+                )}
                 {message.role === 'assistant' ? (
                   <div className="text-sm prose prose-sm dark:prose-invert max-w-none [&>p]:my-1 [&>ul]:my-1 [&>ol]:my-1">
                     <ReactMarkdown>{message.content}</ReactMarkdown>
@@ -269,8 +480,13 @@ const WizAiChat = ({ onClose }: WizAiChatProps) => {
           <button
             onClick={handleImageUpload}
             className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"
+            title={hasPremium ? 'Upload image' : 'Premium feature'}
           >
-            <Plus className="w-5 h-5 text-primary" />
+            {hasPremium ? (
+              <ImagePlus className="w-5 h-5 text-primary" />
+            ) : (
+              <Plus className="w-5 h-5 text-primary" />
+            )}
           </button>
           <Input
             value={inputValue}
