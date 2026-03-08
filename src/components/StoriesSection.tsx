@@ -416,30 +416,31 @@ const StoriesSection: React.FC = () => {
     return group.stories.some(s => !viewedStoryIds.has(s.id));
   };
 
-  const viewStoryGroup = async (storyGroup: GroupedStory) => {
-    try {
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      if (!currentUser) return;
+  const viewStoryGroup = (storyGroup: GroupedStory) => {
+    // Open viewer immediately — never block on network
+    markStoriesViewed(storyGroup.stories.map(s => s.id));
+    setViewingStories(storyGroup.stories);
+    setCurrentStoryIndex(0);
 
-      // Record views in DB
-      const storiesToView = storyGroup.stories.filter(story => story.userId !== currentUser.id);
-      if (storiesToView.length > 0) {
-        await Promise.all(storiesToView.map(story => supabase.from('story_views').insert({
-          story_id: story.id,
-          user_id: currentUser.id
-        }).then(() => supabase.from('stories').update({
-          viewer_count: (story.viewerCount || 0) + 1
-        }).eq('id', story.id))));
+    // Record views in background (fire-and-forget, won't block offline)
+    (async () => {
+      try {
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        if (!currentUser) return;
+
+        const storiesToView = storyGroup.stories.filter(story => story.userId !== currentUser.id);
+        if (storiesToView.length > 0) {
+          await Promise.all(storiesToView.map(story => supabase.from('story_views').insert({
+            story_id: story.id,
+            user_id: currentUser.id
+          }).then(() => supabase.from('stories').update({
+            viewer_count: (story.viewerCount || 0) + 1
+          }).eq('id', story.id))));
+        }
+      } catch (error) {
+        console.debug('[Stories] Failed to record views (offline?):', error);
       }
-
-      // Mark all in this group as viewed locally
-      markStoriesViewed(storyGroup.stories.map(s => s.id));
-
-      setViewingStories(storyGroup.stories);
-      setCurrentStoryIndex(0);
-    } catch (error) {
-      console.error('Error viewing stories:', error);
-    }
+    })();
   };
 
   const deleteStory = async (storyId: string) => {
