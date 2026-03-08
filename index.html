@@ -19,11 +19,17 @@
 
   <body>
     <div id="root">
-      <div id="initial-loader" style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#fff;">
-        <svg width="48" height="48" viewBox="0 0 48 48" style="animation:spin 0.8s linear infinite;">
-          <circle cx="24" cy="24" r="20" fill="none" stroke="#22c55e" stroke-width="4" stroke-dasharray="90 150" stroke-linecap="round"/>
+      <div id="initial-loader" style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:transparent;">
+        <svg width="40" height="40" viewBox="0 0 40 40" style="animation:init-spin 0.75s linear infinite;">
+          <defs>
+            <linearGradient id="g" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#22c55e" stop-opacity="0.1"/>
+              <stop offset="100%" stop-color="#22c55e"/>
+            </linearGradient>
+          </defs>
+          <circle cx="20" cy="20" r="17" fill="none" stroke="url(#g)" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="80 27"/>
         </svg>
-        <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+        <style>@keyframes init-spin{to{transform:rotate(360deg)}}</style>
       </div>
     </div>
     <script type="module" src="/src/main.tsx"></script>
