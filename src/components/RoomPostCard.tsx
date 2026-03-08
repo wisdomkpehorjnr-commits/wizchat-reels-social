@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { MoreVertical, ThumbsUp, ThumbsDown, MessageSquare, Share2, Edit, Trash2, X, Send } from 'lucide-react';
+import { MoreVertical, ThumbsUp, ThumbsDown, MessageSquare, Share2, Edit, Trash2, X, Send, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -21,6 +21,73 @@ import ConfirmationDialog from './ui/confirmation-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import ShareBoard from './ShareBoard';
+import { useImageCache } from '@/hooks/useImageCache';
+
+/** Offline placeholder for media that couldn't be cached */
+const OfflineMediaPlaceholder = ({ type = 'image' }: { type?: 'image' | 'video' }) => (
+  <div className="w-full rounded-xl bg-gradient-to-br from-muted/60 to-muted/30 border border-border/50 flex flex-col items-center justify-center gap-3 py-12 px-6">
+    <div className="rounded-full bg-muted/80 p-4">
+      <WifiOff className="h-7 w-7 text-muted-foreground/70" />
+    </div>
+    <div className="text-center space-y-1">
+      <p className="text-sm font-medium text-muted-foreground">
+        {type === 'video' ? 'Video unavailable offline' : 'Image unavailable offline'}
+      </p>
+      <p className="text-xs text-muted-foreground/60">
+        Connect to the internet to view this content
+      </p>
+    </div>
+  </div>
+);
+
+/** Cached image component for room posts */
+const CachedPostImage = ({ src, onClick }: { src: string; onClick: () => void }) => {
+  const { cachedUrl, isLoading, error } = useImageCache(src);
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  if (loadFailed || (error && !cachedUrl)) {
+    return <OfflineMediaPlaceholder type="image" />;
+  }
+
+  return (
+    <div className="mt-2 rounded-lg overflow-hidden cursor-pointer" onClick={onClick}>
+      <img
+        src={cachedUrl}
+        alt="Post content"
+        className="w-full object-cover max-h-96 rounded-lg hover:opacity-90 transition-opacity"
+        onError={() => setLoadFailed(true)}
+      />
+    </div>
+  );
+};
+
+/** Fullscreen image modal with offline cache support */
+const CachedImageModal = ({ src, onClose }: { src: string; onClose: () => void }) => {
+  const { cachedUrl } = useImageCache(src);
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+      onClick={onClose}
+    >
+      <div className="relative max-w-7xl max-h-full">
+        <img
+          src={cachedUrl}
+          alt="Post content"
+          className="max-w-full max-h-[90vh] object-contain rounded-lg"
+          onClick={(e) => e.stopPropagation()}
+        />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white"
+          onClick={onClose}
+        >
+          <X className="h-6 w-6" />
+        </Button>
+      </div>
+    </div>
+  );
+};
 
 interface RoomPostCardProps {
   post: any;
@@ -644,16 +711,10 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
               
               {/* Media content */}
               {post.image_url && (
-                <div 
-                  className="mt-2 rounded-lg overflow-hidden cursor-pointer"
+                <CachedPostImage
+                  src={post.image_url}
                   onClick={() => setShowImageModal(true)}
-                >
-                  <img 
-                    src={post.image_url} 
-                    alt="Post content" 
-                    className="w-full object-cover max-h-96 rounded-lg hover:opacity-90 transition-opacity"
-                  />
-                </div>
+                />
               )}
               
               {post.video_url && (
@@ -663,6 +724,17 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
                     controls 
                     className="w-full max-h-96 rounded-lg cursor-pointer" 
                     preload="metadata"
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      const parent = target.parentElement;
+                      if (parent) {
+                        target.style.display = 'none';
+                        // Show offline placeholder if video fails
+                        const placeholder = document.createElement('div');
+                        placeholder.id = `offline-video-${post.id}`;
+                        parent.appendChild(placeholder);
+                      }
+                    }}
                   >
                     Your browser does not support the video tag.
                   </video>
@@ -822,29 +894,12 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
         </DialogContent>
       </Dialog>
 
-      {/* Image Modal */}
+      {/* Image Modal - uses CachedModalImage for offline support */}
       {showImageModal && post.image_url && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
-          onClick={() => setShowImageModal(false)}
-        >
-          <div className="relative max-w-7xl max-h-full">
-            <img 
-              src={post.image_url} 
-              alt="Post content" 
-              className="max-w-full max-h-[90vh] object-contain rounded-lg"
-              onClick={(e) => e.stopPropagation()}
-            />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white"
-              onClick={() => setShowImageModal(false)}
-            >
-              <X className="h-6 w-6" />
-            </Button>
-          </div>
-        </div>
+        <CachedImageModal
+          src={post.image_url}
+          onClose={() => setShowImageModal(false)}
+        />
       )}
       
       <ShareBoard
