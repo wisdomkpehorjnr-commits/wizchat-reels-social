@@ -21,6 +21,18 @@ import { useNavigate, useParams } from 'react-router-dom';
 import VerificationBadge from '@/components/VerificationBadge';
 import LoadingDots from '@/components/LoadingDots';
 import { cacheService } from '@/services/cacheService';
+import { useImageCache } from '@/hooks/useImageCache';
+
+// Cached cover image component - permanently cached, no re-downloads
+const CachedCoverImage: React.FC<{ src: string }> = ({ src }) => {
+  const { cachedUrl } = useImageCache(src);
+  return (
+    <div className="h-48 md:h-64 relative">
+      <img src={cachedUrl} alt="Cover" className="w-full h-full object-cover" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+    </div>
+  );
+};
 
 // =============================================
 // PERSISTENT PROFILE CACHE
