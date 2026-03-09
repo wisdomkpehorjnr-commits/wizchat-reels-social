@@ -190,7 +190,7 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
 
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={handleClose}>Cancel</Button>
-                <Button onClick={() => setStep('members')} disabled={!groupName.trim()} className="gap-2">
+                <Button onClick={() => setStep('avatar')} disabled={!groupName.trim()} className="gap-2">
                   Next <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
