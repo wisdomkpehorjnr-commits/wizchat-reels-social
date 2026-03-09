@@ -41,6 +41,7 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
   onGroupCreated,
 }) => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [step, setStep] = useState<Step>('details');
   const [groupName, setGroupName] = useState('');
   const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set());
