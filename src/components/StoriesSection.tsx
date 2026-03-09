@@ -430,12 +430,25 @@ const StoriesSection: React.FC = () => {
 
         const storiesToView = storyGroup.stories.filter(story => story.userId !== currentUser.id);
         if (storiesToView.length > 0) {
-          await Promise.all(storiesToView.map(story => supabase.from('story_views').insert({
-            story_id: story.id,
-            user_id: currentUser.id
-          }).then(() => supabase.from('stories').update({
-            viewer_count: (story.viewerCount || 0) + 1
-          }).eq('id', story.id))));
+          for (const story of storiesToView) {
+            // Check if already viewed to avoid duplicate key errors
+            const { data: existing } = await supabase
+              .from('story_views')
+              .select('id')
+              .eq('story_id', story.id)
+              .eq('user_id', currentUser.id)
+              .maybeSingle();
+            
+            if (!existing) {
+              await supabase.from('story_views').insert({
+                story_id: story.id,
+                user_id: currentUser.id
+              });
+              await supabase.from('stories').update({
+                viewer_count: (story.viewerCount || 0) + 1
+              }).eq('id', story.id);
+            }
+          }
         }
       } catch (error) {
         console.debug('[Stories] Failed to record views (offline?):', error);
