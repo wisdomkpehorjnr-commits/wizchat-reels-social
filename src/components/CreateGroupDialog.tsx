@@ -25,7 +25,7 @@ interface CreateGroupDialogProps {
   onGroupCreated?: (groupId: string, groupName?: string) => void;
 }
 
-type Step = 'details' | 'members' | 'confirm';
+type Step = 'details' | 'avatar' | 'members' | 'confirm';
 
 const stepMotion = {
   initial: { opacity: 0, y: 10, filter: 'blur(2px)' },

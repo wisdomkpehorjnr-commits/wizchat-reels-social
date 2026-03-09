@@ -1284,7 +1284,12 @@ export const dataService = {
 
     let groupAvatarUrl: string | null = null;
     if (groupData.avatarFile) {
-      groupAvatarUrl = await mediaService.uploadChatMedia(groupData.avatarFile);
+      try {
+        groupAvatarUrl = await mediaService.uploadChatMedia(groupData.avatarFile);
+      } catch (e) {
+        console.error('Failed to upload group avatar (continuing without it):', e);
+        groupAvatarUrl = null;
+      }
     }
 
     // 1) Create group record
