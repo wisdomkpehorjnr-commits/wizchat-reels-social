@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Search, MessageCircle, Bot, WifiOff, Plus } from 'lucide-react';
 import { Friend, User } from '@/types';
 import { dataService } from '@/services/dataService';

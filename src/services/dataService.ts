@@ -1269,7 +1269,7 @@ export const dataService = {
   },
 
 
-  async createGroup(groupData: { name: string; description: string; isPublic: boolean; members: string[] }): Promise<{ group: any; chatId: string }> {
+  async createGroup(groupData: { name: string; description: string; isPublic: boolean; members: string[]; avatarFile?: File | null }): Promise<{ group: any; chatId: string }> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
@@ -1281,6 +1281,11 @@ export const dataService = {
     }
 
     const uniqueMemberIds = Array.from(new Set((groupData.members || []).filter(id => id && id !== user.id)));
+
+    let groupAvatarUrl: string | null = null;
+    if (groupData.avatarFile) {
+      groupAvatarUrl = await mediaService.uploadChatMedia(groupData.avatarFile);
+    }
 
     // 1) Create group record
     const { data: group, error: groupError } = await supabase
@@ -1341,6 +1346,7 @@ export const dataService = {
       .update({
         member_count: uniqueMemberIds.length + 1,
         is_public: !!groupData.isPublic,
+        avatar_url: groupAvatarUrl,
       })
       .eq('id', chatId);
 
