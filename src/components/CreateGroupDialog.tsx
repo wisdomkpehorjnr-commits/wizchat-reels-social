@@ -256,7 +256,7 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
               </ScrollArea>
 
               <div className="flex justify-between gap-2">
-                <Button variant="outline" onClick={() => setStep('details')} className="gap-2">
+                <Button variant="outline" onClick={() => setStep('avatar')} className="gap-2">
                   <ChevronLeft className="h-4 w-4" /> Back
                 </Button>
                 <Button onClick={() => setStep('confirm')} disabled={selectedCount === 0} className="gap-2">
