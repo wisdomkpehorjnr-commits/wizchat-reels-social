@@ -168,6 +168,7 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
           </DialogTitle>
           <DialogDescription>
             {step === 'details' && 'Choose a group name'}
+            {step === 'avatar' && 'Add a group photo (optional)'}
             {step === 'members' && 'Select members to add'}
             {step === 'confirm' && 'Review and create your group'}
           </DialogDescription>
