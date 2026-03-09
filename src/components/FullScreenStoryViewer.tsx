@@ -104,24 +104,22 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
 
   useEffect(() => {
     if (!story || !user) return;
-    const checkLike = async () => {
-      const { data } = await supabase
-        .from('story_likes')
-        .select('id')
-        .eq('story_id', story.id)
-        .eq('user_id', user.id)
-        .maybeSingle();
-      setIsLiked(!!data);
+    let cancelled = false;
+    const loadLikeState = async () => {
+      try {
+        const [likeResult, countResult] = await Promise.all([
+          supabase.from('story_likes').select('id').eq('story_id', story.id).eq('user_id', user.id).maybeSingle(),
+          supabase.from('story_likes').select('*', { count: 'exact', head: true }).eq('story_id', story.id)
+        ]);
+        if (cancelled) return;
+        setIsLiked(!!likeResult.data);
+        setLikeCount(countResult.count || 0);
+      } catch (err) {
+        console.debug('Failed to load like state:', err);
+      }
     };
-    const getLikeCount = async () => {
-      const { count } = await supabase
-        .from('story_likes')
-        .select('*', { count: 'exact', head: true })
-        .eq('story_id', story.id);
-      setLikeCount(count || 0);
-    };
-    checkLike();
-    getLikeCount();
+    loadLikeState();
+    return () => { cancelled = true; };
   }, [story?.id, user?.id]);
 
   const advanceStory = useCallback(() => {
