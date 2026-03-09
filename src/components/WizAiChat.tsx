@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { ArrowLeft, Bell, Send, Plus, Menu, ImagePlus } from 'lucide-react';
+import { ArrowLeft, Bell, Send, Plus, Menu, ImagePlus, X, Copy, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import ReactMarkdown from 'react-markdown';
+import { motion, AnimatePresence } from 'framer-motion';
 import WizAiNotificationsPanel from './wizai/WizAiNotificationsPanel';
 import WizAiChatSidebar from './wizai/WizAiChatSidebar';
 import {
@@ -33,7 +34,7 @@ async function streamChat({
   onDone,
   onError,
 }: {
-  messages: { role: string; content: string }[];
+  messages: Array<{ role: string; content: string | Array<{ type: string; text?: string; image_url?: { url: string } }> }>;
   onDelta: (text: string) => void;
   onDone: () => void;
   onError: (error: string) => void;
@@ -110,20 +111,100 @@ async function streamChat({
   onDone();
 }
 
+// Build multimodal message content for the AI
+function buildMessageContent(msg: WizAiMessage): string | Array<{ type: string; text?: string; image_url?: { url: string } }> {
+  if (msg.imageUrl) {
+    const parts: Array<{ type: string; text?: string; image_url?: { url: string } }> = [];
+    parts.push({ type: 'image_url', image_url: { url: msg.imageUrl } });
+    const textContent = msg.content && msg.content !== '📷 [Image uploaded]' ? msg.content : 'What is in this image? Describe and analyze it.';
+    parts.push({ type: 'text', text: textContent });
+    return parts;
+  }
+  return msg.content;
+}
+
+// Long-press hook
+function useLongPress(callback: () => void, ms = 500) {
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startedRef = useRef(false);
+
+  const start = useCallback((e: React.TouchEvent | React.MouseEvent) => {
+    e.preventDefault();
+    startedRef.current = true;
+    timerRef.current = setTimeout(() => {
+      if (startedRef.current) callback();
+    }, ms);
+  }, [callback, ms]);
+
+  const stop = useCallback(() => {
+    startedRef.current = false;
+    if (timerRef.current) clearTimeout(timerRef.current);
+  }, []);
+
+  return { onTouchStart: start, onTouchEnd: stop, onTouchCancel: stop, onMouseDown: start, onMouseUp: stop, onMouseLeave: stop };
+}
+
+// Message context menu component
+const MessageContextPopup = ({
+  message,
+  position,
+  onCopy,
+  onDelete,
+  onClose,
+}: {
+  message: WizAiMessage;
+  position: { x: number; y: number };
+  onCopy: () => void;
+  onDelete: () => void;
+  onClose: () => void;
+}) => {
+  useEffect(() => {
+    const handler = () => onClose();
+    window.addEventListener('click', handler);
+    return () => window.removeEventListener('click', handler);
+  }, [onClose]);
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.9 }}
+        transition={{ duration: 0.15 }}
+        className="fixed z-[70] bg-card border border-border rounded-xl shadow-lg py-1 min-w-[140px]"
+        style={{ top: position.y, left: position.x }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={(e) => { e.stopPropagation(); onCopy(); }}
+          className="flex items-center gap-3 px-4 py-2.5 w-full text-left text-sm text-foreground hover:bg-muted transition-colors"
+        >
+          <Copy className="w-4 h-4" />
+          Copy
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          className="flex items-center gap-3 px-4 py-2.5 w-full text-left text-sm text-destructive hover:bg-muted transition-colors"
+        >
+          <Trash2 className="w-4 h-4" />
+          Delete
+        </button>
+      </motion.div>
+    </AnimatePresence>
+  );
+};
+
 const WizAiChat = ({ onClose }: WizAiChatProps) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const userId = user?.id || 'anonymous';
 
-  // Premium
   const hasPremium = isPremiumUnlocked(userId);
 
-  // Notifications
   const [notifications, setNotifications] = useState<WizAiNotification[]>(() => getNotifications(userId));
   const [showNotifications, setShowNotifications] = useState(false);
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  // Chat sessions
   const [sessions, setSessions] = useState<WizAiChatSession[]>(() => {
     const existing = getChatSessions(userId);
     if (existing.length === 0) {
@@ -146,6 +227,8 @@ const WizAiChat = ({ onClose }: WizAiChatProps) => {
 
   const [inputValue, setInputValue] = useState('');
   const [isThinking, setIsThinking] = useState(false);
+  const [pendingImage, setPendingImage] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ message: WizAiMessage; x: number; y: number } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -153,7 +236,6 @@ const WizAiChat = ({ onClose }: WizAiChatProps) => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Persist sessions on change
   const updateSessions = useCallback((newSessions: WizAiChatSession[]) => {
     setSessions(newSessions);
     saveChatSessions(userId, newSessions);
@@ -163,7 +245,7 @@ const WizAiChat = ({ onClose }: WizAiChatProps) => {
     setSessions(prev => {
       const next = prev.map(s =>
         s.id === activeChatId
-          ? { ...s, messages: updater(s.messages), updatedAt: Date.now(), title: s.messages.length === 0 ? s.title : s.title }
+          ? { ...s, messages: updater(s.messages), updatedAt: Date.now() }
           : s
       );
       saveChatSessions(userId, next);
@@ -231,39 +313,49 @@ const WizAiChat = ({ onClose }: WizAiChatProps) => {
 
     const reader = new FileReader();
     reader.onload = () => {
-      const base64 = reader.result as string;
-      const userMsg: WizAiMessage = {
-        id: Date.now().toString(),
-        role: 'user',
-        content: '📷 [Image uploaded]',
-        imageUrl: base64,
-        timestamp: Date.now(),
-      };
-
-      updateActiveMessages(prev => [...prev, userMsg]);
-
-      // Auto-title
-      if (activeSession && activeSession.messages.length === 0) {
-        setSessions(prev => {
-          const next = prev.map(s => s.id === activeChatId ? { ...s, title: 'Image Chat' } : s);
-          saveChatSessions(userId, next);
-          return next;
-        });
-      }
-
-      setIsThinking(true);
-      sendToAI([...messages, userMsg]);
+      setPendingImage(reader.result as string);
     };
     reader.readAsDataURL(file);
     e.target.value = '';
   };
 
+  const handleCancelImage = () => {
+    setPendingImage(null);
+  };
+
+  const handleSendWithImage = () => {
+    if (!pendingImage) return;
+
+    const textContent = inputValue.trim() || '';
+    const userMsg: WizAiMessage = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: textContent || '📷 [Image uploaded]',
+      imageUrl: pendingImage,
+      timestamp: Date.now(),
+    };
+
+    updateActiveMessages(prev => [...prev, userMsg]);
+
+    if (activeSession && activeSession.messages.length === 0) {
+      const title = textContent ? textContent.slice(0, 30) : 'Image Chat';
+      setSessions(prev => {
+        const next = prev.map(s => s.id === activeChatId ? { ...s, title } : s);
+        saveChatSessions(userId, next);
+        return next;
+      });
+    }
+
+    setPendingImage(null);
+    setInputValue('');
+    setIsThinking(true);
+    sendToAI([...messages, userMsg]);
+  };
+
   const sendToAI = async (allMessages: WizAiMessage[]) => {
     const conversationHistory = allMessages.map(m => ({
       role: m.role,
-      content: m.imageUrl
-        ? `[User uploaded an image] ${m.content}`
-        : m.content,
+      content: buildMessageContent(m),
     }));
 
     let assistantSoFar = '';
@@ -315,6 +407,10 @@ const WizAiChat = ({ onClose }: WizAiChatProps) => {
   };
 
   const handleSend = async () => {
+    if (pendingImage) {
+      handleSendWithImage();
+      return;
+    }
     if (!inputValue.trim() || isThinking) return;
 
     const userMessage: WizAiMessage = {
@@ -324,7 +420,6 @@ const WizAiChat = ({ onClose }: WizAiChatProps) => {
       timestamp: Date.now(),
     };
 
-    // Auto-title from first message
     if (activeSession && activeSession.messages.length === 0) {
       const title = inputValue.slice(0, 30) + (inputValue.length > 30 ? '...' : '');
       setSessions(prev => {
@@ -346,11 +441,33 @@ const WizAiChat = ({ onClose }: WizAiChatProps) => {
     setNotifications(getNotifications(userId));
   };
 
-  const showWelcome = messages.length === 0;
+  const handleCopyMessage = (msg: WizAiMessage) => {
+    navigator.clipboard.writeText(msg.content);
+    toast({ title: 'Copied to clipboard' });
+    setContextMenu(null);
+  };
+
+  const handleDeleteMessage = (msg: WizAiMessage) => {
+    updateActiveMessages(prev => prev.filter(m => m.id !== msg.id));
+    toast({ title: 'Message deleted' });
+    setContextMenu(null);
+  };
+
+  const handleLongPress = useCallback((message: WizAiMessage, e: React.TouchEvent | React.MouseEvent) => {
+    const clientX = 'touches' in e ? e.touches[0]?.clientX || 100 : (e as React.MouseEvent).clientX;
+    const clientY = 'touches' in e ? e.touches[0]?.clientY || 100 : (e as React.MouseEvent).clientY;
+
+    // Clamp position so menu stays on screen
+    const x = Math.min(clientX, window.innerWidth - 160);
+    const y = Math.min(clientY - 60, window.innerHeight - 120);
+
+    setContextMenu({ message, x: Math.max(8, x), y: Math.max(8, y) });
+  }, []);
+
+  const showWelcome = messages.length === 0 && !pendingImage;
 
   return (
-    <div className="fixed inset-0 bg-background z-50 flex flex-col">
-      {/* Hidden file input */}
+    <div className="fixed inset-0 bg-background z-50 flex flex-col" onClick={() => setContextMenu(null)}>
       <input
         ref={fileInputRef}
         type="file"
@@ -380,7 +497,7 @@ const WizAiChat = ({ onClose }: WizAiChatProps) => {
         </div>
         <button
           className="p-2 -mr-2 relative"
-          onClick={() => { setShowNotifications(!showNotifications); }}
+          onClick={() => setShowNotifications(!showNotifications)}
         >
           <Bell className="w-5 h-5 text-foreground" />
           {unreadCount > 0 && (
@@ -391,7 +508,6 @@ const WizAiChat = ({ onClose }: WizAiChatProps) => {
         </button>
       </div>
 
-      {/* Notifications Panel */}
       {showNotifications && (
         <WizAiNotificationsPanel
           notifications={notifications}
@@ -400,7 +516,6 @@ const WizAiChat = ({ onClose }: WizAiChatProps) => {
         />
       )}
 
-      {/* Sidebar */}
       {showSidebar && (
         <WizAiChatSidebar
           sessions={sessions}
@@ -429,33 +544,11 @@ const WizAiChat = ({ onClose }: WizAiChatProps) => {
 
         <div className="space-y-4 max-w-2xl mx-auto">
           {messages.map((message) => (
-            <div
+            <MessageBubble
               key={message.id}
-              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                  message.role === 'assistant'
-                    ? 'bg-primary/10 text-foreground'
-                    : 'bg-background border-2 border-primary text-foreground'
-                }`}
-              >
-                {message.imageUrl && (
-                  <img
-                    src={message.imageUrl}
-                    alt="Uploaded"
-                    className="rounded-lg mb-2 max-h-48 object-cover"
-                  />
-                )}
-                {message.role === 'assistant' ? (
-                  <div className="text-sm prose prose-sm dark:prose-invert max-w-none [&>p]:my-1 [&>ul]:my-1 [&>ol]:my-1">
-                    <ReactMarkdown>{message.content}</ReactMarkdown>
-                  </div>
-                ) : (
-                  <p className="text-sm">{message.content}</p>
-                )}
-              </div>
-            </div>
+              message={message}
+              onLongPress={handleLongPress}
+            />
           ))}
 
           {isThinking && messages[messages.length - 1]?.role !== 'assistant' && (
@@ -473,6 +566,37 @@ const WizAiChat = ({ onClose }: WizAiChatProps) => {
           <div ref={messagesEndRef} />
         </div>
       </div>
+
+      {/* Image Preview Bar */}
+      <AnimatePresence>
+        {pendingImage && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="border-t border-border bg-card px-4 py-2 overflow-hidden"
+          >
+            <div className="flex items-center gap-3 max-w-2xl mx-auto">
+              <div className="relative">
+                <img
+                  src={pendingImage}
+                  alt="Preview"
+                  className="w-16 h-16 rounded-lg object-cover border-2 border-primary"
+                />
+                <button
+                  onClick={handleCancelImage}
+                  className="absolute -top-2 -right-2 w-5 h-5 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Add a message or tap Send
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Input */}
       <div className="border-t border-border bg-card px-4 py-3">
@@ -492,18 +616,89 @@ const WizAiChat = ({ onClose }: WizAiChatProps) => {
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="Ask me anything..."
+            placeholder={pendingImage ? "Add a message (optional)..." : "Ask me anything..."}
             className="flex-1 border-2 border-primary"
             disabled={isThinking}
           />
           <Button
             onClick={handleSend}
-            disabled={!inputValue.trim() || isThinking}
+            disabled={(!inputValue.trim() && !pendingImage) || isThinking}
             className="font-bold px-6"
           >
-            Ask
+            <Send className="w-4 h-4" />
           </Button>
         </div>
+      </div>
+
+      {/* Context menu */}
+      {contextMenu && (
+        <MessageContextPopup
+          message={contextMenu.message}
+          position={{ x: contextMenu.x, y: contextMenu.y }}
+          onCopy={() => handleCopyMessage(contextMenu.message)}
+          onDelete={() => handleDeleteMessage(contextMenu.message)}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
+    </div>
+  );
+};
+
+// Separate message bubble component with long-press support
+const MessageBubble = ({
+  message,
+  onLongPress,
+}: {
+  message: WizAiMessage;
+  onLongPress: (msg: WizAiMessage, e: React.TouchEvent | React.MouseEvent) => void;
+}) => {
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeRef = useRef(false);
+
+  const start = useCallback((e: React.TouchEvent | React.MouseEvent) => {
+    activeRef.current = true;
+    timerRef.current = setTimeout(() => {
+      if (activeRef.current) onLongPress(message, e);
+    }, 500);
+  }, [message, onLongPress]);
+
+  const stop = useCallback(() => {
+    activeRef.current = false;
+    if (timerRef.current) clearTimeout(timerRef.current);
+  }, []);
+
+  return (
+    <div
+      className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+      onTouchStart={start}
+      onTouchEnd={stop}
+      onTouchCancel={stop}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        onLongPress(message, e);
+      }}
+    >
+      <div
+        className={`max-w-[80%] rounded-2xl px-4 py-3 select-none ${
+          message.role === 'assistant'
+            ? 'bg-primary/10 text-foreground'
+            : 'bg-background border-2 border-primary text-foreground'
+        }`}
+      >
+        {message.imageUrl && (
+          <img
+            src={message.imageUrl}
+            alt="Uploaded"
+            className="rounded-lg mb-2 max-h-48 object-cover"
+          />
+        )}
+        {message.role === 'assistant' ? (
+          <div className="text-sm prose prose-sm dark:prose-invert max-w-none [&>p]:my-1 [&>ul]:my-1 [&>ol]:my-1">
+            <ReactMarkdown>{message.content}</ReactMarkdown>
+          </div>
+        ) : (
+          <p className="text-sm">{message.content !== '📷 [Image uploaded]' ? message.content : ''}</p>
+        )}
       </div>
     </div>
   );
