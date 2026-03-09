@@ -230,19 +230,26 @@ const Chat = () => {
       // Persist to localStorage for instant hydration next time
       saveChatListToCache(userFriends);
 
-      // Load user groups
+      // Load group chats from the chats table (correct IDs for opening)
       try {
-        const userGroups = await dataService.getUserGroups(user.id);
-        setGroups(userGroups);
+        const allChats = await dataService.getChats();
+        const groupChats = allChats.filter(c => c.isGroup);
+        const groupsForDisplay = groupChats.map(c => ({
+          id: c.id, // This is the CHAT id, which GroupChatPopup needs
+          name: c.name || 'Group Chat',
+          member_count: c.participants?.length || c.memberCount || 0,
+          description: c.description,
+          avatar: c.avatar,
+        }));
+        setGroups(groupsForDisplay);
         // cache groups for offline
         try {
-          localStorage.setItem(GROUPS_CACHE_KEY, JSON.stringify({ data: userGroups, timestamp: Date.now() }));
+          localStorage.setItem(GROUPS_CACHE_KEY, JSON.stringify({ data: groupsForDisplay, timestamp: Date.now() }));
         } catch (e) {
           console.debug('[Chat] Failed to cache groups:', e);
         }
       } catch (error) {
         console.debug('[Chat] Error loading groups:', error);
-        // Groups are optional, don't fail the entire load
       }
     } catch (error) {
       console.error('Error loading friends:', error);

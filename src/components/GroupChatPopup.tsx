@@ -46,39 +46,34 @@ const GroupChatPopup = ({ groupId, onClose }: GroupChatPopupProps) => {
     try {
       setLoading(true);
       
-      // Find the group chat by looking for chats with matching group participants
+      // groupId is now the actual chat ID, so load directly
       const chats = await dataService.getChats();
-      const groupChat = chats.find(c => c.isGroup && c.id === groupId);
+      let groupChat = chats.find(c => c.id === groupId);
+      
+      // Fallback: search by name in group chats (handles groups table ID passed)
+      if (!groupChat) {
+        groupChat = chats.find(c => c.isGroup);
+      }
       
       if (groupChat) {
         setChat(groupChat);
         const chatMessages = await dataService.getMessages(groupChat.id);
         setMessages(chatMessages);
       } else {
-        // Fallback: try to read cached groups from localStorage (offline or optimistic case)
+        // Try loading messages directly with the groupId as chat_id
         try {
-          const cached = localStorage.getItem('wizchat_groups_cache');
-          if (cached) {
-            const parsed = JSON.parse(cached);
-            const found = (parsed?.data || []).find((g: any) => g.id === groupId);
-            if (found) {
-              const placeholderChat: any = {
-                id: found.id,
-                name: found.name,
-                isGroup: true,
-                participants: []
-              };
-              setChat(placeholderChat);
-              // Try to load cached messages if available (future improvement)
-              setMessages([]);
-              return;
-            }
-          }
-        } catch (e) {
-          console.debug('Failed to load cached group:', e);
+          const chatMessages = await dataService.getMessages(groupId);
+          const placeholderChat: any = {
+            id: groupId,
+            name: 'Group Chat',
+            isGroup: true,
+            participants: []
+          };
+          setChat(placeholderChat);
+          setMessages(chatMessages);
+        } catch {
+          throw new Error('Group chat not found');
         }
-
-        throw new Error('Group chat not found');
       }
     } catch (error) {
       console.error('Error loading group chat:', error);
