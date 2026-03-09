@@ -269,20 +269,19 @@ const Chat = () => {
     setSelectedFriend(friend);
   };
 
-  const handleGroupCreated = (groupId: string, groupName?: string) => {
-    // Reload chat list to show new group
-    loadData(false);
-
-    // Optimistically add a placeholder group if not present (helps offline UX)
+  const handleGroupCreated = async (groupId: string, groupName?: string) => {
+    // Optimistically add a placeholder group (uses chat ID now)
     setGroups(prev => {
       if (prev.find(g => g.id === groupId)) return prev;
-      // Minimal placeholder - real data will arrive on next successful loadData
       const placeholder = { id: groupId, name: groupName || 'New Group', member_count: 0 };
       return [placeholder, ...prev];
     });
 
-    // Open the group chat
+    // Open the group chat immediately
     setSelectedGroup(groupId);
+
+    // Reload chat list in background to get full data
+    loadData(true);
   };
 
   const handlePinToggle = (friendId: string) => {
