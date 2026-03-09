@@ -48,6 +48,28 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [groupAvatarFile, setGroupAvatarFile] = useState<File | null>(null);
+  const [groupAvatarPreview, setGroupAvatarPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (groupAvatarPreview) URL.revokeObjectURL(groupAvatarPreview);
+    };
+  }, [groupAvatarPreview]);
+
+  const setAvatarFromFile = (file: File | null) => {
+    setGroupAvatarFile(file);
+    setGroupAvatarPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return file ? URL.createObjectURL(file) : null;
+    });
+
+    if (!file && fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const allMembers = useMemo(() => {
     const accepted = friends.filter((f) => f.status === 'accepted');
     const unique = new Map<string, User>();
