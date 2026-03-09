@@ -59,8 +59,10 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
       });
     });
 
-    return [...unique.values()].sort((a, b) => a.name.localeCompare(b.name));
-  }, [friends]);
+    return [...unique.values()]
+      .filter((member) => member.id !== user?.id)
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [friends, user?.id]);
 
   const filteredMembers = useMemo(
     () => allMembers.filter((u) => u.name?.toLowerCase().includes(searchTerm.toLowerCase())),
