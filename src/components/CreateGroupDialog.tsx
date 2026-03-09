@@ -46,7 +46,7 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
-  const members = useMemo(() => {
+  const allMembers = useMemo(() => {
     const accepted = friends.filter((f) => f.status === 'accepted');
     const unique = new Map<string, User>();
 
@@ -57,14 +57,17 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
       });
     });
 
-    return [...unique.values()]
-      .filter((u) => u.name?.toLowerCase().includes(searchTerm.toLowerCase()))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [friends, searchTerm]);
+    return [...unique.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [friends]);
+
+  const filteredMembers = useMemo(
+    () => allMembers.filter((u) => u.name?.toLowerCase().includes(searchTerm.toLowerCase())),
+    [allMembers, searchTerm]
+  );
 
   const selectedMembersData = useMemo(
-    () => members.filter((m) => selectedMembers.has(m.id)),
-    [members, selectedMembers]
+    () => allMembers.filter((m) => selectedMembers.has(m.id)),
+    [allMembers, selectedMembers]
   );
 
   const selectedCount = selectedMembers.size;
