@@ -16,6 +16,7 @@ import { Search, ChevronLeft, ChevronRight, Check, Users } from 'lucide-react';
 import { Friend, User } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { dataService } from '@/services/dataService';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface CreateGroupDialogProps {
   isOpen: boolean;
