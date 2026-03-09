@@ -197,8 +197,58 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
             </motion.div>
           )}
 
-          {step === 'members' && (
-            <motion.div key="members" {...stepMotion} className="space-y-4">
+           {step === 'avatar' && (
+             <motion.div key="avatar" {...stepMotion} className="space-y-5">
+               <div className="rounded-2xl border border-border/50 bg-card/60 p-4">
+                 <label className="mb-2 block text-sm font-medium text-foreground">Group Photo (optional)</label>
+ 
+                 <div className="flex items-center gap-4">
+                   <Avatar className="h-16 w-16">
+                     <AvatarImage src={groupAvatarPreview || undefined} />
+                     <AvatarFallback>{(groupName.trim().charAt(0) || 'G').toUpperCase()}</AvatarFallback>
+                   </Avatar>
+ 
+                   <div className="min-w-0 flex-1 space-y-2">
+                     <input
+                       ref={fileInputRef}
+                       type="file"
+                       accept="image/*"
+                       className="hidden"
+                       onChange={(e) => {
+                         const file = e.target.files?.[0] ?? null;
+                         if (file) setAvatarFromFile(file);
+                       }}
+                     />
+ 
+                     <div className="flex flex-wrap gap-2">
+                       <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
+                         Upload photo
+                       </Button>
+                       {groupAvatarFile && (
+                         <Button type="button" variant="ghost" onClick={() => setAvatarFromFile(null)}>
+                           Remove
+                         </Button>
+                       )}
+                     </div>
+ 
+                     <p className="text-xs text-muted-foreground">Choose a square image for best results.</p>
+                   </div>
+                 </div>
+               </div>
+ 
+               <div className="flex justify-between gap-2">
+                 <Button variant="outline" onClick={() => setStep('details')} className="gap-2">
+                   <ChevronLeft className="h-4 w-4" /> Back
+                 </Button>
+                 <Button onClick={() => setStep('members')} className="gap-2">
+                   Next <ChevronRight className="h-4 w-4" />
+                 </Button>
+               </div>
+             </motion.div>
+           )}
+ 
+           {step === 'members' && (
+             <motion.div key="members" {...stepMotion} className="space-y-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
