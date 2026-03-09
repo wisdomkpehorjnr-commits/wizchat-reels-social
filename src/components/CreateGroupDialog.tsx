@@ -269,8 +269,16 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
           {step === 'confirm' && (
             <motion.div key="confirm" {...stepMotion} className="space-y-4">
               <div className="rounded-2xl border border-border/60 bg-card/60 p-4">
-                <p className="text-lg font-semibold text-foreground">{groupName}</p>
-                <p className="text-sm text-muted-foreground">{selectedCount + 1} members including you</p>
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src={groupAvatarPreview || undefined} />
+                    <AvatarFallback>{(groupName.trim().charAt(0) || 'G').toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-lg font-semibold text-foreground">{groupName}</p>
+                    <p className="text-sm text-muted-foreground">{selectedCount + 1} members including you</p>
+                  </div>
+                </div>
               </div>
 
               <div className="max-h-44 space-y-2 overflow-auto rounded-xl border border-border/60 bg-card/40 p-2">
