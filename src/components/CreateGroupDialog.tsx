@@ -139,6 +139,7 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
         description: '',
         isPublic: false,
         members: Array.from(selectedMembers),
+        avatarFile: groupAvatarFile,
       });
 
       toast({ title: 'Success', description: 'Group created successfully' });
