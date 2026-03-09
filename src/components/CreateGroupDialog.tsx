@@ -182,7 +182,7 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
               {selectedCount > 0 && (
                 <div className="flex flex-wrap gap-2 rounded-xl border border-border/50 bg-card/50 p-3">
                   {Array.from(selectedMembers).map((id) => {
-                    const member = members.find((m) => m.id === id);
+                    const member = allMembers.find((m) => m.id === id);
                     if (!member) return null;
                     return (
                       <Badge key={id} variant="secondary" className="cursor-pointer" onClick={() => toggleMember(id)}>
@@ -195,10 +195,10 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
 
               <ScrollArea className="h-72 rounded-xl border border-border/60 bg-card/40 p-2">
                 <div className="space-y-1">
-                  {members.length === 0 ? (
+                  {filteredMembers.length === 0 ? (
                     <p className="py-8 text-center text-sm text-muted-foreground">No friends found</p>
                   ) : (
-                    members.map((member) => {
+                    filteredMembers.map((member) => {
                       const active = selectedMembers.has(member.id);
                       return (
                         <button
