@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Dialog,
@@ -25,7 +25,7 @@ interface CreateGroupDialogProps {
   onGroupCreated?: (groupId: string, groupName?: string) => void;
 }
 
-type Step = 'details' | 'members' | 'confirm';
+type Step = 'details' | 'avatar' | 'members' | 'confirm';
 
 const stepMotion = {
   initial: { opacity: 0, y: 10, filter: 'blur(2px)' },
@@ -47,6 +47,28 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
   const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [groupAvatarFile, setGroupAvatarFile] = useState<File | null>(null);
+  const [groupAvatarPreview, setGroupAvatarPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (groupAvatarPreview) URL.revokeObjectURL(groupAvatarPreview);
+    };
+  }, [groupAvatarPreview]);
+
+  const setAvatarFromFile = (file: File | null) => {
+    setGroupAvatarFile(file);
+    setGroupAvatarPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return file ? URL.createObjectURL(file) : null;
+    });
+
+    if (!file && fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   const allMembers = useMemo(() => {
     const accepted = friends.filter((f) => f.status === 'accepted');
@@ -81,6 +103,7 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
     setGroupName('');
     setSelectedMembers(new Set());
     setSearchTerm('');
+    setAvatarFromFile(null);
   };
 
   const handleClose = () => {
@@ -116,6 +139,7 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
         description: '',
         isPublic: false,
         members: Array.from(selectedMembers),
+        avatarFile: groupAvatarFile,
       });
 
       toast({ title: 'Success', description: 'Group created successfully' });
@@ -144,6 +168,7 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
           </DialogTitle>
           <DialogDescription>
             {step === 'details' && 'Choose a group name'}
+            {step === 'avatar' && 'Add a group photo (optional)'}
             {step === 'members' && 'Select members to add'}
             {step === 'confirm' && 'Review and create your group'}
           </DialogDescription>
@@ -165,15 +190,65 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
 
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={handleClose}>Cancel</Button>
-                <Button onClick={() => setStep('members')} disabled={!groupName.trim()} className="gap-2">
+                <Button onClick={() => setStep('avatar')} disabled={!groupName.trim()} className="gap-2">
                   Next <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
             </motion.div>
           )}
 
-          {step === 'members' && (
-            <motion.div key="members" {...stepMotion} className="space-y-4">
+           {step === 'avatar' && (
+             <motion.div key="avatar" {...stepMotion} className="space-y-5">
+               <div className="rounded-2xl border border-border/50 bg-card/60 p-4">
+                 <label className="mb-2 block text-sm font-medium text-foreground">Group Photo (optional)</label>
+ 
+                 <div className="flex items-center gap-4">
+                   <Avatar className="h-16 w-16">
+                     <AvatarImage src={groupAvatarPreview || undefined} />
+                     <AvatarFallback>{(groupName.trim().charAt(0) || 'G').toUpperCase()}</AvatarFallback>
+                   </Avatar>
+ 
+                   <div className="min-w-0 flex-1 space-y-2">
+                     <input
+                       ref={fileInputRef}
+                       type="file"
+                       accept="image/*"
+                       className="hidden"
+                       onChange={(e) => {
+                         const file = e.target.files?.[0] ?? null;
+                         if (file) setAvatarFromFile(file);
+                       }}
+                     />
+ 
+                     <div className="flex flex-wrap gap-2">
+                       <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
+                         Upload photo
+                       </Button>
+                       {groupAvatarFile && (
+                         <Button type="button" variant="ghost" onClick={() => setAvatarFromFile(null)}>
+                           Remove
+                         </Button>
+                       )}
+                     </div>
+ 
+                     <p className="text-xs text-muted-foreground">Choose a square image for best results.</p>
+                   </div>
+                 </div>
+               </div>
+ 
+               <div className="flex justify-between gap-2">
+                 <Button variant="outline" onClick={() => setStep('details')} className="gap-2">
+                   <ChevronLeft className="h-4 w-4" /> Back
+                 </Button>
+                 <Button onClick={() => setStep('members')} className="gap-2">
+                   Next <ChevronRight className="h-4 w-4" />
+                 </Button>
+               </div>
+             </motion.div>
+           )}
+ 
+           {step === 'members' && (
+             <motion.div key="members" {...stepMotion} className="space-y-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -231,7 +306,7 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
               </ScrollArea>
 
               <div className="flex justify-between gap-2">
-                <Button variant="outline" onClick={() => setStep('details')} className="gap-2">
+                <Button variant="outline" onClick={() => setStep('avatar')} className="gap-2">
                   <ChevronLeft className="h-4 w-4" /> Back
                 </Button>
                 <Button onClick={() => setStep('confirm')} disabled={selectedCount === 0} className="gap-2">
@@ -244,8 +319,16 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
           {step === 'confirm' && (
             <motion.div key="confirm" {...stepMotion} className="space-y-4">
               <div className="rounded-2xl border border-border/60 bg-card/60 p-4">
-                <p className="text-lg font-semibold text-foreground">{groupName}</p>
-                <p className="text-sm text-muted-foreground">{selectedCount + 1} members including you</p>
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src={groupAvatarPreview || undefined} />
+                    <AvatarFallback>{(groupName.trim().charAt(0) || 'G').toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-lg font-semibold text-foreground">{groupName}</p>
+                    <p className="text-sm text-muted-foreground">{selectedCount + 1} members including you</p>
+                  </div>
+                </div>
               </div>
 
               <div className="max-h-44 space-y-2 overflow-auto rounded-xl border border-border/60 bg-card/40 p-2">
