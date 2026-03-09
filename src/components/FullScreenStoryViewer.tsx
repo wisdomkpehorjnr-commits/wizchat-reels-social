@@ -157,6 +157,27 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
     elapsedRef.current = performance.now() - startTimeRef.current;
   }, []);
 
+  // Record view for current story
+  useEffect(() => {
+    if (!story || !user || story.userId === user.id) return;
+    (async () => {
+      try {
+        const { data: existing } = await supabase
+          .from('story_views')
+          .select('id')
+          .eq('story_id', story.id)
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (!existing) {
+          await supabase.from('story_views').insert({ story_id: story.id, user_id: user.id });
+          await supabase.from('stories').update({ viewer_count: (story.viewerCount || 0) + 1 }).eq('id', story.id);
+        }
+      } catch (e) {
+        console.debug('Failed to record story view:', e);
+      }
+    })();
+  }, [story?.id, user?.id]);
+
   useEffect(() => {
     elapsedRef.current = 0;
     setProgress(0);
