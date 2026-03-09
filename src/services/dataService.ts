@@ -1268,90 +1268,94 @@ export const dataService = {
   },
 
 
-  async createGroup(groupData: { name: string; description: string; isPublic: boolean; members: string[] }): Promise<any> {
+  async createGroup(groupData: { name: string; description: string; isPublic: boolean; members: string[] }): Promise<{ group: any; chatId: string }> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
-    // Create the group row
+
+    const cleanedName = groupData.name.trim();
+    const cleanedDescription = (groupData.description || '').trim();
+
+    if (!cleanedName) {
+      throw new Error('Group name is required');
+    }
+
+    const uniqueMemberIds = Array.from(new Set((groupData.members || []).filter(id => id && id !== user.id)));
+
+    // 1) Create group record
     const { data: group, error: groupError } = await supabase
       .from('groups')
       .insert({
-        name: groupData.name,
-        description: groupData.description,
+        name: cleanedName,
+        description: cleanedDescription,
         is_private: !groupData.isPublic,
         created_by: user.id,
-        invite_code: Math.random().toString(36).substring(2, 15),
-        member_count: groupData.members.length + 1
+        invite_code: Math.random().toString(36).slice(2, 14),
+        member_count: uniqueMemberIds.length + 1,
       })
       .select()
       .single();
 
-    if (groupError) {
+    if (groupError || !group) {
       console.error('Error creating group:', groupError);
-      throw groupError;
+      throw new Error(groupError?.message || 'Failed to create group');
     }
 
-    // Add creator as admin member
-    const { error: creatorMemberError } = await supabase.from('group_members').insert({
-      group_id: group.id,
-      user_id: user.id,
-      role: 'admin'
-    });
-
-    if (creatorMemberError) {
-      console.error('Error adding creator to group_members:', creatorMemberError);
-      throw creatorMemberError;
-    }
-
-    // Add selected members
-    if (groupData.members && groupData.members.length > 0) {
-      const membersInsert = groupData.members.map(id => ({
+    // 2) Create group_members records in one insert
+    const groupMembersPayload = [
+      { group_id: group.id, user_id: user.id, role: 'admin' },
+      ...uniqueMemberIds.map((id) => ({
         group_id: group.id,
         user_id: id,
-        role: 'member'
-      }));
+        role: 'member',
+      })),
+    ];
 
-      const { error: membersError } = await supabase.from('group_members').insert(membersInsert);
-      if (membersError) {
-        console.error('Error adding members to group_members:', membersError);
-        throw membersError;
-      }
+    const { error: membersError } = await supabase
+      .from('group_members')
+      .insert(groupMembersPayload);
+
+    if (membersError) {
+      console.error('Error adding members to group_members:', membersError);
+      throw new Error(membersError.message || 'Failed to add group members');
     }
 
-    // Create a group chat using the existing RPC
-    try {
-      const participantIds = [user.id, ...(groupData.members || [])];
-      const { data: chatId, error: chatError } = await supabase.rpc('create_chat_with_participants', {
-        p_participant_ids: participantIds,
-        p_is_group: true,
-        p_name: groupData.name,
-        p_description: groupData.description
-      });
+    // 3) Create group chat (RPC adds creator automatically)
+    const { data: rawChatId, error: chatError } = await supabase.rpc('create_chat_with_participants', {
+      p_participant_ids: uniqueMemberIds,
+      p_is_group: true,
+      p_name: cleanedName,
+      p_description: cleanedDescription || null,
+    });
 
-      if (chatError) {
-        console.error('Error creating group chat via RPC:', chatError);
-        throw chatError;
-      }
-
-      // Send welcome message
-      if (chatId) {
-        const { error: msgError } = await supabase.from('messages').insert({
-          chat_id: chatId,
-          user_id: user.id,
-          content: `👋 Welcome to "${groupData.name}"! This group was just created. Say hello!`,
-          type: 'text'
-        });
-
-        if (msgError) {
-          console.error('Error inserting welcome message:', msgError);
-          // Do not block group creation for message failure, but log it
-        }
-      }
-
-      return { group, chatId };
-    } catch (error) {
-      console.error('Error creating group chat:', error);
-      throw error;
+    if (chatError || !rawChatId) {
+      console.error('Error creating group chat via RPC:', chatError);
+      throw new Error(chatError?.message || 'Failed to create group chat');
     }
+
+    const chatId = String(rawChatId);
+
+    // 4) Keep chat metadata aligned for chat list display
+    await supabase
+      .from('chats')
+      .update({
+        member_count: uniqueMemberIds.length + 1,
+        is_public: !!groupData.isPublic,
+      })
+      .eq('id', chatId);
+
+    // 5) Welcome message (non-blocking)
+    const { error: welcomeError } = await supabase.from('messages').insert({
+      chat_id: chatId,
+      user_id: user.id,
+      content: `👋 Welcome to "${cleanedName}"! This group was just created. Say hello!`,
+      type: 'text',
+    });
+
+    if (welcomeError) {
+      console.error('Error inserting welcome message:', welcomeError);
+    }
+
+    return { group, chatId };
   },
 
   async getUserGroups(userId: string): Promise<any[]> {
