@@ -103,6 +103,7 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
     setGroupName('');
     setSelectedMembers(new Set());
     setSearchTerm('');
+    setAvatarFromFile(null);
   };
 
   const handleClose = () => {
