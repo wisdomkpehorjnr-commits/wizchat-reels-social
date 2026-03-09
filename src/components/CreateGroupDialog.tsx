@@ -116,7 +116,8 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
 
       toast({ title: 'Success', description: 'Group created successfully' });
       onGroupCreated?.(chatId, groupName.trim());
-      handleClose();
+      reset();
+      onClose();
     } catch (error: any) {
       console.error('createGroup failed:', error);
       toast({
