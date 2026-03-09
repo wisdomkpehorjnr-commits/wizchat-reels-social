@@ -1,30 +1,22 @@
-import React, { useState, useRef } from 'react';
+import React, { useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-  Search,
-  Upload,
-  X,
-  ChevronRight,
-  ChevronLeft,
-  Check,
-} from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { Badge } from '@/components/ui/badge';
+import { Search, ChevronLeft, ChevronRight, Check, Users } from 'lucide-react';
 import { Friend, User } from '@/types';
+import { useToast } from '@/hooks/use-toast';
 import { dataService } from '@/services/dataService';
-import { MediaService } from '@/services/mediaService';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface CreateGroupDialogProps {
   isOpen: boolean;
@@ -33,11 +25,14 @@ interface CreateGroupDialogProps {
   onGroupCreated?: (groupId: string, groupName?: string) => void;
 }
 
-type Step = 'enter_name' | 'select_members' | 'summary';
+type Step = 'details' | 'members' | 'confirm';
 
-interface SelectedUser extends User {
-  isSelected: boolean;
-}
+const stepMotion = {
+  initial: { opacity: 0, y: 10, filter: 'blur(2px)' },
+  animate: { opacity: 1, y: 0, filter: 'blur(0px)' },
+  exit: { opacity: 0, y: -8, filter: 'blur(2px)' },
+  transition: { duration: 0.22, ease: 'easeOut' as const },
+};
 
 const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
   isOpen,
@@ -45,189 +40,93 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
   friends,
   onGroupCreated,
 }) => {
-  const { user } = useAuth();
   const { toast } = useToast();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const [step, setStep] = useState<Step>('enter_name');
+  const { user } = useAuth();
+  const [step, setStep] = useState<Step>('details');
   const [groupName, setGroupName] = useState('');
-  const [groupIcon, setGroupIcon] = useState<File | null>(null);
-  const [groupIconPreview, setGroupIconPreview] = useState<string>('');
   const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreating, setIsCreating] = useState(false);
-  const [friendsList, setFriendsList] = useState<SelectedUser[]>([]);
 
-  // Initialize friends list
-  React.useEffect(() => {
-    if (!isOpen) return;
+  const allMembers = useMemo(() => {
+    const accepted = friends.filter((f) => f.status === 'accepted');
+    const unique = new Map<string, User>();
 
-    const acceptedFriends = friends.filter(f => f.status === 'accepted');
-    const friendUsers = acceptedFriends.map(friend =>
-      friend.requester.id === user?.id ? friend.addressee : friend.requester
-    );
+    accepted.forEach((friend) => {
+      const possible = [friend.requester, friend.addressee];
+      possible.forEach((u) => {
+        if (u?.id) unique.set(u.id, u);
+      });
+    });
 
-    setFriendsList(
-      friendUsers.map(f => ({
-        ...f,
-        isSelected: selectedMembers.has(f.id),
-      }))
-    );
-  }, [isOpen, friends, user?.id, selectedMembers]);
+    return [...unique.values()]
+      .filter((member) => member.id !== user?.id)
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [friends, user?.id]);
 
-  const handleGroupIconSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setGroupIcon(file);
-      const reader = new FileReader();
-      reader.onload = () => setGroupIconPreview(reader.result as string);
-      reader.readAsDataURL(file);
-    }
+  const filteredMembers = useMemo(
+    () => allMembers.filter((u) => u.name?.toLowerCase().includes(searchTerm.toLowerCase())),
+    [allMembers, searchTerm]
+  );
+
+  const selectedMembersData = useMemo(
+    () => allMembers.filter((m) => selectedMembers.has(m.id)),
+    [allMembers, selectedMembers]
+  );
+
+  const selectedCount = selectedMembers.size;
+
+  const reset = () => {
+    setStep('details');
+    setGroupName('');
+    setSelectedMembers(new Set());
+    setSearchTerm('');
   };
 
-  const handleRemoveIcon = () => {
-    setGroupIcon(null);
-    setGroupIconPreview('');
-    if (fileInputRef.current) fileInputRef.current.value = '';
+  const handleClose = () => {
+    if (isCreating) return;
+    reset();
+    onClose();
   };
 
-  const handleMemberToggle = (friendId: string) => {
-    setSelectedMembers(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(friendId)) {
-        newSet.delete(friendId);
-      } else {
-        newSet.add(friendId);
-      }
-      return newSet;
+  const toggleMember = (id: string) => {
+    setSelectedMembers((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
     });
   };
 
-  const filteredMembers = friendsList.filter(friend =>
-    friend.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const getSelectedMembersData = () => {
-    return friendsList.filter(f => selectedMembers.has(f.id));
-  };
-
   const handleCreateGroup = async () => {
-    if (!user || !groupName.trim()) {
-      toast({
-        title: 'Error',
-        description: 'Please enter a group name',
-        variant: 'destructive',
-      });
+    if (!groupName.trim()) {
+      toast({ title: 'Error', description: 'Group name is required', variant: 'destructive' });
       return;
     }
 
-    if (selectedMembers.size === 0) {
-      toast({
-        title: 'Error',
-        description: 'Please select at least one member',
-        variant: 'destructive',
-      });
+    if (selectedCount === 0) {
+      toast({ title: 'Error', description: 'Please select at least one member', variant: 'destructive' });
       return;
     }
 
     setIsCreating(true);
     try {
-      const memberIds = Array.from(selectedMembers);
-      const participantIds = [user.id, ...memberIds];
-
-      // 1. Create the group row
-      const { data: group, error: groupError } = await supabase
-        .from('groups')
-        .insert({
-          name: groupName.trim(),
-          description: '',
-          is_private: false,
-          created_by: user.id,
-          invite_code: Math.random().toString(36).substring(2, 15),
-          member_count: participantIds.length,
-        })
-        .select()
-        .single();
-
-      if (groupError) throw groupError;
-
-      // 2. Add creator as admin member
-      await supabase.from('group_members').insert({
-        group_id: group.id,
-        user_id: user.id,
-        role: 'admin',
+      const { chatId } = await dataService.createGroup({
+        name: groupName.trim(),
+        description: '',
+        isPublic: false,
+        members: Array.from(selectedMembers),
       });
 
-      // 3. Add selected members
-      if (memberIds.length > 0) {
-        await supabase.from('group_members').insert(
-          memberIds.map((id) => ({
-            group_id: group.id,
-            user_id: id,
-            role: 'member',
-          }))
-        );
-      }
-
-      // 4. Create a group chat using the existing RPC
-      const { data: rawChatId, error: chatError } = await supabase.rpc(
-        'create_chat_with_participants',
-        {
-          p_participant_ids: participantIds,
-          p_is_group: true,
-          p_name: groupName.trim(),
-        }
-      );
-
-      if (chatError) throw chatError;
-
-      // Normalize chatId return (some clients return wrapped values)
-      const chatIdValue = rawChatId as unknown;
-      let newChatId: string | null = null;
-      if (!chatIdValue) {
-        newChatId = null;
-      } else if (typeof chatIdValue === 'string') {
-        newChatId = chatIdValue;
-      } else if (Array.isArray(chatIdValue) && chatIdValue.length > 0) {
-        newChatId = (chatIdValue[0] as string) || null;
-      } else if (typeof chatIdValue === 'object') {
-        const vals = Object.values(chatIdValue as Record<string, unknown>).filter(v => typeof v === 'string');
-        newChatId = vals.length > 0 ? (vals[0] as string) : null;
-      }
-
-      // 5. Send a welcome message
-      if (newChatId) {
-        await supabase.from('messages').insert({
-          chat_id: newChatId,
-          user_id: user.id,
-          content: `👋 Welcome to "${groupName.trim()}"! This group was just created. Say hello!`,
-          type: 'text',
-        });
-      }
-
-      toast({
-        title: 'Success',
-        description: 'Group created successfully!',
-      });
-
-      // Reset form
-      setGroupName('');
-      setGroupIcon(null);
-      setGroupIconPreview('');
-      setSelectedMembers(new Set());
-      setSearchTerm('');
-      setStep('enter_name');
+      toast({ title: 'Success', description: 'Group created successfully' });
+      onGroupCreated?.(chatId, groupName.trim());
+      reset();
       onClose();
-
-      // Navigate to new group chat - pass chat id and name for optimistic UI
-      if (onGroupCreated) {
-        onGroupCreated(newChatId || group.id, groupName.trim());
-      }
     } catch (error: any) {
-      console.error('Error creating group:', error);
+      console.error('createGroup failed:', error);
       toast({
-        title: 'Error',
-        description: error?.message || 'Failed to create group. Please try again.',
+        title: 'Group creation failed',
+        description: error?.message || 'Please try again.',
         variant: 'destructive',
       });
     } finally {
@@ -235,314 +134,143 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
     }
   };
 
-  const selectedCount = selectedMembers.size;
-  const selectedMembers_data = getSelectedMembersData();
-
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl p-0 overflow-hidden">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 p-6 border-b">
-          <DialogHeader>
-            <DialogTitle className="text-2xl">
-              {step === 'enter_name' && 'Create New Group'}
-              {step === 'select_members' && 'Select Members'}
-              {step === 'summary' && 'Group Summary'}
-            </DialogTitle>
-            <DialogDescription>
-              {step === 'enter_name' && 'Give your group a name and optional icon'}
-              {step === 'select_members' && `Select who to add (${selectedCount} selected)`}
-              {step === 'summary' && 'Review your group details'}
-            </DialogDescription>
-          </DialogHeader>
-        </div>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+      <DialogContent className="max-w-xl overflow-hidden border border-border/60 bg-background/90 backdrop-blur-xl shadow-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-foreground">
+            <Users className="h-5 w-5 text-primary" />
+            Create Group
+          </DialogTitle>
+          <DialogDescription>
+            {step === 'details' && 'Choose a group name'}
+            {step === 'members' && 'Select members to add'}
+            {step === 'confirm' && 'Review and create your group'}
+          </DialogDescription>
+        </DialogHeader>
 
-        {/* Content */}
-        <div className="p-6">
-          {/* Step 1: Enter Group Name */}
-          {step === 'enter_name' && (
-            <div className="space-y-6">
-              {/* Group Icon Upload */}
-              <div className="flex flex-col items-center gap-4">
-                {groupIconPreview ? (
-                  <div className="relative">
-                    <img
-                      src={groupIconPreview}
-                      alt="Group icon"
-                      className="w-24 h-24 rounded-full object-cover border-2 border-blue-500"
-                    />
-                    <button
-                      onClick={handleRemoveIcon}
-                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 text-white text-2xl font-bold">
-                    {groupName.charAt(0).toUpperCase() || '+'}
-                  </div>
-                )}
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-500/30 transition-colors font-medium text-sm"
-                >
-                  <Upload className="w-4 h-4" />
-                  Upload Icon
-                </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleGroupIconSelect}
-                  className="hidden"
-                />
-              </div>
-
-              {/* Group Name Input */}
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-foreground">
-                  Group Name *
-                </label>
+        <AnimatePresence mode="wait">
+          {step === 'details' && (
+            <motion.div key="details" {...stepMotion} className="space-y-5">
+              <div className="rounded-2xl border border-border/50 bg-card/60 p-4">
+                <label className="mb-2 block text-sm font-medium text-foreground">Group Name</label>
                 <Input
-                  placeholder="Enter group name..."
                   value={groupName}
-                  onChange={e => setGroupName(e.target.value)}
-                  className="text-foreground border-2 focus:border-blue-500"
+                  onChange={(e) => setGroupName(e.target.value)}
+                  placeholder="Enter group name"
                   maxLength={50}
                 />
-                <p className="text-xs text-muted-foreground">
-                  {groupName.length}/50 characters
-                </p>
+                <p className="mt-2 text-xs text-muted-foreground">{groupName.length}/50</p>
               </div>
 
-              {/* Navigation */}
-              <div className="flex justify-end gap-3 pt-4">
-                <Button variant="outline" onClick={onClose}>
-                  Cancel
-                </Button>
-                <Button
-                  onClick={() => setStep('select_members')}
-                  disabled={!groupName.trim()}
-                  className="gap-2"
-                >
-                  Next
-                  <ChevronRight className="w-4 h-4" />
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={handleClose}>Cancel</Button>
+                <Button onClick={() => setStep('members')} disabled={!groupName.trim()} className="gap-2">
+                  Next <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
-            </div>
+            </motion.div>
           )}
 
-          {/* Step 2: Select Members */}
-          {step === 'select_members' && (
-            <div className="space-y-4">
-              {/* Selected Members Preview */}
+          {step === 'members' && (
+            <motion.div key="members" {...stepMotion} className="space-y-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search friends"
+                  className="pl-9"
+                />
+              </div>
+
               {selectedCount > 0 && (
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-foreground">
-                    Selected Members ({selectedCount})
-                  </label>
-                  <div className="flex flex-wrap gap-2 p-3 bg-blue-500/10 rounded-lg">
-                    {selectedMembers_data.map(member => (
-                      <div
-                        key={member.id}
-                        className="flex items-center gap-2 px-3 py-1 bg-white dark:bg-slate-800 rounded-full border border-blue-500"
-                      >
-                        <Avatar className="w-5 h-5">
-                          <AvatarImage src={member.avatar} />
-                          <AvatarFallback className="text-xs">
-                            {member.name.charAt(0)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="text-sm font-medium">{member.name}</span>
-                        <button
-                          onClick={() => handleMemberToggle(member.id)}
-                          className="text-blue-500 hover:text-blue-700 transition-colors"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+                <div className="flex flex-wrap gap-2 rounded-xl border border-border/50 bg-card/50 p-3">
+                  {Array.from(selectedMembers).map((id) => {
+                    const member = allMembers.find((m) => m.id === id);
+                    if (!member) return null;
+                    return (
+                      <Badge key={id} variant="secondary" className="cursor-pointer" onClick={() => toggleMember(id)}>
+                        {member.name}
+                      </Badge>
+                    );
+                  })}
                 </div>
               )}
 
-              {/* Search Members */}
-              <div className="relative">
-                <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search friends..."
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                  className="pl-10 text-foreground border-2 focus:border-blue-500"
-                />
-              </div>
-
-              {/* Friends List */}
-              <ScrollArea className="h-80 border rounded-lg p-4 bg-muted/50">
-                <div className="space-y-2">
+              <ScrollArea className="h-72 rounded-xl border border-border/60 bg-card/40 p-2">
+                <div className="space-y-1">
                   {filteredMembers.length === 0 ? (
-                    <p className="text-center text-muted-foreground py-8">
-                      No friends found
-                    </p>
+                    <p className="py-8 text-center text-sm text-muted-foreground">No friends found</p>
                   ) : (
-                    filteredMembers.map(friend => (
-                      <button
-                        key={friend.id}
-                        onClick={() => handleMemberToggle(friend.id)}
-                        className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-background/80 transition-colors text-left group"
-                      >
-                        <Avatar className="w-10 h-10">
-                          <AvatarImage src={friend.avatar} />
-                          <AvatarFallback>{friend.name.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-foreground truncate">
-                            {friend.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            @{friend.username}
-                          </p>
-                        </div>
-                        <div
-                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-                            selectedMembers.has(friend.id)
-                              ? 'border-blue-500 bg-blue-500'
-                              : 'border-gray-300 group-hover:border-blue-500'
-                          }`}
+                    filteredMembers.map((member) => {
+                      const active = selectedMembers.has(member.id);
+                      return (
+                        <button
+                          key={member.id}
+                          type="button"
+                          onClick={() => toggleMember(member.id)}
+                          className="flex w-full items-center gap-3 rounded-lg p-2 text-left transition-colors hover:bg-muted"
                         >
-                          {selectedMembers.has(friend.id) && (
-                            <Check className="w-3 h-3 text-white" />
-                          )}
-                        </div>
-                      </button>
-                    ))
+                          <Avatar className="h-9 w-9">
+                            <AvatarImage src={member.avatar} />
+                            <AvatarFallback>{member.name?.charAt(0)}</AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-foreground">{member.name}</p>
+                            <p className="truncate text-xs text-muted-foreground">@{member.username}</p>
+                          </div>
+                          <div className={`grid h-5 w-5 place-items-center rounded-full border ${active ? 'border-primary bg-primary text-primary-foreground' : 'border-border text-transparent'}`}>
+                            <Check className="h-3 w-3" />
+                          </div>
+                        </button>
+                      );
+                    })
                   )}
                 </div>
               </ScrollArea>
 
-              {/* Validation Message */}
-              {selectedCount === 0 && (
-                <p className="text-sm text-amber-600 dark:text-amber-400">
-                  ⚠ You need to select at least one member
-                </p>
-              )}
-
-              {/* Navigation */}
-              <div className="flex justify-between gap-3 pt-4">
-                <Button
-                  variant="outline"
-                  onClick={() => setStep('enter_name')}
-                  className="gap-2"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                  Back
+              <div className="flex justify-between gap-2">
+                <Button variant="outline" onClick={() => setStep('details')} className="gap-2">
+                  <ChevronLeft className="h-4 w-4" /> Back
                 </Button>
-                <Button
-                  onClick={() => setStep('summary')}
-                  disabled={selectedCount === 0}
-                  className="gap-2"
-                >
-                  Review
-                  <ChevronRight className="w-4 h-4" />
+                <Button onClick={() => setStep('confirm')} disabled={selectedCount === 0} className="gap-2">
+                  Review <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
-            </div>
+            </motion.div>
           )}
 
-          {/* Step 3: Summary */}
-          {step === 'summary' && (
-            <div className="space-y-6">
-              {/* Group Info Card */}
-              <Card className="border-2 bg-gradient-to-br from-blue-500/10 to-purple-500/10">
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-4">
-                    {groupIconPreview ? (
-                      <img
-                        src={groupIconPreview}
-                        alt="Group icon"
-                        className="w-20 h-20 rounded-full object-cover border-2 border-blue-500"
-                      />
-                    ) : (
-                      <div className="flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 text-white text-2xl font-bold">
-                        {groupName.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                    <div>
-                      <h3 className="text-2xl font-bold text-foreground">
-                        {groupName}
-                      </h3>
-                      <p className="text-sm text-muted-foreground">
-                        {selectedCount} member{selectedCount !== 1 ? 's' : ''}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+          {step === 'confirm' && (
+            <motion.div key="confirm" {...stepMotion} className="space-y-4">
+              <div className="rounded-2xl border border-border/60 bg-card/60 p-4">
+                <p className="text-lg font-semibold text-foreground">{groupName}</p>
+                <p className="text-sm text-muted-foreground">{selectedCount + 1} members including you</p>
+              </div>
 
-              {/* Members List */}
-              <div className="space-y-2">
-                <h4 className="font-semibold text-foreground">Members</h4>
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {/* Creator */}
-                  <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                    <Avatar className="w-8 h-8">
-                      <AvatarImage src={user?.avatar || ''} />
-                      <AvatarFallback>{user?.name.charAt(0)}</AvatarFallback>
+              <div className="max-h-44 space-y-2 overflow-auto rounded-xl border border-border/60 bg-card/40 p-2">
+                {selectedMembersData.map((member) => (
+                  <div key={member.id} className="flex items-center gap-2 rounded-lg px-2 py-1.5">
+                    <Avatar className="h-7 w-7">
+                      <AvatarImage src={member.avatar} />
+                      <AvatarFallback>{member.name?.charAt(0)}</AvatarFallback>
                     </Avatar>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-foreground">
-                        {user?.name}
-                      </p>
-                      <p className="text-xs text-muted-foreground">Creator</p>
-                    </div>
+                    <span className="text-sm text-foreground">{member.name}</span>
                   </div>
-
-                  {/* Selected Members */}
-                  {selectedMembers_data.map(member => (
-                    <div
-                      key={member.id}
-                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors"
-                    >
-                      <Avatar className="w-8 h-8">
-                        <AvatarImage src={member.avatar} />
-                        <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-foreground">
-                          {member.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          @{member.username}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                ))}
               </div>
 
-              {/* Navigation */}
-              <div className="flex justify-between gap-3 pt-4">
-                <Button
-                  variant="outline"
-                  onClick={() => setStep('select_members')}
-                  className="gap-2"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                  Back
+              <div className="flex justify-between gap-2">
+                <Button variant="outline" onClick={() => setStep('members')} className="gap-2">
+                  <ChevronLeft className="h-4 w-4" /> Back
                 </Button>
-                <Button
-                  onClick={handleCreateGroup}
-                  disabled={isCreating}
-                  className="gap-2 btn-primary"
-                >
-                  {isCreating ? 'Creating...' : 'Create Group'}
-                  <Check className="w-4 h-4" />
+                <Button onClick={handleCreateGroup} disabled={isCreating} className="gap-2">
+                  {isCreating ? 'Creating...' : 'Create Group'} <Check className="h-4 w-4" />
                 </Button>
               </div>
-            </div>
+            </motion.div>
           )}
-        </div>
+        </AnimatePresence>
       </DialogContent>
     </Dialog>
   );
