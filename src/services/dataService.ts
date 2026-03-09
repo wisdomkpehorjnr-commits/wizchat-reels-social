@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Post, User, Comment, Reaction, Chat, Message, MessageReaction } from '@/types';
+import { mediaService } from '@/services/mediaService';
 
 export const dataService = {
   async getPosts(): Promise<Post[]> {
