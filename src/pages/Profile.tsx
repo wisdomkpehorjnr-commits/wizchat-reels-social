@@ -206,6 +206,19 @@ const Profile = () => {
     id: user.id,
   } : user);
 
+  // Reset state when navigating to a different profile
+  useEffect(() => {
+    setProfileUser(null);
+    setUserPosts([]);
+    setUserReels([]);
+    setSavedPosts([]);
+    setFollowers([]);
+    setFollowing([]);
+    setIsFollowing(false);
+    setActiveTab('posts');
+    setError(null);
+  }, [userIdentifier]);
+
   // Network status
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);

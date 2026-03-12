@@ -102,9 +102,23 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
   const story = currentStories[storyIndex];
   const isOwnStory = story?.userId === user?.id;
 
+  // Cache keys for offline story data
+  const storyLikeCacheKey = (storyId: string) => `story_like_${storyId}_${user?.id}`;
+  const storyLikeCountCacheKey = (storyId: string) => `story_like_count_${storyId}`;
+  const storyViewersCacheKey = (storyId: string) => `story_viewers_${storyId}`;
+
   useEffect(() => {
     if (!story || !user) return;
     let cancelled = false;
+
+    // Load from cache first for instant display
+    try {
+      const cachedLiked = localStorage.getItem(storyLikeCacheKey(story.id));
+      const cachedCount = localStorage.getItem(storyLikeCountCacheKey(story.id));
+      if (cachedLiked !== null) setIsLiked(cachedLiked === 'true');
+      if (cachedCount !== null) setLikeCount(parseInt(cachedCount, 10));
+    } catch {}
+
     const loadLikeState = async () => {
       try {
         const [likeResult, countResult] = await Promise.all([
@@ -112,8 +126,15 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
           supabase.from('story_likes').select('*', { count: 'exact', head: true }).eq('story_id', story.id)
         ]);
         if (cancelled) return;
-        setIsLiked(!!likeResult.data);
-        setLikeCount(countResult.count || 0);
+        const liked = !!likeResult.data;
+        const count = countResult.count || 0;
+        setIsLiked(liked);
+        setLikeCount(count);
+        // Persist to cache
+        try {
+          localStorage.setItem(storyLikeCacheKey(story.id), String(liked));
+          localStorage.setItem(storyLikeCountCacheKey(story.id), String(count));
+        } catch {}
       } catch (err) {
         console.debug('Failed to load like state:', err);
       }
