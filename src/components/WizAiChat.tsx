@@ -27,6 +27,49 @@ interface WizAiChatProps {
 }
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/wizai-chat`;
+const IMAGE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/wizai-image`;
+
+// Detect if a user message is an image generation request
+function isImageGenRequest(text: string): boolean {
+  const lower = text.toLowerCase();
+  const patterns = [
+    /\b(generate|create|make|draw|design|paint|sketch|render|produce)\b.*\b(image|picture|photo|illustration|art|artwork|icon|logo|poster|wallpaper|avatar|banner)\b/,
+    /\b(image|picture|photo|illustration|art|artwork|icon|logo|poster|wallpaper|avatar|banner)\b.*\b(of|for|with|showing|depicting)\b/,
+    /^(generate|create|make|draw|design|paint|sketch|render)\b/,
+  ];
+  return patterns.some(p => p.test(lower));
+}
+
+// Detect if a user message wants to edit/copy a reference image
+function isImageEditRequest(text: string): boolean {
+  const lower = text.toLowerCase();
+  const patterns = [
+    /\b(edit|modify|change|transform|convert|make it|copy|replicate|recreate|similar|like this|improve|enhance|upscale)\b/,
+  ];
+  return patterns.some(p => p.test(lower));
+}
+
+async function generateImage(prompt: string, referenceImageUrl?: string): Promise<{ imageUrl?: string; text?: string; error?: string }> {
+  try {
+    const resp = await fetch(IMAGE_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      },
+      body: JSON.stringify({ prompt, referenceImageUrl }),
+    });
+
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+      return { error: data.error || 'Image generation failed' };
+    }
+
+    return await resp.json();
+  } catch (e) {
+    return { error: 'Failed to connect to image service' };
+  }
+}
 
 async function streamChat({
   messages,
