@@ -2,3 +2,6 @@ project_id = "cgydbjsuhwsnqsiskmex"
 
 [functions.wizai-chat]
 verify_jwt = false
+
+[functions.wizai-image]
+verify_jwt = false
