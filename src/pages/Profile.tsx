@@ -192,8 +192,8 @@ const Profile = () => {
   const [showSavedOptions, setShowSavedOptions] = useState(false);
   const longPressTimer = useRef<number | null>(null);
 
-  // Determine if this is the current user's profile
-  const isOwnProfile = !userIdentifier || (profileUser && user && profileUser.id === user.id);
+  // Determine if this is the current user's profile — use URL param directly to avoid stale state
+  const isOwnProfile = !userIdentifier || userIdentifier === user?.id || userIdentifier === (user as any)?.username;
   const targetUser = profileUser || (isOffline ? {
     name: user.name || user.email?.split('@')[0] || 'User',
     username: user.username || user.email?.split('@')[0] || 'user',
