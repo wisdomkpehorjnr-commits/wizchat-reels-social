@@ -449,8 +449,68 @@ const WizAiChat = ({ onClose }: WizAiChatProps) => {
     }
   };
 
+  const handleImageGeneration = async (prompt: string, referenceImageUrl?: string) => {
+    setIsThinking(true);
+    updateActiveMessages(prev => [...prev, {
+      id: (Date.now() + 1).toString(),
+      role: 'assistant',
+      content: '🎨 Generating image...',
+      timestamp: Date.now(),
+    }]);
+
+    const result = await generateImage(prompt, referenceImageUrl);
+
+    if (result.error) {
+      updateActiveMessages(prev => {
+        const updated = [...prev];
+        updated[updated.length - 1] = {
+          ...updated[updated.length - 1],
+          content: `❌ ${result.error}`,
+        };
+        return updated;
+      });
+    } else {
+      updateActiveMessages(prev => {
+        const updated = [...prev];
+        updated[updated.length - 1] = {
+          ...updated[updated.length - 1],
+          content: result.text || '✨ Here\'s your generated image!',
+          imageUrl: result.imageUrl || undefined,
+        };
+        return updated;
+      });
+    }
+    setIsThinking(false);
+  };
+
   const handleSend = async () => {
     if (pendingImage) {
+      // If there's a pending image AND text that looks like an edit request, do image editing
+      if (inputValue.trim() && (isImageEditRequest(inputValue) || isImageGenRequest(inputValue))) {
+        const userMsg: WizAiMessage = {
+          id: Date.now().toString(),
+          role: 'user',
+          content: inputValue.trim(),
+          imageUrl: pendingImage,
+          timestamp: Date.now(),
+        };
+        updateActiveMessages(prev => [...prev, userMsg]);
+
+        if (activeSession && activeSession.messages.length === 0) {
+          const title = inputValue.slice(0, 30) + '...';
+          setSessions(prev => {
+            const next = prev.map(s => s.id === activeChatId ? { ...s, title } : s);
+            saveChatSessions(userId, next);
+            return next;
+          });
+        }
+
+        const imageRef = pendingImage;
+        setPendingImage(null);
+        setInputValue('');
+        await handleImageGeneration(inputValue.trim(), imageRef);
+        return;
+      }
       handleSendWithImage();
       return;
     }
@@ -474,8 +534,14 @@ const WizAiChat = ({ onClose }: WizAiChatProps) => {
 
     updateActiveMessages(prev => [...prev, userMessage]);
     setInputValue('');
-    setIsThinking(true);
 
+    // Check if this is an image generation request
+    if (isImageGenRequest(inputValue)) {
+      await handleImageGeneration(inputValue);
+      return;
+    }
+
+    setIsThinking(true);
     await sendToAI([...messages, userMessage]);
   };
 
