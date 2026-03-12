@@ -643,8 +643,11 @@ const WizAiChat = ({ onClose }: WizAiChatProps) => {
             <p className="text-primary text-lg font-medium italic">
               I'm WizAi — how may I assist you? 🤖
             </p>
+            <p className="text-xs text-muted-foreground mt-2">
+              I can chat, answer questions, and <span className="text-primary font-semibold">generate images</span>! 🎨
+            </p>
             {!hasPremium && (
-              <p className="text-xs text-muted-foreground mt-2">
+              <p className="text-xs text-muted-foreground mt-1">
                 Upgrade to Pro for image uploads & more!
               </p>
             )}
