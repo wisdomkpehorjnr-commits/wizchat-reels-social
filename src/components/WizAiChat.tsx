@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { ArrowLeft, Bell, Send, Plus, Menu, ImagePlus, X, Copy, Trash2 } from 'lucide-react';
+import { ArrowLeft, Bell, Send, Plus, Menu, ImagePlus, X, Copy, Trash2, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
