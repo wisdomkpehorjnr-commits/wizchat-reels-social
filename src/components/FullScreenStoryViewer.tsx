@@ -227,20 +227,22 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
     setTimeout(() => setShowHeartAnim(false), 800);
     
     // Optimistic update
-    if (wasLiked) {
-      setIsLiked(false);
-      setLikeCount(prev => Math.max(0, prev - 1));
-    } else {
-      setIsLiked(true);
-      setLikeCount(prev => prev + 1);
-    }
+    const newLiked = !wasLiked;
+    const newCount = wasLiked ? Math.max(0, likeCount - 1) : likeCount + 1;
+    setIsLiked(newLiked);
+    setLikeCount(newCount);
+
+    // Persist to cache immediately
+    try {
+      localStorage.setItem(storyLikeCacheKey(story.id), String(newLiked));
+      localStorage.setItem(storyLikeCountCacheKey(story.id), String(newCount));
+    } catch {}
 
     try {
       if (wasLiked) {
         const { error } = await supabase.from('story_likes').delete().eq('story_id', story.id).eq('user_id', user.id);
         if (error) throw error;
       } else {
-        // Check if already exists to avoid duplicate key error
         const { data: existing } = await supabase
           .from('story_likes')
           .select('id')
@@ -258,6 +260,10 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
       // Revert optimistic update
       setIsLiked(wasLiked);
       setLikeCount(prev => wasLiked ? prev + 1 : Math.max(0, prev - 1));
+      try {
+        localStorage.setItem(storyLikeCacheKey(story.id), String(wasLiked));
+        localStorage.setItem(storyLikeCountCacheKey(story.id), String(wasLiked ? likeCount : Math.max(0, likeCount - 1)));
+      } catch {}
     }
   };
 
@@ -265,11 +271,31 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
     if (!story) return;
     pauseTimer();
     setIsPaused(true);
-    const { data } = await supabase
-      .from('story_views')
-      .select('*, profiles:user_id(id, name, username, avatar)')
-      .eq('story_id', story.id);
-    setViewers(data || []);
+
+    // Load from cache first
+    try {
+      const cachedViewers = localStorage.getItem(storyViewersCacheKey(story.id));
+      if (cachedViewers) {
+        setViewers(JSON.parse(cachedViewers));
+        setShowViewers(true);
+      }
+    } catch {}
+
+    // Try to fetch fresh data
+    try {
+      const { data } = await supabase
+        .from('story_views')
+        .select('*, profiles:user_id(id, name, username, avatar)')
+        .eq('story_id', story.id);
+      const viewerData = data || [];
+      setViewers(viewerData);
+      // Cache for offline
+      try {
+        localStorage.setItem(storyViewersCacheKey(story.id), JSON.stringify(viewerData));
+      } catch {}
+    } catch (err) {
+      console.debug('Failed to fetch viewers (offline?):', err);
+    }
     setShowViewers(true);
   };
 
