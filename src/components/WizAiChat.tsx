@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { ArrowLeft, Bell, Send, Plus, Menu, ImagePlus, X, Copy, Trash2 } from 'lucide-react';
+import { ArrowLeft, Bell, Send, Plus, Menu, ImagePlus, X, Copy, Trash2, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -27,6 +27,49 @@ interface WizAiChatProps {
 }
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/wizai-chat`;
+const IMAGE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/wizai-image`;
+
+// Detect if a user message is an image generation request
+function isImageGenRequest(text: string): boolean {
+  const lower = text.toLowerCase();
+  const patterns = [
+    /\b(generate|create|make|draw|design|paint|sketch|render|produce)\b.*\b(image|picture|photo|illustration|art|artwork|icon|logo|poster|wallpaper|avatar|banner)\b/,
+    /\b(image|picture|photo|illustration|art|artwork|icon|logo|poster|wallpaper|avatar|banner)\b.*\b(of|for|with|showing|depicting)\b/,
+    /^(generate|create|make|draw|design|paint|sketch|render)\b/,
+  ];
+  return patterns.some(p => p.test(lower));
+}
+
+// Detect if a user message wants to edit/copy a reference image
+function isImageEditRequest(text: string): boolean {
+  const lower = text.toLowerCase();
+  const patterns = [
+    /\b(edit|modify|change|transform|convert|make it|copy|replicate|recreate|similar|like this|improve|enhance|upscale)\b/,
+  ];
+  return patterns.some(p => p.test(lower));
+}
+
+async function generateImage(prompt: string, referenceImageUrl?: string): Promise<{ imageUrl?: string; text?: string; error?: string }> {
+  try {
+    const resp = await fetch(IMAGE_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      },
+      body: JSON.stringify({ prompt, referenceImageUrl }),
+    });
+
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+      return { error: data.error || 'Image generation failed' };
+    }
+
+    return await resp.json();
+  } catch (e) {
+    return { error: 'Failed to connect to image service' };
+  }
+}
 
 async function streamChat({
   messages,
@@ -406,8 +449,68 @@ const WizAiChat = ({ onClose }: WizAiChatProps) => {
     }
   };
 
+  const handleImageGeneration = async (prompt: string, referenceImageUrl?: string) => {
+    setIsThinking(true);
+    updateActiveMessages(prev => [...prev, {
+      id: (Date.now() + 1).toString(),
+      role: 'assistant',
+      content: '🎨 Generating image...',
+      timestamp: Date.now(),
+    }]);
+
+    const result = await generateImage(prompt, referenceImageUrl);
+
+    if (result.error) {
+      updateActiveMessages(prev => {
+        const updated = [...prev];
+        updated[updated.length - 1] = {
+          ...updated[updated.length - 1],
+          content: `❌ ${result.error}`,
+        };
+        return updated;
+      });
+    } else {
+      updateActiveMessages(prev => {
+        const updated = [...prev];
+        updated[updated.length - 1] = {
+          ...updated[updated.length - 1],
+          content: result.text || '✨ Here\'s your generated image!',
+          imageUrl: result.imageUrl || undefined,
+        };
+        return updated;
+      });
+    }
+    setIsThinking(false);
+  };
+
   const handleSend = async () => {
     if (pendingImage) {
+      // If there's a pending image AND text that looks like an edit request, do image editing
+      if (inputValue.trim() && (isImageEditRequest(inputValue) || isImageGenRequest(inputValue))) {
+        const userMsg: WizAiMessage = {
+          id: Date.now().toString(),
+          role: 'user',
+          content: inputValue.trim(),
+          imageUrl: pendingImage,
+          timestamp: Date.now(),
+        };
+        updateActiveMessages(prev => [...prev, userMsg]);
+
+        if (activeSession && activeSession.messages.length === 0) {
+          const title = inputValue.slice(0, 30) + '...';
+          setSessions(prev => {
+            const next = prev.map(s => s.id === activeChatId ? { ...s, title } : s);
+            saveChatSessions(userId, next);
+            return next;
+          });
+        }
+
+        const imageRef = pendingImage;
+        setPendingImage(null);
+        setInputValue('');
+        await handleImageGeneration(inputValue.trim(), imageRef);
+        return;
+      }
       handleSendWithImage();
       return;
     }
@@ -431,8 +534,14 @@ const WizAiChat = ({ onClose }: WizAiChatProps) => {
 
     updateActiveMessages(prev => [...prev, userMessage]);
     setInputValue('');
-    setIsThinking(true);
 
+    // Check if this is an image generation request
+    if (isImageGenRequest(inputValue)) {
+      await handleImageGeneration(inputValue);
+      return;
+    }
+
+    setIsThinking(true);
     await sendToAI([...messages, userMessage]);
   };
 
@@ -534,8 +643,11 @@ const WizAiChat = ({ onClose }: WizAiChatProps) => {
             <p className="text-primary text-lg font-medium italic">
               I'm WizAi — how may I assist you? 🤖
             </p>
+            <p className="text-xs text-muted-foreground mt-2">
+              I can chat, answer questions, and <span className="text-primary font-semibold">generate images</span>! 🎨
+            </p>
             {!hasPremium && (
-              <p className="text-xs text-muted-foreground mt-2">
+              <p className="text-xs text-muted-foreground mt-1">
                 Upgrade to Pro for image uploads & more!
               </p>
             )}
