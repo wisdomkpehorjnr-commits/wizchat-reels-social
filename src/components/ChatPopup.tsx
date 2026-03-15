@@ -45,6 +45,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
   const syncInProgressRef = useRef(false);
   const processedMessageIds = useRef<Set<string>>(new Set());
   const sendSound = useRef<HTMLAudioElement | null>(null);
+  const [chatWallpaper, setChatWallpaper] = useState<string | null>(() => localStorage.getItem('chat-wallpaper'));
 
   useEffect(() => {
     sendSound.current = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSl+zPDTgjMGHm7A7+OZSA0PVavk8LJiHAdEo+Hzu2ohBSl+zPDTgjMGHm7A7+OZSA0PVavk8LJiHAc=');
