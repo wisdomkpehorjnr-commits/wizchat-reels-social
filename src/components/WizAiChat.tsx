@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import ReactMarkdown from 'react-markdown';
 import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from '@/integrations/supabase/client';
 import WizAiNotificationsPanel from './wizai/WizAiNotificationsPanel';
 import WizAiChatSidebar from './wizai/WizAiChatSidebar';
 import {
