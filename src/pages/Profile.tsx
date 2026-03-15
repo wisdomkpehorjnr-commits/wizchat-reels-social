@@ -194,17 +194,21 @@ const Profile = () => {
 
   // Determine if this is the current user's profile — use URL param directly to avoid stale state
   const isOwnProfile = !userIdentifier || userIdentifier === user?.id || userIdentifier === (user as any)?.username;
-  const targetUser = profileUser || (isOffline ? {
-    name: user.name || user.email?.split('@')[0] || 'User',
-    username: user.username || user.email?.split('@')[0] || 'user',
-    avatar: user.avatar || (user as any).photoURL,
-    bio: (user as any).bio || '',
-    createdAt: (user as any).createdAt || new Date(),
+  
+  // Only fall back to current user data when it IS the own profile
+  const ownProfileFallback = isOwnProfile ? {
+    name: user?.name || user?.email?.split('@')[0] || 'User',
+    username: user?.username || user?.email?.split('@')[0] || 'user',
+    avatar: user?.avatar || (user as any)?.photoURL,
+    bio: (user as any)?.bio || '',
+    createdAt: (user as any)?.createdAt || new Date(),
     followerCount: 0,
     followingCount: 0,
     is_verified: false,
-    id: user.id,
-  } : user);
+    id: user?.id,
+  } : null;
+  
+  const targetUser = profileUser || (isOwnProfile ? (isOffline ? ownProfileFallback : user) : null);
 
   // Reset state when navigating to a different profile
   useEffect(() => {

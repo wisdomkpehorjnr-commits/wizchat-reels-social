@@ -61,7 +61,16 @@ export class ProfileService {
       .eq('id', user.id)
       .single();
 
-    // Use the follows table (not friends)
+    // Check if already following to prevent duplicate insert errors
+    const { data: existing } = await supabase
+      .from('follows')
+      .select('id')
+      .eq('follower_id', user.id)
+      .eq('following_id', userId)
+      .maybeSingle();
+
+    if (existing) return; // Already following, no-op
+
     const { error } = await supabase
       .from('follows')
       .insert({
