@@ -485,8 +485,8 @@ const Profile = () => {
 
   if (!user) return null;
   
-  // Show loading only when online with no cached data and no fallback
-  if (loading && !cachedProfile && !isOffline && !profileUser) {
+  // Show loading when we don't have any user data to display
+  if (!targetUser || (loading && !cachedProfile && !isOffline && !profileUser)) {
     return (
       <Layout>
         <div className="min-h-[60vh] flex items-center justify-center">
