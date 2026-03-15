@@ -45,10 +45,17 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
   const syncInProgressRef = useRef(false);
   const processedMessageIds = useRef<Set<string>>(new Set());
   const sendSound = useRef<HTMLAudioElement | null>(null);
+  const [chatWallpaper, setChatWallpaper] = useState<string | null>(() => localStorage.getItem('chat-wallpaper'));
 
   useEffect(() => {
     sendSound.current = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSl+zPDTgjMGHm7A7+OZSA0PVavk8LJiHAdEo+Hzu2ohBSl+zPDTgjMGHm7A7+OZSA0PVavk8LJiHAc=');
     sendSound.current.volume = 0.3;
+
+    const handleWallpaperChange = (e: Event) => {
+      setChatWallpaper((e as CustomEvent).detail);
+    };
+    window.addEventListener('chat-wallpaper-change', handleWallpaperChange);
+    return () => window.removeEventListener('chat-wallpaper-change', handleWallpaperChange);
   }, []);
 
   useEffect(() => {
@@ -1088,7 +1095,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       )}
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-4">
+      <ScrollArea className="flex-1 p-4" style={chatWallpaper ? { backgroundColor: chatWallpaper } : undefined}>
         {loading ? (
           <LoadingDots />
         ) : (

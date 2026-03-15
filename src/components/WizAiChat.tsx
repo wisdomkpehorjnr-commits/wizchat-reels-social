@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import ReactMarkdown from 'react-markdown';
 import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from '@/integrations/supabase/client';
 import WizAiNotificationsPanel from './wizai/WizAiNotificationsPanel';
 import WizAiChatSidebar from './wizai/WizAiChatSidebar';
 import {
@@ -469,13 +470,40 @@ const WizAiChat = ({ onClose }: WizAiChatProps) => {
         };
         return updated;
       });
-    } else {
+    } else if (result.imageUrl) {
+      // Upload base64 image to Supabase storage to avoid huge inline data that crashes rendering
+      let displayUrl = result.imageUrl;
+      try {
+        if (result.imageUrl.startsWith('data:')) {
+          const res = await fetch(result.imageUrl);
+          const blob = await res.blob();
+          const fileName = `wizai-gen-${Date.now()}.png`;
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('posts')
+            .upload(`wizai/${fileName}`, blob, { contentType: 'image/png' });
+          if (!uploadError && uploadData) {
+            const { data: urlData } = supabase.storage.from('posts').getPublicUrl(uploadData.path);
+            displayUrl = urlData.publicUrl;
+          }
+        }
+      } catch (e) {
+        console.error('Failed to upload generated image:', e);
+      }
       updateActiveMessages(prev => {
         const updated = [...prev];
         updated[updated.length - 1] = {
           ...updated[updated.length - 1],
           content: result.text || '✨ Here\'s your generated image!',
-          imageUrl: result.imageUrl || undefined,
+          imageUrl: displayUrl,
+        };
+        return updated;
+      });
+    } else {
+      updateActiveMessages(prev => {
+        const updated = [...prev];
+        updated[updated.length - 1] = {
+          ...updated[updated.length - 1],
+          content: result.text || '❌ No image was generated. Please try a different prompt.',
         };
         return updated;
       });
