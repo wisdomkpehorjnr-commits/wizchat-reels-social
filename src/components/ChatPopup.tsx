@@ -1089,7 +1089,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       )}
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-4">
+      <ScrollArea className="flex-1 p-4" style={chatWallpaper ? { backgroundColor: chatWallpaper } : undefined}>
         {loading ? (
           <LoadingDots />
         ) : (
