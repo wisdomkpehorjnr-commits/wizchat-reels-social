@@ -187,6 +187,7 @@ const ChatSettingsMenu = ({
           onClick={() => {
             document.documentElement.style.removeProperty('--chat-wallpaper');
             localStorage.removeItem('chat-wallpaper');
+            window.dispatchEvent(new CustomEvent('chat-wallpaper-change', { detail: null }));
             setWallpaperDialog(false);
           }}
         >
