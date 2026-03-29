@@ -49,8 +49,8 @@ const ClickableUserInfo = ({
 
   const handleViewProfile = () => {
     setShowPopup(false);
-    const identifier = user.username || user.id;
-    navigate(`/profile/${identifier}`);
+    // Always use user.id for reliable navigation — username may be undefined
+    navigate(`/profile/${user.id}`);
   };
   
   if (!user) return null;

@@ -192,10 +192,10 @@ const Profile = () => {
   const [showSavedOptions, setShowSavedOptions] = useState(false);
   const longPressTimer = useRef<number | null>(null);
 
-  // Determine if this is the current user's profile — use URL param directly to avoid stale state
+  // Determine if this is the current user's own profile
   const isOwnProfile = !userIdentifier || userIdentifier === user?.id || userIdentifier === (user as any)?.username;
   
-  // Only fall back to current user data when it IS the own profile
+  // Build a fallback for own profile from auth context
   const ownProfileFallback = isOwnProfile ? {
     name: user?.name || user?.email?.split('@')[0] || 'User',
     username: user?.username || user?.email?.split('@')[0] || 'user',
@@ -208,7 +208,11 @@ const Profile = () => {
     id: user?.id,
   } : null;
   
-  const targetUser = profileUser || (isOwnProfile ? (isOffline ? ownProfileFallback : user) : null);
+  // For own profile: use profileUser (fetched) or auth user or fallback
+  // For other profiles: ONLY use profileUser (fetched from DB) — never fall back to auth user
+  const targetUser = isOwnProfile 
+    ? (profileUser || user || ownProfileFallback) 
+    : profileUser;
 
   // Reset state when navigating to a different profile
   useEffect(() => {
@@ -242,12 +246,8 @@ const Profile = () => {
     const fetchUserData = async () => {
       if (!user) return;
       
-      // If we have cached data, show it immediately and don't show loading
-      if (cachedProfile) {
-        setLoading(false);
-      } else {
-        setLoading(true);
-      }
+      setLoading(true);
+      
       
       setError(null);
       setContentLoading(true);
@@ -341,11 +341,8 @@ const Profile = () => {
 
       } catch (err: any) {
         console.error('Error loading profile:', err);
-        // Only show error if no cached data
-        if (!cachedProfile) {
-          if (err?.code === 'PGRST116' || err?.message?.includes('not found')) {
-            setError("User not found");
-          }
+        if (err?.code === 'PGRST116' || err?.message?.includes('not found')) {
+          setError("User not found");
         }
       } finally {
         setLoading(false);
@@ -359,7 +356,7 @@ const Profile = () => {
     if (!isOwnProfile && activeTab === 'saved') {
       setActiveTab('posts');
     }
-  }, [user, userIdentifier, isOwnProfile, cachedProfile]);
+  }, [user?.id, userIdentifier]);
 
   /** Follow / Unfollow */
   const handleFollow = async () => {
@@ -485,8 +482,8 @@ const Profile = () => {
 
   if (!user) return null;
   
-  // Show loading when we don't have any user data to display
-  if (!targetUser || (loading && !cachedProfile && !isOffline && !profileUser)) {
+  // Show loading only when actively fetching and we have no data yet
+  if (loading && !targetUser) {
     return (
       <Layout>
         <div className="min-h-[60vh] flex items-center justify-center">
