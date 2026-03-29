@@ -192,10 +192,10 @@ const Profile = () => {
   const [showSavedOptions, setShowSavedOptions] = useState(false);
   const longPressTimer = useRef<number | null>(null);
 
-  // Determine if this is the current user's profile — use URL param directly to avoid stale state
+  // Determine if this is the current user's own profile
   const isOwnProfile = !userIdentifier || userIdentifier === user?.id || userIdentifier === (user as any)?.username;
   
-  // Only fall back to current user data when it IS the own profile
+  // Build a fallback for own profile from auth context
   const ownProfileFallback = isOwnProfile ? {
     name: user?.name || user?.email?.split('@')[0] || 'User',
     username: user?.username || user?.email?.split('@')[0] || 'user',
@@ -208,7 +208,11 @@ const Profile = () => {
     id: user?.id,
   } : null;
   
-  const targetUser = profileUser || (isOwnProfile ? (isOffline ? ownProfileFallback : user) : null);
+  // For own profile: use profileUser (fetched) or auth user or fallback
+  // For other profiles: ONLY use profileUser (fetched from DB) — never fall back to auth user
+  const targetUser = isOwnProfile 
+    ? (profileUser || user || ownProfileFallback) 
+    : profileUser;
 
   // Reset state when navigating to a different profile
   useEffect(() => {
