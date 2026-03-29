@@ -363,7 +363,7 @@ const Profile = () => {
     if (!isOwnProfile && activeTab === 'saved') {
       setActiveTab('posts');
     }
-  }, [user, userIdentifier, isOwnProfile, cachedProfile]);
+  }, [user?.id, userIdentifier]);
 
   /** Follow / Unfollow */
   const handleFollow = async () => {
