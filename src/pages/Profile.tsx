@@ -246,12 +246,8 @@ const Profile = () => {
     const fetchUserData = async () => {
       if (!user) return;
       
-      // If we have cached data, show it immediately and don't show loading
-      if (cachedProfile) {
-        setLoading(false);
-      } else {
-        setLoading(true);
-      }
+      setLoading(true);
+      
       
       setError(null);
       setContentLoading(true);
