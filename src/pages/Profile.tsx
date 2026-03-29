@@ -341,11 +341,8 @@ const Profile = () => {
 
       } catch (err: any) {
         console.error('Error loading profile:', err);
-        // Only show error if no cached data
-        if (!cachedProfile) {
-          if (err?.code === 'PGRST116' || err?.message?.includes('not found')) {
-            setError("User not found");
-          }
+        if (err?.code === 'PGRST116' || err?.message?.includes('not found')) {
+          setError("User not found");
         }
       } finally {
         setLoading(false);
