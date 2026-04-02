@@ -161,9 +161,11 @@ const Profile = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { userIdentifier } = useParams();
+  const normalizedIdentifier = userIdentifier?.trim();
+  const normalizedCurrentUsername = user?.username?.trim();
 
   // Get cached data for instant display
-  const targetUserId = userIdentifier || user?.id;
+  const targetUserId = normalizedIdentifier || user?.id;
   const cachedProfile = useMemo(() => targetUserId ? getProfileCache(targetUserId) : null, [targetUserId]);
 
   const [profileUser, setProfileUser] = useState<any>(cachedProfile?.profile || null);
@@ -193,7 +195,7 @@ const Profile = () => {
   const longPressTimer = useRef<number | null>(null);
 
   // Determine if this is the current user's own profile
-  const isOwnProfile = !userIdentifier || userIdentifier === user?.id || userIdentifier === (user as any)?.username;
+  const isOwnProfile = !normalizedIdentifier || normalizedIdentifier === user?.id || normalizedIdentifier === normalizedCurrentUsername;
   
   // Build a fallback for own profile from auth context
   const ownProfileFallback = isOwnProfile ? {
@@ -216,16 +218,18 @@ const Profile = () => {
 
   // Reset state when navigating to a different profile
   useEffect(() => {
-    setProfileUser(null);
-    setUserPosts([]);
-    setUserReels([]);
+    setProfileUser(cachedProfile?.profile || null);
+    setUserPosts(cachedProfile?.posts || []);
+    setUserReels(cachedProfile?.reels || []);
     setSavedPosts([]);
     setFollowers([]);
     setFollowing([]);
     setIsFollowing(false);
     setActiveTab('posts');
     setError(null);
-  }, [userIdentifier]);
+    setLoading(!cachedProfile);
+    setContentLoading(!cachedProfile);
+  }, [cachedProfile, userIdentifier]);
 
   // Network status
   useEffect(() => {
@@ -299,13 +303,15 @@ const Profile = () => {
           
           // Cache the profile
           saveProfileCache(foundUser.id, { profile: foundUser });
+          if (normalizedIdentifier && normalizedIdentifier !== foundUser.id) {
+            saveProfileCache(normalizedIdentifier, { profile: foundUser });
+          }
         }
 
         // Posts & reels
-        const posts = await dataService.getPosts();
-        const filteredPosts = posts.filter(p => p.userId === currentUserId);
-        const userPostsList = filteredPosts.filter(p => !p.isReel);
-        const userReelsList = filteredPosts.filter(p => p.isReel);
+        const posts = await dataService.getPostsByUser(currentUserId);
+        const userPostsList = posts.filter(p => !p.isReel);
+        const userReelsList = posts.filter(p => p.isReel);
         
         setUserPosts(userPostsList);
         setUserReels(userReelsList);

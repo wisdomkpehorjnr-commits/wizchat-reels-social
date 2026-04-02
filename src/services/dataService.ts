@@ -2,41 +2,83 @@ import { supabase } from '@/integrations/supabase/client';
 import { Post, User, Comment, Reaction, Chat, Message, MessageReaction } from '@/types';
 import { mediaService } from '@/services/mediaService';
 
+const POSTS_WITH_RELATIONS_SELECT = `
+  *,
+  user:user_id (
+    id,
+    name,
+    username,
+    email,
+    avatar,
+    is_verified
+  ),
+  comments:comments (
+    id,
+    user_id,
+    post_id,
+    content,
+    created_at,
+    user:user_id (
+      id,
+      name,
+      username,
+      email,
+      avatar
+    )
+  ),
+  likes:likes (
+    id,
+    user_id
+  )
+`;
+
+const mapPostsFromQuery = (rows: any[], currentUserId?: string): Post[] => {
+  return (rows || []).map((post: any) => {
+    const likes = (post.likes as any[]) || [];
+    const isLiked = currentUserId ? likes.some((like) => like.user_id === currentUserId) : false;
+
+    let imageUrls = undefined;
+    let imageUrl = post.image_url;
+
+    if (post.image_url) {
+      imageUrls = [post.image_url];
+    }
+
+    return {
+      id: post.id,
+      userId: post.user_id,
+      user: post.user as User,
+      content: post.content,
+      imageUrl,
+      imageUrls,
+      videoUrl: post.video_url,
+      mediaType: post.media_type as 'text' | 'image' | 'video',
+      isReel: post.is_reel,
+      likes,
+      likeCount: likes.length,
+      isLiked,
+      comments: ((post.comments as any[]) || []).map(comment => ({
+        id: comment.id,
+        userId: comment.user_id,
+        user: comment.user as User,
+        postId: comment.post_id,
+        content: comment.content,
+        createdAt: new Date(comment.created_at)
+      })),
+      reactions: [],
+      hashtags: [],
+      createdAt: new Date(post.created_at)
+    };
+  });
+};
+
 export const dataService = {
   async getPosts(): Promise<Post[]> {
     const { data: { user: currentUser } } = await supabase.auth.getUser();
     
     const { data, error } = await supabase
       .from('posts')
-      .select(`
-        *,
-        user:user_id (
-          id,
-          name,
-          username,
-          email,
-          avatar,
-          is_verified
-        ),
-        comments:comments (
-          id,
-          user_id,
-          post_id,
-          content,
-          created_at,
-          user:user_id (
-            id,
-            name,
-            username,
-            email,
-            avatar
-          )
-        ),
-        likes:likes (
-          id,
-          user_id
-        )
-      `)
+      .select(POSTS_WITH_RELATIONS_SELECT)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -44,44 +86,24 @@ export const dataService = {
       throw error;
     }
 
-    return data.map((post: any) => {
-      const likes = (post.likes as any[]) || [];
-      const isLiked = currentUser ? likes.some(like => like.user_id === currentUser.id) : false;
-      
-      // Convert single image_url to imageUrls array for consistency in rendering
-      let imageUrls = undefined;
-      let imageUrl = post.image_url;
-      
-      if (post.image_url) {
-        imageUrls = [post.image_url];
-      }
-      
-      return {
-        id: post.id,
-        userId: post.user_id,
-        user: post.user as User,
-        content: post.content,
-        imageUrl: imageUrl,
-        imageUrls: imageUrls,
-        videoUrl: post.video_url,
-        mediaType: post.media_type as 'text' | 'image' | 'video',
-        isReel: post.is_reel,
-        likes: likes,
-        likeCount: likes.length,
-        isLiked: isLiked,
-        comments: (post.comments as any[]).map(comment => ({
-          id: comment.id,
-          userId: comment.user_id,
-          user: comment.user as User,
-          postId: comment.post_id,
-          content: comment.content,
-          createdAt: new Date(comment.created_at)
-        })),
-        reactions: [],
-        hashtags: [],
-        createdAt: new Date(post.created_at)
-      };
-    });
+    return mapPostsFromQuery(data || [], currentUser?.id);
+  },
+
+  async getPostsByUser(userId: string): Promise<Post[]> {
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+
+    const { data, error } = await supabase
+      .from('posts')
+      .select(POSTS_WITH_RELATIONS_SELECT)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching user posts:', error);
+      throw error;
+    }
+
+    return mapPostsFromQuery(data || [], currentUser?.id);
   },
 
   async createPost(postData: any): Promise<Post> {
@@ -1292,45 +1314,7 @@ export const dataService = {
       }
     }
 
-    // 1) Create group record
-    const { data: group, error: groupError } = await supabase
-      .from('groups')
-      .insert({
-        name: cleanedName,
-        description: cleanedDescription,
-        is_private: !groupData.isPublic,
-        created_by: user.id,
-        invite_code: Math.random().toString(36).slice(2, 14),
-        member_count: uniqueMemberIds.length + 1,
-      })
-      .select()
-      .single();
-
-    if (groupError || !group) {
-      console.error('Error creating group:', groupError);
-      throw new Error(groupError?.message || 'Failed to create group');
-    }
-
-    // 2) Create group_members records in one insert
-    const groupMembersPayload = [
-      { group_id: group.id, user_id: user.id, role: 'admin' },
-      ...uniqueMemberIds.map((id) => ({
-        group_id: group.id,
-        user_id: id,
-        role: 'member',
-      })),
-    ];
-
-    const { error: membersError } = await supabase
-      .from('group_members')
-      .insert(groupMembersPayload);
-
-    if (membersError) {
-      console.error('Error adding members to group_members:', membersError);
-      throw new Error(membersError.message || 'Failed to add group members');
-    }
-
-    // 3) Create group chat (RPC adds creator automatically)
+    // 1) Create the actual group chat first so the user always gets a working conversation
     const { data: rawChatId, error: chatError } = await supabase.rpc('create_chat_with_participants', {
       p_participant_ids: uniqueMemberIds,
       p_is_group: true,
@@ -1345,8 +1329,8 @@ export const dataService = {
 
     const chatId = String(rawChatId);
 
-    // 4) Keep chat metadata aligned for chat list display
-    await supabase
+    // 2) Keep chat metadata aligned for chat list display
+    const { error: chatUpdateError } = await supabase
       .from('chats')
       .update({
         member_count: uniqueMemberIds.length + 1,
@@ -1355,7 +1339,71 @@ export const dataService = {
       })
       .eq('id', chatId);
 
-    // 5) Welcome message (non-blocking)
+    if (chatUpdateError) {
+      console.error('Error updating group chat metadata:', chatUpdateError);
+    }
+
+    // 3) Best-effort sync to legacy groups/group_members tables.
+    // We avoid INSERT ... SELECT returning here because private groups are hidden until membership exists.
+    let group: any = {
+      id: chatId,
+      name: cleanedName,
+      description: cleanedDescription,
+      is_private: !groupData.isPublic,
+      created_by: user.id,
+      member_count: uniqueMemberIds.length + 1,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    try {
+      const groupId = crypto.randomUUID();
+      const inviteCode = Math.random().toString(36).slice(2, 14);
+      const groupInsert = {
+        id: groupId,
+        name: cleanedName,
+        description: cleanedDescription,
+        is_private: !groupData.isPublic,
+        created_by: user.id,
+        invite_code: inviteCode,
+        member_count: uniqueMemberIds.length + 1,
+      };
+
+      const { error: groupError } = await supabase
+        .from('groups')
+        .insert(groupInsert);
+
+      if (groupError) {
+        throw groupError;
+      }
+
+      const groupMembersPayload = [
+        { group_id: groupId, user_id: user.id, role: 'admin' },
+        ...uniqueMemberIds.map((id) => ({
+          group_id: groupId,
+          user_id: id,
+          role: 'member',
+        })),
+      ];
+
+      const { error: membersError } = await supabase
+        .from('group_members')
+        .insert(groupMembersPayload);
+
+      if (membersError) {
+        throw membersError;
+      }
+
+      group = {
+        ...groupInsert,
+        created_at: group.created_at,
+        updated_at: group.updated_at,
+      };
+    } catch (groupSyncError) {
+      console.error('Error syncing group metadata tables:', groupSyncError);
+    }
+
+    // 4) Welcome message (non-blocking)
     const { error: welcomeError } = await supabase.from('messages').insert({
       chat_id: chatId,
       user_id: user.id,

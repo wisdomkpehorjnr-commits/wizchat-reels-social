@@ -994,7 +994,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
     onBlock: () => toast({ title: "User blocked", description: `You won't receive messages from ${chatUser.name}`, variant: "destructive" }),
     onReport: () => toast({ title: "Report submitted", description: "Thank you for reporting. We'll review this." }),
     onFavorite: () => toast({ title: "Added to favorites", description: `${chatUser.name} added to favorites` }),
-    onViewProfile: () => navigate(`/profile/${chatUser.username}`),
+    onViewProfile: () => navigate(`/profile/${chatUser.id}`),
     onDisappearingMessages: (duration: string) => toast({ title: "Disappearing messages", description: `Messages will disappear after ${duration}` })
   };
 
