@@ -198,11 +198,6 @@ const GroupChatPopup = ({ groupId, onClose }: GroupChatPopupProps) => {
       seen: false,
       timestamp: new Date(),
     };
-      content,
-      type: 'text',
-      seen: false,
-      timestamp: new Date(),
-    };
     setMessages(prev => [...prev, optimisticMsg]);
 
     try {
