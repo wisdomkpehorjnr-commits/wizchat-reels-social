@@ -122,16 +122,17 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
 
     const loadLikeState = async () => {
       try {
-        const [likeResult, countResult] = await Promise.all([
+        const [likeResult, countResult, viewCountResult] = await Promise.all([
           supabase.from('story_likes').select('id').eq('story_id', story.id).eq('user_id', user.id).maybeSingle(),
-          supabase.from('story_likes').select('*', { count: 'exact', head: true }).eq('story_id', story.id)
+          supabase.from('story_likes').select('*', { count: 'exact', head: true }).eq('story_id', story.id),
+          supabase.from('story_views').select('*', { count: 'exact', head: true }).eq('story_id', story.id),
         ]);
         if (cancelled) return;
         const liked = !!likeResult.data;
         const count = countResult.count || 0;
         setIsLiked(liked);
         setLikeCount(count);
-        // Persist to cache
+        setActualViewCount(viewCountResult.count || 0);
         try {
           localStorage.setItem(storyLikeCacheKey(story.id), String(liked));
           localStorage.setItem(storyLikeCountCacheKey(story.id), String(count));
