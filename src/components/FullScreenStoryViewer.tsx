@@ -89,6 +89,7 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
   const [showHeartAnim, setShowHeartAnim] = useState(false);
   const [showViewers, setShowViewers] = useState(false);
   const [viewers, setViewers] = useState<any[]>([]);
+  const [actualViewCount, setActualViewCount] = useState(0);
   const [showReply, setShowReply] = useState(false);
   const [replyText, setReplyText] = useState('');
   const [isEditingCaption, setIsEditingCaption] = useState(false);
