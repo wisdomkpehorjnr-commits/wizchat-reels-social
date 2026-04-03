@@ -260,33 +260,63 @@ const Friends = () => {
 
   const handleFollowToggle = async (userId: string, currentlyFollowing: boolean) => {
     try {
-      // If state is unknown (first time), treat as not-following.
       if (typeof currentlyFollowing !== 'boolean') {
         currentlyFollowing = false;
       }
+      // Optimistic update
+      const newState = !currentlyFollowing;
+      setFollowingStates(prev => {
+        const updated = { ...prev, [userId]: newState };
+        try { localStorage.setItem('wizchat_follow_states', JSON.stringify(updated)); } catch {}
+        return updated;
+      });
+
       if (currentlyFollowing) {
         await ProfileService.unfollowUser(userId);
-        setFollowingStates(prev => ({ ...prev, [userId]: false }));
-        toast({
-          title: "Unfollowed",
-          description: "You are no longer following this user"
-        });
+        toast({ title: "Unfollowed", description: "You are no longer following this user" });
       } else {
         await ProfileService.followUser(userId);
-        setFollowingStates(prev => ({ ...prev, [userId]: true }));
-        toast({
-          title: "Following",
-          description: "You are now following this user!"
-        });
+        toast({ title: "Following", description: "You are now following this user!" });
       }
     } catch (error) {
       console.error('Error toggling follow:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update follow status",
-        variant: "destructive"
+      // Revert on error
+      setFollowingStates(prev => {
+        const reverted = { ...prev, [userId]: currentlyFollowing };
+        try { localStorage.setItem('wizchat_follow_states', JSON.stringify(reverted)); } catch {}
+        return reverted;
       });
+      toast({ title: "Error", description: "Failed to update follow status", variant: "destructive" });
     }
+  };
+
+  const handleRemoveFriend = async (friendId: string, friendUser: User) => {
+    try {
+      // Unfriend
+      await dataService.unfriend(friendId);
+      // Remove from chat list
+      const hiddenUsers = JSON.parse(localStorage.getItem('hidden-chat-users') || '[]');
+      if (!hiddenUsers.includes(friendUser.id)) {
+        hiddenUsers.push(friendUser.id);
+        localStorage.setItem('hidden-chat-users', JSON.stringify(hiddenUsers));
+      }
+      // Unfollow if following
+      if (followingStates[friendUser.id]) {
+        try { await ProfileService.unfollowUser(friendUser.id); } catch {}
+        setFollowingStates(prev => {
+          const updated = { ...prev, [friendUser.id]: false };
+          try { localStorage.setItem('wizchat_follow_states', JSON.stringify(updated)); } catch {}
+          return updated;
+        });
+      }
+      toast({ title: "Removed", description: `${friendUser.name} has been removed from your friends and chat list.` });
+      loadFriends();
+      window.dispatchEvent(new CustomEvent('chatListUpdate'));
+    } catch (error) {
+      console.error('Error removing friend:', error);
+      toast({ title: "Error", description: "Failed to remove user", variant: "destructive" });
+    }
+    setConfirmRemove(null);
   };
 
 
