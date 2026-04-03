@@ -556,7 +556,7 @@ const Profile = () => {
               </div>
 
               <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                <div className="flex items-center space-x-1"><Calendar className="w-4 h-4" /><span>Joined {targetUser?.createdAt ? new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(targetUser.createdAt) : 'Unknown'}</span></div>
+                <div className="flex items-center space-x-1"><Calendar className="w-4 h-4" /><span>Joined {targetUser?.createdAt && !isNaN(new Date(targetUser.createdAt).getTime()) ? new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(new Date(targetUser.createdAt)) : 'Unknown'}</span></div>
                 {targetUser?.location && <div className="flex items-center space-x-1"><MapPin className="w-4 h-4" /><span>{targetUser.location}</span></div>}
                 {targetUser?.website && <div className="flex items-center space-x-1"><LinkIcon className="w-4 h-4" /><a href={targetUser.website} target="_blank" rel="noopener noreferrer">{targetUser.website}</a></div>}
               </div>
