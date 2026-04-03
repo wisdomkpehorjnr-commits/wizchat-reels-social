@@ -192,7 +192,12 @@ const GroupChatPopup = ({ groupId, onClose }: GroupChatPopupProps) => {
       id: `temp-${Date.now()}`,
       chatId: chat.id,
       userId: user.id,
-      user: { id: user.id, name: user.user_metadata?.name || 'You', username: '', email: '', avatar: user.user_metadata?.avatar_url || '' } as any,
+      user: { id: user.id, name: 'You', username: '', email: '', avatar: '' } as any,
+      content,
+      type: 'text',
+      seen: false,
+      timestamp: new Date(),
+    };
       content,
       type: 'text',
       seen: false,
