@@ -27,6 +27,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useCache } from '@/hooks/useCache';
 import { useTabCache } from '@/hooks/useTabCache';
 import ConfirmationDialog from '@/components/ui/confirmation-dialog';
+import { supabase } from '@/integrations/supabase/client';
 
 const FRIENDS_CACHE_KEY = 'wizchat_friends_cache';
 
