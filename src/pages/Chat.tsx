@@ -446,38 +446,51 @@ const Chat = () => {
                   />
                   
                   {/* Groups */}
-                  {filteredGroups.map((group) => (
-                    <div
-                      key={group.id}
-                      onClick={() => setSelectedGroup(group.id)}
-                      className="flex items-center justify-between p-4 hover:bg-muted cursor-pointer transition-colors border-b last:border-b-0 last:rounded-b-lg"
-                    >
-                      <div className="flex items-center space-x-3 flex-1 min-w-0">
-                        <Avatar className="h-12 w-12 flex-shrink-0">
-                          <AvatarImage src={group.avatar || undefined} alt={`${group.name} avatar`} />
-                          <AvatarFallback>{group.name.charAt(0).toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-foreground truncate">
-                            {group.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {group.member_count || 0} members
-                          </p>
+                  {filteredGroups.map((group) => {
+                    // Get cached last message for group
+                    const groupPreviewKey = `wizchat_group_preview_${group.id}`;
+                    let groupPreview = '';
+                    let groupPreviewTime: Date | null = null;
+                    try {
+                      const cached = localStorage.getItem(groupPreviewKey);
+                      if (cached) {
+                        const p = JSON.parse(cached);
+                        groupPreview = p.message || '';
+                        groupPreviewTime = p.time ? new Date(p.time) : null;
+                      }
+                    } catch {}
+
+                    return (
+                      <div
+                        key={group.id}
+                        onClick={() => setSelectedGroup(group.id)}
+                        className="flex items-center justify-between p-4 hover:bg-accent cursor-pointer transition-colors"
+                        style={{ borderBottom: '1px solid hsla(142, 60%, 49%, 0.2)' }}
+                      >
+                        <div className="flex items-center space-x-3 flex-1 min-w-0">
+                          <Avatar className="h-12 w-12 flex-shrink-0">
+                            <AvatarImage src={group.avatar || undefined} alt={`${group.name} avatar`} />
+                            <AvatarFallback className="bg-primary/20">
+                              <Users className="w-5 h-5 text-primary" />
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2 mb-1">
+                              <p className="font-semibold text-foreground truncate">{group.name}</p>
+                              {groupPreviewTime && (
+                                <span className="text-xs text-muted-foreground flex-shrink-0">
+                                  {formatGroupTime(groupPreviewTime)}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground truncate">
+                              {groupPreview || `${group.member_count || 0} members`}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleGroupPinToggle(group.id);
-                        }}
-                        className="text-muted-foreground hover:text-foreground transition-colors ml-2"
-                        title={pinnedGroups.has(group.id) ? 'Unpin' : 'Pin'}
-                      >
-                        📌
-                      </button>
-                    </div>
-                  ))}
+                    );
+                  })}
                   
                   {/* Friends list for chatting */}
                    {sortedFriends.map((friend) => (
