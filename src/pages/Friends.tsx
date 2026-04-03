@@ -118,6 +118,26 @@ const Friends = () => {
     hasLoadedRef.current = true;
   }, [user]);
 
+  // Load follow states from DB on mount
+  useEffect(() => {
+    if (!user) return;
+    const loadFollowStates = async () => {
+      try {
+        const { data } = await supabase
+          .from('follows')
+          .select('following_id')
+          .eq('follower_id', user.id);
+        if (data) {
+          const states: Record<string, boolean> = {};
+          data.forEach(f => { states[f.following_id] = true; });
+          setFollowingStates(states);
+          try { localStorage.setItem('wizchat_follow_states', JSON.stringify(states)); } catch {}
+        }
+      } catch {}
+    };
+    loadFollowStates();
+  }, [user]);
+
   useEffect(() => {
     const delayedSearch = setTimeout(() => {
       if (searchTerm.trim()) {
