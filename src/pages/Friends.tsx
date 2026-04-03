@@ -87,6 +87,7 @@ const Friends = () => {
   });
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [confirmRemove, setConfirmRemove] = useState<{ friendId: string; friendUser: User } | null>(null);
+  const hasLoadedRef = useRef(false);
 
   // When async caches hydrate, reflect them immediately
   useEffect(() => {
