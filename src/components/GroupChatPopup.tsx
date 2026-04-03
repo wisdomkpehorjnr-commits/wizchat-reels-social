@@ -10,11 +10,16 @@ import { useAuth } from '@/contexts/AuthContext';
 import { dataService } from '@/services/dataService';
 import { MediaService } from '@/services/mediaService';
 import VoiceRecorder from './chat/VoiceRecorder';
-import ChatMessage from './ChatMessage';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
-import ChatSettingsMenu from './chat/ChatSettingsMenu';
+import { MoreVertical } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface GroupChatPopupProps {
   groupId: string;
