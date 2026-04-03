@@ -464,7 +464,7 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
               onClick={(e) => { e.stopPropagation(); handleShowViewers(); }}
             >
               <Eye className="w-6 h-6 text-white" strokeWidth={2.5} />
-              <span className="text-sm font-bold text-white">{story.viewerCount || 0}</span>
+              <span className="text-sm font-bold text-white">{viewers.length || story.viewerCount || 0}</span>
             </button>
           ) : (
             <button

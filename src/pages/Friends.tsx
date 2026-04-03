@@ -79,9 +79,14 @@ const Friends = () => {
   const [error, setError] = useState<Error | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [confirmUnfriend, setConfirmUnfriend] = useState<string | null>(null);
-  const [followingStates, setFollowingStates] = useState<Record<string, boolean>>({});
+  const [followingStates, setFollowingStates] = useState<Record<string, boolean>>(() => {
+    try {
+      const cached = localStorage.getItem('wizchat_follow_states');
+      return cached ? JSON.parse(cached) : {};
+    } catch { return {}; }
+  });
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
-  const hasLoadedRef = useRef(false);
+  const [confirmRemove, setConfirmRemove] = useState<{ friendId: string; friendUser: User } | null>(null);
 
   // When async caches hydrate, reflect them immediately
   useEffect(() => {
