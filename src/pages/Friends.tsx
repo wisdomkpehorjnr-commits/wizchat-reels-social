@@ -79,7 +79,7 @@ const Friends = () => {
   const [loading, setLoading] = useState(!(tabCachedFriends || cachedFriends || localStorageFriends));
   const [error, setError] = useState<Error | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [confirmUnfriend, setConfirmUnfriend] = useState<string | null>(null);
+  
   const [followingStates, setFollowingStates] = useState<Record<string, boolean>>(() => {
     try {
       const cached = localStorage.getItem('wizchat_follow_states');
