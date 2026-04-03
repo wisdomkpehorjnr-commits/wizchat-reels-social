@@ -294,11 +294,41 @@ const GroupChatPopup = ({ groupId, onClose }: GroupChatPopupProps) => {
           <Button variant="ghost" size="icon" onClick={() => toast({ title: "Video Call", description: "Group video calls coming soon" })}>
             <Video className="w-5 h-5" />
           </Button>
-          <ChatSettingsMenu 
-            chatUser={{ id: groupId, name: groupName, username: '', email: '', avatar: chat?.avatar || '' } as any}
-            chatId={chat?.id || groupId}
-            onWallpaperChange={(wp) => setChatWallpaper(wp)}
-          />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <MoreVertical className="w-5 h-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => toast({ title: "Group Info", description: `${groupName} - ${memberCount} members` })}>
+                Group Info
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'image/*';
+                input.onchange = (e: any) => {
+                  const file = e.target?.files?.[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                      const wp = ev.target?.result as string;
+                      setChatWallpaper(wp);
+                      localStorage.setItem('chat-wallpaper', wp);
+                    };
+                    reader.readAsDataURL(file);
+                  }
+                };
+                input.click();
+              }}>
+                Change Wallpaper
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setMessages([]); cacheMessages([]); toast({ title: "Chat Cleared" }); }} className="text-destructive">
+                Clear Chat
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
