@@ -348,14 +348,41 @@ const GroupChatPopup = ({ groupId, onClose }: GroupChatPopupProps) => {
               <p className="text-muted-foreground text-sm">No messages yet. Start the conversation!</p>
             </div>
           )}
-          {messages.map((message) => (
-            <ChatMessage
-              key={message.id}
-              message={message}
-              isOwn={message.userId === user?.id}
-              isGroup={true}
-            />
-          ))}
+          {messages.map((message) => {
+            const isOwn = message.userId === user?.id;
+            return (
+              <div key={message.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-3`}>
+                <div className={`flex items-end gap-2 max-w-[75%] ${isOwn ? 'flex-row-reverse' : ''}`}>
+                  {!isOwn && (
+                    <Avatar className="w-7 h-7 flex-shrink-0">
+                      <AvatarImage src={message.user?.avatar} />
+                      <AvatarFallback className="text-xs">{message.user?.name?.charAt(0) || '?'}</AvatarFallback>
+                    </Avatar>
+                  )}
+                  <div className={`rounded-2xl px-3 py-2 ${isOwn ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'}`}>
+                    {!isOwn && (
+                      <p className="text-xs font-semibold mb-0.5 text-primary">{message.user?.name}</p>
+                    )}
+                    {message.type === 'image' && message.mediaUrl && (
+                      <img src={message.mediaUrl} alt="" className="rounded-lg max-w-48 mb-1" />
+                    )}
+                    {message.type === 'video' && message.mediaUrl && (
+                      <video src={message.mediaUrl} controls className="rounded-lg max-w-48 mb-1" />
+                    )}
+                    {message.type === 'voice' && message.mediaUrl && (
+                      <audio controls className="max-w-40"><source src={message.mediaUrl} /></audio>
+                    )}
+                    {(message.type === 'text' || !message.type) && (
+                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                    )}
+                    <p className={`text-[10px] mt-0.5 ${isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
+                      {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
           <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
