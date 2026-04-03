@@ -468,7 +468,7 @@ const Friends = () => {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => setConfirmUnfriend(friend.id)}
+                              onClick={() => setConfirmRemove({ friendId: friend.id, friendUser })}
                               className="w-full h-7 text-xs text-destructive hover:text-destructive-foreground hover:bg-destructive"
                             >
                               <UserMinus className="w-3 h-3 mr-1" />
