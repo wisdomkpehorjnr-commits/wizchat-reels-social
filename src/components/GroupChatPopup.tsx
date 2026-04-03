@@ -129,6 +129,19 @@ const GroupChatPopup = ({ groupId, onClose }: GroupChatPopupProps) => {
   const cacheMessages = (msgs: Message[]) => {
     try {
       localStorage.setItem(GROUP_MESSAGES_CACHE_KEY + groupId, JSON.stringify(msgs));
+      // Also cache preview for chat list
+      if (msgs.length > 0) {
+        const lastMsg = msgs[msgs.length - 1];
+        let preview = lastMsg.content || '';
+        if (lastMsg.type === 'image') preview = '📷 Photo';
+        else if (lastMsg.type === 'video') preview = '🎥 Video';
+        else if (lastMsg.type === 'voice') preview = '🎤 Voice message';
+        if (preview.length > 60) preview = preview.substring(0, 60) + '...';
+        localStorage.setItem(`wizchat_group_preview_${groupId}`, JSON.stringify({
+          message: preview,
+          time: lastMsg.timestamp,
+        }));
+      }
     } catch {}
   };
 
