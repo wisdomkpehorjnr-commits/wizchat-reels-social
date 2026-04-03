@@ -614,17 +614,16 @@ const Friends = () => {
       </div>
 
       <ConfirmationDialog
-        open={!!confirmUnfriend}
-        onOpenChange={(open) => !open && setConfirmUnfriend(null)}
-        title="Unfriend User"
-        description="Are you sure you want to remove this friend? This action cannot be undone."
-        confirmText="Yes, unfriend"
-        cancelText="No, cancel"
+        open={!!confirmRemove}
+        onOpenChange={(open) => !open && setConfirmRemove(null)}
+        title="Remove User"
+        description={`Do you want to remove ${confirmRemove?.friendUser?.name || 'this user'} from your Chat list and Friends?`}
+        confirmText="Sure"
+        cancelText="Cancel"
         variant="destructive"
         onConfirm={() => {
-          if (confirmUnfriend) {
-            unfriendUser(confirmUnfriend);
-            setConfirmUnfriend(null);
+          if (confirmRemove) {
+            handleRemoveFriend(confirmRemove.friendId, confirmRemove.friendUser);
           }
         }}
       />
