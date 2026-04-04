@@ -565,8 +565,8 @@ const Profile = () => {
                 <div className="flex space-x-6">
                   <div className="text-center"><p className="text-2xl font-bold">{userPosts.length}</p><p className="text-sm text-muted-foreground">Posts</p></div>
                   <div className="text-center"><p className="text-2xl font-bold">{userReels.length}</p><p className="text-sm text-muted-foreground">Reels</p></div>
-                  <div className="text-center"><p className="text-2xl font-bold">{targetUser?.followerCount || 0}</p><p className="text-sm text-muted-foreground">Followers</p></div>
-                  <div className="text-center"><p className="text-2xl font-bold">{targetUser?.followingCount || 0}</p><p className="text-sm text-muted-foreground">Following</p></div>
+                  <div className="text-center cursor-pointer hover:opacity-80 transition-opacity" onClick={() => navigate(`/followers/${targetUser?.id || user?.id}/followers`)}><p className="text-2xl font-bold">{targetUser?.followerCount || 0}</p><p className="text-sm text-muted-foreground">Followers</p></div>
+                  <div className="text-center cursor-pointer hover:opacity-80 transition-opacity" onClick={() => navigate(`/followers/${targetUser?.id || user?.id}/following`)}><p className="text-2xl font-bold">{targetUser?.followingCount || 0}</p><p className="text-sm text-muted-foreground">Following</p></div>
                 </div>
 
                 <div className="flex space-x-2 ml-auto">

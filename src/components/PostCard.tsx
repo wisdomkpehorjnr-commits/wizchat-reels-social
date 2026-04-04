@@ -22,6 +22,7 @@ import ConfirmationDialog from './ui/confirmation-dialog';
 import { useDownload } from '@/hooks/useDownload';
 import ImageModal from './ImageModal';
 import ThemeAwareDialog from './ThemeAwareDialog';
+import ReadMoreText from './ReadMoreText';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -551,7 +552,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
             </div>
           ) : (
             <div className="mb-4">
-              {post.content && <p className="text-gray-900 dark:text-white mb-4 whitespace-pre-wrap">{post.content}</p>}
+              {post.content && <ReadMoreText text={post.content} maxLength={750} className="text-foreground mb-4" />}
               
               {/* Media content */}
               {Array.isArray(post.imageUrls) && post.imageUrls.length > 0 ? (
@@ -666,15 +667,34 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
           variant="destructive"
         />
         
-        <ConfirmationDialog
-          open={showDownloadConfirm}
-          onOpenChange={setShowDownloadConfirm}
-          title="Download Media"
-          description="Do you want to download this media to your device?"
-          onConfirm={handleDownloadConfirm}
-          confirmText="Download"
-          cancelText="Cancel"
-        />
+        {/* Download & Save Dialog */}
+        <Dialog open={showDownloadConfirm} onOpenChange={setShowDownloadConfirm}>
+          <DialogContent className="max-w-xs bg-background border border-border">
+            <DialogHeader>
+              <DialogTitle className="text-foreground">Media Options</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2">
+              <Button variant="outline" className="w-full justify-start" onClick={handleDownloadConfirm}>
+                <Download className="w-4 h-4 mr-2" /> Download
+              </Button>
+              <Button variant="outline" className="w-full justify-start" onClick={async () => {
+                try {
+                  const { data: { user: authUser } } = await supabase.auth.getUser();
+                  if (!authUser) return;
+                  const { error } = await supabase.from('saved_posts').insert({ post_id: post.id, user_id: authUser.id });
+                  if (error && error.code !== '23505') throw error;
+                  toast({ title: 'Saved', description: 'Post saved to your profile' });
+                } catch {
+                  toast({ title: 'Error', description: 'Failed to save post', variant: 'destructive' });
+                }
+                setShowDownloadConfirm(false);
+              }}>
+                <Pin className="w-4 h-4 mr-2" /> Save Post
+              </Button>
+              <Button variant="ghost" className="w-full" onClick={() => setShowDownloadConfirm(false)}>Cancel</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
         
         <ImageModal
           src={imageModalSrc}
