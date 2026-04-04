@@ -22,6 +22,7 @@ import ConfirmationDialog from './ui/confirmation-dialog';
 import { useDownload } from '@/hooks/useDownload';
 import ImageModal from './ImageModal';
 import ThemeAwareDialog from './ThemeAwareDialog';
+import ReadMoreText from './ReadMoreText';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { ScrollArea } from '@/components/ui/scroll-area';
