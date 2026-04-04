@@ -552,7 +552,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
             </div>
           ) : (
             <div className="mb-4">
-              {post.content && <p className="text-gray-900 dark:text-white mb-4 whitespace-pre-wrap">{post.content}</p>}
+              {post.content && <ReadMoreText text={post.content} maxLength={750} className="text-foreground mb-4" />}
               
               {/* Media content */}
               {Array.isArray(post.imageUrls) && post.imageUrls.length > 0 ? (
