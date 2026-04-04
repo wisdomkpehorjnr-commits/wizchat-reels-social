@@ -28,6 +28,7 @@ const Friends = lazy(() => import("./pages/Friends"));
 const Admin = lazy(() => import("./pages/Admin"));
 const Settings = lazy(() => import("./pages/Settings"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const FollowersFollowing = lazy(() => import("./pages/FollowersFollowing"));
 
 // ✅ Avatar customization page
 const AvatarStudio = lazy(() => import("./components/AvatarStudio"));
