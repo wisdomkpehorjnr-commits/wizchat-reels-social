@@ -188,6 +188,22 @@ const App = () => {
                   }
                 />
                 <Route
+                  path="/followers/:userId/:tab"
+                  element={
+                    <ProtectedRoute>
+                      <FollowersFollowing />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/followers/:userId"
+                  element={
+                    <ProtectedRoute>
+                      <FollowersFollowing />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
                   path="/admin"
                   element={
                     <ProtectedRoute>
