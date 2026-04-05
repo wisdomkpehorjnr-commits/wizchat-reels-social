@@ -417,7 +417,8 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
     const localMsg: LocalMessage = { ...tempMessage, status: 'pending', synced: false };
     await localMessageService.saveMessage(localMsg);
 
-    if (isNetworkOnline) {
+    // Always try to send online — navigator.onLine can be unreliable
+    {
       try {
         // Send message with reply reference if exists
         let serverMessage: Message;
