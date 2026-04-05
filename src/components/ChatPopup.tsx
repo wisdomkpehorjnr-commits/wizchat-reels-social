@@ -1114,7 +1114,11 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       )}
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-4" style={chatWallpaper ? { backgroundColor: chatWallpaper } : undefined}>
+      <ScrollArea className="flex-1 p-4" style={chatWallpaper ? (
+        chatWallpaper.startsWith('data:') || chatWallpaper.startsWith('http') || chatWallpaper.startsWith('blob:')
+          ? { backgroundImage: `url(${chatWallpaper})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+          : { backgroundColor: chatWallpaper }
+      ) : undefined}>
         {loading ? (
           <LoadingDots />
         ) : (
