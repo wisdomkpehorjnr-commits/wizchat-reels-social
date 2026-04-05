@@ -1,12 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Search, MoreVertical, UserPlus } from 'lucide-react';
+import { ArrowLeft, Search, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { ProfileService } from '@/services/profileService';
@@ -19,6 +17,8 @@ interface FollowUser {
   avatar: string | null;
   bio: string | null;
 }
+
+const CACHE_KEY_PREFIX = 'wizchat_follow_data_';
 
 const FollowersFollowing = () => {
   const { userId, tab } = useParams<{ userId: string; tab: string }>();
@@ -35,14 +35,42 @@ const FollowersFollowing = () => {
 
   const targetUserId = userId || user?.id;
 
+  // Load from cache immediately
+  useEffect(() => {
+    if (!targetUserId) return;
+    try {
+      const cached = localStorage.getItem(CACHE_KEY_PREFIX + targetUserId);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed.followers) setFollowers(parsed.followers);
+        if (parsed.following) setFollowing(parsed.following);
+        if (parsed.profileName) setProfileName(parsed.profileName);
+        if (parsed.followingStates) setFollowingStates(parsed.followingStates);
+        setLoading(false);
+      }
+    } catch {}
+  }, [targetUserId]);
+
   useEffect(() => {
     if (!targetUserId) return;
     loadData();
   }, [targetUserId]);
 
+  const saveToCache = useCallback((data: any) => {
+    if (!targetUserId) return;
+    try {
+      localStorage.setItem(CACHE_KEY_PREFIX + targetUserId, JSON.stringify(data));
+    } catch {}
+  }, [targetUserId]);
+
   const loadData = async () => {
     if (!targetUserId) return;
-    setLoading(true);
+    
+    // Only show loading if no cached data
+    if (followers.length === 0 && following.length === 0) {
+      setLoading(true);
+    }
+
     try {
       // Get profile name
       const { data: profile } = await supabase
@@ -50,52 +78,76 @@ const FollowersFollowing = () => {
         .select('name')
         .eq('id', targetUserId)
         .single();
-      if (profile) setProfileName(profile.name);
+      const name = profile?.name || '';
+      setProfileName(name);
 
-      // Get followers
-      const { data: followersData } = await supabase
+      // Get followers — manual join since no FK on follows table
+      const { data: followersRows } = await supabase
         .from('follows')
-        .select('follower_id, profiles!follows_follower_id_fkey(id, name, username, avatar, bio)')
-        .eq('following_id', targetUserId) as any;
+        .select('follower_id')
+        .eq('following_id', targetUserId);
 
-      if (followersData) {
-        setFollowers(followersData.map((f: any) => ({
-          id: f.profiles.id,
-          name: f.profiles.name,
-          username: f.profiles.username,
-          avatar: f.profiles.avatar,
-          bio: f.profiles.bio,
-        })));
+      let loadedFollowers: FollowUser[] = [];
+      if (followersRows && followersRows.length > 0) {
+        const followerIds = followersRows.map(f => f.follower_id);
+        const { data: followerProfiles } = await supabase
+          .from('profiles')
+          .select('id, name, username, avatar, bio')
+          .in('id', followerIds);
+        loadedFollowers = (followerProfiles || []).map(p => ({
+          id: p.id,
+          name: p.name,
+          username: p.username,
+          avatar: p.avatar,
+          bio: p.bio,
+        }));
       }
+      setFollowers(loadedFollowers);
 
-      // Get following
-      const { data: followingData } = await supabase
+      // Get following — manual join
+      const { data: followingRows } = await supabase
         .from('follows')
-        .select('following_id, profiles!follows_following_id_fkey(id, name, username, avatar, bio)')
-        .eq('follower_id', targetUserId) as any;
+        .select('following_id')
+        .eq('follower_id', targetUserId);
 
-      if (followingData) {
-        setFollowing(followingData.map((f: any) => ({
-          id: f.profiles.id,
-          name: f.profiles.name,
-          username: f.profiles.username,
-          avatar: f.profiles.avatar,
-          bio: f.profiles.bio,
-        })));
+      let loadedFollowing: FollowUser[] = [];
+      if (followingRows && followingRows.length > 0) {
+        const followingIds = followingRows.map(f => f.following_id);
+        const { data: followingProfiles } = await supabase
+          .from('profiles')
+          .select('id, name, username, avatar, bio')
+          .in('id', followingIds);
+        loadedFollowing = (followingProfiles || []).map(p => ({
+          id: p.id,
+          name: p.name,
+          username: p.username,
+          avatar: p.avatar,
+          bio: p.bio,
+        }));
       }
+      setFollowing(loadedFollowing);
 
       // Load current user's follow states
+      let states: Record<string, boolean> = {};
       if (user) {
         const { data: myFollows } = await supabase
           .from('follows')
           .select('following_id')
           .eq('follower_id', user.id);
         if (myFollows) {
-          const states: Record<string, boolean> = {};
           myFollows.forEach(f => { states[f.following_id] = true; });
-          setFollowingStates(states);
         }
       }
+      setFollowingStates(states);
+
+      // Cache everything
+      saveToCache({
+        followers: loadedFollowers,
+        following: loadedFollowing,
+        profileName: name,
+        followingStates: states,
+        timestamp: Date.now(),
+      });
     } catch (err) {
       console.error('Error loading follow data:', err);
     } finally {
@@ -105,7 +157,6 @@ const FollowersFollowing = () => {
 
   const handleFollowToggle = async (targetId: string) => {
     const isCurrentlyFollowing = followingStates[targetId];
-    // Optimistic
     setFollowingStates(prev => ({ ...prev, [targetId]: !isCurrentlyFollowing }));
     try {
       if (isCurrentlyFollowing) {
@@ -144,7 +195,7 @@ const FollowersFollowing = () => {
           </AvatarFallback>
         </Avatar>
 
-        <div className="flex-1 min-w-0" onClick={() => navigate(`/profile/${person.id}`)}>
+        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => navigate(`/profile/${person.id}`)}>
           <p className="font-semibold text-sm text-foreground truncate">{person.name}</p>
           <p className="text-xs text-muted-foreground truncate">@{person.username}</p>
           {person.bio && (

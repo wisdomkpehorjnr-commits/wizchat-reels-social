@@ -487,11 +487,22 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         if (sendSound.current) sendSound.current.play().catch(() => {});
       } catch (error) {
         console.error('Error sending message:', error);
-        toast({ title: "Queued", description: "Message will be sent when online" });
-        await localMessageService.addToOutbox(localMsg);
+        // Only queue to outbox if truly offline
+        if (!navigator.onLine) {
+          await localMessageService.addToOutbox(localMsg);
+        } else {
+          // Retry once more
+          try {
+            const retryMsg = await dataService.sendMessage(chatId, messageContent);
+            processedMessageIds.current.add(retryMsg.id);
+            setMessages(prev => prev.map(m => m.localId === tempId ? { ...retryMsg, status: 'sent' as MessageStatus } : m));
+            await localMessageService.saveMessage({ ...retryMsg, status: 'sent', synced: true });
+            await localMessageService.deleteMessage(tempId, chatId);
+          } catch {
+            await localMessageService.addToOutbox(localMsg);
+          }
+        }
       }
-    } else {
-      await localMessageService.addToOutbox(localMsg);
     }
 
     scrollToBottom();
