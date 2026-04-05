@@ -45,21 +45,14 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
   const syncInProgressRef = useRef(false);
   const processedMessageIds = useRef<Set<string>>(new Set());
   const sendSound = useRef<HTMLAudioElement | null>(null);
-  const [chatWallpaper, setChatWallpaper] = useState<string | null>(() => {
-    // Per-chat wallpaper first, then global fallback
-    const perChat = localStorage.getItem(`chat-wallpaper-${chatUser.id}`);
-    return perChat || localStorage.getItem('chat-wallpaper');
-  });
+  const [chatWallpaper, setChatWallpaper] = useState<string | null>(() => localStorage.getItem('chat-wallpaper'));
 
   useEffect(() => {
     sendSound.current = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSl+zPDTgjMGHm7A7+OZSA0PVavk8LJiHAdEo+Hzu2ohBSl+zPDTgjMGHm7A7+OZSA0PVavk8LJiHAc=');
     sendSound.current.volume = 0.3;
 
     const handleWallpaperChange = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      if (detail?.chatUserId === chatUser.id || !detail?.chatUserId) {
-        setChatWallpaper(detail?.wallpaper || detail);
-      }
+      setChatWallpaper((e as CustomEvent).detail);
     };
     window.addEventListener('chat-wallpaper-change', handleWallpaperChange);
     return () => window.removeEventListener('chat-wallpaper-change', handleWallpaperChange);
@@ -424,8 +417,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
     const localMsg: LocalMessage = { ...tempMessage, status: 'pending', synced: false };
     await localMessageService.saveMessage(localMsg);
 
-    // Always try to send online — navigator.onLine can be unreliable
-    {
+    if (isNetworkOnline) {
       try {
         // Send message with reply reference if exists
         let serverMessage: Message;
@@ -494,22 +486,11 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         if (sendSound.current) sendSound.current.play().catch(() => {});
       } catch (error) {
         console.error('Error sending message:', error);
-        // Only queue to outbox if truly offline
-        if (!navigator.onLine) {
-          await localMessageService.addToOutbox(localMsg);
-        } else {
-          // Retry once more
-          try {
-            const retryMsg = await dataService.sendMessage(chatId, messageContent);
-            processedMessageIds.current.add(retryMsg.id);
-            setMessages(prev => prev.map(m => m.localId === tempId ? { ...retryMsg, status: 'sent' as MessageStatus } : m));
-            await localMessageService.saveMessage({ ...retryMsg, status: 'sent', synced: true });
-            await localMessageService.deleteMessage(tempId, chatId);
-          } catch {
-            await localMessageService.addToOutbox(localMsg);
-          }
-        }
+        toast({ title: "Queued", description: "Message will be sent when online" });
+        await localMessageService.addToOutbox(localMsg);
       }
+    } else {
+      await localMessageService.addToOutbox(localMsg);
     }
 
     scrollToBottom();
@@ -1114,11 +1095,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       )}
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-4" style={chatWallpaper ? (
-        chatWallpaper.startsWith('data:') || chatWallpaper.startsWith('http') || chatWallpaper.startsWith('blob:')
-          ? { backgroundImage: `url(${chatWallpaper})`, backgroundSize: 'cover', backgroundPosition: 'center' }
-          : { backgroundColor: chatWallpaper }
-      ) : undefined}>
+      <ScrollArea className="flex-1 p-4" style={chatWallpaper ? { backgroundColor: chatWallpaper } : undefined}>
         {loading ? (
           <LoadingDots />
         ) : (

@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useRef } from 'react';
-import { Send, ArrowLeft, Phone, Video, Paperclip, Users, X } from 'lucide-react';
+import { Send, ArrowLeft, Plus, Phone, Video, Paperclip, Users, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -20,7 +20,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import GroupSettingsPanel from './GroupSettingsPanel';
 
 interface GroupChatPopupProps {
   groupId: string;
@@ -38,10 +37,10 @@ const GroupChatPopup = ({ groupId, onClose }: GroupChatPopupProps) => {
   const [newMessage, setNewMessage] = useState('');
   const [chat, setChat] = useState<Chat | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [chatWallpaper, setChatWallpaper] = useState<string | null>(() => localStorage.getItem('chat-wallpaper'));
-  const [showSettings, setShowSettings] = useState(false);
 
   // Load from cache first
   useEffect(() => {
@@ -130,6 +129,7 @@ const GroupChatPopup = ({ groupId, onClose }: GroupChatPopupProps) => {
   const cacheMessages = (msgs: Message[]) => {
     try {
       localStorage.setItem(GROUP_MESSAGES_CACHE_KEY + groupId, JSON.stringify(msgs));
+      // Also cache preview for chat list
       if (msgs.length > 0) {
         const lastMsg = msgs[msgs.length - 1];
         let preview = lastMsg.content || '';
@@ -154,6 +154,7 @@ const GroupChatPopup = ({ groupId, onClose }: GroupChatPopupProps) => {
       let groupChat = chats.find(c => c.id === groupId);
       
       if (!groupChat) {
+        // Try loading messages directly
         try {
           const chatMessages = await dataService.getMessages(groupId);
           const placeholderChat: Chat = {
@@ -169,8 +170,7 @@ const GroupChatPopup = ({ groupId, onClose }: GroupChatPopupProps) => {
           cacheMessages(chatMessages);
           try { localStorage.setItem(GROUP_CHAT_CACHE_KEY + groupId, JSON.stringify(placeholderChat)); } catch {}
         } catch {
-          // Silent fail - use cached data
-          console.warn('Group chat not found, using cache');
+          throw new Error('Group chat not found');
         }
         return;
       }
@@ -183,7 +183,13 @@ const GroupChatPopup = ({ groupId, onClose }: GroupChatPopupProps) => {
       cacheMessages(chatMessages);
     } catch (error) {
       console.error('Error loading group chat:', error);
-      // Don't show toast for offline errors
+      if (!chat) {
+        toast({
+          title: "Error",
+          description: "Failed to load group chat",
+          variant: "destructive"
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -194,6 +200,7 @@ const GroupChatPopup = ({ groupId, onClose }: GroupChatPopupProps) => {
     const content = newMessage.trim();
     setNewMessage('');
 
+    // Optimistic message
     const optimisticMsg: Message = {
       id: `temp-${Date.now()}`,
       chatId: chat.id,
@@ -220,6 +227,7 @@ const GroupChatPopup = ({ groupId, onClose }: GroupChatPopupProps) => {
       console.error('Error sending message:', error);
       setNewMessage(content);
       setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
+      toast({ title: "Error", description: "Failed to send message", variant: "destructive" });
     }
   };
 
@@ -230,6 +238,7 @@ const GroupChatPopup = ({ groupId, onClose }: GroupChatPopupProps) => {
       await dataService.createVoiceMessage(chat.id, audioUrl, duration);
     } catch (error) {
       console.error('Error sending voice message:', error);
+      toast({ title: "Error", description: "Failed to send voice message", variant: "destructive" });
     }
   };
 
@@ -244,22 +253,12 @@ const GroupChatPopup = ({ groupId, onClose }: GroupChatPopupProps) => {
       }
     } catch (error) {
       console.error('Error uploading file:', error);
+      toast({ title: "Error", description: "Failed to upload file", variant: "destructive" });
     }
   };
 
   const groupName = chat?.name || 'Group Chat';
   const memberCount = chat?.participants?.length || 0;
-
-  // Show settings panel
-  if (showSettings) {
-    return (
-      <GroupSettingsPanel
-        chatId={groupId}
-        onClose={() => setShowSettings(false)}
-        onGroupDeleted={onClose}
-      />
-    );
-  }
 
   if (loading && !chat) {
     return (
@@ -274,7 +273,7 @@ const GroupChatPopup = ({ groupId, onClose }: GroupChatPopupProps) => {
           </div>
         </div>
         <div className="flex-1 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
+          <p className="text-muted-foreground">Loading group chat...</p>
         </div>
       </div>
     );
@@ -282,19 +281,19 @@ const GroupChatPopup = ({ groupId, onClose }: GroupChatPopupProps) => {
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Header */}
+      {/* Header - same style as ChatPopup */}
       <div className="flex items-center justify-between p-3 border-b bg-card">
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <Button variant="ghost" size="icon" onClick={onClose} className="flex-shrink-0">
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <Avatar className="w-10 h-10 flex-shrink-0 cursor-pointer" onClick={() => setShowSettings(true)}>
+          <Avatar className="w-10 h-10 flex-shrink-0">
             <AvatarImage src={chat?.avatar} />
             <AvatarFallback className="bg-primary/20">
               <Users className="w-5 h-5 text-primary" />
             </AvatarFallback>
           </Avatar>
-          <div className="min-w-0 flex-1 cursor-pointer" onClick={() => setShowSettings(true)}>
+          <div className="min-w-0 flex-1">
             <h3 className="font-semibold text-foreground truncate">{groupName}</h3>
             <p className="text-xs text-muted-foreground truncate">
               {memberCount} members{!isNetworkOnline && ' • Offline'}
@@ -315,8 +314,8 @@ const GroupChatPopup = ({ groupId, onClose }: GroupChatPopupProps) => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setShowSettings(true)}>
-                Group Settings
+              <DropdownMenuItem onClick={() => toast({ title: "Group Info", description: `${groupName} - ${memberCount} members` })}>
+                Group Info
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => {
                 const input = document.createElement('input');

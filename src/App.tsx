@@ -28,7 +28,6 @@ const Friends = lazy(() => import("./pages/Friends"));
 const Admin = lazy(() => import("./pages/Admin"));
 const Settings = lazy(() => import("./pages/Settings"));
 const NotFound = lazy(() => import("./pages/NotFound"));
-const FollowersFollowing = lazy(() => import("./pages/FollowersFollowing"));
 
 // ✅ Avatar customization page
 const AvatarStudio = lazy(() => import("./components/AvatarStudio"));
@@ -184,22 +183,6 @@ const App = () => {
                   element={
                     <ProtectedRoute>
                       <Friends />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/followers/:userId/:tab"
-                  element={
-                    <ProtectedRoute>
-                      <FollowersFollowing />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/followers/:userId"
-                  element={
-                    <ProtectedRoute>
-                      <FollowersFollowing />
                     </ProtectedRoute>
                   }
                 />
