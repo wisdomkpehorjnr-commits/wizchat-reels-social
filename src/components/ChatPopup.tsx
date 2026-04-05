@@ -56,7 +56,10 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
     sendSound.current.volume = 0.3;
 
     const handleWallpaperChange = (e: Event) => {
-      setChatWallpaper((e as CustomEvent).detail);
+      const detail = (e as CustomEvent).detail;
+      if (detail?.chatUserId === chatUser.id || !detail?.chatUserId) {
+        setChatWallpaper(detail?.wallpaper || detail);
+      }
     };
     window.addEventListener('chat-wallpaper-change', handleWallpaperChange);
     return () => window.removeEventListener('chat-wallpaper-change', handleWallpaperChange);
