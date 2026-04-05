@@ -275,7 +275,7 @@ const Settings = () => {
             </TabsTrigger>
             <TabsTrigger value="language" className="flex flex-col items-center justify-center p-4 h-auto text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
               <Globe className="w-5 h-5 mb-2" />
-              <span className="text-xs text-center leading-tight">Languages</span>
+              <span className="text-xs text-center leading-tight">Language & Accessibility</span>
             </TabsTrigger>
             <TabsTrigger value="notifications" className="flex flex-col items-center justify-center p-4 h-auto text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
               <Bell className="w-5 h-5 mb-2" />

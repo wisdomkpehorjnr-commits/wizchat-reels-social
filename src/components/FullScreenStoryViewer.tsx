@@ -89,7 +89,6 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
   const [showHeartAnim, setShowHeartAnim] = useState(false);
   const [showViewers, setShowViewers] = useState(false);
   const [viewers, setViewers] = useState<any[]>([]);
-  const [actualViewCount, setActualViewCount] = useState(0);
   const [showReply, setShowReply] = useState(false);
   const [replyText, setReplyText] = useState('');
   const [isEditingCaption, setIsEditingCaption] = useState(false);
@@ -122,17 +121,16 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
 
     const loadLikeState = async () => {
       try {
-        const [likeResult, countResult, viewCountResult] = await Promise.all([
+        const [likeResult, countResult] = await Promise.all([
           supabase.from('story_likes').select('id').eq('story_id', story.id).eq('user_id', user.id).maybeSingle(),
-          supabase.from('story_likes').select('*', { count: 'exact', head: true }).eq('story_id', story.id),
-          supabase.from('story_views').select('*', { count: 'exact', head: true }).eq('story_id', story.id),
+          supabase.from('story_likes').select('*', { count: 'exact', head: true }).eq('story_id', story.id)
         ]);
         if (cancelled) return;
         const liked = !!likeResult.data;
         const count = countResult.count || 0;
         setIsLiked(liked);
         setLikeCount(count);
-        setActualViewCount(viewCountResult.count || 0);
+        // Persist to cache
         try {
           localStorage.setItem(storyLikeCacheKey(story.id), String(liked));
           localStorage.setItem(storyLikeCountCacheKey(story.id), String(count));
@@ -466,7 +464,7 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
               onClick={(e) => { e.stopPropagation(); handleShowViewers(); }}
             >
               <Eye className="w-6 h-6 text-white" strokeWidth={2.5} />
-              <span className="text-sm font-bold text-white">{actualViewCount || viewers.length || story.viewerCount || 0}</span>
+              <span className="text-sm font-bold text-white">{story.viewerCount || 0}</span>
             </button>
           ) : (
             <button
