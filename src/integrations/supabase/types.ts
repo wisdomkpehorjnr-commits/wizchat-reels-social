@@ -14,6 +14,38 @@ export type Database = {
   }
   public: {
     Tables: {
+      blocked_group_members: {
+        Row: {
+          blocked_by: string
+          chat_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          blocked_by: string
+          chat_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          blocked_by?: string
+          chat_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blocked_group_members_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "chats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_participants: {
         Row: {
           chat_id: string
@@ -55,42 +87,66 @@ export type Database = {
       }
       chats: {
         Row: {
+          announcement_mode: boolean | null
+          approval_required: boolean | null
           avatar_url: string | null
           created_at: string | null
           creator_id: string | null
           description: string | null
+          group_rules: string | null
+          group_type: string | null
           id: string
           invite_code: string | null
           is_group: boolean | null
+          is_muted_all: boolean | null
           is_public: boolean | null
+          max_members: number | null
           member_count: number | null
+          message_permission: string | null
           name: string | null
+          tags: string[] | null
           updated_at: string | null
         }
         Insert: {
+          announcement_mode?: boolean | null
+          approval_required?: boolean | null
           avatar_url?: string | null
           created_at?: string | null
           creator_id?: string | null
           description?: string | null
+          group_rules?: string | null
+          group_type?: string | null
           id?: string
           invite_code?: string | null
           is_group?: boolean | null
+          is_muted_all?: boolean | null
           is_public?: boolean | null
+          max_members?: number | null
           member_count?: number | null
+          message_permission?: string | null
           name?: string | null
+          tags?: string[] | null
           updated_at?: string | null
         }
         Update: {
+          announcement_mode?: boolean | null
+          approval_required?: boolean | null
           avatar_url?: string | null
           created_at?: string | null
           creator_id?: string | null
           description?: string | null
+          group_rules?: string | null
+          group_type?: string | null
           id?: string
           invite_code?: string | null
           is_group?: boolean | null
+          is_muted_all?: boolean | null
           is_public?: boolean | null
+          max_members?: number | null
           member_count?: number | null
+          message_permission?: string | null
           name?: string | null
+          tags?: string[] | null
           updated_at?: string | null
         }
         Relationships: [
@@ -239,6 +295,41 @@ export type Database = {
             columns: ["requester_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_join_requests: {
+        Row: {
+          chat_id: string
+          created_at: string
+          id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          chat_id: string
+          created_at?: string
+          id?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          chat_id?: string
+          created_at?: string
+          id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_join_requests_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "chats"
             referencedColumns: ["id"]
           },
         ]
