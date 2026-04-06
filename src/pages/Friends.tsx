@@ -27,6 +27,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useCache } from '@/hooks/useCache';
 import { useTabCache } from '@/hooks/useTabCache';
 import ConfirmationDialog from '@/components/ui/confirmation-dialog';
+import { supabase } from '@/integrations/supabase/client';
 
 const FRIENDS_CACHE_KEY = 'wizchat_friends_cache';
 
@@ -78,9 +79,15 @@ const Friends = () => {
   const [loading, setLoading] = useState(!(tabCachedFriends || cachedFriends || localStorageFriends));
   const [error, setError] = useState<Error | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [confirmUnfriend, setConfirmUnfriend] = useState<string | null>(null);
-  const [followingStates, setFollowingStates] = useState<Record<string, boolean>>({});
+  
+  const [followingStates, setFollowingStates] = useState<Record<string, boolean>>(() => {
+    try {
+      const cached = localStorage.getItem('wizchat_follow_states');
+      return cached ? JSON.parse(cached) : {};
+    } catch { return {}; }
+  });
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [confirmRemove, setConfirmRemove] = useState<{ friendId: string; friendUser: User } | null>(null);
   const hasLoadedRef = useRef(false);
 
   // When async caches hydrate, reflect them immediately
@@ -110,6 +117,26 @@ const Friends = () => {
 
     loadFriends(false);
     hasLoadedRef.current = true;
+  }, [user]);
+
+  // Load follow states from DB on mount
+  useEffect(() => {
+    if (!user) return;
+    const loadFollowStates = async () => {
+      try {
+        const { data } = await supabase
+          .from('follows')
+          .select('following_id')
+          .eq('follower_id', user.id);
+        if (data) {
+          const states: Record<string, boolean> = {};
+          data.forEach(f => { states[f.following_id] = true; });
+          setFollowingStates(states);
+          try { localStorage.setItem('wizchat_follow_states', JSON.stringify(states)); } catch {}
+        }
+      } catch {}
+    };
+    loadFollowStates();
   }, [user]);
 
   useEffect(() => {
@@ -233,33 +260,63 @@ const Friends = () => {
 
   const handleFollowToggle = async (userId: string, currentlyFollowing: boolean) => {
     try {
-      // If state is unknown (first time), treat as not-following.
       if (typeof currentlyFollowing !== 'boolean') {
         currentlyFollowing = false;
       }
+      // Optimistic update
+      const newState = !currentlyFollowing;
+      setFollowingStates(prev => {
+        const updated = { ...prev, [userId]: newState };
+        try { localStorage.setItem('wizchat_follow_states', JSON.stringify(updated)); } catch {}
+        return updated;
+      });
+
       if (currentlyFollowing) {
         await ProfileService.unfollowUser(userId);
-        setFollowingStates(prev => ({ ...prev, [userId]: false }));
-        toast({
-          title: "Unfollowed",
-          description: "You are no longer following this user"
-        });
+        toast({ title: "Unfollowed", description: "You are no longer following this user" });
       } else {
         await ProfileService.followUser(userId);
-        setFollowingStates(prev => ({ ...prev, [userId]: true }));
-        toast({
-          title: "Following",
-          description: "You are now following this user!"
-        });
+        toast({ title: "Following", description: "You are now following this user!" });
       }
     } catch (error) {
       console.error('Error toggling follow:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update follow status",
-        variant: "destructive"
+      // Revert on error
+      setFollowingStates(prev => {
+        const reverted = { ...prev, [userId]: currentlyFollowing };
+        try { localStorage.setItem('wizchat_follow_states', JSON.stringify(reverted)); } catch {}
+        return reverted;
       });
+      toast({ title: "Error", description: "Failed to update follow status", variant: "destructive" });
     }
+  };
+
+  const handleRemoveFriend = async (friendId: string, friendUser: User) => {
+    try {
+      // Unfriend
+      await dataService.unfriend(friendId);
+      // Remove from chat list
+      const hiddenUsers = JSON.parse(localStorage.getItem('hidden-chat-users') || '[]');
+      if (!hiddenUsers.includes(friendUser.id)) {
+        hiddenUsers.push(friendUser.id);
+        localStorage.setItem('hidden-chat-users', JSON.stringify(hiddenUsers));
+      }
+      // Unfollow if following
+      if (followingStates[friendUser.id]) {
+        try { await ProfileService.unfollowUser(friendUser.id); } catch {}
+        setFollowingStates(prev => {
+          const updated = { ...prev, [friendUser.id]: false };
+          try { localStorage.setItem('wizchat_follow_states', JSON.stringify(updated)); } catch {}
+          return updated;
+        });
+      }
+      toast({ title: "Removed", description: `${friendUser.name} has been removed from your friends and chat list.` });
+      loadFriends();
+      window.dispatchEvent(new CustomEvent('chatListUpdate'));
+    } catch (error) {
+      console.error('Error removing friend:', error);
+      toast({ title: "Error", description: "Failed to remove user", variant: "destructive" });
+    }
+    setConfirmRemove(null);
   };
 
 
@@ -411,7 +468,7 @@ const Friends = () => {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => setConfirmUnfriend(friend.id)}
+                              onClick={() => setConfirmRemove({ friendId: friend.id, friendUser })}
                               className="w-full h-7 text-xs text-destructive hover:text-destructive-foreground hover:bg-destructive"
                             >
                               <UserMinus className="w-3 h-3 mr-1" />
@@ -557,17 +614,16 @@ const Friends = () => {
       </div>
 
       <ConfirmationDialog
-        open={!!confirmUnfriend}
-        onOpenChange={(open) => !open && setConfirmUnfriend(null)}
-        title="Unfriend User"
-        description="Are you sure you want to remove this friend? This action cannot be undone."
-        confirmText="Yes, unfriend"
-        cancelText="No, cancel"
+        open={!!confirmRemove}
+        onOpenChange={(open) => !open && setConfirmRemove(null)}
+        title="Remove User"
+        description={`Do you want to remove ${confirmRemove?.friendUser?.name || 'this user'} from your Chat list and Friends?`}
+        confirmText="Sure"
+        cancelText="Cancel"
         variant="destructive"
         onConfirm={() => {
-          if (confirmUnfriend) {
-            unfriendUser(confirmUnfriend);
-            setConfirmUnfriend(null);
+          if (confirmRemove) {
+            handleRemoveFriend(confirmRemove.friendId, confirmRemove.friendUser);
           }
         }}
       />

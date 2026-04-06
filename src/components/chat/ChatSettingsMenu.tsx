@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { 
   BellOff, 
   Trash2, 
@@ -10,6 +10,7 @@ import {
   Timer,
   Clock,
   Image as ImageIcon,
+  Upload,
   X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -44,6 +45,7 @@ const ChatSettingsMenu = ({
   const [disappearingDialog, setDisappearingDialog] = useState(false);
   const [clearChatDialog, setClearChatDialog] = useState(false);
   const [wallpaperDialog, setWallpaperDialog] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const menuItems = [
     { icon: BellOff, label: 'Mute Notifications', onClick: () => { setMuteDialog(true); setIsOpen(false); } },
@@ -57,8 +59,39 @@ const ChatSettingsMenu = ({
     { icon: AlertTriangle, label: 'Report Contact', onClick: () => { onReport(); setIsOpen(false); }, destructive: true },
   ];
 
+  const setWallpaper = (value: string | null) => {
+    if (value) {
+      localStorage.setItem(`chat-wallpaper-${chatUser.id}`, value);
+    } else {
+      localStorage.removeItem(`chat-wallpaper-${chatUser.id}`);
+    }
+    window.dispatchEvent(new CustomEvent('chat-wallpaper-change', { 
+      detail: { wallpaper: value, chatUserId: chatUser.id } 
+    }));
+    setWallpaperDialog(false);
+  };
+
+  const handleCustomImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      setWallpaper(dataUrl);
+    };
+    reader.readAsDataURL(file);
+  };
+
   return (
     <>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleCustomImage}
+        className="hidden"
+      />
+
       {/* Trigger */}
       <Button variant="ghost" size="icon" onClick={() => setIsOpen(true)}>
         <div className="flex flex-col gap-0.5">
@@ -79,10 +112,7 @@ const ChatSettingsMenu = ({
             transition={{ duration: 0.2 }}
             onClick={() => setIsOpen(false)}
           >
-            {/* Backdrop */}
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-
-            {/* Menu Card */}
             <motion.div
               className="absolute top-16 right-4 w-64 max-w-[calc(100vw-2rem)] rounded-2xl border border-white/20 dark:border-white/10 overflow-hidden shadow-2xl"
               style={{
@@ -96,15 +126,12 @@ const ChatSettingsMenu = ({
               transition={{ type: 'spring', damping: 25, stiffness: 350 }}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Header */}
               <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
                 <span className="text-sm font-semibold text-foreground">Chat Settings</span>
                 <button onClick={() => setIsOpen(false)} className="p-1 rounded-full hover:bg-muted/50 transition-colors">
                   <X className="w-4 h-4 text-muted-foreground" />
                 </button>
               </div>
-
-              {/* Items */}
               <div className="py-1.5 max-h-[60vh] overflow-y-auto">
                 {menuItems.map((item, i) => (
                   <motion.button
@@ -147,49 +174,40 @@ const ChatSettingsMenu = ({
           Do you want to clear this entire chat? This action cannot be undone.
         </p>
         <div className="flex gap-3">
-          <Button
-            variant="outline"
-            onClick={() => setClearChatDialog(false)}
-            className="flex-1 border-border/50 hover:bg-muted/50"
-          >
+          <Button variant="outline" onClick={() => setClearChatDialog(false)} className="flex-1 border-border/50 hover:bg-muted/50">
             Cancel
           </Button>
-          <Button
-            variant="destructive"
-            onClick={() => { onClear(); setClearChatDialog(false); }}
-            className="flex-1"
-          >
+          <Button variant="destructive" onClick={() => { onClear(); setClearChatDialog(false); }} className="flex-1">
             Clear
           </Button>
         </div>
       </GlassDialog>
 
-      {/* Wallpaper Dialog */}
+      {/* Wallpaper Dialog — per-chat with custom upload */}
       <GlassDialog open={wallpaperDialog} onClose={() => setWallpaperDialog(false)} title="Chat Wallpaper">
+        <p className="text-xs text-muted-foreground mb-3">Choose a color or upload a custom image for this chat.</p>
         <div className="grid grid-cols-3 gap-2 mb-3">
           {['#1a1a2e', '#16213e', '#0f3460', '#533483', '#2b2d42', '#264653'].map((color) => (
             <button
               key={color}
               className="aspect-square rounded-xl border-2 border-transparent hover:border-primary transition-all hover:scale-105"
               style={{ backgroundColor: color }}
-              onClick={() => {
-                document.documentElement.style.setProperty('--chat-wallpaper', color);
-                localStorage.setItem('chat-wallpaper', color);
-                window.dispatchEvent(new CustomEvent('chat-wallpaper-change', { detail: color }));
-                setWallpaperDialog(false);
-              }}
+              onClick={() => setWallpaper(color)}
             />
           ))}
         </div>
         <Button
           variant="outline"
+          className="w-full border-border/50 mb-2 gap-2"
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <Upload className="w-4 h-4" />
+          Upload Custom Image
+        </Button>
+        <Button
+          variant="outline"
           className="w-full border-border/50"
-          onClick={() => {
-            document.documentElement.style.removeProperty('--chat-wallpaper');
-            localStorage.removeItem('chat-wallpaper');
-            window.dispatchEvent(new CustomEvent('chat-wallpaper-change', { detail: null }));
-            setWallpaperDialog(false);
-          }}
+          onClick={() => setWallpaper(null)}
         >
           Reset to Default
         </Button>

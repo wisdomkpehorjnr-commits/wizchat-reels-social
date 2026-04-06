@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { formatDistanceToNow } from 'date-fns';
 import {
@@ -22,6 +23,7 @@ import ConfirmationDialog from './ui/confirmation-dialog';
 import { useDownload } from '@/hooks/useDownload';
 import ImageModal from './ImageModal';
 import ThemeAwareDialog from './ThemeAwareDialog';
+import ReadMoreText from './ReadMoreText';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -551,7 +553,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
             </div>
           ) : (
             <div className="mb-4">
-              {post.content && <p className="text-gray-900 dark:text-white mb-4 whitespace-pre-wrap">{post.content}</p>}
+              {post.content && <ReadMoreText text={post.content} maxLength={750} className="text-foreground mb-4" />}
               
               {/* Media content */}
               {Array.isArray(post.imageUrls) && post.imageUrls.length > 0 ? (
@@ -666,15 +668,78 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
           variant="destructive"
         />
         
-        <ConfirmationDialog
-          open={showDownloadConfirm}
-          onOpenChange={setShowDownloadConfirm}
-          title="Download Media"
-          description="Do you want to download this media to your device?"
-          onConfirm={handleDownloadConfirm}
-          confirmText="Download"
-          cancelText="Cancel"
-        />
+        {/* Download & Save Dialog — Modern Glass Style */}
+        <AnimatePresence>
+          {showDownloadConfirm && (
+            <motion.div
+              className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-4"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowDownloadConfirm(false)}
+            >
+              <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+              <motion.div
+                className="relative w-full max-w-sm rounded-2xl border border-white/15 dark:border-white/10 overflow-hidden shadow-2xl p-5"
+                style={{
+                  background: 'linear-gradient(135deg, hsl(var(--background) / 0.92), hsl(var(--background) / 0.85))',
+                  backdropFilter: 'blur(24px)',
+                  WebkitBackdropFilter: 'blur(24px)',
+                }}
+                initial={{ opacity: 0, scale: 0.92, y: 40 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.92, y: 40 }}
+                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h3 className="text-lg font-semibold text-foreground mb-4">Media Options</h3>
+                <div className="flex flex-col gap-2">
+                  <motion.button
+                    className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-left text-foreground font-medium text-sm transition-all hover:bg-primary/10 active:bg-primary/20 border border-transparent hover:border-primary/20"
+                    initial={{ opacity: 0, x: -12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.05 }}
+                    onClick={handleDownloadConfirm}
+                  >
+                    <Download className="w-5 h-5 flex-shrink-0 text-primary" />
+                    <span>Download</span>
+                  </motion.button>
+                  <motion.button
+                    className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-left text-foreground font-medium text-sm transition-all hover:bg-primary/10 active:bg-primary/20 border border-transparent hover:border-primary/20"
+                    initial={{ opacity: 0, x: -12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.1 }}
+                    onClick={async () => {
+                      try {
+                        const { data: { user: authUser } } = await supabase.auth.getUser();
+                        if (!authUser) return;
+                        const { error } = await supabase.from('saved_posts').insert({ post_id: post.id, user_id: authUser.id });
+                        if (error && error.code !== '23505') throw error;
+                        toast({ title: 'Saved', description: 'Post saved to your profile' });
+                      } catch {
+                        toast({ title: 'Error', description: 'Failed to save post', variant: 'destructive' });
+                      }
+                      setShowDownloadConfirm(false);
+                    }}
+                  >
+                    <Pin className="w-5 h-5 flex-shrink-0 text-primary" />
+                    <span>Save Post</span>
+                  </motion.button>
+                  <motion.button
+                    className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-left text-muted-foreground font-medium text-sm transition-all hover:bg-muted/30"
+                    initial={{ opacity: 0, x: -12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.15 }}
+                    onClick={() => setShowDownloadConfirm(false)}
+                  >
+                    <X className="w-5 h-5 flex-shrink-0" />
+                    <span>Cancel</span>
+                  </motion.button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
         
         <ImageModal
           src={imageModalSrc}
