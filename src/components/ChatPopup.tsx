@@ -196,7 +196,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       )
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'message_receipts', filter: \`chat_id=eq.\${chatId}\` },
+        { event: '*', schema: 'public', table: 'message_receipts', filter: `chat_id=eq.${chatId}` },
         async () => {
           if (!user?.id) return;
           const ownIds = messages.filter(m => m.userId === user.id).map(m => m.id);
