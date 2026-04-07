@@ -16,6 +16,7 @@ import { dataService } from '@/services/dataService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchChatSummaries, getCachedSummaries, isCacheFresh, ChatSummary, formatMessagePreview } from '@/services/chatRealtimeService';
 
 const CHAT_LIST_CACHE_KEY = 'wizchat_chat_list_cache';
 
@@ -121,6 +122,7 @@ const Chat = () => {
   
   const [friends, setFriends] = useState<Friend[]>(chatStore.friends);
   const [groups, setGroups] = useState<any[]>(_cachedGroups);
+  const [chatSummaries, setChatSummaries] = useState<ChatSummary[]>(getCachedSummaries());
   const [selectedFriend, setSelectedFriend] = useState<User | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -223,9 +225,20 @@ const Chat = () => {
     
     window.addEventListener('openChatWithUser', handleOpenChatWithUser as EventListener);
     
+    // Realtime subscription for chat list updates
+    const chatListChannel = supabase
+      .channel('chat_list_realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages' },
+        () => { loadData(true); }
+      )
+      .subscribe();
+
     return () => {
       window.removeEventListener('openChatWithUser', handleOpenChatWithUser as EventListener);
       window.removeEventListener('chatListUpdate', handleChatListUpdate);
+      supabase.removeChannel(chatListChannel);
     };
   }, [user, toast, hasCachedData]);
 
@@ -244,26 +257,27 @@ const Chat = () => {
       // Persist to localStorage for instant hydration next time
       saveChatListToCache(userFriends);
 
-      // Load group chats from the chats table (correct IDs for opening)
+      // Load chat summaries (includes groups, DMs, unread counts, last message)
       try {
-        const allChats = await dataService.getChats();
-        const groupChats = allChats.filter(c => c.isGroup);
-        const groupsForDisplay = groupChats.map(c => ({
-          id: c.id, // This is the CHAT id, which GroupChatPopup needs
-          name: c.name || 'Group Chat',
-          member_count: c.participants?.length || c.memberCount || 0,
-          description: c.description,
-          avatar: c.avatar,
+        const summaries = await fetchChatSummaries();
+        setChatSummaries(summaries);
+
+        const groupChats = summaries.filter(s => s.isGroup);
+        const groupsForDisplay = groupChats.map(s => ({
+          id: s.chatId,
+          name: s.name || 'Group Chat',
+          member_count: s.memberCount || 0,
+          description: s.description,
+          avatar: s.avatarUrl,
         }));
         setGroups(groupsForDisplay);
-        // cache groups for offline
         try {
           localStorage.setItem(GROUPS_CACHE_KEY, JSON.stringify({ data: groupsForDisplay, timestamp: Date.now() }));
         } catch (e) {
           console.debug('[Chat] Failed to cache groups:', e);
         }
       } catch (error) {
-        console.debug('[Chat] Error loading groups:', error);
+        console.debug('[Chat] Error loading chat summaries:', error);
       }
     } catch (error) {
       console.error('Error loading friends:', error);
@@ -506,16 +520,26 @@ const Chat = () => {
                   })}
                   
                   {/* Friends list for chatting */}
-                   {sortedFriends.map((friend) => (
-                     <ChatListItem
-                       key={friend.id}
-                       friend={friend}
-                       onClick={() => openChat(friend)}
-                       isPinned={pinnedFriends.has(friend.id)}
-                       onPinToggle={() => handlePinToggle(friend.id)}
-                       onDelete={handleDeleteUser}
-                     />
-                   ))}
+                   {sortedFriends.map((friend) => {
+                     // Find the summary for this friend's DM chat
+                     const summary = chatSummaries.find(s => !s.isGroup && s.chatId && (
+                       // Match by checking if the friend is in this chat (not perfect but good enough)
+                       true
+                     ));
+                     // More precise: find DM summary by checking participants would need a join.
+                     // Instead, pass all summaries and let ChatListItem use its chatId to match.
+                     return (
+                       <ChatListItem
+                         key={friend.id}
+                         friend={friend}
+                         onClick={() => openChat(friend)}
+                         isPinned={pinnedFriends.has(friend.id)}
+                         onPinToggle={() => handlePinToggle(friend.id)}
+                         onDelete={handleDeleteUser}
+                         chatSummaries={chatSummaries}
+                       />
+                     );
+                   })}
                   
                   {filteredFriends.length === 0 && filteredGroups.length === 0 && (
                     <div className="p-8 text-center">
