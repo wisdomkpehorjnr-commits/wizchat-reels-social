@@ -27,6 +27,7 @@ interface ChatListItemProps {
   isWizAi?: boolean;
   onPinToggle?: () => void;
   onDelete?: (userId: string) => void;
+  chatSummary?: ChatSummary;
   chatSummaries?: ChatSummary[];
 }
 
@@ -66,7 +67,7 @@ const loadOfflinePreviewsFromStorage = () => {
 // Initialize on load
 loadOfflinePreviewsFromStorage();
 
-const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelete, chatSummaries }: ChatListItemProps) => {
+const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelete, chatSummary, chatSummaries }: ChatListItemProps) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const [pinned, setPinned] = useState(isPinned || false);
@@ -80,6 +81,9 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
   const hasFetchedRef = useRef(false);
   const chatIdRef = useRef<string | null>(null);
   const { cachedUrl: cachedAvatarUrl } = useImageCache(friend.avatar);
+  const activeSummary = chatSummary ?? chatSummaries?.find(summary =>
+    !summary.isGroup && summary.participants?.some((participant: any) => participant?.id === friend.id)
+  );
 
   useEffect(() => {
     if (isWizAi) {
@@ -113,26 +117,26 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
       return;
     }
 
-    // STEP 1.5: Check chatSummaries prop for instant server-backed data
-    if (chatSummaries && chatSummaries.length > 0 && user?.id) {
-      // Find the DM summary for this friend
-      // We need chatId to match, but we might not have it yet.
-      // Try matching by looking up the RPC-fetched chatId from cache first.
-      const cachedEntry = chatMetadataCache.get(cacheKey);
-      const knownChatId = cachedEntry?.chatId;
-      if (knownChatId) {
-        const summary = chatSummaries.find(s => s.chatId === knownChatId);
-        if (summary) {
-          const isMe = summary.lastMessageUserId === user.id;
-          const preview = formatMessagePreview(summary.lastMessageContent, summary.lastMessageType, summary.lastMessageMediaUrl, isMe);
-          const msgTime = summary.lastMessageCreatedAt ? new Date(summary.lastMessageCreatedAt) : null;
-          setLastMessage(preview);
-          setLastMessageTime(msgTime);
-          setUnreadCount(summary.unreadCount);
-          chatIdRef.current = knownChatId;
-          updateCache(cacheKey, preview, msgTime, summary.unreadCount, knownChatId);
-        }
-      }
+    if (activeSummary && user?.id) {
+      const isMe = activeSummary.lastMessageUserId === user.id;
+      const preview = formatMessagePreview(
+        activeSummary.lastMessageContent,
+        activeSummary.lastMessageType,
+        activeSummary.lastMessageMediaUrl,
+        isMe
+      );
+      const msgTime = activeSummary.lastMessageCreatedAt
+        ? new Date(activeSummary.lastMessageCreatedAt)
+        : activeSummary.updatedAt
+        ? new Date(activeSummary.updatedAt)
+        : null;
+
+      setLastMessage(preview);
+      setLastMessageTime(msgTime);
+      setUnreadCount(activeSummary.unreadCount || 0);
+      chatIdRef.current = activeSummary.chatId;
+      updateCache(cacheKey, preview, msgTime, activeSummary.unreadCount || 0, activeSummary.chatId);
+      return;
     }
 
     // STEP 2: Check memory cache
@@ -167,7 +171,7 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
 
         const { data: messages, error: messagesError } = await supabase
           .from('messages')
-          .select('id, content, created_at, user_id, type, media_url')
+          .select('id, content, created_at, user_id, type, media_url, seen')
           .eq('chat_id', chatId)
           .order('created_at', { ascending: false });
 
@@ -201,9 +205,16 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
           }
 
           msgTime = new Date(lastMsg.created_at);
-          // Count unread = messages from friend that are not seen
-          unreadCount = messages.filter(m => m.user_id === friend.id && !m.seen).length || 0;
         }
+
+        const { count } = await supabase
+          .from('message_receipts')
+          .select('id', { count: 'exact', head: true })
+          .eq('chat_id', chatId)
+          .eq('recipient_id', user.id)
+          .is('read_at', null);
+
+        unreadCount = count || 0;
 
         setLastMessage(preview);
         setLastMessageTime(msgTime);
@@ -259,9 +270,12 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
               
               setLastMessage(preview);
               setLastMessageTime(new Date(msg.created_at));
-              
-              // Always save to localStorage when message changes
-              updateCache(cacheKey, preview, new Date(msg.created_at), unreadCount, chatIdRef.current);
+
+              setUnreadCount(prev => {
+                const nextUnreadCount = isMe ? prev : prev + 1;
+                updateCache(cacheKey, preview, new Date(msg.created_at), nextUnreadCount, chatIdRef.current);
+                return nextUnreadCount;
+              });
             }
           )
           .subscribe();
@@ -274,7 +288,7 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
         supabase.removeChannel(channel);
       }
     };
-  }, [friend.id, user?.id, isWizAi, chatSummaries]);
+  }, [friend.id, user?.id, isWizAi, activeSummary]);
   
   const updateCache = (key: string, message: string, time: Date | null, unread: number, chatId: string | null) => {
     const cacheEntry = {

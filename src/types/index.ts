@@ -114,7 +114,7 @@ export interface MessageReaction {
   createdAt: Date;
 }
 
-export type MessageStatus = 'pending' | 'sent' | 'delivered' | 'read';
+export type MessageStatus = 'pending' | 'sent' | 'delivered' | 'read' | 'failed';
 
 export interface Message {
   id: string;
@@ -132,6 +132,9 @@ export interface Message {
   status?: MessageStatus; // Message delivery status
   localId?: string; // Temporary ID for unsent messages
   synced?: boolean; // Whether message has been synced to server
+  retryable?: boolean; // Whether the message can be retried after a failed send
+  retryCount?: number; // Number of retry attempts for this message
+  recipientId?: string; // Recipient for direct-message offline persistence
   replyToMessage?: Message; // Message being replied to
   fileName?: string; // For documents
   fileSize?: number; // For documents

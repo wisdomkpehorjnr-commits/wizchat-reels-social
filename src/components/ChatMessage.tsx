@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Check, CheckCheck, Clock, Reply, Download, Play, Volume2 } from 'lucide-react';
+import { Check, CheckCheck, Clock, Reply, Download, Play, RotateCcw, Volume2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Message } from '@/types';
@@ -29,6 +29,7 @@ interface ChatMessageProps {
   messages?: Message[];
   onDeleteMultiple?: () => void;
   onCopyMultiple?: () => void;
+  onRetry?: (message: Message) => void;
 }
 
 const REACTION_EMOJIS = ['❤️', '👍', '😂', '😮', '😢', '🙏', '🔥', '👏'];
@@ -50,6 +51,7 @@ const ChatMessage = ({
   messages,
   onDeleteMultiple,
   onCopyMultiple,
+  onRetry,
 }: ChatMessageProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -181,6 +183,22 @@ const ChatMessage = ({
     }
     if (message.status === 'read') {
       return <CheckCheck className="w-3 h-3 text-primary" />;
+    }
+    if (message.status === 'failed') {
+      return (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-4 w-4 p-0 text-destructive hover:bg-transparent hover:text-destructive"
+          onClick={(event) => {
+            event.stopPropagation();
+            onRetry?.(message);
+          }}
+        >
+          <RotateCcw className="w-3 h-3" />
+        </Button>
+      );
     }
     return null;
   };
