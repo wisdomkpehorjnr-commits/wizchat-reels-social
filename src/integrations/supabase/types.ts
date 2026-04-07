@@ -545,6 +545,61 @@ export type Database = {
           },
         ]
       }
+      message_receipts: {
+        Row: {
+          chat_id: string
+          created_at: string
+          delivered_at: string | null
+          id: string
+          message_id: string
+          read_at: string | null
+          recipient_id: string
+          updated_at: string
+        }
+        Insert: {
+          chat_id: string
+          created_at?: string
+          delivered_at?: string | null
+          id?: string
+          message_id: string
+          read_at?: string | null
+          recipient_id: string
+          updated_at?: string
+        }
+        Update: {
+          chat_id?: string
+          created_at?: string
+          delivered_at?: string | null
+          id?: string
+          message_id?: string
+          read_at?: string | null
+          recipient_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_receipts_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "chats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_receipts_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_receipts_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           chat_id: string
@@ -1400,6 +1455,29 @@ export type Database = {
         }
         Returns: string
       }
+      get_chat_summaries: {
+        Args: never
+        Returns: {
+          avatar_url: string
+          chat_id: string
+          created_at: string
+          creator_id: string
+          description: string
+          invite_code: string
+          is_group: boolean
+          is_public: boolean
+          last_message_content: string
+          last_message_created_at: string
+          last_message_id: string
+          last_message_media_url: string
+          last_message_type: string
+          last_message_user_id: string
+          member_count: number
+          name: string
+          unread_count: number
+          updated_at: string
+        }[]
+      }
       get_or_create_direct_chat: {
         Args: { p_other_user_id: string }
         Returns: string
@@ -1412,6 +1490,11 @@ export type Database = {
         Args: { _group_id: string; _user_id: string }
         Returns: boolean
       }
+      mark_chat_messages_delivered: {
+        Args: { _chat_id: string }
+        Returns: number
+      }
+      mark_chat_messages_read: { Args: { _chat_id: string }; Returns: number }
       search_users: {
         Args: { search_term: string }
         Returns: {
