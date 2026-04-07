@@ -33,28 +33,21 @@ export const useNotificationBadges = () => {
 
         const chatIds = userChats?.map(c => c.chat_id) || [];
 
-        // Get unread message counts for chat badge - only messages from OTHER users
+        // Get unread message counts using receipt table
         let chatCount = 0;
         if (chatIds.length > 0) {
-          const { data: unreadMessages, error: messagesError } = await supabase
-            .from('messages')
-            .select('id, user_id, seen')
+          const { data: unreadReceipts, error: receiptsError } = await supabase
+            .from('message_receipts')
+            .select('id')
+            .eq('recipient_id', user.id)
             .in('chat_id', chatIds)
-            .eq('seen', false)
-            .neq('user_id', user.id);
+            .is('read_at', null);
           
-          if (messagesError) {
-            console.error('Error fetching unread messages:', messagesError);
+          if (receiptsError) {
+            console.error('Error fetching unread receipts:', receiptsError);
           }
           
-          // Triple-check: only count messages from other users that are truly unread
-          chatCount = unreadMessages?.filter(msg => msg.user_id !== user.id && msg.seen === false)?.length || 0;
-          
-          console.log('Unread messages for chat badge:', {
-            totalUnreadMessages: unreadMessages?.length || 0,
-            filteredCount: chatCount,
-            userChats: chatIds.length
-          });
+          chatCount = unreadReceipts?.length || 0;
         }
 
         // Get pending friend requests count
@@ -182,25 +175,9 @@ export const useNotificationBadges = () => {
   }, [user]);
 
   const clearBadge = async (tab: string) => {
-    // Mark messages as seen when chat tab is opened
-    if (tab === 'chat' && user) {
-      try {
-        const { data: userChats } = await supabase
-          .from('chat_participants')
-          .select('chat_id')
-          .eq('user_id', user.id);
-
-        if (userChats) {
-          const chatIds = userChats.map(chat => chat.chat_id);
-          await supabase
-            .from('messages')
-            .update({ seen: true })
-            .in('chat_id', chatIds)
-            .neq('user_id', user.id);
-        }
-      } catch (error) {
-        console.error('Error marking messages as seen:', error);
-      }
+    // Clear badge count (actual read marking happens per-chat in ChatPopup)
+    if (tab === 'chat') {
+      // The individual chat popup handles marking as read
     }
 
     // Clear the badge count
