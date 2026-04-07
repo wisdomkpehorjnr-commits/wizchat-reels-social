@@ -85,20 +85,6 @@ const PageLoader = () => {
 };
 
 const App = () => {
-  // Register service worker for offline support
-  useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker
-        .register('/service-worker.js', { scope: '/' })
-        .then((registration) => {
-          console.log('[App] Service Worker registered:', registration);
-        })
-        .catch((error) => {
-          console.warn('[App] Service Worker registration failed:', error);
-        });
-    }
-  }, []);
-
   return (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>

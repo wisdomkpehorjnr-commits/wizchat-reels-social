@@ -16,7 +16,7 @@ import { dataService } from '@/services/dataService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { fetchChatSummaries, getCachedSummaries, isCacheFresh, ChatSummary, formatMessagePreview } from '@/services/chatRealtimeService';
+import { fetchChatSummaries, getCachedSummaries, ChatSummary, markChatDelivered } from '@/services/chatRealtimeService';
 
 const CHAT_LIST_CACHE_KEY = 'wizchat_chat_list_cache';
 
@@ -24,18 +24,54 @@ const CHAT_LIST_CACHE_KEY = 'wizchat_chat_list_cache';
 // PERSISTENT MODULE-LEVEL STORE (survives all remounts)
 // =============================================
 interface ChatStore {
-  friends: Friend[];
+  chatUsers: User[];
   lastFetchTime: number;
   isInitialized: boolean;
 }
 
 const chatStore: ChatStore = {
-  friends: [],
+  chatUsers: [],
   lastFetchTime: 0,
   isInitialized: false,
 };
 
 const CHAT_MIN_REFRESH_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
+
+const normalizeCachedUser = (value: any): User => ({
+  id: value?.id || '',
+  name: value?.name || value?.username || 'Unknown user',
+  username: value?.username || '',
+  email: value?.email || '',
+  photoURL: value?.photoURL || value?.avatar || '',
+  avatar: value?.avatar || value?.photoURL || '',
+  bio: value?.bio || '',
+  location: typeof value?.location === 'string' ? value.location : undefined,
+  website: value?.website || undefined,
+  birthday: value?.birthday ? new Date(value.birthday) : undefined,
+  gender: value?.gender || undefined,
+  pronouns: value?.pronouns || undefined,
+  coverImage: value?.coverImage || value?.cover_image || '',
+  isPrivate: value?.isPrivate ?? value?.is_private ?? false,
+  followerCount: value?.followerCount ?? value?.follower_count ?? 0,
+  followingCount: value?.followingCount ?? value?.following_count ?? 0,
+  profileViews: value?.profileViews ?? value?.profile_views ?? 0,
+  createdAt: value?.createdAt ? new Date(value.createdAt) : value?.created_at ? new Date(value.created_at) : new Date(),
+  is_verified: value?.is_verified ?? false,
+});
+
+const getChatPartnerFromSummary = (summary: ChatSummary, currentUserId?: string): User | null => {
+  if (!currentUserId || summary.isGroup || !Array.isArray(summary.participants)) {
+    return null;
+  }
+
+  const partner = summary.participants.find((participant: any) => participant?.id && participant.id !== currentUserId);
+  return partner ? normalizeCachedUser(partner) : null;
+};
+
+const getSummarySortTime = (summary?: ChatSummary | null) => {
+  const timestamp = summary?.lastMessageCreatedAt || summary?.updatedAt || summary?.createdAt;
+  return timestamp ? new Date(timestamp).getTime() : 0;
+};
 
 // SYNCHRONOUS initialization from localStorage on module load
 (() => {
@@ -46,9 +82,9 @@ const CHAT_MIN_REFRESH_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
     if (cached) {
       const parsed = JSON.parse(cached);
       if (parsed?.data && Array.isArray(parsed.data)) {
-        chatStore.friends = parsed.data;
+        chatStore.chatUsers = parsed.data.map(normalizeCachedUser);
         chatStore.lastFetchTime = parsed.timestamp || 0;
-        console.debug('[Chat] INSTANT hydration from localStorage:', parsed.data.length, 'friends');
+        console.debug('[Chat] INSTANT hydration from localStorage:', parsed.data.length, 'chat users');
       }
     }
   } catch (e) {
@@ -57,13 +93,13 @@ const CHAT_MIN_REFRESH_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
   chatStore.isInitialized = true;
 })();
 
-const saveChatListToCache = (friends: Friend[]) => {
+const saveChatListToCache = (chatUsers: User[]) => {
   try {
     localStorage.setItem(CHAT_LIST_CACHE_KEY, JSON.stringify({
-      data: friends,
+      data: chatUsers,
       timestamp: Date.now()
     }));
-    chatStore.friends = friends;
+    chatStore.chatUsers = chatUsers;
     chatStore.lastFetchTime = Date.now();
   } catch (e) {
     console.debug('[Chat] Failed to cache chat list:', e);
@@ -118,9 +154,10 @@ const Chat = () => {
   const { toast } = useToast();
   
   // INSTANT display from module store - NO loading if we have cached data
-  const hasCachedData = chatStore.friends.length > 0;
+  const hasCachedData = chatStore.chatUsers.length > 0;
   
-  const [friends, setFriends] = useState<Friend[]>(chatStore.friends);
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [chatUsers, setChatUsers] = useState<User[]>(chatStore.chatUsers);
   const [groups, setGroups] = useState<any[]>(_cachedGroups);
   const [chatSummaries, setChatSummaries] = useState<ChatSummary[]>(getCachedSummaries());
   const [selectedFriend, setSelectedFriend] = useState<User | null>(null);
@@ -231,7 +268,12 @@ const Chat = () => {
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages' },
-        () => { loadData(true); }
+        (payload) => {
+          if (payload.new.user_id !== user?.id) {
+            markChatDelivered(payload.new.chat_id).catch(() => {});
+          }
+          loadData(true);
+        }
       )
       .subscribe();
 
@@ -253,14 +295,32 @@ const Chat = () => {
 
       const userFriends = await dataService.getFriends();
       setFriends(userFriends);
+      const acceptedFriendUsers = userFriends
+        .filter(friend => friend.status === 'accepted')
+        .map(friend => normalizeCachedUser(friend.requester.id === user.id ? friend.addressee : friend.requester));
 
-      // Persist to localStorage for instant hydration next time
-      saveChatListToCache(userFriends);
+      let nextChatUsers = acceptedFriendUsers;
 
       // Load chat summaries (includes groups, DMs, unread counts, last message)
       try {
         const summaries = await fetchChatSummaries();
         setChatSummaries(summaries);
+
+        const mergedUsers = new Map<string, User>();
+        [...acceptedFriendUsers, ...summaries
+          .map(summary => getChatPartnerFromSummary(summary, user.id))
+          .filter((chatUser): chatUser is User => Boolean(chatUser))]
+          .forEach(chatUser => {
+            const existing = mergedUsers.get(chatUser.id);
+            mergedUsers.set(chatUser.id, {
+              ...existing,
+              ...chatUser,
+              photoURL: chatUser.photoURL || existing?.photoURL || chatUser.avatar,
+              avatar: chatUser.avatar || existing?.avatar || chatUser.photoURL,
+            });
+          });
+
+        nextChatUsers = Array.from(mergedUsers.values());
 
         const groupChats = summaries.filter(s => s.isGroup);
         const groupsForDisplay = groupChats.map(s => ({
@@ -279,9 +339,12 @@ const Chat = () => {
       } catch (error) {
         console.debug('[Chat] Error loading chat summaries:', error);
       }
+
+      setChatUsers(nextChatUsers);
+      saveChatListToCache(nextChatUsers);
     } catch (error) {
       console.error('Error loading friends:', error);
-      if (!silent) {
+      if (!silent && navigator.onLine) {
         toast({
           title: "Error",
           description: "Failed to load friends",
@@ -337,11 +400,15 @@ const Chat = () => {
   };
 
   const acceptedFriends = friends.filter(f => f.status === 'accepted');
+  const summaryByUserId = new Map<string, ChatSummary>();
+  chatSummaries.forEach(summary => {
+    const partner = getChatPartnerFromSummary(summary, user?.id);
+    if (partner) {
+      summaryByUserId.set(partner.id, summary);
+    }
+  });
   
-  // Get friend user data
-  const friendsData = acceptedFriends.map(friend => 
-    friend.requester.id === user?.id ? friend.addressee : friend.requester
-  );
+  const friendsData = chatUsers;
 
   // Get hidden users from localStorage
   const hiddenUsers = JSON.parse(localStorage.getItem('hidden-chat-users') || '[]');
@@ -374,6 +441,8 @@ const Chat = () => {
     
     if (aIsPinned && !bIsPinned) return -1;
     if (!aIsPinned && bIsPinned) return 1;
+    const activityDelta = getSummarySortTime(summaryByUserId.get(b.id)) - getSummarySortTime(summaryByUserId.get(a.id));
+    if (activityDelta !== 0) return activityDelta;
     return a.name.localeCompare(b.name);
   });
 
@@ -521,13 +590,6 @@ const Chat = () => {
                   
                   {/* Friends list for chatting */}
                    {sortedFriends.map((friend) => {
-                     // Find the summary for this friend's DM chat
-                     const summary = chatSummaries.find(s => !s.isGroup && s.chatId && (
-                       // Match by checking if the friend is in this chat (not perfect but good enough)
-                       true
-                     ));
-                     // More precise: find DM summary by checking participants would need a join.
-                     // Instead, pass all summaries and let ChatListItem use its chatId to match.
                      return (
                        <ChatListItem
                          key={friend.id}
@@ -536,7 +598,7 @@ const Chat = () => {
                          isPinned={pinnedFriends.has(friend.id)}
                          onPinToggle={() => handlePinToggle(friend.id)}
                          onDelete={handleDeleteUser}
-                         chatSummaries={chatSummaries}
+                          chatSummary={summaryByUserId.get(friend.id)}
                        />
                      );
                    })}

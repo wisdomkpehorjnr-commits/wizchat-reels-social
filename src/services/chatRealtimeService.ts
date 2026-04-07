@@ -5,7 +5,6 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
-import { localMessageService, LocalMessage } from './localMessageService';
 
 export interface ChatSummary {
   chatId: string;
@@ -93,6 +92,64 @@ export async function fetchChatSummaries(): Promise<ChatSummary[]> {
       lastMessageUserId: row.last_message_user_id,
       unreadCount: Number(row.unread_count) || 0,
     }));
+
+    if (summaries.length > 0) {
+      const { data: participantRows, error: participantsError } = await supabase
+        .from('chat_participants')
+        .select(`
+          chat_id,
+          role,
+          profiles:user_id (
+            id,
+            name,
+            username,
+            email,
+            avatar,
+            bio,
+            location,
+            website,
+            birthday,
+            gender,
+            pronouns,
+            cover_image,
+            is_private,
+            follower_count,
+            following_count,
+            profile_views,
+            is_verified,
+            created_at
+          )
+        `)
+        .in('chat_id', summaries.map(summary => summary.chatId));
+
+      if (!participantsError && participantRows) {
+        const participantsByChat = participantRows.reduce<Record<string, any[]>>((acc, row: any) => {
+          if (!row?.profiles) return acc;
+
+          if (!acc[row.chat_id]) {
+            acc[row.chat_id] = [];
+          }
+
+          acc[row.chat_id].push({
+            ...row.profiles,
+            role: row.role,
+            photoURL: row.profiles.avatar || '',
+            createdAt: row.profiles.created_at || null,
+            coverImage: row.profiles.cover_image || '',
+            followerCount: row.profiles.follower_count || 0,
+            followingCount: row.profiles.following_count || 0,
+            profileViews: row.profiles.profile_views || 0,
+            isPrivate: row.profiles.is_private ?? false,
+          });
+
+          return acc;
+        }, {});
+
+        summaries.forEach(summary => {
+          summary.participants = participantsByChat[summary.chatId] || [];
+        });
+      }
+    }
 
     persistSummaries(summaries);
     return summaries;

@@ -7,7 +7,7 @@
 
 import { Message } from '@/types';
 
-export type MessageStatus = 'pending' | 'sent' | 'delivered' | 'read';
+export type MessageStatus = 'pending' | 'sent' | 'delivered' | 'read' | 'failed';
 
 export interface LocalMessage extends Message {
   status: MessageStatus;
@@ -429,18 +429,20 @@ class LocalMessageService {
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction([STORES.OUTBOX, STORES.MESSAGES], 'readwrite');
       const outboxStore = transaction.objectStore(STORES.OUTBOX);
-      
-      const localId = `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      message.localId = localId;
-      message.status = 'pending';
-      message.synced = false;
 
-      const request = outboxStore.add(message);
+      const queuedMessage: LocalMessage = {
+        ...message,
+        localId: message.localId || `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        status: message.status === 'failed' ? 'failed' : 'pending',
+        synced: false,
+        retryable: true,
+      };
+
+      const request = outboxStore.put(queuedMessage);
       request.onsuccess = () => {
-        // Also save to messages store
         const messagesStore = transaction.objectStore(STORES.MESSAGES);
-        messagesStore.put(message);
-        resolve(localId);
+        messagesStore.put(queuedMessage);
+        resolve(queuedMessage.localId!);
       };
       request.onerror = () => reject(request.error);
     });
@@ -493,7 +495,8 @@ class LocalMessageService {
         const message = request.result as LocalMessage;
         if (message) {
           message.status = status;
-          message.synced = status !== 'pending';
+          message.synced = status !== 'pending' && status !== 'failed';
+          message.retryable = status === 'failed';
           const updateRequest = messagesStore.put(message);
           updateRequest.onsuccess = () => resolve();
           updateRequest.onerror = () => reject(updateRequest.error);
