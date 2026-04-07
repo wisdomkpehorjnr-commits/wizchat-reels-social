@@ -20,6 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useNavigate } from 'react-router-dom';
+import { markChatRead, markChatDelivered, getMessageStatuses } from '@/services/chatRealtimeService';
 
 interface ChatPopupProps {
   user: User;
@@ -74,11 +75,32 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
   }, [messages]);
 
   useEffect(() => {
-    if (isNetworkOnline && chatId && !syncInProgressRef.current) {
+    if (chatId && !syncInProgressRef.current) {
       syncMessagesWithServer(chatId);
       processOutbox(chatId);
     }
-  }, [isNetworkOnline, chatId]);
+  }, [chatId]);
+
+  // When network comes back online, sync + outbox + mark read
+  useEffect(() => {
+    if (isNetworkOnline && chatId) {
+      syncMessagesWithServer(chatId);
+      processOutbox(chatId);
+      markChatRead(chatId).then(() => {
+        window.dispatchEvent(new CustomEvent('chatListUpdate'));
+      }).catch(() => {});
+    }
+  }, [isNetworkOnline]);
+
+  // Mark messages as read when chat is opened
+  useEffect(() => {
+    if (chatId && navigator.onLine) {
+      markChatDelivered(chatId).catch(() => {});
+      markChatRead(chatId).then(() => {
+        window.dispatchEvent(new CustomEvent('chatListUpdate'));
+      }).catch(() => {});
+    }
+  }, [chatId]);
 
   useEffect(() => {
     if (!chatId) return;
@@ -99,6 +121,8 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
             .single();
 
           if (messageData && messageData.user_id !== user?.id) {
+            // Mark as read immediately since chat is open
+            markChatRead(chatId).catch(() => {});
           // Determine frontend message type from DB data
           let frontendType: 'text' | 'image' | 'video' | 'voice' | 'audio' | 'document' = messageData.type as any;
           
@@ -170,6 +194,21 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
           );
         }
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'message_receipts', filter: \`chat_id=eq.\${chatId}\` },
+        async () => {
+          if (!user?.id) return;
+          const ownIds = messages.filter(m => m.userId === user.id).map(m => m.id);
+          if (ownIds.length === 0) return;
+          const statuses = await getMessageStatuses(chatId, ownIds);
+          setMessages(prev => prev.map(m => {
+            const st = statuses[m.id];
+            if (st && m.userId === user.id) return { ...m, status: st };
+            return m;
+          }));
+        }
+      )
       .subscribe();
 
     // Subscribe to reactions
@@ -238,15 +277,12 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       
       setMessages(convertedMessages);
       
-      if (isNetworkOnline && resolvedChatId) {
+      if (navigator.onLine && resolvedChatId) {
         await syncMessagesWithServer(resolvedChatId);
       }
     } catch (error) {
       console.error('Error initializing chat:', error);
-      if (isNetworkOnline) {
-        toast({ title: "Info", description: "Failed to initialize chat. Retrying..." });
-      } else {
-        // Offline: do not show destructive toast, allow user to continue with local messages
+      if (!navigator.onLine) {
         console.debug('Offline - showing local messages where available');
       }
     } finally {
@@ -361,6 +397,24 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         });
         return [...converted, ...localOnly].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
       });
+
+      // Update statuses for own messages using receipts
+      if (user?.id) {
+        const ownIds = serverMessages.filter(m => m.userId === user.id).map(m => m.id);
+        if (ownIds.length > 0) {
+          const statuses = await getMessageStatuses(chatId, ownIds);
+          setMessages(prev => prev.map(m => {
+            const st = statuses[m.id];
+            if (st && m.userId === user?.id) return { ...m, status: st };
+            return m;
+          }));
+        }
+      }
+
+      // Mark delivered + read since chat is open
+      markChatRead(chatId).then(() => {
+        window.dispatchEvent(new CustomEvent('chatListUpdate'));
+      }).catch(() => {});
 
       await processOutbox(chatId);
     } catch (error) {
