@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { ChatSummary, formatMessagePreview } from '@/services/chatRealtimeService';
 import { useImageCache } from '@/hooks/useImageCache';
 import {
   AlertDialog,
@@ -26,6 +27,7 @@ interface ChatListItemProps {
   isWizAi?: boolean;
   onPinToggle?: () => void;
   onDelete?: (userId: string) => void;
+  chatSummaries?: ChatSummary[];
 }
 
 // Cache for chat metadata to prevent repeated fetches
@@ -64,7 +66,7 @@ const loadOfflinePreviewsFromStorage = () => {
 // Initialize on load
 loadOfflinePreviewsFromStorage();
 
-const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelete }: ChatListItemProps) => {
+const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelete, chatSummaries }: ChatListItemProps) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const [pinned, setPinned] = useState(isPinned || false);
@@ -109,6 +111,28 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
     // If offline and we have data from localStorage, stop here
     if (!navigator.onLine && loadedFromOfflineStorage) {
       return;
+    }
+
+    // STEP 1.5: Check chatSummaries prop for instant server-backed data
+    if (chatSummaries && chatSummaries.length > 0 && user?.id) {
+      // Find the DM summary for this friend
+      // We need chatId to match, but we might not have it yet.
+      // Try matching by looking up the RPC-fetched chatId from cache first.
+      const cachedEntry = chatMetadataCache.get(cacheKey);
+      const knownChatId = cachedEntry?.chatId;
+      if (knownChatId) {
+        const summary = chatSummaries.find(s => s.chatId === knownChatId);
+        if (summary) {
+          const isMe = summary.lastMessageUserId === user.id;
+          const preview = formatMessagePreview(summary.lastMessageContent, summary.lastMessageType, summary.lastMessageMediaUrl, isMe);
+          const msgTime = summary.lastMessageCreatedAt ? new Date(summary.lastMessageCreatedAt) : null;
+          setLastMessage(preview);
+          setLastMessageTime(msgTime);
+          setUnreadCount(summary.unreadCount);
+          chatIdRef.current = knownChatId;
+          updateCache(cacheKey, preview, msgTime, summary.unreadCount, knownChatId);
+        }
+      }
     }
 
     // STEP 2: Check memory cache
@@ -177,7 +201,8 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
           }
 
           msgTime = new Date(lastMsg.created_at);
-          unreadCount = messages.filter(m => m.user_id === friend.id).length || 0;
+          // Count unread = messages from friend that are not seen
+          unreadCount = messages.filter(m => m.user_id === friend.id && !m.seen).length || 0;
         }
 
         setLastMessage(preview);
@@ -249,7 +274,7 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
         supabase.removeChannel(channel);
       }
     };
-  }, [friend.id, user?.id, isWizAi]);
+  }, [friend.id, user?.id, isWizAi, chatSummaries]);
   
   const updateCache = (key: string, message: string, time: Date | null, unread: number, chatId: string | null) => {
     const cacheEntry = {
@@ -396,10 +421,17 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
             )}
           </div>
           
-          {/* Message Preview */}
-          <p className="text-sm line-clamp-2 text-muted-foreground">
-            {lastMessage || (isWizAi ? "Ask me anything — I'm here to help!" : '')}
-          </p>
+          {/* Message Preview + Unread Badge */}
+          <div className="flex items-center justify-between gap-2">
+            <p className={`text-sm line-clamp-1 flex-1 ${unreadCount > 0 && !isWizAi ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+              {lastMessage || (isWizAi ? "Ask me anything — I'm here to help!" : '')}
+            </p>
+            {unreadCount > 0 && !isWizAi && (
+              <span className="flex-shrink-0 min-w-[20px] h-5 px-1.5 bg-primary text-primary-foreground text-[11px] font-bold rounded-full flex items-center justify-center">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
