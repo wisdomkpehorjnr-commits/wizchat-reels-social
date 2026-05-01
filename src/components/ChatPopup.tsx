@@ -1219,6 +1219,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
                   messages={messages}
                   onDeleteMultiple={handleDeleteMultiple}
                   onCopyMultiple={handleCopyMultiple}
+                  onRetry={retrySendMessage}
               />
                 </div>
               );
