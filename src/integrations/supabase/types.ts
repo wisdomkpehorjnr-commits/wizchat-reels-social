@@ -1482,6 +1482,14 @@ export type Database = {
         Args: { p_other_user_id: string }
         Returns: string
       }
+      is_chat_admin: {
+        Args: { _chat_id: string; _user_id?: string }
+        Returns: boolean
+      }
+      is_chat_participant: {
+        Args: { _chat_id: string; _user_id?: string }
+        Returns: boolean
+      }
       is_group_admin: {
         Args: { _group_id: string; _user_id: string }
         Returns: boolean
