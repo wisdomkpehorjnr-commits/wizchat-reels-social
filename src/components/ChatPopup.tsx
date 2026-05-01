@@ -548,25 +548,38 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         if (sendSound.current) sendSound.current.play().catch(() => {});
       } catch (error) {
         console.error('Error sending message:', error);
-        // Only queue to outbox if truly offline
         if (!navigator.onLine) {
+          // Truly offline → queue for auto-send when back online
           await localMessageService.addToOutbox(localMsg);
+          setMessages(prev => prev.map(m => m.localId === tempId ? { ...m, status: 'pending' as MessageStatus } : m));
         } else {
-          // Retry once more
-          try {
-            const retryMsg = await dataService.sendMessage(chatId, messageContent);
-            processedMessageIds.current.add(retryMsg.id);
-            setMessages(prev => prev.map(m => m.localId === tempId ? { ...retryMsg, status: 'sent' as MessageStatus } : m));
-            await localMessageService.saveMessage({ ...retryMsg, status: 'sent', synced: true });
-            await localMessageService.deleteMessage(tempId, chatId);
-          } catch {
-            await localMessageService.addToOutbox(localMsg);
-          }
+          // Online but send failed → mark as failed so user can retry from the bubble
+          const failedLocal: LocalMessage = { ...localMsg, status: 'failed', synced: false, retryable: true };
+          await localMessageService.saveMessage(failedLocal);
+          setMessages(prev => prev.map(m => m.localId === tempId ? { ...m, status: 'failed' as MessageStatus } : m));
+          toast({ title: "Couldn't send", description: "Tap the retry icon to try again.", variant: 'destructive' });
         }
       }
     }
 
     scrollToBottom();
+  };
+
+  const retrySendMessage = async (message: Message) => {
+    if (!chatId || !user) return;
+    const tempId = message.localId || message.id;
+    setMessages(prev => prev.map(m => (m.localId === tempId || m.id === tempId) ? { ...m, status: 'pending' as MessageStatus } : m));
+    try {
+      const serverMessage = await dataService.sendMessage(chatId, message.content);
+      processedMessageIds.current.add(serverMessage.id);
+      setMessages(prev => prev.map(m => (m.localId === tempId || m.id === tempId) ? { ...serverMessage, status: 'sent' } : m));
+      await localMessageService.saveMessage({ ...serverMessage, status: 'sent', synced: true });
+      await localMessageService.deleteMessage(tempId, chatId);
+    } catch (err) {
+      console.error('Retry send failed:', err);
+      setMessages(prev => prev.map(m => (m.localId === tempId || m.id === tempId) ? { ...m, status: 'failed' as MessageStatus } : m));
+      toast({ title: "Still couldn't send", description: 'Check your connection and try again.', variant: 'destructive' });
+    }
   };
 
   const handleReaction = async (messageId: string, emoji: string) => {
@@ -1206,6 +1219,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
                   messages={messages}
                   onDeleteMultiple={handleDeleteMultiple}
                   onCopyMultiple={handleCopyMultiple}
+                  onRetry={retrySendMessage}
               />
                 </div>
               );
