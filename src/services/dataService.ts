@@ -1031,16 +1031,8 @@ export const dataService = {
       .from('messages')
       .update({ content: newContent })
       .eq('id', messageId)
-      .eq('user_id', user.id) // Only allow editing own messages
-      .select(`
-        *,
-        user:profiles!messages_user_id_fkey (
-          id,
-          name,
-          username,
-          avatar
-        )
-      `)
+      .eq('user_id', user.id)
+      .select('*')
       .single();
 
     if (error) {
@@ -1048,11 +1040,13 @@ export const dataService = {
       throw error;
     }
 
+    const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+
     return {
       id: data.id,
       chatId: data.chat_id,
       userId: data.user_id,
-      user: data.user as User,
+      user: { id: profile?.id || user.id, name: profile?.name || 'User', username: profile?.username || '', email: profile?.email || '', avatar: profile?.avatar || '', photoURL: profile?.avatar || '', createdAt: new Date(), followerCount: 0, followingCount: 0, profileViews: 0 },
       content: data.content,
       type: data.type as 'text' | 'voice' | 'image' | 'video',
       mediaUrl: data.media_url,
