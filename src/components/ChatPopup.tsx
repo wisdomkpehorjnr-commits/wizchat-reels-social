@@ -111,73 +111,114 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages', filter: `chat_id=eq.${chatId}` },
         async (payload) => {
-          if (processedMessageIds.current.has(payload.new.id)) return;
-          processedMessageIds.current.add(payload.new.id);
+          const msgPayload = payload.new as any;
+          if (processedMessageIds.current.has(msgPayload.id)) return;
+          if (msgPayload.user_id === user?.id) return; // own messages handled optimistically
+          processedMessageIds.current.add(msgPayload.id);
 
-          const { data: messageData } = await supabase
-            .from('messages')
-            .select(`*, user:profiles!messages_user_id_fkey (*)`)
-            .eq('id', payload.new.id)
+          // Fetch sender profile (no FK needed)
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', msgPayload.user_id)
             .single();
 
-          if (messageData && messageData.user_id !== user?.id) {
-            // Mark as read immediately since chat is open
-            markChatRead(chatId).catch(() => {});
-          // Determine frontend message type from DB data
-          let frontendType: 'text' | 'image' | 'video' | 'voice' | 'audio' | 'document' = messageData.type as any;
-          
-          // If it's 'text' type in DB, check if it's actually voice/audio/document
-          if (messageData.type === 'text') {
-            if (messageData.media_url && messageData.duration && messageData.duration > 0 && !messageData.content) {
-              frontendType = 'voice';
-            } else if (messageData.media_url && messageData.media_url.match(/\.(mp3|wav|ogg|m4a|aac|webm)$/i)) {
-              frontendType = 'audio';
-            } else if (messageData.media_url && !messageData.duration) {
-              frontendType = 'document';
+          const senderProfile = profileData || { id: msgPayload.user_id, name: 'Unknown', username: '', avatar: '', email: '' };
+
+          // Fetch reply-to message if exists
+          let replyToMessage: Message | undefined;
+          if (msgPayload.reply_to_id) {
+            const existing = messages.find(m => m.id === msgPayload.reply_to_id);
+            if (existing) {
+              replyToMessage = existing;
+            } else {
+              const { data: replyData } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', msgPayload.user_id)
+                .single();
+              // Simple: just try to get the message content
+              const { data: replyMsg } = await supabase
+                .from('messages')
+                .select('*')
+                .eq('id', msgPayload.reply_to_id)
+                .single();
+              if (replyMsg) {
+                const { data: replyUser } = await supabase
+                  .from('profiles')
+                  .select('*')
+                  .eq('id', replyMsg.user_id)
+                  .single();
+                replyToMessage = {
+                  id: replyMsg.id, chatId: replyMsg.chat_id, userId: replyMsg.user_id,
+                  user: { ...replyUser, photoURL: replyUser?.avatar || '', createdAt: new Date(), followerCount: 0, followingCount: 0, profileViews: 0 } as unknown as User,
+                  content: replyMsg.content, type: replyMsg.type as any,
+                  mediaUrl: replyMsg.media_url, timestamp: new Date(replyMsg.created_at), seen: replyMsg.seen
+                };
+              }
             }
           }
-          
-            const newMsg: Message = {
-              id: messageData.id,
-              chatId: messageData.chat_id,
-              userId: messageData.user_id,
-              user: {
-                ...messageData.user,
-                photoURL: messageData.user.avatar || '',
-                createdAt: new Date(messageData.user.created_at),
-                followerCount: messageData.user.follower_count || 0,
-                followingCount: messageData.user.following_count || 0,
-                profileViews: messageData.user.profile_views || 0,
-                birthday: messageData.user.birthday ? new Date(messageData.user.birthday) : undefined
-              } as unknown as User,
-              content: messageData.content,
+
+          // Mark as read immediately since chat is open
+          markChatRead(chatId).catch(() => {});
+
+          // Determine frontend message type
+          let frontendType: 'text' | 'image' | 'video' | 'voice' | 'audio' | 'document' = msgPayload.type as any;
+          if (msgPayload.type === 'text') {
+            if (msgPayload.media_url && msgPayload.duration && msgPayload.duration > 0 && !msgPayload.content) frontendType = 'voice';
+            else if (msgPayload.media_url && msgPayload.media_url.match(/\.(mp3|wav|ogg|m4a|aac|webm)$/i)) frontendType = 'audio';
+            else if (msgPayload.media_url && !msgPayload.duration) frontendType = 'document';
+          }
+
+          const newMsg: Message = {
+            id: msgPayload.id,
+            chatId: msgPayload.chat_id,
+            userId: msgPayload.user_id,
+            user: {
+              id: senderProfile.id,
+              name: (senderProfile as any).name || 'Unknown',
+              username: (senderProfile as any).username || '',
+              email: (senderProfile as any).email || '',
+              avatar: (senderProfile as any).avatar || '',
+              photoURL: (senderProfile as any).avatar || '',
+              createdAt: new Date((senderProfile as any).created_at || Date.now()),
+              followerCount: (senderProfile as any).follower_count || 0,
+              followingCount: (senderProfile as any).following_count || 0,
+              profileViews: (senderProfile as any).profile_views || 0,
+            } as User,
+            content: msgPayload.content,
             type: frontendType,
-              mediaUrl: messageData.media_url,
-              duration: messageData.duration,
-              seen: messageData.seen,
-              timestamp: new Date(messageData.created_at),
-              status: messageData.seen ? 'read' : 'delivered',
+            mediaUrl: msgPayload.media_url,
+            duration: msgPayload.duration,
+            seen: msgPayload.seen,
+            timestamp: new Date(msgPayload.created_at),
+            status: 'delivered',
             synced: true,
-            fileName: messageData.media_url ? messageData.media_url.split('/').pop()?.split('?')[0] : undefined
-            };
-            
-            const localMsg: LocalMessage = { ...newMsg, status: newMsg.status || 'delivered', synced: true };
-            await localMessageService.saveMessage(localMsg);
-            
-            // If user was hidden, remove them from hidden list (they sent a message)
-            const hiddenUsers = JSON.parse(localStorage.getItem('hidden-chat-users') || '[]');
-            if (hiddenUsers.includes(messageData.user_id)) {
-              const updated = hiddenUsers.filter((id: string) => id !== messageData.user_id);
-              localStorage.setItem('hidden-chat-users', JSON.stringify(updated));
-              // Dispatch event to refresh chat list
-              window.dispatchEvent(new CustomEvent('chatListUpdate'));
-            }
-            
-            setMessages(prev => {
-              if (prev.some(m => m.id === newMsg.id)) return prev;
-              return [...prev, newMsg];
-            });
+            replyToId: msgPayload.reply_to_id || undefined,
+            replyToMessage,
+            fileName: msgPayload.media_url ? msgPayload.media_url.split('/').pop()?.split('?')[0] : undefined,
+          };
+
+          const localMsg: LocalMessage = { ...newMsg, status: 'delivered', synced: true };
+          await localMessageService.saveMessage(localMsg);
+
+          // If user was hidden, remove them from hidden list
+          const hiddenUsers = JSON.parse(localStorage.getItem('hidden-chat-users') || '[]');
+          if (hiddenUsers.includes(msgPayload.user_id)) {
+            const updated = hiddenUsers.filter((id: string) => id !== msgPayload.user_id);
+            localStorage.setItem('hidden-chat-users', JSON.stringify(updated));
+            window.dispatchEvent(new CustomEvent('chatListUpdate'));
           }
+
+          setMessages(prev => {
+            if (prev.some(m => m.id === newMsg.id)) return prev;
+            return [...prev, newMsg];
+          });
+
+          // Also notify chat list to update preview
+          window.dispatchEvent(new CustomEvent('chatMessageReceived', {
+            detail: { chatId: msgPayload.chat_id, content: msgPayload.content, type: msgPayload.type, userId: msgPayload.user_id, createdAt: msgPayload.created_at }
+          }));
         }
       )
       .on(
@@ -488,28 +529,14 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
             chat_id: chatId,
             user_id: user.id,
             content: messageContent,
-            type: 'text'
+            type: 'text',
+            reply_to_id: currentReplyingTo.id,
           };
-          
-          // Only add reply_to_id if column exists
-          try {
-            insertData.reply_to_id = currentReplyingTo.id;
-          } catch (e) {
-            console.log('reply_to_id column not available');
-          }
           
           const { data: messageData, error: messageError } = await supabase
             .from('messages')
             .insert(insertData)
-            .select(`
-              *,
-              user:profiles!messages_user_id_fkey (
-                id,
-                name,
-                username,
-                avatar
-              )
-            `)
+            .select('*')
             .single();
 
           if (messageError) throw messageError;
@@ -518,20 +545,14 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
             id: messageData.id,
             chatId: messageData.chat_id,
             userId: messageData.user_id,
-            user: {
-              ...messageData.user,
-              photoURL: messageData.user.avatar || '',
-              createdAt: new Date(),
-              followerCount: 0,
-              followingCount: 0,
-              profileViews: 0
-            } as unknown as User,
+            user,
             content: messageContent,
             type: 'text',
             timestamp: new Date(messageData.created_at),
             seen: false,
             status: 'sent',
             synced: true,
+            replyToId: currentReplyingTo.id,
             replyToMessage: currentReplyingTo
           };
         } else {
@@ -546,6 +567,11 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         await localMessageService.deleteMessage(tempId, chatId);
         
         if (sendSound.current) sendSound.current.play().catch(() => {});
+        
+        // Notify chat list for instant preview update
+        window.dispatchEvent(new CustomEvent('chatMessageReceived', {
+          detail: { chatId, content: messageContent, type: 'text', userId: user.id, createdAt: new Date().toISOString() }
+        }));
       } catch (error) {
         console.error('Error sending message:', error);
         if (!navigator.onLine) {
@@ -846,15 +872,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       const { data: messageData, error: messageError } = await supabase
         .from('messages')
         .insert(insertData)
-        .select(`
-          *,
-          user:profiles!messages_user_id_fkey (
-            id,
-            name,
-            username,
-            avatar
-          )
-        `)
+        .select('*')
         .single();
 
       if (messageError) {
@@ -867,7 +885,6 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       if (file.type.startsWith('audio/') || fileName.match(/\.(mp3|wav|ogg|m4a|aac|webm)$/i)) {
         frontendType = 'audio';
       } else if (mediaType === 'text' && publicUrl && !messageContent) {
-        // Document file (not audio, not image, not video)
         frontendType = 'document';
       }
 
@@ -875,14 +892,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         id: messageData.id,
         chatId: messageData.chat_id,
         userId: messageData.user_id,
-        user: {
-          ...messageData.user,
-          photoURL: messageData.user.avatar || '',
-          createdAt: new Date(),
-          followerCount: 0,
-          followingCount: 0,
-          profileViews: 0
-        } as unknown as User,
+        user,
         content: messageContent,
         type: frontendType,
         mediaUrl: publicUrl,
@@ -981,15 +991,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       const { data: messageData, error: messageError } = await supabase
         .from('messages')
         .insert(insertData)
-        .select(`
-          *,
-          user:profiles!messages_user_id_fkey (
-            id,
-            name,
-            username,
-            avatar
-          )
-        `)
+        .select('*')
         .single();
 
       if (messageError) throw messageError;
@@ -998,16 +1000,9 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         id: messageData.id,
         chatId: messageData.chat_id,
         userId: messageData.user_id,
-        user: {
-          ...messageData.user,
-          photoURL: messageData.user.avatar || '',
-          createdAt: new Date(),
-          followerCount: 0,
-          followingCount: 0,
-          profileViews: 0
-        } as unknown as User,
+        user,
         content: '',
-        type: 'voice', // Frontend type - identified by duration > 0
+        type: 'voice',
         mediaUrl: publicUrl,
         duration: duration,
         timestamp: new Date(messageData.created_at),
@@ -1193,9 +1188,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
             {messages.map((message) => {
               // Find reply-to message if exists
               const replyToMsg = message.replyToMessage || 
-                (message as any).reply_to_id ? 
-                  messages.find(m => m.id === (message as any).reply_to_id) : 
-                  undefined;
+                (message.replyToId ? messages.find(m => m.id === message.replyToId) : undefined);
               
               return (
                 <div key={message.id || message.localId}>

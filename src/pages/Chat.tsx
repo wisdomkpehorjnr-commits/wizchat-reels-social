@@ -262,24 +262,73 @@ const Chat = () => {
     
     window.addEventListener('openChatWithUser', handleOpenChatWithUser as EventListener);
     
-    // Realtime subscription for chat list updates
+    // Realtime subscription for chat list updates — optimistic local update
     const chatListChannel = supabase
       .channel('chat_list_realtime')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages' },
         (payload) => {
-          if (payload.new.user_id !== user?.id) {
-            markChatDelivered(payload.new.chat_id).catch(() => {});
+          const msg = payload.new as any;
+          if (msg.user_id !== user?.id) {
+            markChatDelivered(msg.chat_id).catch(() => {});
           }
-          loadData(true);
+          // Optimistic update: patch the local summaries instantly
+          setChatSummaries(prev => {
+            const idx = prev.findIndex(s => s.chatId === msg.chat_id);
+            const now = msg.created_at || new Date().toISOString();
+            if (idx >= 0) {
+              const updated = [...prev];
+              updated[idx] = {
+                ...updated[idx],
+                lastMessageId: msg.id,
+                lastMessageContent: msg.content,
+                lastMessageType: msg.type,
+                lastMessageMediaUrl: msg.media_url,
+                lastMessageCreatedAt: now,
+                lastMessageUserId: msg.user_id,
+                updatedAt: now,
+                unreadCount: msg.user_id !== user?.id ? updated[idx].unreadCount + 1 : updated[idx].unreadCount,
+              };
+              return updated;
+            }
+            return prev;
+          });
+          // Debounced background refresh to get full data (new chats, participant info, etc.)
+          clearTimeout((window as any).__chatListRefreshTimer);
+          (window as any).__chatListRefreshTimer = setTimeout(() => loadData(true), 3000);
         }
       )
       .subscribe();
 
+    // Listen for chatMessageReceived events from ChatPopup (for sent messages)
+    const handleChatMsgReceived = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (!detail) return;
+      setChatSummaries(prev => {
+        const idx = prev.findIndex(s => s.chatId === detail.chatId);
+        if (idx >= 0) {
+          const updated = [...prev];
+          updated[idx] = {
+            ...updated[idx],
+            lastMessageContent: detail.content,
+            lastMessageType: detail.type,
+            lastMessageCreatedAt: detail.createdAt || new Date().toISOString(),
+            lastMessageUserId: detail.userId,
+            updatedAt: detail.createdAt || new Date().toISOString(),
+          };
+          return updated;
+        }
+        return prev;
+      });
+    };
+    window.addEventListener('chatMessageReceived', handleChatMsgReceived);
+
     return () => {
       window.removeEventListener('openChatWithUser', handleOpenChatWithUser as EventListener);
       window.removeEventListener('chatListUpdate', handleChatListUpdate);
+      window.removeEventListener('chatMessageReceived', handleChatMsgReceived);
+      clearTimeout((window as any).__chatListRefreshTimer);
       supabase.removeChannel(chatListChannel);
     };
   }, [user, toast, hasCachedData]);

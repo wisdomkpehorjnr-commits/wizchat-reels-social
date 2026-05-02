@@ -608,6 +608,7 @@ export type Database = {
           duration: number | null
           id: string
           media_url: string | null
+          reply_to_id: string | null
           seen: boolean | null
           type: string | null
           user_id: string
@@ -619,6 +620,7 @@ export type Database = {
           duration?: number | null
           id?: string
           media_url?: string | null
+          reply_to_id?: string | null
           seen?: boolean | null
           type?: string | null
           user_id: string
@@ -630,6 +632,7 @@ export type Database = {
           duration?: number | null
           id?: string
           media_url?: string | null
+          reply_to_id?: string | null
           seen?: boolean | null
           type?: string | null
           user_id?: string
@@ -640,6 +643,13 @@ export type Database = {
             columns: ["chat_id"]
             isOneToOne: false
             referencedRelation: "chats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_reply_to_id_fkey"
+            columns: ["reply_to_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
             referencedColumns: ["id"]
           },
           {

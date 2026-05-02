@@ -817,15 +817,7 @@ export const dataService = {
   async getMessages(chatId: string): Promise<Message[]> {
     const { data, error } = await supabase
       .from('messages')
-      .select(`
-        *,
-        user:profiles!messages_user_id_fkey (
-          id,
-          name,
-          username,
-          avatar
-        )
-      `)
+      .select('*')
       .eq('chat_id', chatId)
       .order('created_at', { ascending: true });
 
@@ -834,33 +826,68 @@ export const dataService = {
       throw error;
     }
 
+    // Fetch profiles for all unique user IDs
+    const userIds = [...new Set(data.map(m => m.user_id))];
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('*')
+      .in('id', userIds);
+    const profileMap = new Map((profiles || []).map(p => [p.id, p]));
+
+    // Build a map of reply-to messages for quick lookup
+    const replyToIds = data.filter(m => m.reply_to_id).map(m => m.reply_to_id!);
+    const messageMap = new Map(data.map(m => [m.id, m]));
+
     return data.map(msg => {
-      // Determine frontend message type from DB data
-      // DB only allows 'text', 'image', 'video', so we need to infer voice/audio/document
       let frontendType: 'text' | 'image' | 'video' | 'voice' | 'audio' | 'document' = msg.type as any;
-      
-      // If it's 'text' type in DB, check if it's actually voice/audio/document
       if (msg.type === 'text') {
-        if (msg.media_url && msg.duration && msg.duration > 0 && !msg.content) {
-          frontendType = 'voice';
-        } else if (msg.media_url && msg.media_url.match(/\.(mp3|wav|ogg|m4a|aac|webm)$/i)) {
-          frontendType = 'audio';
-        } else if (msg.media_url && !msg.duration) {
-          frontendType = 'document';
+        if (msg.media_url && msg.duration && msg.duration > 0 && !msg.content) frontendType = 'voice';
+        else if (msg.media_url && msg.media_url.match(/\.(mp3|wav|ogg|m4a|aac|webm)$/i)) frontendType = 'audio';
+        else if (msg.media_url && !msg.duration) frontendType = 'document';
+      }
+
+      const profile = profileMap.get(msg.user_id);
+      const userObj: User = {
+        id: profile?.id || msg.user_id,
+        name: profile?.name || 'Unknown',
+        username: profile?.username || '',
+        email: profile?.email || '',
+        avatar: profile?.avatar || '',
+        photoURL: profile?.avatar || '',
+        createdAt: new Date(profile?.created_at || Date.now()),
+        followerCount: profile?.follower_count || 0,
+        followingCount: profile?.following_count || 0,
+        profileViews: profile?.profile_views || 0,
+      };
+
+      // Resolve reply-to message
+      let replyToMessage: Message | undefined;
+      if (msg.reply_to_id) {
+        const replyRow = messageMap.get(msg.reply_to_id);
+        if (replyRow) {
+          const replyProfile = profileMap.get(replyRow.user_id);
+          replyToMessage = {
+            id: replyRow.id, chatId: replyRow.chat_id, userId: replyRow.user_id,
+            user: { id: replyProfile?.id || replyRow.user_id, name: replyProfile?.name || 'Unknown', username: replyProfile?.username || '', email: '', avatar: replyProfile?.avatar || '', photoURL: replyProfile?.avatar || '', createdAt: new Date(), followerCount: 0, followingCount: 0, profileViews: 0 },
+            content: replyRow.content, type: replyRow.type as any, mediaUrl: replyRow.media_url,
+            timestamp: new Date(replyRow.created_at), seen: replyRow.seen,
+          };
         }
       }
-      
+
       return {
         id: msg.id,
         chatId: msg.chat_id,
         userId: msg.user_id,
-        user: msg.user as User,
+        user: userObj,
         content: msg.content,
         type: frontendType,
         mediaUrl: msg.media_url,
         duration: msg.duration,
         seen: msg.seen,
         timestamp: new Date(msg.created_at),
+        replyToId: msg.reply_to_id || undefined,
+        replyToMessage,
         fileName: msg.media_url ? msg.media_url.split('/').pop()?.split('?')[0] : undefined
       };
     });
@@ -878,15 +905,7 @@ export const dataService = {
         content: content,
         type: 'text'
       })
-      .select(`
-        *,
-        user:profiles!messages_user_id_fkey (
-          id,
-          name,
-          username,
-          avatar
-        )
-      `)
+      .select('*')
       .single();
 
     if (error) {
@@ -894,11 +913,29 @@ export const dataService = {
       throw error;
     }
 
+    // Fetch sender profile
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
     return {
       id: data.id,
       chatId: data.chat_id,
       userId: data.user_id,
-      user: data.user as User,
+      user: {
+        id: profile?.id || user.id,
+        name: profile?.name || 'User',
+        username: profile?.username || '',
+        email: profile?.email || '',
+        avatar: profile?.avatar || '',
+        photoURL: profile?.avatar || '',
+        createdAt: new Date(profile?.created_at || Date.now()),
+        followerCount: profile?.follower_count || 0,
+        followingCount: profile?.following_count || 0,
+        profileViews: profile?.profile_views || 0,
+      },
       content: data.content,
       type: data.type as 'text',
       mediaUrl: data.media_url,
@@ -920,19 +957,11 @@ export const dataService = {
         chat_id: chatId,
         user_id: user.id,
         content: '',
-        type: 'text', // Use 'text' to satisfy DB constraint
+        type: 'text',
         media_url: audioUrl,
         duration: duration
       })
-      .select(`
-        *,
-        user:profiles!messages_user_id_fkey (
-          id,
-          name,
-          username,
-          avatar
-        )
-      `)
+      .select('*')
       .single();
 
     if (error) {
@@ -940,13 +969,15 @@ export const dataService = {
       throw error;
     }
 
+    const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+
     return {
       id: data.id,
       chatId: data.chat_id,
       userId: data.user_id,
-      user: data.user as User,
+      user: { id: profile?.id || user.id, name: profile?.name || 'User', username: profile?.username || '', email: profile?.email || '', avatar: profile?.avatar || '', photoURL: profile?.avatar || '', createdAt: new Date(), followerCount: 0, followingCount: 0, profileViews: 0 },
       content: data.content,
-      type: 'voice' as const, // Frontend type - identified by duration > 0
+      type: 'voice' as const,
       mediaUrl: data.media_url,
       duration: data.duration,
       seen: data.seen,
@@ -968,15 +999,7 @@ export const dataService = {
         type: mediaType,
         media_url: mediaUrl
       })
-      .select(`
-        *,
-        user:profiles!messages_user_id_fkey (
-          id,
-          name,
-          username,
-          avatar
-        )
-      `)
+      .select('*')
       .single();
 
     if (error) {
@@ -984,11 +1007,13 @@ export const dataService = {
       throw error;
     }
 
+    const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+
     return {
       id: data.id,
       chatId: data.chat_id,
       userId: data.user_id,
-      user: data.user as User,
+      user: { id: profile?.id || user.id, name: profile?.name || 'User', username: profile?.username || '', email: profile?.email || '', avatar: profile?.avatar || '', photoURL: profile?.avatar || '', createdAt: new Date(), followerCount: 0, followingCount: 0, profileViews: 0 },
       content: data.content,
       type: data.type as 'image' | 'video',
       mediaUrl: data.media_url,
@@ -1006,16 +1031,8 @@ export const dataService = {
       .from('messages')
       .update({ content: newContent })
       .eq('id', messageId)
-      .eq('user_id', user.id) // Only allow editing own messages
-      .select(`
-        *,
-        user:profiles!messages_user_id_fkey (
-          id,
-          name,
-          username,
-          avatar
-        )
-      `)
+      .eq('user_id', user.id)
+      .select('*')
       .single();
 
     if (error) {
@@ -1023,11 +1040,13 @@ export const dataService = {
       throw error;
     }
 
+    const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+
     return {
       id: data.id,
       chatId: data.chat_id,
       userId: data.user_id,
-      user: data.user as User,
+      user: { id: profile?.id || user.id, name: profile?.name || 'User', username: profile?.username || '', email: profile?.email || '', avatar: profile?.avatar || '', photoURL: profile?.avatar || '', createdAt: new Date(), followerCount: 0, followingCount: 0, profileViews: 0 },
       content: data.content,
       type: data.type as 'text' | 'voice' | 'image' | 'video',
       mediaUrl: data.media_url,
@@ -1229,18 +1248,7 @@ export const dataService = {
   async getPinnedMessages(chatId: string): Promise<Message[]> {
     const { data, error } = await supabase
       .from('pinned_messages')
-      .select(`
-        message_id,
-        messages (
-          *,
-          user:profiles!messages_user_id_fkey (
-            id,
-            name,
-            username,
-            avatar
-          )
-        )
-      `)
+      .select('message_id')
       .eq('chat_id', chatId);
 
     if (error) {
@@ -1248,13 +1256,23 @@ export const dataService = {
       throw error;
     }
 
-    return data.map((item: any) => {
-      const msg = item.messages;
+    if (!data || data.length === 0) return [];
+
+    const msgIds = data.map((item: any) => item.message_id);
+    const { data: msgs } = await supabase.from('messages').select('*').in('id', msgIds);
+    if (!msgs) return [];
+
+    const userIds = [...new Set(msgs.map(m => m.user_id))];
+    const { data: profiles } = await supabase.from('profiles').select('*').in('id', userIds);
+    const profileMap = new Map((profiles || []).map(p => [p.id, p]));
+
+    return msgs.map((msg: any) => {
+      const profile = profileMap.get(msg.user_id);
       return {
         id: msg.id,
         chatId: msg.chat_id,
         userId: msg.user_id,
-        user: msg.user as User,
+        user: { id: profile?.id || msg.user_id, name: profile?.name || 'Unknown', username: profile?.username || '', email: '', avatar: profile?.avatar || '', photoURL: profile?.avatar || '', createdAt: new Date(), followerCount: 0, followingCount: 0, profileViews: 0 },
         content: msg.content,
         type: msg.type as 'text' | 'voice' | 'image' | 'video',
         mediaUrl: msg.media_url,
