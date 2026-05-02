@@ -834,33 +834,60 @@ export const dataService = {
       .in('id', userIds);
     const profileMap = new Map((profiles || []).map(p => [p.id, p]));
 
+    // Build a map of reply-to messages for quick lookup
+    const replyToIds = data.filter(m => m.reply_to_id).map(m => m.reply_to_id!);
+    const messageMap = new Map(data.map(m => [m.id, m]));
+
     return data.map(msg => {
-      // Determine frontend message type from DB data
-      // DB only allows 'text', 'image', 'video', so we need to infer voice/audio/document
       let frontendType: 'text' | 'image' | 'video' | 'voice' | 'audio' | 'document' = msg.type as any;
-      
-      // If it's 'text' type in DB, check if it's actually voice/audio/document
       if (msg.type === 'text') {
-        if (msg.media_url && msg.duration && msg.duration > 0 && !msg.content) {
-          frontendType = 'voice';
-        } else if (msg.media_url && msg.media_url.match(/\.(mp3|wav|ogg|m4a|aac|webm)$/i)) {
-          frontendType = 'audio';
-        } else if (msg.media_url && !msg.duration) {
-          frontendType = 'document';
+        if (msg.media_url && msg.duration && msg.duration > 0 && !msg.content) frontendType = 'voice';
+        else if (msg.media_url && msg.media_url.match(/\.(mp3|wav|ogg|m4a|aac|webm)$/i)) frontendType = 'audio';
+        else if (msg.media_url && !msg.duration) frontendType = 'document';
+      }
+
+      const profile = profileMap.get(msg.user_id);
+      const userObj: User = {
+        id: profile?.id || msg.user_id,
+        name: profile?.name || 'Unknown',
+        username: profile?.username || '',
+        email: profile?.email || '',
+        avatar: profile?.avatar || '',
+        photoURL: profile?.avatar || '',
+        createdAt: new Date(profile?.created_at || Date.now()),
+        followerCount: profile?.follower_count || 0,
+        followingCount: profile?.following_count || 0,
+        profileViews: profile?.profile_views || 0,
+      };
+
+      // Resolve reply-to message
+      let replyToMessage: Message | undefined;
+      if (msg.reply_to_id) {
+        const replyRow = messageMap.get(msg.reply_to_id);
+        if (replyRow) {
+          const replyProfile = profileMap.get(replyRow.user_id);
+          replyToMessage = {
+            id: replyRow.id, chatId: replyRow.chat_id, userId: replyRow.user_id,
+            user: { id: replyProfile?.id || replyRow.user_id, name: replyProfile?.name || 'Unknown', username: replyProfile?.username || '', email: '', avatar: replyProfile?.avatar || '', photoURL: replyProfile?.avatar || '', createdAt: new Date(), followerCount: 0, followingCount: 0, profileViews: 0 },
+            content: replyRow.content, type: replyRow.type as any, mediaUrl: replyRow.media_url,
+            timestamp: new Date(replyRow.created_at), seen: replyRow.seen,
+          };
         }
       }
-      
+
       return {
         id: msg.id,
         chatId: msg.chat_id,
         userId: msg.user_id,
-        user: msg.user as User,
+        user: userObj,
         content: msg.content,
         type: frontendType,
         mediaUrl: msg.media_url,
         duration: msg.duration,
         seen: msg.seen,
         timestamp: new Date(msg.created_at),
+        replyToId: msg.reply_to_id || undefined,
+        replyToMessage,
         fileName: msg.media_url ? msg.media_url.split('/').pop()?.split('?')[0] : undefined
       };
     });
