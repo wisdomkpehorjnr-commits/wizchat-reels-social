@@ -135,6 +135,7 @@ export interface Message {
   retryable?: boolean; // Whether the message can be retried after a failed send
   retryCount?: number; // Number of retry attempts for this message
   recipientId?: string; // Recipient for direct-message offline persistence
+  replyToId?: string; // ID of the message being replied to
   replyToMessage?: Message; // Message being replied to
   fileName?: string; // For documents
   fileSize?: number; // For documents
