@@ -1188,9 +1188,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
             {messages.map((message) => {
               // Find reply-to message if exists
               const replyToMsg = message.replyToMessage || 
-                (message as any).reply_to_id ? 
-                  messages.find(m => m.id === (message as any).reply_to_id) : 
-                  undefined;
+                (message.replyToId ? messages.find(m => m.id === message.replyToId) : undefined);
               
               return (
                 <div key={message.id || message.localId}>
