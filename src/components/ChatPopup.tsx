@@ -567,6 +567,11 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         await localMessageService.deleteMessage(tempId, chatId);
         
         if (sendSound.current) sendSound.current.play().catch(() => {});
+        
+        // Notify chat list for instant preview update
+        window.dispatchEvent(new CustomEvent('chatMessageReceived', {
+          detail: { chatId, content: messageContent, type: 'text', userId: user.id, createdAt: new Date().toISOString() }
+        }));
       } catch (error) {
         console.error('Error sending message:', error);
         if (!navigator.onLine) {
