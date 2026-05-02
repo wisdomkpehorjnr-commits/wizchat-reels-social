@@ -867,15 +867,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       const { data: messageData, error: messageError } = await supabase
         .from('messages')
         .insert(insertData)
-        .select(`
-          *,
-          user:profiles!messages_user_id_fkey (
-            id,
-            name,
-            username,
-            avatar
-          )
-        `)
+        .select('*')
         .single();
 
       if (messageError) {
@@ -888,7 +880,6 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       if (file.type.startsWith('audio/') || fileName.match(/\.(mp3|wav|ogg|m4a|aac|webm)$/i)) {
         frontendType = 'audio';
       } else if (mediaType === 'text' && publicUrl && !messageContent) {
-        // Document file (not audio, not image, not video)
         frontendType = 'document';
       }
 
@@ -896,14 +887,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         id: messageData.id,
         chatId: messageData.chat_id,
         userId: messageData.user_id,
-        user: {
-          ...messageData.user,
-          photoURL: messageData.user.avatar || '',
-          createdAt: new Date(),
-          followerCount: 0,
-          followingCount: 0,
-          profileViews: 0
-        } as unknown as User,
+        user,
         content: messageContent,
         type: frontendType,
         mediaUrl: publicUrl,
