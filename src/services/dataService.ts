@@ -817,15 +817,7 @@ export const dataService = {
   async getMessages(chatId: string): Promise<Message[]> {
     const { data, error } = await supabase
       .from('messages')
-      .select(`
-        *,
-        user:profiles!messages_user_id_fkey (
-          id,
-          name,
-          username,
-          avatar
-        )
-      `)
+      .select('*')
       .eq('chat_id', chatId)
       .order('created_at', { ascending: true });
 
@@ -833,6 +825,14 @@ export const dataService = {
       console.error('Error fetching messages:', error);
       throw error;
     }
+
+    // Fetch profiles for all unique user IDs
+    const userIds = [...new Set(data.map(m => m.user_id))];
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('*')
+      .in('id', userIds);
+    const profileMap = new Map((profiles || []).map(p => [p.id, p]));
 
     return data.map(msg => {
       // Determine frontend message type from DB data
