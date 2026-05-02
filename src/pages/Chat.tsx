@@ -327,6 +327,8 @@ const Chat = () => {
     return () => {
       window.removeEventListener('openChatWithUser', handleOpenChatWithUser as EventListener);
       window.removeEventListener('chatListUpdate', handleChatListUpdate);
+      window.removeEventListener('chatMessageReceived', handleChatMsgReceived);
+      clearTimeout((window as any).__chatListRefreshTimer);
       supabase.removeChannel(chatListChannel);
     };
   }, [user, toast, hasCachedData]);
