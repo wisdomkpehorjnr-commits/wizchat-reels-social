@@ -1248,18 +1248,7 @@ export const dataService = {
   async getPinnedMessages(chatId: string): Promise<Message[]> {
     const { data, error } = await supabase
       .from('pinned_messages')
-      .select(`
-        message_id,
-        messages (
-          *,
-          user:profiles!messages_user_id_fkey (
-            id,
-            name,
-            username,
-            avatar
-          )
-        )
-      `)
+      .select('message_id')
       .eq('chat_id', chatId);
 
     if (error) {
@@ -1267,13 +1256,23 @@ export const dataService = {
       throw error;
     }
 
-    return data.map((item: any) => {
-      const msg = item.messages;
+    if (!data || data.length === 0) return [];
+
+    const msgIds = data.map((item: any) => item.message_id);
+    const { data: msgs } = await supabase.from('messages').select('*').in('id', msgIds);
+    if (!msgs) return [];
+
+    const userIds = [...new Set(msgs.map(m => m.user_id))];
+    const { data: profiles } = await supabase.from('profiles').select('*').in('id', userIds);
+    const profileMap = new Map((profiles || []).map(p => [p.id, p]));
+
+    return msgs.map((msg: any) => {
+      const profile = profileMap.get(msg.user_id);
       return {
         id: msg.id,
         chatId: msg.chat_id,
         userId: msg.user_id,
-        user: msg.user as User,
+        user: { id: profile?.id || msg.user_id, name: profile?.name || 'Unknown', username: profile?.username || '', email: '', avatar: profile?.avatar || '', photoURL: profile?.avatar || '', createdAt: new Date(), followerCount: 0, followingCount: 0, profileViews: 0 },
         content: msg.content,
         type: msg.type as 'text' | 'voice' | 'image' | 'video',
         mediaUrl: msg.media_url,
