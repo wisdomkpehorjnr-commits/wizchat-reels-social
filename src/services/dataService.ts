@@ -957,19 +957,11 @@ export const dataService = {
         chat_id: chatId,
         user_id: user.id,
         content: '',
-        type: 'text', // Use 'text' to satisfy DB constraint
+        type: 'text',
         media_url: audioUrl,
         duration: duration
       })
-      .select(`
-        *,
-        user:profiles!messages_user_id_fkey (
-          id,
-          name,
-          username,
-          avatar
-        )
-      `)
+      .select('*')
       .single();
 
     if (error) {
@@ -977,13 +969,15 @@ export const dataService = {
       throw error;
     }
 
+    const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+
     return {
       id: data.id,
       chatId: data.chat_id,
       userId: data.user_id,
-      user: data.user as User,
+      user: { id: profile?.id || user.id, name: profile?.name || 'User', username: profile?.username || '', email: profile?.email || '', avatar: profile?.avatar || '', photoURL: profile?.avatar || '', createdAt: new Date(), followerCount: 0, followingCount: 0, profileViews: 0 },
       content: data.content,
-      type: 'voice' as const, // Frontend type - identified by duration > 0
+      type: 'voice' as const,
       mediaUrl: data.media_url,
       duration: data.duration,
       seen: data.seen,
