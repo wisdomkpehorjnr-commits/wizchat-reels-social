@@ -529,15 +529,9 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
             chat_id: chatId,
             user_id: user.id,
             content: messageContent,
-            type: 'text'
+            type: 'text',
+            reply_to_id: currentReplyingTo.id,
           };
-          
-          // Only add reply_to_id if column exists
-          try {
-            insertData.reply_to_id = currentReplyingTo.id;
-          } catch (e) {
-            console.log('reply_to_id column not available');
-          }
           
           const { data: messageData, error: messageError } = await supabase
             .from('messages')
