@@ -986,15 +986,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       const { data: messageData, error: messageError } = await supabase
         .from('messages')
         .insert(insertData)
-        .select(`
-          *,
-          user:profiles!messages_user_id_fkey (
-            id,
-            name,
-            username,
-            avatar
-          )
-        `)
+        .select('*')
         .single();
 
       if (messageError) throw messageError;
@@ -1003,16 +995,9 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         id: messageData.id,
         chatId: messageData.chat_id,
         userId: messageData.user_id,
-        user: {
-          ...messageData.user,
-          photoURL: messageData.user.avatar || '',
-          createdAt: new Date(),
-          followerCount: 0,
-          followingCount: 0,
-          profileViews: 0
-        } as unknown as User,
+        user,
         content: '',
-        type: 'voice', // Frontend type - identified by duration > 0
+        type: 'voice',
         mediaUrl: publicUrl,
         duration: duration,
         timestamp: new Date(messageData.created_at),
