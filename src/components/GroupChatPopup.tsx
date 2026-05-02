@@ -80,24 +80,25 @@ const GroupChatPopup = ({ groupId, onClose }: GroupChatPopupProps) => {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages', filter: `chat_id=eq.${chat.id}` },
         async (payload) => {
-          const { data: messageData } = await supabase
-            .from('messages')
-            .select(`*, user:profiles!messages_user_id_fkey (id, name, username, avatar)`)
-            .eq('id', payload.new.id)
+          const msgPayload = payload.new as any;
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', msgPayload.user_id)
             .single();
 
-          if (messageData) {
+          if (msgPayload) {
             const newMsg: Message = {
-              id: messageData.id,
-              chatId: messageData.chat_id,
-              userId: messageData.user_id,
-              user: messageData.user as any as User,
-              content: messageData.content,
-              type: (messageData.type as any) || 'text',
-              mediaUrl: messageData.media_url,
-              duration: messageData.duration,
-              seen: messageData.seen,
-              timestamp: new Date(messageData.created_at)
+              id: msgPayload.id,
+              chatId: msgPayload.chat_id,
+              userId: msgPayload.user_id,
+              user: { id: profile?.id || msgPayload.user_id, name: profile?.name || 'Unknown', username: profile?.username || '', email: '', avatar: profile?.avatar || '', photoURL: profile?.avatar || '', createdAt: new Date(), followerCount: 0, followingCount: 0, profileViews: 0 } as User,
+              content: msgPayload.content,
+              type: (msgPayload.type as any) || 'text',
+              mediaUrl: msgPayload.media_url,
+              duration: msgPayload.duration,
+              seen: msgPayload.seen,
+              timestamp: new Date(msgPayload.created_at)
             };
             setMessages(prev => {
               if (prev.some(m => m.id === newMsg.id)) return prev;
