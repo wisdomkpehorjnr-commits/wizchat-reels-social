@@ -229,7 +229,13 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
           setMessages(prev =>
             prev.map(m =>
               m.id === updated.id
-                ? { ...m, content: updated.content ?? m.content, seen: updated.seen ?? m.seen, status: updated.seen ? 'read' : m.status }
+                ? {
+                    ...m,
+                    content: updated.content ?? m.content,
+                    seen: updated.seen ?? m.seen,
+                    status: updated.seen ? 'read' : m.status,
+                    isDeleted: updated.is_deleted ?? (m as any).isDeleted,
+                  } as any
                 : m
             )
           );
