@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Layout from '@/components/Layout';
 import ChatPopup from '@/components/ChatPopup';
 import GroupChatPopup from '@/components/GroupChatPopup';
@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Search, MessageCircle, Bot, WifiOff, Plus, Users } from 'lucide-react';
+import { Search, MessageCircle, Bot, WifiOff, Plus, Users, Archive, Star } from 'lucide-react';
 import { Friend, User } from '@/types';
 import { dataService } from '@/services/dataService';
 import { useAuth } from '@/contexts/AuthContext';
@@ -19,9 +19,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { fetchChatSummaries, getCachedSummaries, ChatSummary, markChatDelivered } from '@/services/chatRealtimeService';
 
 const CHAT_LIST_CACHE_KEY = 'wizchat_chat_list_cache';
+const ARCHIVED_CHATS_KEY = 'wizchat_archived_chats';
+const FAVORITE_CHATS_KEY = 'wizchat_favorite_chats';
 
 // =============================================
-// PERSISTENT MODULE-LEVEL STORE (survives all remounts)
+// PERSISTENT MODULE-LEVEL STORE
 // =============================================
 interface ChatStore {
   chatUsers: User[];
@@ -35,7 +37,7 @@ const chatStore: ChatStore = {
   isInitialized: false,
 };
 
-const CHAT_MIN_REFRESH_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
+const CHAT_MIN_REFRESH_INTERVAL_MS = 2 * 60 * 1000;
 
 const normalizeCachedUser = (value: any): User => ({
   id: value?.id || '',
@@ -60,11 +62,8 @@ const normalizeCachedUser = (value: any): User => ({
 });
 
 const getChatPartnerFromSummary = (summary: ChatSummary, currentUserId?: string): User | null => {
-  if (!currentUserId || summary.isGroup || !Array.isArray(summary.participants)) {
-    return null;
-  }
-
-  const partner = summary.participants.find((participant: any) => participant?.id && participant.id !== currentUserId);
+  if (!currentUserId || summary.isGroup || !Array.isArray(summary.participants)) return null;
+  const partner = summary.participants.find((p: any) => p?.id && p.id !== currentUserId);
   return partner ? normalizeCachedUser(partner) : null;
 };
 
@@ -73,10 +72,9 @@ const getSummarySortTime = (summary?: ChatSummary | null) => {
   return timestamp ? new Date(timestamp).getTime() : 0;
 };
 
-// SYNCHRONOUS initialization from localStorage on module load
+// SYNCHRONOUS initialization from localStorage
 (() => {
   if (chatStore.isInitialized) return;
-  
   try {
     const cached = localStorage.getItem(CHAT_LIST_CACHE_KEY);
     if (cached) {
@@ -84,78 +82,53 @@ const getSummarySortTime = (summary?: ChatSummary | null) => {
       if (parsed?.data && Array.isArray(parsed.data)) {
         chatStore.chatUsers = parsed.data.map(normalizeCachedUser);
         chatStore.lastFetchTime = parsed.timestamp || 0;
-        console.debug('[Chat] INSTANT hydration from localStorage:', parsed.data.length, 'chat users');
       }
     }
-  } catch (e) {
-    console.debug('[Chat] localStorage hydration failed:', e);
-  }
+  } catch (e) {}
   chatStore.isInitialized = true;
 })();
 
 const saveChatListToCache = (chatUsers: User[]) => {
   try {
-    localStorage.setItem(CHAT_LIST_CACHE_KEY, JSON.stringify({
-      data: chatUsers,
-      timestamp: Date.now()
-    }));
+    localStorage.setItem(CHAT_LIST_CACHE_KEY, JSON.stringify({ data: chatUsers, timestamp: Date.now() }));
     chatStore.chatUsers = chatUsers;
     chatStore.lastFetchTime = Date.now();
-  } catch (e) {
-    console.debug('[Chat] Failed to cache chat list:', e);
-  }
+  } catch (e) {}
 };
 
 const WIZAI_USER: User = {
-  id: 'wizai',
-  name: 'WizAi',
-  email: 'wizai@wizchat.app',
-  username: 'wizai',
+  id: 'wizai', name: 'WizAi', email: 'wizai@wizchat.app', username: 'wizai',
   avatar: 'data:image/svg+xml;utf8,<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="200" rx="100" fill="white"/><ellipse cx="100" cy="85" rx="55" ry="45" fill="black"/><ellipse cx="82" cy="80" rx="6" ry="6" fill="white"/><ellipse cx="118" cy="80" rx="6" ry="6" fill="white"/><rect x="70" y="124" width="60" height="19" rx="9.5" fill="black" stroke="white" stroke-width="4"/></svg>',
-  bio: 'Your AI assistant',
-  photoURL: '',
-  followerCount: 0,
-  followingCount: 0,
-  profileViews: 0,
-  createdAt: new Date(),
+  bio: 'Your AI assistant', photoURL: '', followerCount: 0, followingCount: 0, profileViews: 0, createdAt: new Date(),
 };
 
 const GROUPS_CACHE_KEY = 'wizchat_groups_cache';
-
-// Load cached groups synchronously for instant display
 let _cachedGroups: any[] = [];
 try {
   const cached = localStorage.getItem(GROUPS_CACHE_KEY);
-  if (cached) {
-    const parsed = JSON.parse(cached);
-    if (parsed?.data && Array.isArray(parsed.data)) {
-      _cachedGroups = parsed.data;
-    }
-  }
-} catch (e) {
-  console.debug('[Chat] groups localStorage hydration failed:', e);
-}
+  if (cached) { const parsed = JSON.parse(cached); if (parsed?.data) _cachedGroups = parsed.data; }
+} catch (e) {}
 
 const formatGroupTime = (date: Date) => {
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const mins = Math.floor(diff / 60000);
-    const hrs = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
-    if (mins < 1) return 'Just now';
-    if (mins < 60) return `${mins}m`;
-    if (hrs < 24) return `${hrs}h`;
-    if (days < 7) return `${days}d`;
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  };
+  const now = new Date();
+  const diff = now.getTime() - date.getTime();
+  const mins = Math.floor(diff / 60000);
+  const hrs = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m`;
+  if (hrs < 24) return `${hrs}h`;
+  if (days < 7) return `${days}d`;
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
+
+type ChatFilter = 'all' | 'unread' | 'favorites' | 'groups';
 
 const Chat = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  
-  // INSTANT display from module store - NO loading if we have cached data
   const hasCachedData = chatStore.chatUsers.length > 0;
-  
+
   const [friends, setFriends] = useState<Friend[]>([]);
   const [chatUsers, setChatUsers] = useState<User[]>(chatStore.chatUsers);
   const [groups, setGroups] = useState<any[]>(_cachedGroups);
@@ -165,143 +138,99 @@ const Chat = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(!hasCachedData);
   const [pinnedFriends, setPinnedFriends] = useState<Set<string>>(new Set());
-  const [pinnedGroups, setPinnedGroups] = useState<Set<string>>(new Set());
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<ChatFilter>('all');
+  const [showArchived, setShowArchived] = useState(false);
+  const [archivedChats, setArchivedChats] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem(ARCHIVED_CHATS_KEY) || '[]')); } catch { return new Set(); }
+  });
+  const [favoriteChats, setFavoriteChats] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem(FAVORITE_CHATS_KEY) || '[]')); } catch { return new Set(); }
+  });
   const hasLoadedRef = useRef(false);
 
-  // Network status listener
+  // Persist archive & favorites
   useEffect(() => {
-    const handleOnline = () => {
-      setIsOffline(false);
-      // Silent refresh when coming back online
-      loadData(true);
-    };
+    localStorage.setItem(ARCHIVED_CHATS_KEY, JSON.stringify([...archivedChats]));
+  }, [archivedChats]);
+  useEffect(() => {
+    localStorage.setItem(FAVORITE_CHATS_KEY, JSON.stringify([...favoriteChats]));
+  }, [favoriteChats]);
+
+  useEffect(() => {
+    const handleOnline = () => { setIsOffline(false); loadData(true); };
     const handleOffline = () => setIsOffline(true);
-    
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-    
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
+    return () => { window.removeEventListener('online', handleOnline); window.removeEventListener('offline', handleOffline); };
   }, []);
 
   useEffect(() => {
     if (user && !hasLoadedRef.current) {
       hasLoadedRef.current = true;
-      
-      const now = Date.now();
-      const timeSinceLastFetch = now - chatStore.lastFetchTime;
-      const isCacheStale = timeSinceLastFetch > CHAT_MIN_REFRESH_INTERVAL_MS;
-      
-      if (hasCachedData && !isCacheStale) {
-        console.debug('[Chat] Cache fresh, skipping network fetch');
-        setLoading(false);
-        return;
-      }
-      
-      // Background refresh if we have cached data
+      const isCacheStale = Date.now() - chatStore.lastFetchTime > CHAT_MIN_REFRESH_INTERVAL_MS;
+      if (hasCachedData && !isCacheStale) { setLoading(false); return; }
       loadData(hasCachedData);
     }
-    
-    // Listen for chat list updates (when hidden users send messages)
-    const handleChatListUpdate = () => {
-      loadData(true); // silent refresh
-    };
+
+    const handleChatListUpdate = () => loadData(true);
     window.addEventListener('chatListUpdate', handleChatListUpdate);
-    
-    // Listen for custom event to open chat with a specific user
+
     const handleOpenChatWithUser = async (event: CustomEvent) => {
-      const { userId, chatId } = event.detail;
-      
+      const { userId } = event.detail;
       if (!userId) return;
-      
       try {
-        // Fetch user profile
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .single();
-        
-        if (error || !profile) {
-          toast({
-            title: "Error",
-            description: "User not found",
-            variant: "destructive"
-          });
-          return;
-        }
-        
-        const chatUser: User = {
-          id: profile.id,
-          name: profile.name,
-          username: profile.username,
-          email: profile.email,
-          avatar: profile.avatar,
-          photoURL: profile.avatar,
-          bio: profile.bio,
-          followerCount: profile.follower_count || 0,
-          followingCount: profile.following_count || 0,
-          profileViews: profile.profile_views || 0,
-          createdAt: new Date(profile.created_at)
-        };
-        
-        setSelectedFriend(chatUser);
-      } catch (error) {
-        console.error('Error opening chat with user:', error);
-        toast({
-          title: "Error",
-          description: "Failed to open chat",
-          variant: "destructive"
+        const { data: profile, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
+        if (error || !profile) return;
+        setSelectedFriend({
+          id: profile.id, name: profile.name, username: profile.username, email: profile.email,
+          avatar: profile.avatar, photoURL: profile.avatar, bio: profile.bio,
+          followerCount: profile.follower_count || 0, followingCount: profile.following_count || 0,
+          profileViews: profile.profile_views || 0, createdAt: new Date(profile.created_at)
         });
-      }
+      } catch {}
     };
-    
     window.addEventListener('openChatWithUser', handleOpenChatWithUser as EventListener);
-    
-    // Realtime subscription for chat list updates — optimistic local update
+
+    // Realtime subscription for instant chat list updates
     const chatListChannel = supabase
       .channel('chat_list_realtime')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages' },
-        (payload) => {
-          const msg = payload.new as any;
-          if (msg.user_id !== user?.id) {
-            markChatDelivered(msg.chat_id).catch(() => {});
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+        const msg = payload.new as any;
+        if (msg.user_id !== user?.id) markChatDelivered(msg.chat_id).catch(() => {});
+        
+        // Auto-unarchive if archived chat gets a new message
+        setArchivedChats(prev => {
+          if (prev.has(msg.chat_id)) {
+            const next = new Set(prev);
+            next.delete(msg.chat_id);
+            return next;
           }
-          // Optimistic update: patch the local summaries instantly
-          setChatSummaries(prev => {
-            const idx = prev.findIndex(s => s.chatId === msg.chat_id);
-            const now = msg.created_at || new Date().toISOString();
-            if (idx >= 0) {
-              const updated = [...prev];
-              updated[idx] = {
-                ...updated[idx],
-                lastMessageId: msg.id,
-                lastMessageContent: msg.content,
-                lastMessageType: msg.type,
-                lastMessageMediaUrl: msg.media_url,
-                lastMessageCreatedAt: now,
-                lastMessageUserId: msg.user_id,
-                updatedAt: now,
-                unreadCount: msg.user_id !== user?.id ? updated[idx].unreadCount + 1 : updated[idx].unreadCount,
-              };
-              return updated;
-            }
-            return prev;
-          });
-          // Debounced background refresh to get full data (new chats, participant info, etc.)
-          clearTimeout((window as any).__chatListRefreshTimer);
-          (window as any).__chatListRefreshTimer = setTimeout(() => loadData(true), 3000);
-        }
-      )
+          return prev;
+        });
+
+        setChatSummaries(prev => {
+          const idx = prev.findIndex(s => s.chatId === msg.chat_id);
+          const now = msg.created_at || new Date().toISOString();
+          if (idx >= 0) {
+            const updated = [...prev];
+            updated[idx] = {
+              ...updated[idx],
+              lastMessageId: msg.id, lastMessageContent: msg.content,
+              lastMessageType: msg.type, lastMessageMediaUrl: msg.media_url,
+              lastMessageCreatedAt: now, lastMessageUserId: msg.user_id, updatedAt: now,
+              unreadCount: msg.user_id !== user?.id ? updated[idx].unreadCount + 1 : updated[idx].unreadCount,
+            };
+            return updated;
+          }
+          return prev;
+        });
+        clearTimeout((window as any).__chatListRefreshTimer);
+        (window as any).__chatListRefreshTimer = setTimeout(() => loadData(true), 3000);
+      })
       .subscribe();
 
-    // Listen for chatMessageReceived events from ChatPopup (for sent messages)
     const handleChatMsgReceived = (e: Event) => {
       const detail = (e as CustomEvent).detail;
       if (!detail) return;
@@ -310,12 +239,9 @@ const Chat = () => {
         if (idx >= 0) {
           const updated = [...prev];
           updated[idx] = {
-            ...updated[idx],
-            lastMessageContent: detail.content,
-            lastMessageType: detail.type,
+            ...updated[idx], lastMessageContent: detail.content, lastMessageType: detail.type,
             lastMessageCreatedAt: detail.createdAt || new Date().toISOString(),
-            lastMessageUserId: detail.userId,
-            updatedAt: detail.createdAt || new Date().toISOString(),
+            lastMessageUserId: detail.userId, updatedAt: detail.createdAt || new Date().toISOString(),
           };
           return updated;
         }
@@ -335,347 +261,335 @@ const Chat = () => {
 
   const loadData = async (silent = false) => {
     if (!user) return;
-
     try {
-      // Only show loading if no cached data and not silent
-      if (!silent && !hasCachedData) {
-        setLoading(true);
-      }
-
+      if (!silent && !hasCachedData) setLoading(true);
       const userFriends = await dataService.getFriends();
       setFriends(userFriends);
-      const acceptedFriendUsers = userFriends
-        .filter(friend => friend.status === 'accepted')
-        .map(friend => normalizeCachedUser(friend.requester.id === user.id ? friend.addressee : friend.requester));
-
+      const acceptedFriendUsers = userFriends.filter(f => f.status === 'accepted')
+        .map(f => normalizeCachedUser(f.requester.id === user.id ? f.addressee : f.requester));
       let nextChatUsers = acceptedFriendUsers;
-
-      // Load chat summaries (includes groups, DMs, unread counts, last message)
       try {
         const summaries = await fetchChatSummaries();
         setChatSummaries(summaries);
-
         const mergedUsers = new Map<string, User>();
-        [...acceptedFriendUsers, ...summaries
-          .map(summary => getChatPartnerFromSummary(summary, user.id))
-          .filter((chatUser): chatUser is User => Boolean(chatUser))]
-          .forEach(chatUser => {
-            const existing = mergedUsers.get(chatUser.id);
-            mergedUsers.set(chatUser.id, {
-              ...existing,
-              ...chatUser,
-              photoURL: chatUser.photoURL || existing?.photoURL || chatUser.avatar,
-              avatar: chatUser.avatar || existing?.avatar || chatUser.photoURL,
-            });
-          });
-
+        [...acceptedFriendUsers, ...summaries.map(s => getChatPartnerFromSummary(s, user.id)).filter(Boolean) as User[]]
+          .forEach(u => mergedUsers.set(u.id, { ...mergedUsers.get(u.id), ...u, photoURL: u.photoURL || u.avatar, avatar: u.avatar || u.photoURL }));
         nextChatUsers = Array.from(mergedUsers.values());
-
         const groupChats = summaries.filter(s => s.isGroup);
-        const groupsForDisplay = groupChats.map(s => ({
-          id: s.chatId,
-          name: s.name || 'Group Chat',
-          member_count: s.memberCount || 0,
-          description: s.description,
-          avatar: s.avatarUrl,
-        }));
+        const groupsForDisplay = groupChats.map(s => ({ id: s.chatId, name: s.name || 'Group Chat', member_count: s.memberCount || 0, description: s.description, avatar: s.avatarUrl }));
         setGroups(groupsForDisplay);
-        try {
-          localStorage.setItem(GROUPS_CACHE_KEY, JSON.stringify({ data: groupsForDisplay, timestamp: Date.now() }));
-        } catch (e) {
-          console.debug('[Chat] Failed to cache groups:', e);
-        }
-      } catch (error) {
-        console.debug('[Chat] Error loading chat summaries:', error);
-      }
-
+        try { localStorage.setItem(GROUPS_CACHE_KEY, JSON.stringify({ data: groupsForDisplay, timestamp: Date.now() })); } catch {}
+      } catch {}
       setChatUsers(nextChatUsers);
       saveChatListToCache(nextChatUsers);
     } catch (error) {
-      console.error('Error loading friends:', error);
-      if (!silent && navigator.onLine) {
-        toast({
-          title: "Error",
-          description: "Failed to load friends",
-          variant: "destructive"
-        });
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const openChat = (friend: User) => {
-    setSelectedFriend(friend);
+      if (!silent && navigator.onLine) toast({ title: "Error", description: "Failed to load friends", variant: "destructive" });
+    } finally { setLoading(false); }
   };
 
   const handleGroupCreated = async (groupId: string, groupName?: string) => {
-    // Optimistically add a placeholder group (uses chat ID now)
-    setGroups(prev => {
-      if (prev.find(g => g.id === groupId)) return prev;
-      const placeholder = { id: groupId, name: groupName || 'New Group', member_count: 0 };
-      return [placeholder, ...prev];
-    });
-
-    // Open the group chat immediately
+    setGroups(prev => prev.find(g => g.id === groupId) ? prev : [{ id: groupId, name: groupName || 'New Group', member_count: 0 }, ...prev]);
     setSelectedGroup(groupId);
-
-    // Reload chat list in background to get full data
     loadData(true);
   };
 
   const handlePinToggle = (friendId: string) => {
-    setPinnedFriends(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(friendId)) {
-        newSet.delete(friendId);
-      } else {
-        newSet.add(friendId);
-      }
-      return newSet;
+    setPinnedFriends(prev => { const n = new Set(prev); n.has(friendId) ? n.delete(friendId) : n.add(friendId); return n; });
+  };
+
+  const handleArchiveChat = (chatId: string) => {
+    setArchivedChats(prev => { const n = new Set(prev); n.add(chatId); return n; });
+    toast({ title: "Chat archived" });
+  };
+
+  const handleUnarchiveChat = (chatId: string) => {
+    setArchivedChats(prev => { const n = new Set(prev); n.delete(chatId); return n; });
+    toast({ title: "Chat unarchived" });
+  };
+
+  const handleFavoriteToggle = (chatId: string) => {
+    setFavoriteChats(prev => {
+      const n = new Set(prev);
+      if (n.has(chatId)) { n.delete(chatId); toast({ title: "Removed from favorites" }); }
+      else { n.add(chatId); toast({ title: "Added to favorites" }); }
+      return n;
     });
   };
 
-  const handleGroupPinToggle = (groupId: string) => {
-    setPinnedGroups(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(groupId)) {
-        newSet.delete(groupId);
-      } else {
-        newSet.add(groupId);
-      }
-      return newSet;
-    });
-  };
-
-  const acceptedFriends = friends.filter(f => f.status === 'accepted');
-  const summaryByUserId = new Map<string, ChatSummary>();
-  chatSummaries.forEach(summary => {
-    const partner = getChatPartnerFromSummary(summary, user?.id);
-    if (partner) {
-      summaryByUserId.set(partner.id, summary);
-    }
-  });
-  
-  const friendsData = chatUsers;
-
-  // Get hidden users from localStorage
-  const hiddenUsers = JSON.parse(localStorage.getItem('hidden-chat-users') || '[]');
-  
-  // Filter out hidden users
-  const visibleFriends = friendsData.filter(friend => !hiddenUsers.includes(friend.id));
-
-  const filteredFriends = visibleFriends.filter(friend =>
-    friend.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  // Filter groups by search term
-  const filteredGroups = groups.filter(group =>
-    group.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  // Handle delete (hide) user from chat list
   const handleDeleteUser = (userId: string) => {
-    // Already handled in ChatListItem, just refresh the list
     setFriends(prev => prev.filter(f => {
       const friendUser = f.requester.id === user?.id ? f.addressee : f.requester;
       return friendUser.id !== userId;
     }));
   };
 
-  // Sort friends: pinned first, then alphabetically
-  const sortedFriends = [...filteredFriends].sort((a, b) => {
-    const aIsPinned = pinnedFriends.has(a.id);
-    const bIsPinned = pinnedFriends.has(b.id);
-    
-    if (aIsPinned && !bIsPinned) return -1;
-    if (!aIsPinned && bIsPinned) return 1;
-    const activityDelta = getSummarySortTime(summaryByUserId.get(b.id)) - getSummarySortTime(summaryByUserId.get(a.id));
-    if (activityDelta !== 0) return activityDelta;
-    return a.name.localeCompare(b.name);
+  const acceptedFriends = friends.filter(f => f.status === 'accepted');
+  const summaryByUserId = new Map<string, ChatSummary>();
+  chatSummaries.forEach(summary => {
+    const partner = getChatPartnerFromSummary(summary, user?.id);
+    if (partner) summaryByUserId.set(partner.id, summary);
   });
 
-  // Show group chat if selected
+  const summaryByChatId = new Map<string, ChatSummary>();
+  chatSummaries.forEach(s => summaryByChatId.set(s.chatId, s));
+
+  const hiddenUsers = JSON.parse(localStorage.getItem('hidden-chat-users') || '[]');
+  const visibleFriends = chatUsers.filter(f => !hiddenUsers.includes(f.id));
+
+  // Apply filters
+  const filteredFriends = useMemo(() => {
+    let result = visibleFriends.filter(f => f.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    if (activeFilter === 'unread') {
+      result = result.filter(f => {
+        const s = summaryByUserId.get(f.id);
+        return s && s.unreadCount > 0;
+      });
+    } else if (activeFilter === 'favorites') {
+      result = result.filter(f => {
+        const s = summaryByUserId.get(f.id);
+        return s && favoriteChats.has(s.chatId);
+      });
+    } else if (activeFilter === 'groups') {
+      result = []; // groups shown separately
+    }
+
+    // Filter out archived
+    if (!showArchived) {
+      result = result.filter(f => {
+        const s = summaryByUserId.get(f.id);
+        return !s || !archivedChats.has(s.chatId);
+      });
+    }
+
+    return result;
+  }, [visibleFriends, searchTerm, activeFilter, archivedChats, showArchived, favoriteChats]);
+
+  const filteredGroups = useMemo(() => {
+    let result = groups.filter(g => g.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    if (activeFilter === 'unread') {
+      result = result.filter(g => { const s = summaryByChatId.get(g.id); return s && s.unreadCount > 0; });
+    } else if (activeFilter === 'favorites') {
+      result = result.filter(g => favoriteChats.has(g.id));
+    }
+    if (!showArchived) result = result.filter(g => !archivedChats.has(g.id));
+    else result = result.filter(g => archivedChats.has(g.id));
+    return result;
+  }, [groups, searchTerm, activeFilter, archivedChats, showArchived, favoriteChats]);
+
+  const sortedFriends = [...filteredFriends].sort((a, b) => {
+    const aP = pinnedFriends.has(a.id); const bP = pinnedFriends.has(b.id);
+    if (aP && !bP) return -1; if (!aP && bP) return 1;
+    return getSummarySortTime(summaryByUserId.get(b.id)) - getSummarySortTime(summaryByUserId.get(a.id)) || a.name.localeCompare(b.name);
+  });
+
+  const archivedCount = archivedChats.size;
+
   if (selectedGroup) {
     return (
       <div className="fixed inset-0 bg-background z-50 flex flex-col">
-        <GroupChatPopup 
-          groupId={selectedGroup}
-          onClose={() => setSelectedGroup(null)}
-        />
+        <GroupChatPopup groupId={selectedGroup} onClose={() => setSelectedGroup(null)} />
       </div>
     );
   }
 
   if (selectedFriend) {
-    if (selectedFriend.id === 'wizai') {
-      return <WizAiChat onClose={() => setSelectedFriend(null)} />;
-    }
-    
+    if (selectedFriend.id === 'wizai') return <WizAiChat onClose={() => setSelectedFriend(null)} />;
     return (
       <div className="fixed inset-0 bg-background z-50 flex flex-col">
-        <ChatPopup 
-          user={selectedFriend} 
-          onClose={() => setSelectedFriend(null)} 
-        />
+        <ChatPopup user={selectedFriend} onClose={() => setSelectedFriend(null)} />
       </div>
     );
   }
 
+  const filterChips: { key: ChatFilter; label: string }[] = [
+    { key: 'all', label: 'All' },
+    { key: 'unread', label: 'Unread' },
+    { key: 'favorites', label: 'Favorites' },
+    { key: 'groups', label: 'Groups' },
+  ];
+
   return (
     <Layout>
-      <div className="container mx-auto px-4 py-6">
-        <div className="max-w-4xl mx-auto">
-          <Card className="border-2 green-border mb-6">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-2xl font-bold text-foreground">Chat</CardTitle>
-                <div className="flex items-center gap-3">
-                  <Button
-                    onClick={() => setIsCreateGroupOpen(true)}
-                    size="sm"
-                    className="gap-2 btn-primary"
-                    title="Create a new group"
-                  >
-                    <Plus className="w-4 h-4" />
-                    New Group
-                  </Button>
-                  {isOffline && (
-                    <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                      <WifiOff className="w-4 h-4" />
-                      Offline
-                    </div>
-                  )}
-                </div>
+      {/* PART E: Fixed header + scrollable chat list */}
+      <div className="flex flex-col h-[calc(100vh-64px)]">
+        {/* FIXED HEADER: Search + WizAi + Filters */}
+        <div className="flex-shrink-0 px-4 pt-4 pb-2 bg-background border-b border-border">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex items-center justify-between mb-3">
+              <h1 className="text-2xl font-bold text-foreground">Chat</h1>
+              <div className="flex items-center gap-2">
+                <Button onClick={() => setIsCreateGroupOpen(true)} size="sm" className="gap-1 btn-primary">
+                  <Plus className="w-4 h-4" /> New Group
+                </Button>
+                {isOffline && (
+                  <div className="flex items-center gap-1 text-muted-foreground text-xs">
+                    <WifiOff className="w-3 h-3" /> Offline
+                  </div>
+                )}
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="relative">
-                <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search friends..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 text-foreground border-2 green-border"
-                />
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+            <div className="relative mb-3">
+              <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+              <Input placeholder="Search chats..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 text-foreground border border-border rounded-full" />
+            </div>
 
-          {loading && !isOffline ? (
-            <Card className="border-2 green-border">
-              <CardContent className="p-4">
-                <div className="space-y-4">
-                  {[...Array(5)].map((_, i) => (
-                    <div key={i} className="flex items-center space-x-3">
-                      <Skeleton className="w-12 h-12 rounded-full" />
-                      <div className="flex-1 space-y-2">
-                        <Skeleton className="w-32 h-4" />
-                        <Skeleton className="w-48 h-3" />
-                      </div>
-                    </div>
-                  ))}
+            {/* Filter chips */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
+              {filterChips.map(chip => (
+                <button
+                  key={chip.key}
+                  onClick={() => { setActiveFilter(chip.key); setShowArchived(false); }}
+                  className={`px-3 py-1 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                    activeFilter === chip.key && !showArchived
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-muted-foreground hover:bg-accent'
+                  }`}
+                >
+                  {chip.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* SCROLLABLE CHAT LIST */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-4xl mx-auto">
+            {/* Archived button */}
+            {archivedCount > 0 && !showArchived && (
+              <button
+                onClick={() => setShowArchived(true)}
+                className="w-full flex items-center gap-3 p-4 hover:bg-accent transition-colors border-b border-border"
+              >
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Archive className="w-5 h-5 text-primary" />
                 </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card className="border-2 green-border">
-              <CardContent className="p-0">
-                <div>
-                  {/* WizAi Chat - Always Pinned */}
-                  <ChatListItem
-                    friend={WIZAI_USER}
-                    onClick={() => openChat(WIZAI_USER)}
-                    isPinned
-                    isWizAi
-                  />
-                  
-                  {/* Groups */}
-                  {filteredGroups.map((group) => {
-                    // Get cached last message for group
-                    const groupPreviewKey = `wizchat_group_preview_${group.id}`;
-                    let groupPreview = '';
-                    let groupPreviewTime: Date | null = null;
+                <span className="font-medium text-foreground">Archived ({archivedCount})</span>
+              </button>
+            )}
+
+            {showArchived && (
+              <button onClick={() => setShowArchived(false)} className="w-full flex items-center gap-3 p-3 hover:bg-accent transition-colors border-b border-border">
+                <span className="text-sm text-primary font-medium">← Back to chats</span>
+              </button>
+            )}
+
+            {loading && !isOffline ? (
+              <div className="p-4 space-y-4">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="flex items-center space-x-3">
+                    <Skeleton className="w-12 h-12 rounded-full" />
+                    <div className="flex-1 space-y-2"><Skeleton className="w-32 h-4" /><Skeleton className="w-48 h-3" /></div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div>
+                {/* WizAi - always at top, not in archived view */}
+                {!showArchived && activeFilter !== 'groups' && (
+                  <ChatListItem friend={WIZAI_USER} onClick={() => setSelectedFriend(WIZAI_USER)} isPinned isWizAi />
+                )}
+
+                {/* Groups */}
+                {(activeFilter === 'all' || activeFilter === 'groups' || activeFilter === 'unread' || activeFilter === 'favorites') && filteredGroups.map((group) => {
+                  const groupSummary = summaryByChatId.get(group.id);
+                  let groupPreview = '';
+                  let groupPreviewTime: Date | null = null;
+                  const unread = groupSummary?.unreadCount || 0;
+
+                  if (groupSummary) {
+                    groupPreview = groupSummary.lastMessageContent || '';
+                    if (groupSummary.lastMessageType === 'image') groupPreview = '📷 Photo';
+                    else if (groupSummary.lastMessageType === 'video') groupPreview = '🎥 Video';
+                    if (groupPreview.length > 60) groupPreview = groupPreview.substring(0, 60) + '...';
+                    groupPreviewTime = groupSummary.lastMessageCreatedAt ? new Date(groupSummary.lastMessageCreatedAt) : null;
+                  } else {
                     try {
-                      const cached = localStorage.getItem(groupPreviewKey);
-                      if (cached) {
-                        const p = JSON.parse(cached);
-                        groupPreview = p.message || '';
-                        groupPreviewTime = p.time ? new Date(p.time) : null;
-                      }
+                      const cached = localStorage.getItem(`wizchat_group_preview_${group.id}`);
+                      if (cached) { const p = JSON.parse(cached); groupPreview = p.message || ''; groupPreviewTime = p.time ? new Date(p.time) : null; }
                     } catch {}
+                  }
 
-                    return (
-                      <div
-                        key={group.id}
-                        onClick={() => setSelectedGroup(group.id)}
-                        className="flex items-center justify-between p-4 hover:bg-accent cursor-pointer transition-colors"
-                        style={{ borderBottom: '1px solid hsla(142, 60%, 49%, 0.2)' }}
-                      >
-                        <div className="flex items-center space-x-3 flex-1 min-w-0">
-                          <Avatar className="h-12 w-12 flex-shrink-0">
-                            <AvatarImage src={group.avatar || undefined} alt={`${group.name} avatar`} />
-                            <AvatarFallback className="bg-primary/20">
-                              <Users className="w-5 h-5 text-primary" />
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-2 mb-1">
+                  return (
+                    <div
+                      key={group.id}
+                      onClick={() => setSelectedGroup(group.id)}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        // Group context menu handled inline
+                      }}
+                      className="flex items-center justify-between p-4 hover:bg-accent cursor-pointer transition-colors relative group"
+                      style={{ borderBottom: '1px solid hsla(142, 60%, 49%, 0.2)' }}
+                    >
+                      <div className="flex items-center space-x-3 flex-1 min-w-0">
+                        <Avatar className="h-12 w-12 flex-shrink-0">
+                          <AvatarImage src={group.avatar || undefined} />
+                          <AvatarFallback className="bg-primary/20"><Users className="w-5 h-5 text-primary" /></AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <div className="flex items-center gap-1.5">
                               <p className="font-semibold text-foreground truncate">{group.name}</p>
-                              {groupPreviewTime && (
-                                <span className="text-xs text-muted-foreground flex-shrink-0">
-                                  {formatGroupTime(groupPreviewTime)}
-                                </span>
-                              )}
+                              {favoriteChats.has(group.id) && <Star className="w-3 h-3 text-yellow-500 fill-yellow-500 flex-shrink-0" />}
                             </div>
-                            <p className="text-sm text-muted-foreground truncate">
+                            {groupPreviewTime && <span className="text-xs text-muted-foreground flex-shrink-0">{formatGroupTime(groupPreviewTime)}</span>}
+                          </div>
+                          <div className="flex items-center justify-between gap-2">
+                            <p className={`text-sm truncate ${unread > 0 ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
                               {groupPreview || `${group.member_count || 0} members`}
                             </p>
+                            {unread > 0 && (
+                              <span className="flex-shrink-0 min-w-[20px] h-5 px-1.5 bg-primary text-primary-foreground text-[11px] font-bold rounded-full flex items-center justify-center">
+                                {unread > 99 ? '99+' : unread}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
-                    );
-                  })}
-                  
-                  {/* Friends list for chatting */}
-                   {sortedFriends.map((friend) => {
-                     return (
-                       <ChatListItem
-                         key={friend.id}
-                         friend={friend}
-                         onClick={() => openChat(friend)}
-                         isPinned={pinnedFriends.has(friend.id)}
-                         onPinToggle={() => handlePinToggle(friend.id)}
-                         onDelete={handleDeleteUser}
-                          chatSummary={summaryByUserId.get(friend.id)}
-                       />
-                     );
-                   })}
-                  
-                  {filteredFriends.length === 0 && filteredGroups.length === 0 && (
-                    <div className="p-8 text-center">
-                      <MessageCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                      <p className="text-muted-foreground">
-                        {searchTerm ? 'No results found' : 'No chats to display'}
-                      </p>
-                      <p className="text-sm text-muted-foreground mt-2">
-                        Create a group or add friends to start conversations
-                      </p>
                     </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+                  );
+                })}
+
+                {/* Friends list */}
+                {activeFilter !== 'groups' && sortedFriends.map((friend) => (
+                  <ChatListItem
+                    key={friend.id}
+                    friend={friend}
+                    onClick={() => setSelectedFriend(friend)}
+                    isPinned={pinnedFriends.has(friend.id)}
+                    onPinToggle={() => handlePinToggle(friend.id)}
+                    onDelete={handleDeleteUser}
+                    chatSummary={summaryByUserId.get(friend.id)}
+                    onArchive={() => {
+                      const s = summaryByUserId.get(friend.id);
+                      if (s) {
+                        if (showArchived) handleUnarchiveChat(s.chatId);
+                        else handleArchiveChat(s.chatId);
+                      }
+                    }}
+                    onFavorite={() => {
+                      const s = summaryByUserId.get(friend.id);
+                      if (s) handleFavoriteToggle(s.chatId);
+                    }}
+                    isFavorite={(() => { const s = summaryByUserId.get(friend.id); return s ? favoriteChats.has(s.chatId) : false; })()}
+                    isArchived={showArchived}
+                  />
+                ))}
+
+                {filteredFriends.length === 0 && filteredGroups.length === 0 && (
+                  <div className="p-8 text-center">
+                    <MessageCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">{searchTerm ? 'No results found' : showArchived ? 'No archived chats' : 'No chats to display'}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      <CreateGroupDialog
-        isOpen={isCreateGroupOpen}
-        onClose={() => setIsCreateGroupOpen(false)}
-        friends={acceptedFriends}
-        onGroupCreated={handleGroupCreated}
-      />
+      <CreateGroupDialog isOpen={isCreateGroupOpen} onClose={() => setIsCreateGroupOpen(false)} friends={acceptedFriends} onGroupCreated={handleGroupCreated} />
     </Layout>
   );
 };

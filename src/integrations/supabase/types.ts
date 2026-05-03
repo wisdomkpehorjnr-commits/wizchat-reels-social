@@ -607,6 +607,7 @@ export type Database = {
           created_at: string | null
           duration: number | null
           id: string
+          is_deleted: boolean
           media_url: string | null
           reply_to_id: string | null
           seen: boolean | null
@@ -619,6 +620,7 @@ export type Database = {
           created_at?: string | null
           duration?: number | null
           id?: string
+          is_deleted?: boolean
           media_url?: string | null
           reply_to_id?: string | null
           seen?: boolean | null
@@ -631,6 +633,7 @@ export type Database = {
           created_at?: string | null
           duration?: number | null
           id?: string
+          is_deleted?: boolean
           media_url?: string | null
           reply_to_id?: string | null
           seen?: boolean | null

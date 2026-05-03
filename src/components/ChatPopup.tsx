@@ -229,7 +229,13 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
           setMessages(prev =>
             prev.map(m =>
               m.id === updated.id
-                ? { ...m, content: updated.content ?? m.content, seen: updated.seen ?? m.seen, status: updated.seen ? 'read' : m.status }
+                ? {
+                    ...m,
+                    content: updated.content ?? m.content,
+                    seen: updated.seen ?? m.seen,
+                    status: updated.seen ? 'read' : m.status,
+                    isDeleted: updated.is_deleted ?? (m as any).isDeleted,
+                  } as any
                 : m
             )
           );
@@ -669,36 +675,30 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
     if (!chatId) return;
 
     try {
-      // Handle multiple message deletion
       if (selectedMessages.size > 1) {
         const messageIds = Array.from(selectedMessages);
         if (deleteForEveryone) {
-          await supabase.from('messages').delete().in('id', messageIds);
+          // Soft delete: mark as deleted instead of removing
+          await supabase.from('messages').update({ is_deleted: true, content: 'This message was deleted' }).in('id', messageIds);
+          setMessages(prev => prev.map(m => messageIds.includes(m.id) ? { ...m, content: 'This message was deleted', isDeleted: true } as any : m));
+        } else {
+          setMessages(prev => prev.filter(m => !messageIds.includes(m.id)));
+          for (const id of messageIds) { if (typeof id === 'string') await localMessageService.deleteMessage(id, chatId); }
         }
-        
-        setMessages(prev => prev.filter(m => !messageIds.includes(m.id)));
-        for (const id of messageIds) {
-          if (typeof id === 'string') {
-            await localMessageService.deleteMessage(id, chatId);
-          }
-        }
-        
         setSelectedMessages(new Set());
         if (pinnedMessage && messageIds.includes(pinnedMessage.id)) setPinnedMessage(null);
-        
         toast({ title: "Messages deleted", description: `${messageIds.length} messages deleted` });
       } else {
-        // Single message deletion
-      if (deleteForEveryone) {
-        await supabase.from('messages').delete().eq('id', messageId);
-      }
-      
-      setMessages(prev => prev.filter(m => m.id !== messageId));
-      await localMessageService.deleteMessage(messageId, chatId);
-      
-      if (pinnedMessage?.id === messageId) setPinnedMessage(null);
-      
-      toast({ title: "Message deleted", description: deleteForEveryone ? "Deleted for everyone" : "Deleted for you" });
+        if (deleteForEveryone) {
+          // Soft delete for everyone
+          await supabase.from('messages').update({ is_deleted: true, content: 'This message was deleted' }).eq('id', messageId);
+          setMessages(prev => prev.map(m => m.id === messageId ? { ...m, content: 'This message was deleted', isDeleted: true } as any : m));
+        } else {
+          setMessages(prev => prev.filter(m => m.id !== messageId));
+          await localMessageService.deleteMessage(messageId, chatId);
+        }
+        if (pinnedMessage?.id === messageId) setPinnedMessage(null);
+        toast({ title: "Message deleted", description: deleteForEveryone ? "Deleted for everyone" : "Deleted for you" });
       }
     } catch (error) {
       console.error('Error deleting message:', error);
