@@ -203,7 +203,28 @@ const ChatMessage = ({
     return null;
   };
 
-  const displayContent = message.content.replace(' [edited]', '');
+  const isDeleted = (message as any).isDeleted;
+  const displayContent = isDeleted ? '' : message.content.replace(' [edited]', '');
+
+  // Deleted message rendering
+  if (isDeleted) {
+    return (
+      <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-2`}>
+        <div className={`flex items-end space-x-2 max-w-[70%] ${isOwn ? 'flex-row-reverse space-x-reverse' : ''}`}>
+          {!isOwn && (
+            <Avatar className="w-6 h-6 flex-shrink-0">
+              <AvatarImage src={message.user.avatar} />
+              <AvatarFallback className="text-xs">{message.user.name.charAt(0)}</AvatarFallback>
+            </Avatar>
+          )}
+          <div className={`px-3 py-2 rounded-[18px] ${isOwn ? 'bg-muted/50' : 'bg-muted/30'} border border-border/50`}>
+            <p className="text-sm italic text-muted-foreground">🚫 This message was deleted</p>
+            <span className="text-xs text-muted-foreground/50">{formatTime(message.timestamp)}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
