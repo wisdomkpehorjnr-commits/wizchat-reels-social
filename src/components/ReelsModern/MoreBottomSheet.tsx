@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Save, Download, Flag } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Save, Download, Flag, X } from 'lucide-react';
 
 interface MoreBottomSheetProps {
   open: boolean;
@@ -10,82 +11,61 @@ interface MoreBottomSheetProps {
 }
 
 const MoreBottomSheet: React.FC<MoreBottomSheetProps> = ({ open, onClose, onSave, onDownload, onReport }) => {
-  const [visible, setVisible] = useState(open);
+  if (!open) return null;
 
-  useEffect(() => {
-    if (open) setVisible(true);
-    else {
-      // delay unmount until animation finishes
-      const t = setTimeout(() => setVisible(false), 280);
-      return () => clearTimeout(t);
-    }
-  }, [open]);
-
-  if (!visible && !open) return null;
+  const options = [
+    { icon: Save, label: 'Save', sub: 'Save to your collection', action: onSave },
+    { icon: Download, label: 'Download', sub: 'Save video to device', action: onDownload },
+    { icon: Flag, label: 'Report', sub: 'Report this reel', action: onReport, destructive: true },
+  ];
 
   return (
-    <div className={`fixed inset-0 z-60 flex items-end justify-center`}> 
-      {/* blurred backdrop */}
-      <div
-        onClick={onClose}
-        className={`absolute inset-0 bg-black/45 backdrop-blur-sm transition-opacity duration-280 ${open ? 'opacity-100' : 'opacity-0'}`}
-      />
+    <AnimatePresence>
+      {open && (
+        <>
+          <motion.div
+            className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+          />
+          <motion.div
+            className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl bg-background border-t border-border p-4 pb-8"
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+          >
+            <div className="flex justify-center mb-3">
+              <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+            </div>
 
-      {/* sheet */}
-      <div
-        className={`relative w-full max-w-2xl mx-auto p-4 pb-8
-          transition-transform duration-280 ease-out
-          ${open ? 'translate-y-0' : 'translate-y-full'}`}
-        style={{ pointerEvents: 'auto' }}
-      >
-        <div className="mx-4 bg-white/6 backdrop-blur-md border border-white/8 rounded-2xl shadow-2xl p-3">
+            <div className="space-y-1">
+              {options.map(opt => (
+                <button
+                  key={opt.label}
+                  onClick={() => { opt.action(); onClose(); }}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors"
+                >
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${opt.destructive ? 'bg-destructive/10' : 'bg-muted'}`}>
+                    <opt.icon className={`w-5 h-5 ${opt.destructive ? 'text-destructive' : 'text-foreground'}`} />
+                  </div>
+                  <div className="text-left">
+                    <div className={`text-sm font-medium ${opt.destructive ? 'text-destructive' : 'text-foreground'}`}>{opt.label}</div>
+                    <div className="text-xs text-muted-foreground">{opt.sub}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
 
-          <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-3" />
-
-          <div className="space-y-3">
-            <button
-              onClick={() => { onSave(); onClose(); }}
-              className="w-full flex items-center gap-3 p-3 rounded-xl bg-white/4 hover:bg-white/6 transition"
-            >
-              <div className="w-10 h-10 flex items-center justify-center rounded-lg bg-white/8">
-                <Save className="w-5 h-5 text-white" />
-              </div>
-              <div className="text-left">
-                <div className="text-sm font-medium text-white">Save</div>
-                <div className="text-xs text-white/70">Save to your collection</div>
-              </div>
+            <button onClick={onClose} className="w-full mt-3 p-3 rounded-xl bg-muted text-foreground font-medium text-sm text-center hover:bg-accent transition-colors">
+              Cancel
             </button>
-
-            <button
-              onClick={() => { onDownload(); onClose(); }}
-              className="w-full flex items-center gap-3 p-3 rounded-xl bg-white/4 hover:bg-white/6 transition"
-            >
-              <div className="w-10 h-10 flex items-center justify-center rounded-lg bg-white/8">
-                <Download className="w-5 h-5 text-white" />
-              </div>
-              <div className="text-left">
-                <div className="text-sm font-medium text-white">Download</div>
-                <div className="text-xs text-white/70">Save video to device</div>
-              </div>
-            </button>
-
-            <button
-              onClick={() => { onReport(); onClose(); }}
-              className="w-full flex items-center gap-3 p-3 rounded-xl bg-white/4 hover:bg-white/6 transition"
-            >
-              <div className="w-10 h-10 flex items-center justify-center rounded-lg bg-white/8">
-                <Flag className="w-5 h-5 text-white" />
-              </div>
-              <div className="text-left">
-                <div className="text-sm font-medium text-white">Report</div>
-                <div className="text-xs text-white/70">Report this reel</div>
-              </div>
-            </button>
-          </div>
-
-        </div>
-      </div>
-    </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   );
 };
 
