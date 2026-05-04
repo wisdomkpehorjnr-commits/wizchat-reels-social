@@ -354,8 +354,13 @@ const Chat = () => {
       result = []; // groups shown separately
     }
 
-    // Filter out archived
-    if (!showArchived) {
+    // Filter archived vs non-archived
+    if (showArchived) {
+      result = result.filter(f => {
+        const s = summaryByUserId.get(f.id);
+        return s && archivedChats.has(s.chatId);
+      });
+    } else {
       result = result.filter(f => {
         const s = summaryByUserId.get(f.id);
         return !s || !archivedChats.has(s.chatId);
