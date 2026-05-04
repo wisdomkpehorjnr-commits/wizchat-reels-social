@@ -91,7 +91,7 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({ reelId, open, onCl
         const newComment: CommentData = {
           id: created.id,
           userId: user.id,
-          userName: created.user?.name || user.user_metadata?.name || 'You',
+          userName: created.user?.name || (user as any)?.name || 'You',
           userAvatar: created.user?.avatar,
           content: created.content,
           createdAt: created.createdAt?.toISOString?.() || new Date().toISOString(),
