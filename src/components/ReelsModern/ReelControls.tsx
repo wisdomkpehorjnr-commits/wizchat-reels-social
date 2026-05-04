@@ -1,127 +1,73 @@
-import React, { useEffect, useState } from 'react';
-import { Heart, MessageCircle, Share2, MoreHorizontal } from 'lucide-react';
+import React, { useState } from 'react';
+import { Heart, MessageCircle, Send, MoreVertical } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface ReelControlsProps {
   isLiked: boolean;
   likesCount?: number;
+  commentsCount?: number;
   onLike: () => void;
   onComment: () => void;
   onShare: () => void;
   onMore: () => void;
 }
 
-export const ReelControls: React.FC<ReelControlsProps> = ({ isLiked, likesCount = 0, onLike, onComment, onShare, onMore }) => {
-  const [mounted, setMounted] = useState(false);
-  const [popping, setPopping] = useState(false);
-  const [rippleId, setRippleId] = useState<number | null>(null);
-
-  useEffect(() => {
-    const t = setTimeout(() => setMounted(true), 80);
-    return () => clearTimeout(t);
-  }, []);
+export const ReelControls: React.FC<ReelControlsProps> = ({
+  isLiked,
+  likesCount = 0,
+  commentsCount = 0,
+  onLike,
+  onComment,
+  onShare,
+  onMore,
+}) => {
+  const [animateLike, setAnimateLike] = useState(false);
 
   const handleLike = () => {
-    setPopping(true);
-    setTimeout(() => setPopping(false), 420);
+    setAnimateLike(true);
+    setTimeout(() => setAnimateLike(false), 500);
     onLike();
   };
 
-  const triggerRipple = (cb: () => void) => {
-    const id = Date.now();
-    setRippleId(id);
-    setTimeout(() => setRippleId(null), 420);
-    cb();
+  const formatCount = (n: number) => {
+    if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+    if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
+    return String(n);
   };
 
   return (
-    <>
-      <style>{`
-        @keyframes like-pop {
-          0% { transform: scale(1); }
-          30% { transform: scale(1.18); }
-          60% { transform: scale(0.95); }
-          100% { transform: scale(1); }
-        }
-        @keyframes ripple {
-          0% { transform: scale(0); opacity: 0.6; }
-          100% { transform: scale(2.4); opacity: 0; }
-        }
-      `}</style>
+    <div className="absolute right-3 bottom-24 z-40 flex flex-col items-center gap-5">
+      {/* Like */}
+      <button onClick={handleLike} className="flex flex-col items-center gap-1 active:scale-90 transition-transform">
+        <motion.div animate={animateLike ? { scale: [1, 1.4, 1] } : {}} transition={{ duration: 0.4 }}>
+          <Heart
+            className={`w-7 h-7 drop-shadow-lg ${isLiked ? 'text-red-500 fill-red-500' : 'text-white fill-none'}`}
+            strokeWidth={2.5}
+          />
+        </motion.div>
+        {likesCount > 0 && (
+          <span className="text-white text-xs font-bold drop-shadow">{formatCount(likesCount)}</span>
+        )}
+      </button>
 
-      <div
-        className={`absolute right-4 bottom-28 z-50 flex flex-col items-center gap-4 pointer-events-auto`}
-        aria-hidden={false}
-      >
-        <div className={`flex flex-col items-center gap-4 transform transition-all duration-500 ${mounted ? 'translate-y-0 opacity-100' : 'translate-y-6 opacity-0'}`}>
+      {/* Comment */}
+      <button onClick={onComment} className="flex flex-col items-center gap-1 active:scale-90 transition-transform">
+        <MessageCircle className="w-7 h-7 text-white drop-shadow-lg" strokeWidth={2.5} />
+        {commentsCount > 0 && (
+          <span className="text-white text-xs font-bold drop-shadow">{formatCount(commentsCount)}</span>
+        )}
+      </button>
 
-          {/* Like button */}
-          <div className="relative">
-            <button
-              aria-label="Like"
-              onClick={handleLike}
-              className={`w-14 h-14 rounded-full flex items-center justify-center relative overflow-visible
-                backdrop-blur-md bg-white/10 border border-white/20 shadow-lg
-                transition-transform duration-320 ease-out
-                ${isLiked ? 'bg-gradient-to-br from-pink-500 to-rose-500' : ''}`}
-            >
-              <Heart className="w-7 h-7 text-white font-bold" strokeWidth={2.5} fill={isLiked ? 'white' : 'none'} />
+      {/* Share */}
+      <button onClick={onShare} className="flex flex-col items-center gap-1 active:scale-90 transition-transform">
+        <Send className="w-7 h-7 text-white drop-shadow-lg" strokeWidth={2.5} />
+      </button>
 
-              <div className="absolute -bottom-5 left-1/2 transform -translate-x-1/2 text-xs text-white font-bold">
-                {likesCount}
-              </div>
-
-              <span
-                className={`absolute inset-0 rounded-full pointer-events-none ${popping ? '' : 'hidden'}`}
-                style={{ animation: popping ? 'like-pop 420ms cubic-bezier(.2,.9,.2,1)' : 'none' }}
-              />
-            </button>
-          </div>
-
-          {/* Comment button */}
-          <div className="relative">
-            <button
-              aria-label="Comment"
-              onClick={() => triggerRipple(onComment)}
-              className="w-12 h-12 rounded-full flex items-center justify-center relative overflow-hidden
-                backdrop-blur-md bg-white/10 border border-white/20 shadow-lg"
-            >
-              <MessageCircle className="w-6 h-6 text-white" strokeWidth={2.5} />
-              {rippleId && (
-                <span className="absolute w-28 h-28 rounded-full bg-white/20 -z-10" style={{ animation: 'ripple 420ms linear' }} />
-              )}
-            </button>
-          </div>
-
-          {/* Share button */}
-          <div className="relative">
-            <button
-              aria-label="Share"
-              onClick={() => triggerRipple(onShare)}
-              className="w-12 h-12 rounded-full flex items-center justify-center relative overflow-hidden
-                backdrop-blur-md bg-white/10 border border-white/20 shadow-lg"
-            >
-              <Share2 className="w-6 h-6 text-white" strokeWidth={2.5} />
-              {rippleId && (
-                <span className="absolute w-28 h-28 rounded-full bg-white/20 -z-10" style={{ animation: 'ripple 420ms linear' }} />
-              )}
-            </button>
-          </div>
-
-          {/* More button */}
-          <div className="relative">
-            <button
-              aria-label="More"
-              onClick={onMore}
-              className="w-12 h-12 rounded-full flex items-center justify-center relative overflow-hidden
-                backdrop-blur-md bg-white/10 border border-white/20 shadow-lg"
-            >
-              <MoreHorizontal className="w-6 h-6 text-white" strokeWidth={2.5} />
-            </button>
-          </div>
-
-        </div>
-      </div>
-    </>
+      {/* More */}
+      <button onClick={onMore} className="flex flex-col items-center gap-1 active:scale-90 transition-transform">
+        <MoreVertical className="w-7 h-7 text-white drop-shadow-lg" strokeWidth={2.5} />
+      </button>
+    </div>
   );
 };
 
