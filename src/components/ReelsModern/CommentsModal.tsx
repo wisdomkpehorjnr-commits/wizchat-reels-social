@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, Heart, ChevronDown, ChevronUp, CornerDownRight, Trash2, Pencil } from 'lucide-react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { motion, AnimatePresence, useMotionValue, useTransform, PanInfo } from 'framer-motion';
+import { X, Send, ChevronDown, ChevronUp } from 'lucide-react';
 import { dataService } from '@/services/dataService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -39,6 +39,10 @@ const formatTimeAgo = (dateStr: string) => {
   return `${weeks}w`;
 };
 
+// Two states: peek (30vh) and expanded (55vh)
+const PEEK_HEIGHT_VH = 30;
+const EXPANDED_HEIGHT_VH = 55;
+
 export const CommentsModal: React.FC<CommentsModalProps> = ({ reelId, open, onClose }) => {
   const [comments, setComments] = useState<CommentData[]>([]);
   const [text, setText] = useState('');
@@ -47,10 +51,13 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({ reelId, open, onCl
   const [editText, setEditText] = useState('');
   const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
   const { toast } = useToast();
+
+  const sheetHeight = isExpanded ? EXPANDED_HEIGHT_VH : PEEK_HEIGHT_VH;
 
   useEffect(() => {
     if (!open) return;
@@ -160,6 +167,18 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({ reelId, open, onCl
     });
   };
 
+  const handleDragEnd = useCallback((_: any, info: PanInfo) => {
+    if (info.velocity.y < -100 || info.offset.y < -50) {
+      setIsExpanded(true);
+    } else if (info.velocity.y > 100 || info.offset.y > 50) {
+      if (isExpanded) {
+        setIsExpanded(false);
+      } else {
+        onClose();
+      }
+    }
+  }, [isExpanded, onClose]);
+
   if (!open) return null;
 
   const renderComment = (comment: CommentData, isReply = false) => {
@@ -211,7 +230,7 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({ reelId, open, onCl
               >
                 Reply
                 {comment.replies && comment.replies.length > 0 && (
-                  <span className="ml-1">· {comment.replies.length} {comment.replies.length === 1 ? 'reply' : 'replies'}</span>
+                  <span className="ml-1">· Show {comment.replies.length} {comment.replies.length === 1 ? 'reply' : 'replies'}</span>
                 )}
               </button>
             )}
@@ -249,42 +268,51 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({ reelId, open, onCl
     <AnimatePresence>
       {open && (
         <>
+          {/* Backdrop */}
           <motion.div
-            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm"
+            className="fixed inset-0 z-50 bg-black/30"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
           />
 
+          {/* Bottom sheet */}
           <motion.div
-            className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl max-h-[75vh] flex flex-col bg-background border-t border-border"
+            className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl flex flex-col bg-background border-t border-border"
+            style={{ height: `${sheetHeight}vh`, maxHeight: '80vh' }}
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 300 }}
           >
-            {/* Handle */}
-            <div className="flex justify-center pt-2.5 pb-1">
+            {/* Drag handle */}
+            <motion.div
+              className="flex justify-center pt-2.5 pb-1 cursor-grab active:cursor-grabbing touch-none"
+              drag="y"
+              dragConstraints={{ top: 0, bottom: 0 }}
+              dragElastic={0.1}
+              onDragEnd={handleDragEnd}
+            >
               <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
-            </div>
+            </motion.div>
 
             {/* Header */}
-            <div className="flex items-center justify-between px-4 pb-3 border-b border-border">
+            <div className="flex items-center justify-between px-4 pb-2 border-b border-border flex-shrink-0">
               <h3 className="text-base font-bold text-foreground">Comments</h3>
               <button onClick={onClose} className="p-1.5 hover:bg-muted rounded-full transition-colors">
                 <X className="w-5 h-5 text-muted-foreground" />
               </button>
             </div>
 
-            {/* Comments list */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
+            {/* Comments list - scrollable */}
+            <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-4 min-h-0">
               {loading ? (
                 <div className="flex justify-center py-8">
                   <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                 </div>
               ) : comments.length === 0 ? (
-                <div className="text-center py-10">
+                <div className="text-center py-6">
                   <p className="text-muted-foreground text-sm">No comments yet. Be the first!</p>
                 </div>
               ) : (
@@ -299,7 +327,7 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({ reelId, open, onCl
 
             {/* Reply indicator */}
             {replyingTo && (
-              <div className="px-4 py-2 bg-muted/50 border-t border-border flex items-center justify-between">
+              <div className="px-4 py-2 bg-muted/50 border-t border-border flex items-center justify-between flex-shrink-0">
                 <span className="text-xs text-muted-foreground">
                   Replying to <span className="font-semibold text-foreground">@{replyingTo.userName}</span>
                 </span>
@@ -307,8 +335,16 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({ reelId, open, onCl
               </div>
             )}
 
-            {/* Input */}
-            <div className="p-3 border-t border-border flex gap-2 items-center">
+            {/* Input - ALWAYS visible at bottom */}
+            <div className="p-3 border-t border-border flex gap-2 items-center flex-shrink-0 bg-background">
+              {user && (
+                <Avatar className="w-8 h-8 flex-shrink-0">
+                  <AvatarImage src={user.avatar || user.photoURL} />
+                  <AvatarFallback className="text-xs bg-muted text-muted-foreground">
+                    {user.name?.charAt(0) || '?'}
+                  </AvatarFallback>
+                </Avatar>
+              )}
               <input
                 ref={inputRef}
                 value={text}
@@ -320,7 +356,7 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({ reelId, open, onCl
               <button
                 onClick={handleSend}
                 disabled={!text.trim()}
-                className="w-9 h-9 rounded-full bg-primary flex items-center justify-center disabled:opacity-40 transition-opacity"
+                className="w-9 h-9 rounded-full bg-primary flex items-center justify-center disabled:opacity-40 transition-opacity flex-shrink-0"
               >
                 <Send className="w-4 h-4 text-primary-foreground" />
               </button>

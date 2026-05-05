@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Heart, MessageCircle, Send, MoreVertical } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 interface ReelControlsProps {
   isLiked: boolean;
@@ -36,36 +36,36 @@ export const ReelControls: React.FC<ReelControlsProps> = ({
   };
 
   return (
-    <div className="absolute right-3 bottom-24 z-40 flex flex-col items-center gap-5">
-      {/* Like */}
+    <div className="absolute right-3 bottom-6 z-40 flex flex-col items-center gap-5">
+      {/* Like - bold white, red when liked */}
       <button onClick={handleLike} className="flex flex-col items-center gap-1 active:scale-90 transition-transform">
         <motion.div animate={animateLike ? { scale: [1, 1.4, 1] } : {}} transition={{ duration: 0.4 }}>
           <Heart
-            className={`w-7 h-7 drop-shadow-lg ${isLiked ? 'text-red-500 fill-red-500' : 'text-white fill-none'}`}
+            className={`w-7 h-7 ${isLiked ? 'text-red-500 fill-red-500' : 'text-white fill-none'}`}
             strokeWidth={2.5}
           />
         </motion.div>
         {likesCount > 0 && (
-          <span className="text-white text-xs font-bold drop-shadow">{formatCount(likesCount)}</span>
+          <span className="text-white text-xs font-bold">{formatCount(likesCount)}</span>
         )}
       </button>
 
-      {/* Comment */}
+      {/* Comment - bold white, no background */}
       <button onClick={onComment} className="flex flex-col items-center gap-1 active:scale-90 transition-transform">
-        <MessageCircle className="w-7 h-7 text-white drop-shadow-lg" strokeWidth={2.5} />
+        <MessageCircle className="w-7 h-7 text-white" strokeWidth={2.5} />
         {commentsCount > 0 && (
-          <span className="text-white text-xs font-bold drop-shadow">{formatCount(commentsCount)}</span>
+          <span className="text-white text-xs font-bold">{formatCount(commentsCount)}</span>
         )}
       </button>
 
-      {/* Share */}
+      {/* Share - bold white */}
       <button onClick={onShare} className="flex flex-col items-center gap-1 active:scale-90 transition-transform">
-        <Send className="w-7 h-7 text-white drop-shadow-lg" strokeWidth={2.5} />
+        <Send className="w-7 h-7 text-white" strokeWidth={2.5} />
       </button>
 
-      {/* More */}
+      {/* More - bold white */}
       <button onClick={onMore} className="flex flex-col items-center gap-1 active:scale-90 transition-transform">
-        <MoreVertical className="w-7 h-7 text-white drop-shadow-lg" strokeWidth={2.5} />
+        <MoreVertical className="w-7 h-7 text-white" strokeWidth={2.5} />
       </button>
     </div>
   );
