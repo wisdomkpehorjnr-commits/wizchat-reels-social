@@ -10,6 +10,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { ScrollPositionProvider } from "./contexts/ScrollPositionContext";
 import PreloadManager from "./components/PreloadManager";
+import PwaInstallPrompt from "./components/PwaInstallPrompt";
 
 import Login from "./pages/Login";
 import Home from "./pages/Home";
@@ -290,6 +291,9 @@ const App = () => {
           </BrowserRouter>
         </AuthProvider>
         
+        {/* PWA install prompt */}
+        <PwaInstallPrompt />
+
         {/* Offline indicators */}
         <NetworkStatusBanner position="top" variant="minimal" />
         <SyncIndicator position="bottom-right" variant="compact" showQueueCount />
