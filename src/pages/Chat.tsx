@@ -7,16 +7,16 @@ import ChatListItem from '@/components/ChatListItem';
 import CreateGroupDialog from '@/components/CreateGroupDialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Search, MessageCircle, Bot, WifiOff, Plus, Users, Archive, Star } from 'lucide-react';
+import { Search, MessageCircle, WifiOff, Plus, Users, Archive, Star, Pin, PinOff, BellOff, Trash2, ArchiveRestore, StarOff, Eye } from 'lucide-react';
 import { Friend, User } from '@/types';
 import { dataService } from '@/services/dataService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchChatSummaries, getCachedSummaries, ChatSummary, markChatDelivered } from '@/services/chatRealtimeService';
+import { useImageCache } from '@/hooks/useImageCache';
 
 const CHAT_LIST_CACHE_KEY = 'wizchat_chat_list_cache';
 const ARCHIVED_CHATS_KEY = 'wizchat_archived_chats';
@@ -124,6 +124,17 @@ const formatGroupTime = (date: Date) => {
 
 type ChatFilter = 'all' | 'unread' | 'favorites' | 'groups';
 
+// Cached group avatar component
+const CachedGroupAvatar: React.FC<{ src?: string; name: string }> = ({ src, name }) => {
+  const { cachedUrl } = useImageCache(src);
+  return (
+    <Avatar className="h-12 w-12 flex-shrink-0">
+      <AvatarImage src={cachedUrl} />
+      <AvatarFallback className="bg-primary/20"><Users className="w-5 h-5 text-primary" /></AvatarFallback>
+    </Avatar>
+  );
+};
+
 const Chat = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -149,6 +160,9 @@ const Chat = () => {
     try { return new Set(JSON.parse(localStorage.getItem(FAVORITE_CHATS_KEY) || '[]')); } catch { return new Set(); }
   });
   const hasLoadedRef = useRef(false);
+
+  // Group context menu state
+  const [groupMenu, setGroupMenu] = useState<{ groupId: string; top: number } | null>(null);
 
   // Persist archive & favorites
   useEffect(() => {
@@ -351,10 +365,9 @@ const Chat = () => {
         return s && favoriteChats.has(s.chatId);
       });
     } else if (activeFilter === 'groups') {
-      result = []; // groups shown separately
+      result = [];
     }
 
-    // Filter archived vs non-archived
     if (showArchived) {
       result = result.filter(f => {
         const s = summaryByUserId.get(f.id);
@@ -389,6 +402,13 @@ const Chat = () => {
   });
 
   const archivedCount = archivedChats.size;
+
+  // Group context menu handlers
+  const handleGroupLongPress = (e: React.MouseEvent, groupId: string) => {
+    e.preventDefault();
+    const rect = e.currentTarget.getBoundingClientRect();
+    setGroupMenu({ groupId, top: Math.min(rect.bottom + 8, window.innerHeight - 200) });
+  };
 
   if (selectedGroup) {
     return (
@@ -516,27 +536,24 @@ const Chat = () => {
                     } catch {}
                   }
 
+                  const isGroupFavorite = favoriteChats.has(group.id);
+                  const isGroupArchived = archivedChats.has(group.id);
+
                   return (
                     <div
                       key={group.id}
                       onClick={() => setSelectedGroup(group.id)}
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-                        // Group context menu handled inline
-                      }}
+                      onContextMenu={(e) => handleGroupLongPress(e, group.id)}
                       className="flex items-center justify-between p-4 hover:bg-accent cursor-pointer transition-colors relative group"
                       style={{ borderBottom: '1px solid hsla(142, 60%, 49%, 0.2)' }}
                     >
                       <div className="flex items-center space-x-3 flex-1 min-w-0">
-                        <Avatar className="h-12 w-12 flex-shrink-0">
-                          <AvatarImage src={group.avatar || undefined} />
-                          <AvatarFallback className="bg-primary/20"><Users className="w-5 h-5 text-primary" /></AvatarFallback>
-                        </Avatar>
+                        <CachedGroupAvatar src={group.avatar} name={group.name} />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2 mb-1">
                             <div className="flex items-center gap-1.5">
                               <p className="font-semibold text-foreground truncate">{group.name}</p>
-                              {favoriteChats.has(group.id) && <Star className="w-3 h-3 text-yellow-500 fill-yellow-500 flex-shrink-0" />}
+                              {isGroupFavorite && <Star className="w-3 h-3 text-yellow-500 fill-yellow-500 flex-shrink-0" />}
                             </div>
                             {groupPreviewTime && <span className="text-xs text-muted-foreground flex-shrink-0">{formatGroupTime(groupPreviewTime)}</span>}
                           </div>
@@ -593,6 +610,71 @@ const Chat = () => {
           </div>
         </div>
       </div>
+
+      {/* Group context menu - identical to ChatListItem menu */}
+      {groupMenu && (
+        <>
+          <div className="fixed inset-0 bg-black/20 z-40" onClick={() => setGroupMenu(null)} />
+          <div
+            className="fixed left-0 right-0 bg-background/95 backdrop-blur-xl rounded-2xl p-3 z-50 animate-fade-in shadow-xl mx-2 border border-border"
+            style={{ top: `${groupMenu.top}px` }}
+          >
+            <div className="flex justify-around items-center gap-1 flex-wrap">
+              <button onClick={() => {
+                handleArchiveChat(groupMenu.groupId);
+                setGroupMenu(null);
+              }} className="flex flex-col items-center gap-1 p-2">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  {archivedChats.has(groupMenu.groupId) ? <ArchiveRestore className="w-5 h-5 text-primary" /> : <Archive className="w-5 h-5 text-primary" />}
+                </div>
+                <span className="text-[10px] text-muted-foreground">{archivedChats.has(groupMenu.groupId) ? 'Unarchive' : 'Archive'}</span>
+              </button>
+              <button onClick={() => {
+                handleFavoriteToggle(groupMenu.groupId);
+                setGroupMenu(null);
+              }} className="flex flex-col items-center gap-1 p-2">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  {favoriteChats.has(groupMenu.groupId) ? <StarOff className="w-5 h-5 text-yellow-500" /> : <Star className="w-5 h-5 text-yellow-500" />}
+                </div>
+                <span className="text-[10px] text-muted-foreground">{favoriteChats.has(groupMenu.groupId) ? 'Unfav' : 'Favorite'}</span>
+              </button>
+              <button onClick={() => {
+                toast({ title: "Notifications muted" });
+                setGroupMenu(null);
+              }} className="flex flex-col items-center gap-1 p-2">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <BellOff className="w-5 h-5 text-primary" />
+                </div>
+                <span className="text-[10px] text-muted-foreground">Mute</span>
+              </button>
+              <button onClick={() => {
+                setSelectedGroup(groupMenu.groupId);
+                setGroupMenu(null);
+              }} className="flex flex-col items-center gap-1 p-2">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Eye className="w-5 h-5 text-primary" />
+                </div>
+                <span className="text-[10px] text-muted-foreground">View</span>
+              </button>
+              <button onClick={() => {
+                const hiddenGroups = JSON.parse(localStorage.getItem('hidden-chat-users') || '[]');
+                if (!hiddenGroups.includes(groupMenu.groupId)) {
+                  hiddenGroups.push(groupMenu.groupId);
+                  localStorage.setItem('hidden-chat-users', JSON.stringify(hiddenGroups));
+                }
+                setGroups(prev => prev.filter(g => g.id !== groupMenu.groupId));
+                toast({ title: "Group removed from list" });
+                setGroupMenu(null);
+              }} className="flex flex-col items-center gap-1 p-2">
+                <div className="w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center">
+                  <Trash2 className="w-5 h-5 text-destructive" />
+                </div>
+                <span className="text-[10px] text-destructive">Leave</span>
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       <CreateGroupDialog isOpen={isCreateGroupOpen} onClose={() => setIsCreateGroupOpen(false)} friends={acceptedFriends} onGroupCreated={handleGroupCreated} />
     </Layout>
