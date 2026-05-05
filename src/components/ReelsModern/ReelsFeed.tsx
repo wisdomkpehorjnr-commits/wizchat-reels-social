@@ -8,7 +8,7 @@ import { Post } from '@/types';
 import { dataService } from '@/services/dataService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMediaOptimization } from '@/hooks/useMediaOptimization';
-import { WifiOff, Plus } from 'lucide-react';
+import { WifiOff } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import VerifiedBadge from '@/components/VerifiedBadge';
 import { supabase } from '@/integrations/supabase/client';
@@ -41,6 +41,9 @@ const saveReelsToLocalStorage = (reels: Post[]) => {
 };
 
 type FeedTab = 'foryou' | 'following';
+
+// Bottom nav height on mobile
+const BOTTOM_NAV_HEIGHT = 64;
 
 export const ReelsFeed: React.FC = () => {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -114,7 +117,6 @@ export const ReelsFeed: React.FC = () => {
     });
   }, [posts]);
 
-  // Filter posts by active tab
   const displayPosts = activeTab === 'following'
     ? posts.filter(p => followedUsers.has(p.userId))
     : posts;
@@ -196,7 +198,7 @@ export const ReelsFeed: React.FC = () => {
 
   if (loading && posts.length === 0) {
     return (
-      <div className="fixed inset-0 bg-black flex items-center justify-center">
+      <div className="w-full h-full bg-black flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
       </div>
     );
@@ -204,7 +206,7 @@ export const ReelsFeed: React.FC = () => {
 
   if (isOffline && posts.length === 0) {
     return (
-      <div className="fixed inset-0 bg-black flex items-center justify-center">
+      <div className="w-full h-full bg-black flex items-center justify-center">
         <div className="text-center p-8">
           <WifiOff className="w-12 h-12 text-white/50 mx-auto mb-4" />
           <h3 className="text-lg font-bold text-white mb-2">You're offline</h3>
@@ -215,8 +217,8 @@ export const ReelsFeed: React.FC = () => {
   }
 
   return (
-    <div className="fixed inset-0 bg-black">
-      {/* For You / Following tabs - sticky */}
+    <div className="relative w-full h-full bg-black overflow-hidden">
+      {/* For You / Following tabs - sticky at top */}
       <div className="absolute top-0 left-0 right-0 z-50 pt-3 pb-2 flex justify-center gap-6" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%)' }}>
         <button
           onClick={() => setActiveTab('foryou')}
@@ -263,7 +265,7 @@ export const ReelsFeed: React.FC = () => {
           const isOwnPost = p.userId === user?.id;
 
           return (
-            <div key={p.id} data-index={i} className="reel-item snap-start w-full h-screen relative">
+            <div key={p.id} data-index={i} className="reel-item snap-start w-full relative" style={{ height: '100%' }}>
               {p.shouldRender ? (
                 <OptimizedReelPlayer src={p.videoUrl} isActive={i === activeIndex} poster={(p as any).thumbnail || p.imageUrl} />
               ) : (

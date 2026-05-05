@@ -26,7 +26,7 @@ export const OptimizedReelPlayer: React.FC<OptimizedReelPlayerProps> = ({
   const [showPlayButton, setShowPlayButton] = useState(false);
   const [videoLoaded, setVideoLoaded] = useState(false);
   
-  const { isOnWifi, isDataSaverEnabled } = useMediaOptimization();
+  const { isDataSaverEnabled } = useMediaOptimization();
   const { 
     shouldLoad, 
     shouldAutoplay, 
@@ -51,7 +51,6 @@ export const OptimizedReelPlayer: React.FC<OptimizedReelPlayerProps> = ({
     return () => observer.disconnect();
   }, [setVisibility]);
 
-  // Always play with sound — no mute
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !shouldLoad) return;
@@ -60,7 +59,6 @@ export const OptimizedReelPlayer: React.FC<OptimizedReelPlayerProps> = ({
 
     if (isActive && shouldAutoplay && videoLoaded) {
       video.play().catch(() => {
-        // Autoplay with sound blocked — try muted, then unmute
         video.muted = true;
         video.play().then(() => {
           setTimeout(() => { video.muted = false; }, 100);
@@ -111,7 +109,7 @@ export const OptimizedReelPlayer: React.FC<OptimizedReelPlayerProps> = ({
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-screen bg-black overflow-hidden"
+      className="relative w-full h-full bg-black overflow-hidden"
       onClick={handleTap}
     >
       {(!shouldLoad || !videoLoaded) && (thumbnailUrl || poster) && (
