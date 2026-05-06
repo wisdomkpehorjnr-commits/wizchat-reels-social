@@ -313,6 +313,9 @@ const App = () => {
         {/* PWA install prompt */}
         <PwaInstallPrompt />
 
+        {/* PWA update notification */}
+        <PwaUpdateNotification show={showUpdate} onRestart={handleRestart} />
+
         {/* Offline indicators */}
         <NetworkStatusBanner position="top" variant="minimal" />
         <SyncIndicator position="bottom-right" variant="compact" showQueueCount />
