@@ -5,6 +5,11 @@
 @tailwind utilities;
 
 @layer base {
+  /* Disable browser default pull-to-refresh so custom spinner is used */
+  html, body {
+    overscroll-behavior-y: contain;
+  }
+
   /* Hide scrollbars but keep functionality */
   .overflow-x-auto::-webkit-scrollbar,
   .overflow-y-auto::-webkit-scrollbar {
