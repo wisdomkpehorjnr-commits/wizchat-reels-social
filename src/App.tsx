@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -11,6 +11,9 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import { ScrollPositionProvider } from "./contexts/ScrollPositionContext";
 import PreloadManager from "./components/PreloadManager";
 import PwaInstallPrompt from "./components/PwaInstallPrompt";
+import SplashScreen from "./components/SplashScreen";
+import PwaUpdateNotification from "./components/PwaUpdateNotification";
+import { activateSwUpdate, isSwUpdateAvailable } from "./main";
 
 import Login from "./pages/Login";
 import Home from "./pages/Home";
