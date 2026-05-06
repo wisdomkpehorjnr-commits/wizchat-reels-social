@@ -13,7 +13,7 @@ import PreloadManager from "./components/PreloadManager";
 import PwaInstallPrompt from "./components/PwaInstallPrompt";
 import SplashScreen from "./components/SplashScreen";
 import PwaUpdateNotification from "./components/PwaUpdateNotification";
-import { activateSwUpdate, isSwUpdateAvailable } from "./main";
+import { activateSwUpdate, isSwUpdateAvailable } from "./lib/swUpdateState";
 
 import Login from "./pages/Login";
 import Home from "./pages/Home";
