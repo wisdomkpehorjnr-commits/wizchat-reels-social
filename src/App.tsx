@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -11,6 +11,9 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import { ScrollPositionProvider } from "./contexts/ScrollPositionContext";
 import PreloadManager from "./components/PreloadManager";
 import PwaInstallPrompt from "./components/PwaInstallPrompt";
+import SplashScreen from "./components/SplashScreen";
+import PwaUpdateNotification from "./components/PwaUpdateNotification";
+import { activateSwUpdate, isSwUpdateAvailable } from "./lib/swUpdateState";
 
 import Login from "./pages/Login";
 import Home from "./pages/Home";
@@ -86,6 +89,22 @@ const PageLoader = () => {
 };
 
 const App = () => {
+  const [splashDone, setSplashDone] = useState(false);
+  const [showUpdate, setShowUpdate] = useState(isSwUpdateAvailable());
+
+  useEffect(() => {
+    const handler = () => setShowUpdate(true);
+    window.addEventListener('sw-update-available', handler);
+    return () => window.removeEventListener('sw-update-available', handler);
+  }, []);
+
+  const handleSplashComplete = useCallback(() => setSplashDone(true), []);
+  const handleRestart = useCallback(() => activateSwUpdate(), []);
+
+  if (!splashDone) {
+    return <SplashScreen onComplete={handleSplashComplete} />;
+  }
+
   return (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
@@ -293,6 +312,9 @@ const App = () => {
         
         {/* PWA install prompt */}
         <PwaInstallPrompt />
+
+        {/* PWA update notification */}
+        <PwaUpdateNotification show={showUpdate} onRestart={handleRestart} />
 
         {/* Offline indicators */}
         <NetworkStatusBanner position="top" variant="minimal" />
