@@ -7,6 +7,26 @@ import { setWaitingSW } from './lib/swUpdateState'
 // Initialize offline-first mode
 initializeOfflineMode().catch(console.error);
 
+// Block native context menus, pinch-zoom, and double-tap zoom for native feel
+window.addEventListener('contextmenu', (e) => {
+  const t = e.target as HTMLElement | null;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+  e.preventDefault();
+});
+document.addEventListener('gesturestart', (e) => e.preventDefault());
+document.addEventListener('gesturechange', (e) => e.preventDefault());
+document.addEventListener('gestureend', (e) => e.preventDefault());
+let lastTouchEnd = 0;
+document.addEventListener('touchend', (e) => {
+  const now = Date.now();
+  if (now - lastTouchEnd <= 300) e.preventDefault();
+  lastTouchEnd = now;
+}, { passive: false });
+document.addEventListener('touchmove', (e) => {
+  if ((e as TouchEvent).touches.length > 1) e.preventDefault();
+}, { passive: false });
+
+
 // --- Service Worker registration with auto-update ---
 const isInIframe = (() => { try { return window.self !== window.top; } catch { return true; } })();
 const isPreviewHost = window.location.hostname.includes('id-preview--') || window.location.hostname.includes('lovableproject.com');
