@@ -406,17 +406,29 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
 
     // Optimistic UI update
     const wasLiked = isLiked;
-    setIsLiked(!isLiked);
-    setLikeCount(prev => isLiked ? prev - 1 : prev + 1);
+    const newLiked = !wasLiked;
+    const newCount = wasLiked ? Math.max(0, likeCount - 1) : likeCount + 1;
+    setIsLiked(newLiked);
+    setLikeCount(newCount);
+
+    // Broadcast so Home/Profile caches stay in sync across tab switches
+    try {
+      window.dispatchEvent(new CustomEvent('post-like-changed', {
+        detail: { postId: post.id, isLiked: newLiked, likeCount: newCount, userId: user.id }
+      }));
+    } catch {}
 
     try {
       await dataService.likePost(post.id);
-      // Important: do NOT trigger full Home feed reload (saves data)
     } catch (error) {
       // Revert optimistic update on error
       setIsLiked(wasLiked);
-      setLikeCount(prev => wasLiked ? prev + 1 : prev - 1);
-      
+      setLikeCount(likeCount);
+      try {
+        window.dispatchEvent(new CustomEvent('post-like-changed', {
+          detail: { postId: post.id, isLiked: wasLiked, likeCount, userId: user.id }
+        }));
+      } catch {}
       console.error('Error liking post:', error);
       toast({
         title: "Like queued",
