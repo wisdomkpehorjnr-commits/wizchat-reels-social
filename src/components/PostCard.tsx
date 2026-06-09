@@ -867,32 +867,86 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
               </div>
             ) : (
               <div className="space-y-4">
-                {comments.map((comment) => (
-                  <div key={comment.id} className="flex gap-3 pb-4 border-b border-gray-200 dark:border-gray-700 last:border-0">
-                    <ClickableUserInfo 
-                      user={comment.user}
-                      showAvatar={true}
-                      showName={false}
-                      avatarSize="w-8 h-8"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <ClickableUserInfo 
-                          user={comment.user}
-                          showAvatar={false}
-                          showName={true}
-                          className="font-semibold text-sm"
-                        />
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                          {formatDistanceToNow(comment.createdAt, { addSuffix: true })}
-                        </span>
+                {comments.map((comment) => {
+                  const renderItem = (c: any, isReply = false) => (
+                    <div key={c.id} className={`flex gap-3 ${isReply ? 'mt-3 ml-8' : 'pb-3 border-b border-border last:border-0'}`}>
+                      <ClickableUserInfo
+                        user={c.user}
+                        showAvatar={true}
+                        showName={false}
+                        avatarSize={isReply ? 'w-7 h-7' : 'w-8 h-8'}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <ClickableUserInfo
+                            user={c.user}
+                            showAvatar={false}
+                            showName={true}
+                            className="font-semibold text-sm"
+                          />
+                          <span className="text-xs text-muted-foreground">
+                            {formatDistanceToNow(c.createdAt, { addSuffix: true })}
+                          </span>
+                        </div>
+                        <p className="text-sm text-foreground whitespace-pre-wrap break-words">
+                          {c.content}
+                        </p>
+                        <div className="flex items-center gap-3 mt-1.5">
+                          <button
+                            onClick={() => toggleCommentLike(c.id, c.isLiked)}
+                            className={`flex items-center gap-1 text-xs transition-colors ${c.isLiked ? 'text-red-500' : 'text-muted-foreground hover:text-red-500'}`}
+                            aria-label={c.isLiked ? 'Unlike' : 'Like'}
+                          >
+                            <Heart className={`w-3.5 h-3.5 ${c.isLiked ? 'fill-red-500' : ''}`} />
+                            {c.likesCount > 0 && <span>{c.likesCount}</span>}
+                          </button>
+                          {!isReply && (
+                            <button
+                              onClick={() => { setReplyingTo(replyingTo === c.id ? null : c.id); setReplyText(''); }}
+                              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary"
+                            >
+                              <CornerDownRight className="w-3.5 h-3.5" />
+                              Reply
+                            </button>
+                          )}
+                          {user?.id === c.userId && (
+                            <button
+                              onClick={() => deleteComment(c.id)}
+                              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive"
+                              aria-label="Delete comment"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              Delete
+                            </button>
+                          )}
+                        </div>
+
+                        {replyingTo === c.id && !isReply && (
+                          <div className="mt-2 flex gap-2">
+                            <Input
+                              autoFocus
+                              value={replyText}
+                              onChange={(e) => setReplyText(e.target.value)}
+                              placeholder={`Reply to ${c.user?.name || 'user'}...`}
+                              className="flex-1 h-9 text-sm"
+                              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submitReply(c.id); } }}
+                            />
+                            <Button size="sm" onClick={() => submitReply(c.id)} disabled={!replyText.trim()} className="h-9">
+                              <Send className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        )}
+
+                        {c.replies && c.replies.length > 0 && (
+                          <div className="mt-2">
+                            {c.replies.map((r: any) => renderItem(r, true))}
+                          </div>
+                        )}
                       </div>
-                      <p className="text-sm text-gray-900 dark:text-white whitespace-pre-wrap">
-                        {comment.content}
-                      </p>
                     </div>
-                  </div>
-                ))}
+                  );
+                  return renderItem(comment, false);
+                })}
               </div>
             )}
           </ScrollArea>
