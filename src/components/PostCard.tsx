@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { MoreVertical, ThumbsUp, MessageSquare, Share2, Edit, Trash2, Download, Pin, Send, X, ImageOff } from 'lucide-react';
+import { MoreVertical, ThumbsUp, MessageSquare, Share2, Edit, Trash2, Download, Pin, Send, X, ImageOff, Heart, CornerDownRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -275,47 +275,103 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
   const loadComments = async () => {
     setLoadingComments(true);
     try {
-      const commentsData = await dataService.getComments(post.id);
-      
-      // Fetch user profiles for each comment
-      const commentsWithUsers = await Promise.all(
-        commentsData.map(async (comment: any) => {
-          try {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', comment.userId)
-              .single();
-            
-            return {
-              id: comment.id,
-              content: comment.content,
-              createdAt: comment.createdAt,
-              user: profile ? {
-                id: profile.id,
-                name: profile.name,
-                username: profile.username,
-                email: profile.email,
-                avatar: profile.avatar,
-                photoURL: profile.avatar
-              } : comment.user
-            };
-          } catch (err) {
-            return {
-              id: comment.id,
-              content: comment.content,
-              createdAt: comment.createdAt,
-              user: comment.user || null
-            };
-          }
-        })
-      );
-      
-      setComments(commentsWithUsers);
+      // Fetch comments with parent_id + author profile + like info, then nest replies
+      const { data: rows, error } = await supabase
+        .from('comments')
+        .select(`
+          id, content, created_at, user_id, parent_id, post_id,
+          user:user_id (id, name, username, email, avatar),
+          comment_likes (user_id)
+        `)
+        .eq('post_id', post.id)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+
+      const list = (rows || []).map((c: any) => ({
+        id: c.id,
+        content: c.content,
+        createdAt: c.created_at,
+        userId: c.user_id,
+        parentId: c.parent_id,
+        user: c.user
+          ? { id: c.user.id, name: c.user.name, username: c.user.username, email: c.user.email, avatar: c.user.avatar, photoURL: c.user.avatar }
+          : null,
+        likes: (c.comment_likes || []).map((l: any) => l.user_id),
+        likesCount: (c.comment_likes || []).length,
+        isLiked: !!(c.comment_likes || []).find((l: any) => l.user_id === user?.id),
+        replies: [] as any[],
+      }));
+
+      // Nest replies under their parent
+      const map = new Map(list.map((c) => [c.id, c]));
+      const roots: any[] = [];
+      list.forEach((c) => {
+        if (c.parentId && map.has(c.parentId)) {
+          map.get(c.parentId)!.replies.push(c);
+        } else {
+          roots.push(c);
+        }
+      });
+
+      setComments(roots);
     } catch (error) {
       console.error('Error loading comments:', error);
     } finally {
       setLoadingComments(false);
+    }
+  };
+
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState('');
+
+  const toggleCommentLike = async (commentId: string, isLiked: boolean) => {
+    if (!user) return;
+    // Optimistic
+    const update = (arr: any[]): any[] => arr.map((c) => {
+      if (c.id === commentId) {
+        return { ...c, isLiked: !isLiked, likesCount: isLiked ? Math.max(0, c.likesCount - 1) : c.likesCount + 1 };
+      }
+      if (c.replies?.length) return { ...c, replies: update(c.replies) };
+      return c;
+    });
+    setComments((prev) => update(prev));
+    try {
+      if (isLiked) {
+        await supabase.from('comment_likes').delete().eq('comment_id', commentId).eq('user_id', user.id);
+      } else {
+        await supabase.from('comment_likes').insert({ comment_id: commentId, user_id: user.id });
+      }
+    } catch (e) {
+      console.error('toggle comment like failed', e);
+      setComments((prev) => update(prev)); // revert
+    }
+  };
+
+  const submitReply = async (parentId: string) => {
+    if (!user || !replyText.trim()) return;
+    try {
+      const { error } = await supabase
+        .from('comments')
+        .insert({ post_id: post.id, user_id: user.id, content: replyText.trim(), parent_id: parentId });
+      if (error) throw error;
+      setReplyText('');
+      setReplyingTo(null);
+      await loadComments();
+    } catch (e) {
+      console.error('reply failed', e);
+      toast({ title: 'Error', description: 'Failed to post reply', variant: 'destructive' });
+    }
+  };
+
+  const deleteComment = async (commentId: string) => {
+    if (!user) return;
+    try {
+      const { error } = await supabase.from('comments').delete().eq('id', commentId).eq('user_id', user.id);
+      if (error) throw error;
+      await loadComments();
+    } catch (e) {
+      console.error('delete comment failed', e);
+      toast({ title: 'Error', description: 'Failed to delete comment', variant: 'destructive' });
     }
   };
 
