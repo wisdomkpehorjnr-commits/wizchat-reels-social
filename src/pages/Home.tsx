@@ -159,6 +159,35 @@ const Home = () => {
     }
   }, [posts]);
 
+  // Persist like changes across tab switches: listen to PostCard's broadcast
+  // and update both local state and the module-level cache + localStorage.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail || {};
+      const { postId, isLiked, likeCount, userId } = detail;
+      if (!postId) return;
+
+      const apply = (list: any[]) => list.map((p) => {
+        if (p.id !== postId) return p;
+        const arr = Array.isArray(p.likes) ? [...p.likes] : [];
+        let nextLikes = arr;
+        if (userId) {
+          const has = arr.some((l: any) => (typeof l === 'string' ? l === userId : l?.user_id === userId));
+          if (isLiked && !has) nextLikes = [...arr, { user_id: userId }];
+          if (!isLiked && has) nextLikes = arr.filter((l: any) => (typeof l === 'string' ? l !== userId : l?.user_id !== userId));
+        }
+        return { ...p, isLiked, likeCount, likes: nextLikes };
+      });
+
+      homeStore.posts = apply(homeStore.posts);
+      saveToLocalStorage(homeStore.posts, homeStore.scrollY);
+      setPosts((prev) => apply(prev));
+    };
+    window.addEventListener('post-like-changed', handler as EventListener);
+    return () => window.removeEventListener('post-like-changed', handler as EventListener);
+  }, []);
+
+
   // Sync posts to module store whenever they change
   useEffect(() => {
     if (posts.length > 0) {
