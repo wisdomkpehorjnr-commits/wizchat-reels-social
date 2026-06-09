@@ -182,8 +182,29 @@ class MediaOptimizationService {
   }
 
   saveDataSaverSettings(settings: Partial<DataSaverSettings>) {
-    this.dataSaverSettings = { ...this.dataSaverSettings, ...settings };
+    const prev = this.dataSaverSettings;
+    let next = { ...prev, ...settings };
+
+    // When the user explicitly TURNS OFF data saver, enable autoplay/preload
+    // so reels and videos start working without having to flip every sub-toggle.
+    if (prev.enabled === true && settings.enabled === false) {
+      next = {
+        ...next,
+        autoplayOnWifi: true,
+        autoplayOnCellular: next.autoplayOnCellular, // keep user's cellular pref
+        preloadVideos: true,
+        autoDownloadOnWifi: true,
+        videoQuality: next.videoQuality === '480p' ? 'auto' : next.videoQuality,
+      };
+    }
+
+    this.dataSaverSettings = next;
     localStorage.setItem('data_saver_settings', JSON.stringify(this.dataSaverSettings));
+
+    // Broadcast so video/reel players can re-evaluate without a reload
+    try {
+      window.dispatchEvent(new CustomEvent('data-saver-settings-changed', { detail: this.dataSaverSettings }));
+    } catch {}
   }
 
   getDataSaverSettings(): DataSaverSettings {

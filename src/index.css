@@ -727,3 +727,90 @@ button {
   -webkit-background-clip: text !important;
   background-clip: text !important;
 }
+/* ==========================================================================
+   ULTRA THEME — Black background / White text safety net
+   Forces correct contrast for hardcoded utility classes (text-white on white,
+   text-black on black, bg-white on white-text, etc.) without touching code.
+   ========================================================================== */
+.ultra .bg-white,
+.ultra .bg-gray-50,
+.ultra .bg-gray-100,
+.ultra .bg-slate-50,
+.ultra .bg-slate-100,
+.ultra .bg-neutral-50,
+.ultra .bg-neutral-100,
+.ultra [class*="bg-white/"] {
+  background-color: #000000 !important;
+  color: #FFFFFF !important;
+}
+
+.ultra .bg-black,
+.ultra .bg-gray-900,
+.ultra .bg-gray-950,
+.ultra .bg-slate-900,
+.ultra .bg-neutral-900 {
+  background-color: #000000 !important;
+  color: #FFFFFF !important;
+}
+
+.ultra .text-white,
+.ultra .text-gray-50,
+.ultra .text-gray-100,
+.ultra .text-slate-50,
+.ultra .text-slate-100,
+.ultra .text-neutral-50 {
+  color: #FFFFFF !important;
+}
+
+.ultra .text-black,
+.ultra .text-gray-900,
+.ultra .text-gray-800,
+.ultra .text-gray-700,
+.ultra .text-slate-900,
+.ultra .text-slate-800,
+.ultra .text-neutral-900 {
+  color: #FFFFFF !important;
+}
+
+.ultra .text-gray-500,
+.ultra .text-gray-600,
+.ultra .text-slate-500,
+.ultra .text-slate-600,
+.ultra .text-neutral-500,
+.ultra .text-neutral-600 {
+  color: #B8B8B8 !important;
+}
+
+.ultra .border-gray-200,
+.ultra .border-gray-300,
+.ultra .border-slate-200,
+.ultra .border-neutral-200,
+.ultra .border-white {
+  border-color: #1A1A1A !important;
+}
+
+/* Dialogs / popovers / sheets that hardcode dark:bg-gray-800 etc */
+.ultra [role="dialog"],
+.ultra [data-radix-popper-content-wrapper] > *,
+.ultra [role="menu"],
+.ultra [role="listbox"] {
+  background-color: #000000 !important;
+  color: #FFFFFF !important;
+  border-color: #1A1A1A !important;
+}
+
+/* Inputs */
+.ultra input,
+.ultra textarea,
+.ultra select {
+  background-color: #000000 !important;
+  color: #FFFFFF !important;
+  border-color: #1A1A1A !important;
+}
+.ultra input::placeholder,
+.ultra textarea::placeholder {
+  color: #6B6B6B !important;
+}
+
+/* Cards explicitly themed in light mode */
+.ultra .bg-card { background-color: #000000 !important; color: #FFFFFF !important; }

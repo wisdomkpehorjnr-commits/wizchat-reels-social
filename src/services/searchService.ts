@@ -311,6 +311,11 @@ class SearchService {
     this.saveCache();
   }
 
+  removeSearchHistoryItem(item: string) {
+    this.searchHistory = this.searchHistory.filter((q) => q !== item);
+    this.saveCache();
+  }
+
   async searchOffline(query: string, types?: ('people' | 'post' | 'image' | 'group' | 'reel')[]): Promise<SearchResult[]> {
     const normalizedQuery = query.toLowerCase().trim();
     const results: SearchResult[] = [];

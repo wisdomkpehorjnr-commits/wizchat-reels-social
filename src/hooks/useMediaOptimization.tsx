@@ -24,7 +24,17 @@ export function useMediaOptimization() {
       setCacheSize(mediaOptimizationService.getCacheSize());
     }, 5000);
 
-    return () => clearInterval(interval);
+    // React instantly when the user toggles Data Saver
+    const onChange = () => {
+      setSettings(mediaOptimizationService.getDataSaverSettings());
+      setNetworkInfo(mediaOptimizationService.getNetworkInfo());
+    };
+    window.addEventListener('data-saver-settings-changed', onChange);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('data-saver-settings-changed', onChange);
+    };
   }, []);
 
   const updateSettings = useCallback((newSettings: Partial<DataSaverSettings>) => {
@@ -106,9 +116,18 @@ export function useLazyVideo(videoUrl: string | undefined, thumbnailUrl?: string
   const [shouldLoad, setShouldLoad] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const [hasPlayed, setHasPlayed] = useState(false);
-  
-  const shouldAutoplay = mediaOptimizationService.shouldAutoplay();
-  const isDataSaverEnabled = mediaOptimizationService.isDataSaverEnabled();
+
+  const [shouldAutoplay, setShouldAutoplay] = useState(mediaOptimizationService.shouldAutoplay());
+  const [isDataSaverEnabled, setIsDataSaverEnabled] = useState(mediaOptimizationService.isDataSaverEnabled());
+
+  useEffect(() => {
+    const refresh = () => {
+      setShouldAutoplay(mediaOptimizationService.shouldAutoplay());
+      setIsDataSaverEnabled(mediaOptimizationService.isDataSaverEnabled());
+    };
+    window.addEventListener('data-saver-settings-changed', refresh);
+    return () => window.removeEventListener('data-saver-settings-changed', refresh);
+  }, []);
 
   // Determine if video should load based on visibility and settings
   useEffect(() => {

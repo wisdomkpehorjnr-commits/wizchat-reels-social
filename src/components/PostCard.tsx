@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { MoreVertical, ThumbsUp, MessageSquare, Share2, Edit, Trash2, Download, Pin, Send, X, ImageOff } from 'lucide-react';
+import { MoreVertical, ThumbsUp, MessageSquare, Share2, Edit, Trash2, Download, Pin, Send, X, ImageOff, Heart, CornerDownRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -275,47 +275,103 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
   const loadComments = async () => {
     setLoadingComments(true);
     try {
-      const commentsData = await dataService.getComments(post.id);
-      
-      // Fetch user profiles for each comment
-      const commentsWithUsers = await Promise.all(
-        commentsData.map(async (comment: any) => {
-          try {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', comment.userId)
-              .single();
-            
-            return {
-              id: comment.id,
-              content: comment.content,
-              createdAt: comment.createdAt,
-              user: profile ? {
-                id: profile.id,
-                name: profile.name,
-                username: profile.username,
-                email: profile.email,
-                avatar: profile.avatar,
-                photoURL: profile.avatar
-              } : comment.user
-            };
-          } catch (err) {
-            return {
-              id: comment.id,
-              content: comment.content,
-              createdAt: comment.createdAt,
-              user: comment.user || null
-            };
-          }
-        })
-      );
-      
-      setComments(commentsWithUsers);
+      // Fetch comments with parent_id + author profile + like info, then nest replies
+      const { data: rows, error } = await supabase
+        .from('comments')
+        .select(`
+          id, content, created_at, user_id, parent_id, post_id,
+          user:user_id (id, name, username, email, avatar),
+          comment_likes (user_id)
+        `)
+        .eq('post_id', post.id)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+
+      const list = (rows || []).map((c: any) => ({
+        id: c.id,
+        content: c.content,
+        createdAt: c.created_at,
+        userId: c.user_id,
+        parentId: c.parent_id,
+        user: c.user
+          ? { id: c.user.id, name: c.user.name, username: c.user.username, email: c.user.email, avatar: c.user.avatar, photoURL: c.user.avatar }
+          : null,
+        likes: (c.comment_likes || []).map((l: any) => l.user_id),
+        likesCount: (c.comment_likes || []).length,
+        isLiked: !!(c.comment_likes || []).find((l: any) => l.user_id === user?.id),
+        replies: [] as any[],
+      }));
+
+      // Nest replies under their parent
+      const map = new Map(list.map((c) => [c.id, c]));
+      const roots: any[] = [];
+      list.forEach((c) => {
+        if (c.parentId && map.has(c.parentId)) {
+          map.get(c.parentId)!.replies.push(c);
+        } else {
+          roots.push(c);
+        }
+      });
+
+      setComments(roots);
     } catch (error) {
       console.error('Error loading comments:', error);
     } finally {
       setLoadingComments(false);
+    }
+  };
+
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState('');
+
+  const toggleCommentLike = async (commentId: string, isLiked: boolean) => {
+    if (!user) return;
+    // Optimistic
+    const update = (arr: any[]): any[] => arr.map((c) => {
+      if (c.id === commentId) {
+        return { ...c, isLiked: !isLiked, likesCount: isLiked ? Math.max(0, c.likesCount - 1) : c.likesCount + 1 };
+      }
+      if (c.replies?.length) return { ...c, replies: update(c.replies) };
+      return c;
+    });
+    setComments((prev) => update(prev));
+    try {
+      if (isLiked) {
+        await supabase.from('comment_likes').delete().eq('comment_id', commentId).eq('user_id', user.id);
+      } else {
+        await supabase.from('comment_likes').insert({ comment_id: commentId, user_id: user.id });
+      }
+    } catch (e) {
+      console.error('toggle comment like failed', e);
+      setComments((prev) => update(prev)); // revert
+    }
+  };
+
+  const submitReply = async (parentId: string) => {
+    if (!user || !replyText.trim()) return;
+    try {
+      const { error } = await supabase
+        .from('comments')
+        .insert({ post_id: post.id, user_id: user.id, content: replyText.trim(), parent_id: parentId });
+      if (error) throw error;
+      setReplyText('');
+      setReplyingTo(null);
+      await loadComments();
+    } catch (e) {
+      console.error('reply failed', e);
+      toast({ title: 'Error', description: 'Failed to post reply', variant: 'destructive' });
+    }
+  };
+
+  const deleteComment = async (commentId: string) => {
+    if (!user) return;
+    try {
+      const { error } = await supabase.from('comments').delete().eq('id', commentId).eq('user_id', user.id);
+      if (error) throw error;
+      await loadComments();
+    } catch (e) {
+      console.error('delete comment failed', e);
+      toast({ title: 'Error', description: 'Failed to delete comment', variant: 'destructive' });
     }
   };
 
@@ -350,17 +406,29 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
 
     // Optimistic UI update
     const wasLiked = isLiked;
-    setIsLiked(!isLiked);
-    setLikeCount(prev => isLiked ? prev - 1 : prev + 1);
+    const newLiked = !wasLiked;
+    const newCount = wasLiked ? Math.max(0, likeCount - 1) : likeCount + 1;
+    setIsLiked(newLiked);
+    setLikeCount(newCount);
+
+    // Broadcast so Home/Profile caches stay in sync across tab switches
+    try {
+      window.dispatchEvent(new CustomEvent('post-like-changed', {
+        detail: { postId: post.id, isLiked: newLiked, likeCount: newCount, userId: user.id }
+      }));
+    } catch {}
 
     try {
       await dataService.likePost(post.id);
-      // Important: do NOT trigger full Home feed reload (saves data)
     } catch (error) {
       // Revert optimistic update on error
       setIsLiked(wasLiked);
-      setLikeCount(prev => wasLiked ? prev + 1 : prev - 1);
-      
+      setLikeCount(likeCount);
+      try {
+        window.dispatchEvent(new CustomEvent('post-like-changed', {
+          detail: { postId: post.id, isLiked: wasLiked, likeCount, userId: user.id }
+        }));
+      } catch {}
       console.error('Error liking post:', error);
       toast({
         title: "Like queued",
@@ -799,32 +867,86 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
               </div>
             ) : (
               <div className="space-y-4">
-                {comments.map((comment) => (
-                  <div key={comment.id} className="flex gap-3 pb-4 border-b border-gray-200 dark:border-gray-700 last:border-0">
-                    <ClickableUserInfo 
-                      user={comment.user}
-                      showAvatar={true}
-                      showName={false}
-                      avatarSize="w-8 h-8"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <ClickableUserInfo 
-                          user={comment.user}
-                          showAvatar={false}
-                          showName={true}
-                          className="font-semibold text-sm"
-                        />
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                          {formatDistanceToNow(comment.createdAt, { addSuffix: true })}
-                        </span>
+                {comments.map((comment) => {
+                  const renderItem = (c: any, isReply = false) => (
+                    <div key={c.id} className={`flex gap-3 ${isReply ? 'mt-3 ml-8' : 'pb-3 border-b border-border last:border-0'}`}>
+                      <ClickableUserInfo
+                        user={c.user}
+                        showAvatar={true}
+                        showName={false}
+                        avatarSize={isReply ? 'w-7 h-7' : 'w-8 h-8'}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <ClickableUserInfo
+                            user={c.user}
+                            showAvatar={false}
+                            showName={true}
+                            className="font-semibold text-sm"
+                          />
+                          <span className="text-xs text-muted-foreground">
+                            {formatDistanceToNow(c.createdAt, { addSuffix: true })}
+                          </span>
+                        </div>
+                        <p className="text-sm text-foreground whitespace-pre-wrap break-words">
+                          {c.content}
+                        </p>
+                        <div className="flex items-center gap-3 mt-1.5">
+                          <button
+                            onClick={() => toggleCommentLike(c.id, c.isLiked)}
+                            className={`flex items-center gap-1 text-xs transition-colors ${c.isLiked ? 'text-red-500' : 'text-muted-foreground hover:text-red-500'}`}
+                            aria-label={c.isLiked ? 'Unlike' : 'Like'}
+                          >
+                            <Heart className={`w-3.5 h-3.5 ${c.isLiked ? 'fill-red-500' : ''}`} />
+                            {c.likesCount > 0 && <span>{c.likesCount}</span>}
+                          </button>
+                          {!isReply && (
+                            <button
+                              onClick={() => { setReplyingTo(replyingTo === c.id ? null : c.id); setReplyText(''); }}
+                              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary"
+                            >
+                              <CornerDownRight className="w-3.5 h-3.5" />
+                              Reply
+                            </button>
+                          )}
+                          {user?.id === c.userId && (
+                            <button
+                              onClick={() => deleteComment(c.id)}
+                              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive"
+                              aria-label="Delete comment"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              Delete
+                            </button>
+                          )}
+                        </div>
+
+                        {replyingTo === c.id && !isReply && (
+                          <div className="mt-2 flex gap-2">
+                            <Input
+                              autoFocus
+                              value={replyText}
+                              onChange={(e) => setReplyText(e.target.value)}
+                              placeholder={`Reply to ${c.user?.name || 'user'}...`}
+                              className="flex-1 h-9 text-sm"
+                              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submitReply(c.id); } }}
+                            />
+                            <Button size="sm" onClick={() => submitReply(c.id)} disabled={!replyText.trim()} className="h-9">
+                              <Send className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        )}
+
+                        {c.replies && c.replies.length > 0 && (
+                          <div className="mt-2">
+                            {c.replies.map((r: any) => renderItem(r, true))}
+                          </div>
+                        )}
                       </div>
-                      <p className="text-sm text-gray-900 dark:text-white whitespace-pre-wrap">
-                        {comment.content}
-                      </p>
                     </div>
-                  </div>
-                ))}
+                  );
+                  return renderItem(comment, false);
+                })}
               </div>
             )}
           </ScrollArea>
