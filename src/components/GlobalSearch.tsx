@@ -167,6 +167,11 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
     });
   };
 
+  const removeHistoryItem = (item: string) => {
+    searchService.removeSearchHistoryItem(item);
+    setSearchHistory(searchService.getSearchHistory());
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -235,25 +240,35 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
                       variant="ghost"
                       size="sm"
                       onClick={clearHistory}
-                      className="h-7 text-xs"
+                      className="h-7 text-xs text-destructive hover:text-destructive"
                     >
                       <Trash2 className="w-3 h-3 mr-1" />
-                      Clear
+                      Clear all
                     </Button>
                   )}
                 </div>
                 {searchHistory.length > 0 ? (
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     {searchHistory.map((item, idx) => (
-                      <Button
-                        key={idx}
-                        variant="ghost"
-                        className="w-full justify-start"
-                        onClick={() => handleHistoryClick(item)}
-                      >
-                        <Clock className="w-4 h-4 mr-2 text-muted-foreground" />
-                        {item}
-                      </Button>
+                      <div key={idx} className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          className="flex-1 justify-start min-w-0"
+                          onClick={() => handleHistoryClick(item)}
+                        >
+                          <Clock className="w-4 h-4 mr-2 text-muted-foreground flex-shrink-0" />
+                          <span className="truncate">{item}</span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Remove ${item}`}
+                          className="h-8 w-8 flex-shrink-0 text-muted-foreground hover:text-destructive"
+                          onClick={(e) => { e.stopPropagation(); removeHistoryItem(item); }}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
                     ))}
                   </div>
                 ) : (

@@ -118,22 +118,48 @@ const OFFLINE_IMG = 'data:image/svg+xml;utf8,' + encodeURIComponent(`
 // Child component to render a reel preview (video or image) and leverage the caching hook
 const ReelPreview: React.FC<{ reel: any; isMuted: boolean; onDelete?: (id: string) => void; isOwnProfile?: boolean }> = ({ reel, isMuted, onDelete, isOwnProfile }) => {
   const cachedPoster = useCachedMedia(reel.imageUrl);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [generatedPoster, setGeneratedPoster] = useState<string | null>(null);
+
+  // Generate a poster from the first frame if no thumbnail exists
+  useEffect(() => {
+    if (!reel.videoUrl || reel.imageUrl || cachedPoster || generatedPoster) return;
+    const v = videoRef.current;
+    if (!v) return;
+    const onLoaded = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = v.videoWidth || 320;
+        canvas.height = v.videoHeight || 480;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+        setGeneratedPoster(canvas.toDataURL('image/jpeg', 0.7));
+      } catch {}
+    };
+    v.addEventListener('loadeddata', onLoaded, { once: true });
+    return () => v.removeEventListener('loadeddata', onLoaded);
+  }, [reel.videoUrl, reel.imageUrl, cachedPoster, generatedPoster]);
+
+  const poster = generatedPoster || cachedPoster || reel.imageUrl;
 
   return (
     <>
       {reel.videoUrl ? (
         <video
-          src={reel.videoUrl}
+          ref={videoRef}
+          src={`${reel.videoUrl}#t=0.1`}
           className="w-full h-full object-cover"
-          muted={isMuted}
-          preload="none"
-          poster={cachedPoster || reel.imageUrl}
+          muted
+          playsInline
+          preload="metadata"
+          poster={poster || undefined}
         />
       ) : reel.imageUrl ? (
         <img src={cachedPoster || reel.imageUrl} alt="" className="w-full h-full object-cover" />
       ) : (
-        <div className="w-full h-full flex items-center justify-center">
-          <span className="text-muted-foreground">No preview</span>
+        <div className="w-full h-full flex items-center justify-center bg-muted">
+          <span className="text-muted-foreground text-xs">No preview</span>
         </div>
       )}
       {isOwnProfile && (
