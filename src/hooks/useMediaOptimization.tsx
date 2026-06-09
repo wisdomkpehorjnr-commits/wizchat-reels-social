@@ -24,7 +24,17 @@ export function useMediaOptimization() {
       setCacheSize(mediaOptimizationService.getCacheSize());
     }, 5000);
 
-    return () => clearInterval(interval);
+    // React instantly when the user toggles Data Saver
+    const onChange = () => {
+      setSettings(mediaOptimizationService.getDataSaverSettings());
+      setNetworkInfo(mediaOptimizationService.getNetworkInfo());
+    };
+    window.addEventListener('data-saver-settings-changed', onChange);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('data-saver-settings-changed', onChange);
+    };
   }, []);
 
   const updateSettings = useCallback((newSettings: Partial<DataSaverSettings>) => {
