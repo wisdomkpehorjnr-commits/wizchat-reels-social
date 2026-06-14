@@ -1,50 +1,51 @@
-## WizChat — 7 Improvements
+# WizChat — 8-Problem Fix Plan
 
-### 1. Profile → Reels tab shows video thumbnails
-- In `src/pages/Profile.tsx` reels grid, replace the white card with a `<video>` (preload="metadata") or `poster`/thumbnail image so each tile shows the first frame of the reel.
-- Keep the existing tap-to-open behavior and the delete "X" icon.
+This is a large multi-area pass. Each item lists what changes and where, so you can approve once and I implement straight through.
 
-### 2. Ultra theme contrast fixes
-- Audit components rendering raw `text-white` / `text-black` / `bg-white` / `bg-black` and replace with semantic tokens (`bg-background`, `text-foreground`, `bg-card`, `text-muted-foreground`) so the Ultra theme inverts correctly.
-- Add Ultra-specific overrides in `src/index.css` `.ultra { ... }` for any stubborn third-party utilities (toasts, dialogs, menus) that still collide.
-- Scope: most-used screens (Home feed, Chat list, Settings, Search, Comments, Topic Rooms, Profile, Reels overlays).
+## 1. PWA opening screen — white logo, instant load
+- `index.html`: change the boot splash background to white, keep the WizChat logo centered, remove any dark gradient. Add `<meta name="theme-color" content="#ffffff">`.
+- `public/manifest.json`: `background_color` and `theme_color` → `#ffffff`.
+- App shell renders instantly — no `SplashScreen.tsx` mount, no welcome animation, no white blank wait. The cached shell from the service worker shows immediately.
 
-### 3. Search history clear options
-- In the main Search page, store recent searches in localStorage.
-- For each recent item add a small "×" to remove that single entry, plus a "Clear all" button at the top of the recent-searches list.
+## 2. Data Saver toggle for reels
+- `src/pages/Settings.tsx`: ensure a clean "Data Saver Mode" switch (already present via `mediaOptimizationService`) — wire its `autoplayVideos` to OFF when Data Saver is ON.
+- Reels players (`ReelsModern/*`, `reels/widgets/FullscreenVideoPlayer.tsx`) respect `useMediaOptimization().settings.autoplayVideos` — if false, show tap-to-play overlay, otherwise autoplay.
+- Persist via existing localStorage key, no extra storage needed.
 
-### 4. Data Saver actually works
-- Fix `useMediaOptimization` so the toggle persists and is honored by reels/video components:
-  - When OFF: autoplay enabled, quality follows user choice (Auto/480p/720p/1080p), preloading allowed.
-  - When ON: tap-to-play, cap 480p, no autoplay, no preloading.
-- Wire the Settings → Data Saver controls (toggle, quality picker, autoplay toggle) to read/write `mediaOptimizationService` and emit a change event so reel players react immediately.
+## 3. Global Search redesigned (Facebook-style)
+Rewrite `src/components/GlobalSearch.tsx` with 6 tabs: All, People, Posts, Images, Groups, Reels.
+- **All**: 5 People (avatar, name, @user, badge, Follow), 5 Posts (PostCard mini), 5 Groups (image, name, members, Join), Reels as card grid. Each section ends with a "More…" link that switches to its tab.
+- **People** tab: list rows with Follow + Add Friend buttons inline (no profile open needed).
+- **Reels** tab: vertical card grid with thumbnail, creator, like/comment/share — respects data saver.
+- **Groups** tab: verified/own groups, member count, recent post preview.
+- **Posts / Images** tabs: full PostCard / image grid.
+- Cached via `offlineDataManager` under `cache-search-<query>` so repeat searches are instant.
 
-### 5. Home post comments: like / reply / delete
-- Extend the comments table usage: add `parent_id` (nullable) for replies and a `comment_likes` table (user_id, comment_id).
-- In the comments UI under each post:
-  - Heart button to like/unlike a comment (counter).
-  - Reply button → inline composer; replies render threaded under the parent.
-  - Trash icon visible only on the current user's own comments → confirm + delete (cascade removes its replies/likes).
+## 4. Remove "Cancel" from save/download popups
+- `src/components/PostCard.tsx` and the media long-press popup: drop the explicit Cancel row (sheet dismiss-on-outside still works).
 
-### 6. Persistent like state across tab switches
-- Cache like state in `homeStore` (or equivalent) and update optimistically.
-- On tab remount, hydrate `isLiked`/`likesCount` from cache first, then reconcile with the background delta fetch — never reset to `false` while the network is in flight.
-- Same fix applied to reels and topic-room posts where the bug appears.
+## 5. Theme contrast fixes
+- `src/pages/Home.tsx`: "For You" / "Following" tabs use `text-foreground` / `text-muted-foreground` instead of hardcoded black.
+- `src/index.css` ultra-theme block: ensure post action icons (like, comment, share) use `text-foreground` over transparent background, not white-on-white.
+- Audit any `text-black` / `bg-white` on feed headers and replace with semantic tokens.
 
-### 7. Auto-route posts into matching Topic Rooms
-- Keep posts in Home as today. Add a lightweight classifier that runs on post create/update:
-  - Keyword + hashtag map for the 5 topic rooms (e.g. football, news, tech, entertainment, lifestyle — exact list pulled from the Topics tab).
-  - On match, insert a row into `room_posts` linking the existing post to that room (or copy minimal fields, depending on current schema).
-- `TopicRoom` page already reads `room_posts`, so matched posts appear in both Home and the relevant room with no duplication on Home.
-- Backfill: one-off SQL to classify existing posts.
+## 6. Topics auto-routing — text & images only
+- New migration: update `auto_route_post_to_topic_rooms` trigger to **skip** posts when `NEW.is_reel = true`, when `NEW.video_url IS NOT NULL`, or when `NEW.media_type = 'video'`. Add a "Global News" room match for keywords (news, breaking, headline, politics, world, report). Keep football/tech/music/gossip; drop the Reel Review auto-route entirely.
 
-### Technical notes
-- DB migrations: add `comments.parent_id uuid null`, `comment_likes` table with RLS + GRANTs, optional `post_topic_matches` if room_posts isn't reused.
-- No backend changes to chat/archive/PWA shell.
-- Ultra theme work is presentation-only (CSS + token swaps), no logic changes.
+## 7. Profile page works from everywhere
+- Audit every navigation that lands on `/profile/:userId` (Friends, GlobalSearch, comments, post headers, group members, ClickableUserInfo, UserLink).
+- Fix `src/pages/Profile.tsx` so it re-fetches when `useParams().userId` changes (reset state on id change, fetch from `profileService.getProfile(userId)` not from cached current user).
+- `ClickableUserInfo` / `UserLink` always navigate with the user's real id from `profiles.id` (not username, not auth uid).
 
-### Out of scope
-- No redesign of Reels player, Chat, or PWA install flow.
-- No new auth/roles.
+## 8. Full permanent offline caching
+- `useImageCache`: bump TTL to effectively permanent (10 years) for avatars + post images, store blobs in IndexedDB once, never re-fetch.
+- `offlineDataManager`: add `cacheSearch`, `cacheGroups`, ensure feed/reels/profile entries use the permanent TTL.
+- Service worker: `CacheFirst` for `avatars/`, `posts/`, `covers/`, `room-media/` storage URLs with no expiry; videos use existing LRU cap.
 
-Confirm and I'll implement all 7 in parallel batches.
+## Technical notes
+- One DB migration (topic trigger).
+- One file rewrite: `GlobalSearch.tsx`.
+- Targeted edits: `index.html`, `manifest.json`, `Home.tsx`, `Profile.tsx`, `ClickableUserInfo.tsx`, `UserLink.tsx`, `PostCard.tsx`, `index.css`, `useImageCache.tsx`, `offlineDataManager.ts`, reels player components, `public/service-worker.js`.
+- No new dependencies.
+
+Approve and I'll implement all 8 in one pass.
