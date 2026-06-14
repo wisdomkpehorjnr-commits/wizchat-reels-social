@@ -6,9 +6,9 @@
     <title>WizChat — Social Chat & Reels</title>
     <meta name="description" content="WizChat: Chat, share reels, stories, and connect with friends. Install for the best experience." />
     <meta name="author" content="WizChat" />
-    <meta name="theme-color" content="#000000" />
+    <meta name="theme-color" content="#ffffff" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="WizChat" />
     <meta name="mobile-web-app-capable" content="yes" />
     <link rel="apple-touch-icon" href="/lovable-uploads/3af45968-ee0a-4afb-9557-c058030ab8dc.png" />
@@ -23,8 +23,27 @@
     <meta name="twitter:image" content="/lovable-uploads/3af45968-ee0a-4afb-9557-c058030ab8dc.png" />
   </head>
 
-  <body>
+  <body style="margin:0;background:#ffffff;">
+    <style>
+      /* Instant boot splash — white background, app logo centered. Removed once React mounts. */
+      #boot-splash{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#ffffff;z-index:9999;transition:opacity .25s ease-out;}
+      #boot-splash img{width:96px;height:96px;border-radius:22%;}
+      #boot-splash.hide{opacity:0;pointer-events:none;}
+    </style>
+    <div id="boot-splash"><img src="/lovable-uploads/3af45968-ee0a-4afb-9557-c058030ab8dc.png" alt="WizChat" /></div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Hide the white splash the moment the app shell paints
+      (function(){
+        var hide=function(){var s=document.getElementById('boot-splash');if(!s)return;s.classList.add('hide');setTimeout(function(){s&&s.remove();},250);};
+        var root=document.getElementById('root');
+        if(root){
+          var obs=new MutationObserver(function(){if(root.childElementCount>0){obs.disconnect();hide();}});
+          obs.observe(root,{childList:true});
+        }
+        setTimeout(hide,2500); // safety fallback
+      })();
+    </script>
   </body>
 </html>

@@ -793,16 +793,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
                     <Pin className="w-5 h-5 flex-shrink-0 text-primary" />
                     <span>Save Post</span>
                   </motion.button>
-                  <motion.button
-                    className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-left text-muted-foreground font-medium text-sm transition-all hover:bg-muted/30"
-                    initial={{ opacity: 0, x: -12 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.15 }}
-                    onClick={() => setShowDownloadConfirm(false)}
-                  >
-                    <X className="w-5 h-5 flex-shrink-0" />
-                    <span>Cancel</span>
-                  </motion.button>
+                  {/* Cancel option intentionally removed — tap outside or back gesture dismisses */}
                 </div>
               </motion.div>
             </motion.div>
