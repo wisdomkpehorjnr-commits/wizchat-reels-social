@@ -24,9 +24,10 @@ const UserLink: React.FC<UserLinkProps> = ({ user, children, className = "" }) =
     );
   }
   
+  // ALWAYS route by user.id so Profile resolves correctly from every entry point
   return (
-    <Link 
-      to={`/profile/${user.username || user.id}`} 
+    <Link
+      to={`/profile/${user.id}`}
       className={`hover:opacity-80 transition-opacity ${className}`}
     >
       {children}

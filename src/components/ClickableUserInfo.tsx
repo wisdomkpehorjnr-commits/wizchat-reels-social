@@ -49,8 +49,8 @@ const ClickableUserInfo = ({
 
   const handleViewProfile = () => {
     setShowPopup(false);
-    // Always use user.id for reliable navigation — username may be undefined
-    navigate(`/profile/${user.id}`);
+    // ALWAYS use the user's real DB id — never username — so the profile page resolves correctly from anywhere
+    if (user?.id) navigate(`/profile/${user.id}`);
   };
   
   if (!user) return null;

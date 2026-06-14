@@ -287,11 +287,13 @@ const Profile = () => {
         let currentUser = user;
 
         if (userIdentifier) {
-          const { data: profiles, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .or(`username.eq.${userIdentifier},id.eq.${userIdentifier}`)
-            .limit(1);
+          // Try by UUID first; fall back to username — prevents PG cast errors when identifier isn't a UUID
+          const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userIdentifier);
+          const query = supabase.from('profiles').select('*');
+          const { data: profiles, error } = await (
+            isUuid ? query.eq('id', userIdentifier).limit(1)
+                   : query.eq('username', userIdentifier).limit(1)
+          );
 
           if (error) throw error;
           if (!profiles || profiles.length === 0) {
@@ -809,13 +811,7 @@ const Profile = () => {
             >
               Download Media
             </Button>
-            <Button 
-              variant="outline" 
-              className="w-full justify-start text-destructive" 
-              onClick={() => { setShowSavedOptions(false); setSelectedSaved(null); }}
-            >
-              Cancel
-            </Button>
+            {/* Cancel removed — dismiss by tapping outside the dialog */}
           </div>
         </DialogContent>
       </Dialog>
