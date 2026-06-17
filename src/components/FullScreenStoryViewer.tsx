@@ -457,38 +457,39 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
         </div>
       )}
 
-      {/* Bottom actions — z-50 so they are clickable above touch zones */}
-      <div className="absolute bottom-0 left-0 right-0 z-50 px-4 pb-6 pt-3 bg-gradient-to-t from-black/70 to-transparent">
+      {/* Bottom actions — strong dark gradient ensures icons are always visible in any theme */}
+      <div className="absolute bottom-0 left-0 right-0 z-50 px-4 pb-6 pt-8 bg-gradient-to-t from-black/90 via-black/60 to-transparent">
         <div className="flex items-center justify-between">
           {isOwnStory ? (
             <button
-              className="flex items-center gap-2 text-white font-bold px-3 py-2 rounded-full hover:bg-white/20"
+              className="flex items-center gap-2 text-white font-bold px-3 py-2 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-md"
               onClick={(e) => { e.stopPropagation(); handleShowViewers(); }}
             >
-              <Eye className="w-6 h-6 text-white" strokeWidth={2.5} />
-              <span className="text-sm font-bold text-white">{actualViewCount || viewers.length || story.viewerCount || 0}</span>
+              <Eye className="w-6 h-6 text-white drop-shadow-lg" strokeWidth={2.5} />
+              <span className="text-sm font-bold text-white drop-shadow-lg">{actualViewCount || viewers.length || story.viewerCount || 0}</span>
             </button>
           ) : (
             <button
-              className="flex items-center gap-2 text-white font-bold px-3 py-2 rounded-full hover:bg-white/20"
+              className="flex items-center gap-2 text-white font-bold px-3 py-2 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-md"
               onClick={(e) => { e.stopPropagation(); setShowReply(true); setIsPaused(true); pauseTimer(); }}
             >
-              <MessageCircle className="w-6 h-6 text-white" strokeWidth={2.5} />
-              <span className="text-sm font-bold text-white">Reply</span>
+              <MessageCircle className="w-6 h-6 text-white drop-shadow-lg" strokeWidth={2.5} />
+              <span className="text-sm font-bold text-white drop-shadow-lg">Reply</span>
             </button>
           )}
 
           <button
-            className={`flex items-center gap-2 px-3 py-2 rounded-full hover:bg-white/20 font-bold ${isLiked ? 'text-red-500' : 'text-white'}`}
+            className={`flex items-center gap-2 px-3 py-2 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-md font-bold ${isLiked ? 'text-red-500' : 'text-white'}`}
             onClick={(e) => { e.stopPropagation(); handleLike(); }}
           >
-            <Heart className={`w-6 h-6 ${isLiked ? 'fill-red-500 text-red-500' : 'text-white'}`} strokeWidth={2.5} />
+            <Heart className={`w-6 h-6 drop-shadow-lg ${isLiked ? 'fill-red-500 text-red-500' : 'text-white'}`} strokeWidth={2.5} />
             {isOwnStory && likeCount > 0 && (
-              <span className="text-sm font-bold text-white">{likeCount}</span>
+              <span className="text-sm font-bold text-white drop-shadow-lg">{likeCount}</span>
             )}
           </button>
         </div>
       </div>
+
 
       {/* Viewers bottom sheet */}
       {showViewers && (

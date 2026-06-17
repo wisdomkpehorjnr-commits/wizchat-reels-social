@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Home, Zap, WifiOff, Bell, Palette, HardDrive } from 'lucide-react';
+import { Download } from 'lucide-react';
 
 const PWA_DISMISS_KEY = 'wizchat_pwa_dismiss_ts';
-const DISMISS_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const DISMISS_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -16,13 +16,8 @@ const PwaInstallPrompt: React.FC = () => {
   const [installed, setInstalled] = useState(false);
 
   useEffect(() => {
-    // Check if already running as standalone PWA
     if (window.matchMedia('(display-mode: standalone)').matches) return;
-
-    // Check if in iframe (Lovable preview)
     try { if (window.self !== window.top) return; } catch { return; }
-
-    // Check cooldown
     try {
       const ts = localStorage.getItem(PWA_DISMISS_KEY);
       if (ts && Date.now() - parseInt(ts, 10) < DISMISS_COOLDOWN_MS) return;
@@ -33,10 +28,7 @@ const PwaInstallPrompt: React.FC = () => {
       setDeferredPrompt(e as BeforeInstallPromptEvent);
     };
     window.addEventListener('beforeinstallprompt', handler);
-
-    // Show after 4 seconds
     const timer = setTimeout(() => setShow(true), 4000);
-
     return () => {
       window.removeEventListener('beforeinstallprompt', handler);
       clearTimeout(timer);
@@ -53,7 +45,6 @@ const PwaInstallPrompt: React.FC = () => {
       }
       setDeferredPrompt(null);
     } else {
-      // Fallback: just close and let user use browser menu
       setShow(false);
     }
   }, [deferredPrompt]);
@@ -65,20 +56,10 @@ const PwaInstallPrompt: React.FC = () => {
 
   if (installed) return null;
 
-  const benefits = [
-    { icon: Home, text: 'Launch from your home screen like a real app' },
-    { icon: Zap, text: 'Lightning-fast performance with caching' },
-    { icon: WifiOff, text: 'Works offline — chat without internet' },
-    { icon: Bell, text: 'Never miss a message with notifications' },
-    { icon: Palette, text: 'Pure glass UI with buttery animations' },
-    { icon: HardDrive, text: 'Takes less space than traditional apps' },
-  ];
-
   return (
     <AnimatePresence>
       {show && (
         <>
-          {/* Backdrop */}
           <motion.div
             className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm"
             initial={{ opacity: 0 }}
@@ -86,72 +67,51 @@ const PwaInstallPrompt: React.FC = () => {
             exit={{ opacity: 0 }}
             onClick={handleDismiss}
           />
-
-          {/* Glass popup */}
           <motion.div
-            className="fixed inset-x-4 z-[101] top-1/2 -translate-y-1/2 max-w-md mx-auto rounded-3xl border border-white/20 p-6 shadow-2xl"
-            style={{
-              background: 'rgba(255,255,255,0.08)',
-              backdropFilter: 'blur(24px)',
-              WebkitBackdropFilter: 'blur(24px)',
-            }}
-            initial={{ opacity: 0, y: 40, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 40, scale: 0.95 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            className="fixed inset-0 z-[101] flex items-center justify-center p-6 pointer-events-none"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
           >
-            {/* Close button */}
-            <button
-              onClick={handleDismiss}
-              className="absolute top-4 right-4 p-1 rounded-full hover:bg-white/10 transition-colors"
+            <motion.div
+              className="pointer-events-auto w-full max-w-sm rounded-3xl border border-border/50 px-7 py-8 text-center shadow-2xl"
+              style={{
+                background: 'hsl(var(--card) / 0.85)',
+                backdropFilter: 'blur(28px)',
+                WebkitBackdropFilter: 'blur(28px)',
+              }}
+              initial={{ opacity: 0, y: 30, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 30, scale: 0.96 }}
+              transition={{ type: 'spring', damping: 24, stiffness: 280 }}
             >
-              <X className="w-5 h-5 text-white/70" />
-            </button>
-
-            {/* Logo */}
-            <div className="flex justify-center mb-4">
-              <img
-                src="/lovable-uploads/3af45968-ee0a-4afb-9557-c058030ab8dc.png"
-                alt="WizChat"
-                className="w-16 h-16 rounded-2xl shadow-lg"
-              />
-            </div>
-
-            {/* Title */}
-            <h2 className="text-xl font-bold text-white text-center mb-1">
-              🚀 Go Native with WizChat
-            </h2>
-            <p className="text-sm text-white/70 text-center mb-5 leading-relaxed">
-              You're experiencing WizChat in your browser. Install our Progressive Web App and get the full social experience — faster, smoother, and always with you.
-            </p>
-
-            {/* Benefits */}
-            <div className="space-y-3 mb-6">
-              {benefits.map((b, i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
-                    <b.icon className="w-4 h-4 text-white/90" />
-                  </div>
-                  <span className="text-sm text-white/85">{b.text}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* Buttons */}
-            <div className="flex flex-col gap-2">
-              <button
-                onClick={handleInstall}
-                className="w-full py-3 rounded-xl font-bold text-sm bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg hover:shadow-green-500/30 transition-all active:scale-[0.98]"
-              >
-                💾 Install WizChat
-              </button>
-              <button
-                onClick={handleDismiss}
-                className="w-full py-3 rounded-xl font-medium text-sm text-white/60 hover:text-white/80 hover:bg-white/5 transition-colors"
-              >
-                ⏰ Remind me later
-              </button>
-            </div>
+              <div className="flex justify-center mb-5">
+                <img
+                  src="/lovable-uploads/3af45968-ee0a-4afb-9557-c058030ab8dc.png"
+                  alt="WizChat"
+                  className="w-16 h-16 rounded-2xl shadow-lg"
+                />
+              </div>
+              <h2 className="text-xl font-bold text-foreground mb-2">Install WizChat</h2>
+              <p className="text-sm text-muted-foreground leading-relaxed mb-7">
+                Add WizChat to your home screen for a faster, full-screen experience that works offline.
+              </p>
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={handleInstall}
+                  className="w-full py-3 rounded-full font-semibold text-sm bg-foreground text-background hover:opacity-90 transition-opacity active:scale-[0.98] flex items-center justify-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Install
+                </button>
+                <button
+                  onClick={handleDismiss}
+                  className="w-full py-3 rounded-full font-medium text-sm text-muted-foreground hover:bg-muted transition-colors"
+                >
+                  Not now
+                </button>
+              </div>
+            </motion.div>
           </motion.div>
         </>
       )}
