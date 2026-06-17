@@ -290,7 +290,7 @@ class SearchService {
                 type: 'reel',
                 title: reel.content?.substring(0, 100) || 'Reel',
                 subtitle: `by ${reel.user?.name || 'Unknown'}`,
-                image: reel.image_url || reel.thumbnail_url || undefined,
+                image: reel.image_url || undefined,
                 data: { ...reel, video_url: reel.video_url },
                 timestamp: new Date(reel.created_at).getTime()
               });
