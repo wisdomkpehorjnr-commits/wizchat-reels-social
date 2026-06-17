@@ -217,24 +217,23 @@ export const ReelsFeed: React.FC = () => {
   }
 
   return (
-    <div className="relative w-full h-full bg-black overflow-hidden">
-      {/* For You / Following tabs - sticky at top */}
-      <div className="reels-feed-tabs absolute top-0 left-0 right-0 z-50 pt-3 pb-2 flex justify-center gap-6" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%)' }}>
+    <div className="relative w-full h-full bg-background overflow-hidden">
+      {/* For You / Following tabs - theme-aware sticky pill */}
+      <div className="reels-feed-tabs absolute top-0 left-0 right-0 z-50 pt-3 pb-2 flex justify-center gap-6 bg-background/80 backdrop-blur-xl border-b border-border/40">
         <button
           onClick={() => setActiveTab('foryou')}
-          style={{ color: activeTab === 'foryou' ? '#ffffff' : 'rgba(255,255,255,0.5)' }}
-          className={`text-base font-bold transition-all pb-1 ${activeTab === 'foryou' ? 'border-b-2 border-white' : ''}`}
+          className={`text-base font-bold transition-all pb-1 ${activeTab === 'foryou' ? 'text-foreground border-b-2 border-foreground' : 'text-muted-foreground'}`}
         >
           For You
         </button>
         <button
           onClick={() => setActiveTab('following')}
-          style={{ color: activeTab === 'following' ? '#ffffff' : 'rgba(255,255,255,0.5)' }}
-          className={`text-base font-bold transition-all pb-1 ${activeTab === 'following' ? 'border-b-2 border-white' : ''}`}
+          className={`text-base font-bold transition-all pb-1 ${activeTab === 'following' ? 'text-foreground border-b-2 border-foreground' : 'text-muted-foreground'}`}
         >
           Following
         </button>
       </div>
+
 
       {isDataSaverEnabled && (
         <div className="absolute top-12 left-0 right-0 z-50 bg-yellow-500/90 text-black text-center py-1 text-xs font-bold">

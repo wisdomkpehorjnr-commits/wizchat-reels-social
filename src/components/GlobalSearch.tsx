@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
 import VerifiedBadge from './VerifiedBadge';
 import ImageModal from './ImageModal';
+import ReelSearchPreview from './search/ReelSearchPreview';
 
 interface GlobalSearchProps {
   isOpen: boolean;
@@ -219,20 +220,14 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
   );
 
   const ReelCard = ({ r }: { r: SearchResult }) => (
-    <button onClick={goToReels} className="relative aspect-[9/16] rounded-xl overflow-hidden bg-muted group">
-      {r.image ? (
-        <img src={r.image} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
-      ) : (
-        <div className="absolute inset-0 flex items-center justify-center"><Video className="w-8 h-8 text-muted-foreground" /></div>
-      )}
-      <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
-        <p className="text-xs font-medium text-white truncate text-left">{r.title}</p>
-        <div className="flex items-center gap-2 text-[10px] text-white/90 mt-0.5">
-          <span className="flex items-center gap-0.5"><Heart className="w-3 h-3" />{r.data?.likes_count ?? 0}</span>
-          <span className="flex items-center gap-0.5"><MessageCircle className="w-3 h-3" />{r.data?.comments_count ?? 0}</span>
-        </div>
-      </div>
-    </button>
+    <ReelSearchPreview
+      videoUrl={r.data?.video_url}
+      posterUrl={r.image}
+      title={r.title}
+      likes={r.data?.likes_count}
+      comments={r.data?.comments_count}
+      onClick={goToReels}
+    />
   );
 
   const ImageTile = ({ r }: { r: SearchResult }) => (
