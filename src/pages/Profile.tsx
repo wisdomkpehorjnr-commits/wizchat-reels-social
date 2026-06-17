@@ -22,6 +22,7 @@ import VerificationBadge from '@/components/VerificationBadge';
 import LoadingDots from '@/components/LoadingDots';
 import { cacheService } from '@/services/cacheService';
 import { useImageCache } from '@/hooks/useImageCache';
+import ProfileBackControls from '@/components/profile/ProfileBackControls';
 
 // Cached cover image component - permanently cached, no re-downloads
 const CachedCoverImage: React.FC<{ src: string }> = ({ src }) => {
@@ -542,7 +543,9 @@ const Profile = () => {
 
   return (
     <Layout>
+      <ProfileBackControls />
       <div className="max-w-4xl mx-auto space-y-6">
+
         {/* Profile Header - Always shows from cache */}
         <Card className="relative overflow-hidden backdrop-blur-md bg-white/10 border-white/20 shadow-xl">
           {targetUser?.coverImage && (
