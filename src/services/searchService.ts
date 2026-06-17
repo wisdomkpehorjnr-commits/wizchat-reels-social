@@ -190,7 +190,8 @@ class SearchService {
               type: 'post',
               title: post.content?.substring(0, 100) || 'Post',
               subtitle: `by ${post.user?.name || 'Unknown'}`,
-              image: post.image_url || post.user?.avatar,
+              // Post thumbnail only — never the author's avatar
+              image: post.image_url || undefined,
               data: post,
               timestamp: new Date(post.created_at).getTime()
             });
@@ -282,13 +283,15 @@ class SearchService {
         if (reels) {
           for (const reel of reels) {
             if (reel.video_url) {
+              // Use reel thumbnail/poster ONLY — never the user's avatar.
+              // Pass the video URL too so the UI can generate a frame thumbnail.
               results.push({
                 id: reel.id,
                 type: 'reel',
                 title: reel.content?.substring(0, 100) || 'Reel',
                 subtitle: `by ${reel.user?.name || 'Unknown'}`,
-                image: reel.image_url || reel.user?.avatar,
-                data: reel,
+                image: reel.image_url || reel.thumbnail_url || undefined,
+                data: { ...reel, video_url: reel.video_url },
                 timestamp: new Date(reel.created_at).getTime()
               });
             }
