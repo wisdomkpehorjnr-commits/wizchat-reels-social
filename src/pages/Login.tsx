@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import Logo from '@/components/Logo';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, Eye, EyeOff, Mail, Lock, User } from 'lucide-react';
+import OfflineScreen from '@/components/OfflineScreen';
 
 type Screen = 'welcome' | 'login' | 'signup';
 
@@ -22,8 +23,21 @@ const Login = () => {
   const [name, setName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  useEffect(() => {
+    const on = () => setIsOffline(false);
+    const off = () => setIsOffline(true);
+    window.addEventListener('online', on);
+    window.addEventListener('offline', off);
+    return () => {
+      window.removeEventListener('online', on);
+      window.removeEventListener('offline', off);
+    };
+  }, []);
 
   if (user && !loading) return <Navigate to="/" replace />;
+  if (isOffline) return <OfflineScreen />;
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
