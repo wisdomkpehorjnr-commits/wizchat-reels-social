@@ -93,7 +93,7 @@ const FriendsSuggestionCard = () => {
       toast({
         title: "Error",
         description: "Failed to update follow status",
-        variant: "destructive"
+        variant: "default"
       });
     }
   };
@@ -112,7 +112,7 @@ const FriendsSuggestionCard = () => {
       toast({
         title: "Error",
         description: "Failed to send friend request",
-        variant: "destructive"
+        variant: "default"
       });
     }
   };

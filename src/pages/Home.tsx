@@ -350,7 +350,7 @@ const Home = () => {
         toast({
           title: "Error",
           description: "Failed to share post",
-          variant: "destructive"
+          variant: "default"
         });
       });
     } else {
@@ -366,7 +366,7 @@ const Home = () => {
           toast({
             title: "Error",
             description: "Failed to copy link",
-            variant: "destructive"
+            variant: "default"
           });
         });
     }
@@ -411,7 +411,7 @@ const Home = () => {
       toast({
         title: "Error",
         description: "Failed to refresh feed",
-        variant: "destructive"
+        variant: "default"
       });
     } finally {
       setRefreshing(false);
@@ -452,7 +452,7 @@ const Home = () => {
       toast({
         title: "Error",
         description: "Failed to create post. Please try again.",
-        variant: "destructive"
+        variant: "default"
       });
     }
   };
