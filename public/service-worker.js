@@ -1,9 +1,9 @@
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const ASSET_CACHE = `${CACHE_VERSION}-assets`;
 const API_CACHE = `${CACHE_VERSION}-api`;
 const IMAGE_CACHE = `${CACHE_VERSION}-images`;
 
-const CRITICAL_ASSETS = ['/', '/index.html', '/placeholder.svg', '/robots.txt'];
+const CRITICAL_ASSETS = ['/', '/index.html', '/offline.html', '/placeholder.svg', '/robots.txt'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -81,7 +81,9 @@ async function networkFirstHtml(request) {
     if (cached) return cached;
     const root = await caches.match('/');
     if (root) return root;
-    return new Response('<!doctype html><title>Offline</title><div id="root"></div>', {
+    const offline = await caches.match('/offline.html');
+    if (offline) return offline;
+    return new Response('<!doctype html><title>Offline</title>', {
       status: 200,
       headers: { 'Content-Type': 'text/html; charset=utf-8' },
     });
