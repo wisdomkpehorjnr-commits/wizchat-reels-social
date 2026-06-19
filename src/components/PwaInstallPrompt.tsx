@@ -99,14 +99,14 @@ const PwaInstallPrompt: React.FC = () => {
               <div className="flex flex-col gap-2">
                 <button
                   onClick={handleInstall}
-                  className="w-full py-3 rounded-full font-semibold text-sm bg-foreground text-background hover:opacity-90 transition-opacity active:scale-[0.98] flex items-center justify-center gap-2"
+                  className="w-full py-3 rounded-full font-semibold text-sm bg-primary text-primary-foreground hover:opacity-90 transition-opacity active:scale-[0.98] flex items-center justify-center gap-2 shadow-md"
                 >
                   <Download className="w-4 h-4" />
-                  Install
+                  <span>Install</span>
                 </button>
                 <button
                   onClick={handleDismiss}
-                  className="w-full py-3 rounded-full font-medium text-sm text-muted-foreground hover:bg-muted transition-colors"
+                  className="w-full py-3 rounded-full font-medium text-sm text-foreground/80 hover:bg-muted transition-colors"
                 >
                   Not now
                 </button>

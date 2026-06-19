@@ -3,6 +3,9 @@ import App from './App.tsx'
 import './index.css'
 import { initializeOfflineMode } from './lib/offlineConfig'
 import { setWaitingSW } from './lib/swUpdateState'
+import { initAppFont } from './components/FontSelector'
+
+initAppFont();
 
 // Initialize offline-first mode
 initializeOfflineMode().catch(console.error);

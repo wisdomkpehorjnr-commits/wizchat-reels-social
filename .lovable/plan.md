@@ -1,51 +1,71 @@
-# WizChat — 8-Problem Fix Plan
+## Plan: WizChat 9-Point Fixes
 
-This is a large multi-area pass. Each item lists what changes and where, so you can approve once and I implement straight through.
+### 1. Install Popup Text Visibility
+- `PwaInstallPrompt.tsx`: The "Install" button uses `bg-foreground text-background` which renders black-on-black in Ultra/dark themes (text invisible — matches screenshot). Switch to primary green button: `bg-primary text-primary-foreground` with visible "Install" label + Download icon. Ensure same fix for the "Not now" muted button.
 
-## 1. PWA opening screen — white logo, instant load
-- `index.html`: change the boot splash background to white, keep the WizChat logo centered, remove any dark gradient. Add `<meta name="theme-color" content="#ffffff">`.
-- `public/manifest.json`: `background_color` and `theme_color` → `#ffffff`.
-- App shell renders instantly — no `SplashScreen.tsx` mount, no welcome animation, no white blank wait. The cached shell from the service worker shows immediately.
+### 2. PWA Service-Worker Offline Page
+- Replace the basic "You're offline" SW fallback page (shown in screenshot #1 at app boot when SW serves offline shell) with HTML that mirrors `OfflineScreen.tsx` exactly: centered glass card, WifiOff icon, "No Internet" title, two-line subtitle, white Retry button.
+- Update `public/service-worker.js` offline HTML response (or `public/offline.html`) and ensure it's precached.
 
-## 2. Data Saver toggle for reels
-- `src/pages/Settings.tsx`: ensure a clean "Data Saver Mode" switch (already present via `mediaOptimizationService`) — wire its `autoplayVideos` to OFF when Data Saver is ON.
-- Reels players (`ReelsModern/*`, `reels/widgets/FullscreenVideoPlayer.tsx`) respect `useMediaOptimization().settings.autoplayVideos` — if false, show tap-to-play overlay, otherwise autoplay.
-- Persist via existing localStorage key, no extra storage needed.
+### 3. Remove All Red Error Toasts (offline-triggered)
+- Audit `toast({ variant: 'destructive' })` and `toast.error(...)` calls across the app; wrap network-related ones to silently no-op when `!navigator.onLine` OR remove entirely for offline-typical actions (post, like, comment, follow, send-message, search, refresh).
+- Keep success/info toasts. Keep destructive variant only for explicit user-confirmation dialogs (delete confirms).
+- Search targets: `src/**/*.tsx` + services for `toast.error`, `variant: "destructive"`, "Failed to", "Error".
 
-## 3. Global Search redesigned (Facebook-style)
-Rewrite `src/components/GlobalSearch.tsx` with 6 tabs: All, People, Posts, Images, Groups, Reels.
-- **All**: 5 People (avatar, name, @user, badge, Follow), 5 Posts (PostCard mini), 5 Groups (image, name, members, Join), Reels as card grid. Each section ends with a "More…" link that switches to its tab.
-- **People** tab: list rows with Follow + Add Friend buttons inline (no profile open needed).
-- **Reels** tab: vertical card grid with thumbnail, creator, like/comment/share — respects data saver.
-- **Groups** tab: verified/own groups, member count, recent post preview.
-- **Posts / Images** tabs: full PostCard / image grid.
-- Cached via `offlineDataManager` under `cache-search-<query>` so repeat searches are instant.
+### 4. "People You May Know" — Pinned + Every 30 Posts + Friends-of-Friends
+- Create `src/services/peopleYouMayKnowService.ts`:
+  - Query: friends-of-friends (users followed/friends-of-friends of current user, excluding self & existing friends).
+  - Cache result in IndexedDB/localStorage under `pymk-cache-v1` (TTL 24h, served instantly offline).
+- Update `Home.tsx` feed render: inject the PYMK card after every 30 posts. Always render the first one pinned at the top of the feed (above first post) and again at index 30, 60, 90…
+- Card uses existing `FriendsSuggestionCard.tsx` style; pull from cached service so it shows offline.
 
-## 4. Remove "Cancel" from save/download popups
-- `src/components/PostCard.tsx` and the media long-press popup: drop the explicit Cancel row (sheet dismiss-on-outside still works).
+### 5. WizAi "Unauthorized" Fix
+- Inspect `supabase/functions/wizai-chat/index.ts` for auth checks; likely missing `LOVABLE_API_KEY` env, missing `verify_jwt` config in `supabase/config.toml`, or sending wrong header.
+- Fix: ensure `LOVABLE_API_KEY` secret exists (add via secrets tool if missing), update function to use Lovable AI Gateway (`https://ai.gateway.lovable.dev/v1`) with `Authorization: Bearer ${LOVABLE_API_KEY}` (per Lovable AI docs), and set `verify_jwt = false` in `supabase/config.toml` if function is publicly callable.
+- Redeploy edge function.
 
-## 5. Theme contrast fixes
-- `src/pages/Home.tsx`: "For You" / "Following" tabs use `text-foreground` / `text-muted-foreground` instead of hardcoded black.
-- `src/index.css` ultra-theme block: ensure post action icons (like, comment, share) use `text-foreground` over transparent background, not white-on-white.
-- Audit any `text-black` / `bg-white` on feed headers and replace with semantic tokens.
+### 6. Profile Page Navigation
+- Remove the glass back button from `ProfileBackControls.tsx` (keep swipe-down only) — it overlaps the top-left logo per user.
+- Increase swipe sensitivity: lower threshold from 120px → 60px, start zone from 80px → 160px, allow swipe from anywhere when scrollY≤0.
+- Fix Global Search → Profile → Back navigation: ensure `navigate(-1)` returns to search. Check `GlobalSearch.tsx` — if it uses a modal/overlay (not a route), back goes home. Wrap search navigation so opening a profile pushes the search state, OR route global search to a `/search` page so back works naturally.
 
-## 6. Topics auto-routing — text & images only
-- New migration: update `auto_route_post_to_topic_rooms` trigger to **skip** posts when `NEW.is_reel = true`, when `NEW.video_url IS NOT NULL`, or when `NEW.media_type = 'video'`. Add a "Global News" room match for keywords (news, breaking, headline, politics, world, report). Keep football/tech/music/gossip; drop the Reel Review auto-route entirely.
+### 7. Ultra Theme Visibility (from screenshots)
+- Screenshot #2 (Profile + Saved Post Options): dialog uses white `bg-card` with black close X invisible on white in dark/Ultra — fix dialog to use semantic tokens (already-done check) and ensure close button uses `text-foreground`.
+- Screenshot #3 (Media Options dialog): white-on-white buttons invisible — replace with `bg-secondary text-secondary-foreground` rows with visible labels "Download Media" / "Save to Profile".
+- Screenshot #6 (Chat Settings menu): icons only, no labels visible in Ultra (icons rendered white on white background panel) — add text labels next to each icon AND ensure menu uses theme-aware tokens.
 
-## 7. Profile page works from everywhere
-- Audit every navigation that lands on `/profile/:userId` (Friends, GlobalSearch, comments, post headers, group members, ClickableUserInfo, UserLink).
-- Fix `src/pages/Profile.tsx` so it re-fetches when `useParams().userId` changes (reset state on id change, fetch from `profileService.getProfile(userId)` not from cached current user).
-- `ClickableUserInfo` / `UserLink` always navigate with the user's real id from `profiles.id` (not username, not auth uid).
+### 8. Custom Font Selector in Settings
+- Add a "Typography" / "Font" tab in `Settings.tsx` with preset options: System, Inter, Poppins, Space Grotesk, Playfair, Roboto, Lora, JetBrains Mono.
+- Persist selection in `localStorage` under `wizchat-font-family`.
+- Apply via CSS variable `--app-font` on `<html>` root + global `body { font-family: var(--app-font) }` rule in `index.css`.
+- Load Google Fonts dynamically via `<link>` injection on selection.
 
-## 8. Full permanent offline caching
-- `useImageCache`: bump TTL to effectively permanent (10 years) for avatars + post images, store blobs in IndexedDB once, never re-fetch.
-- `offlineDataManager`: add `cacheSearch`, `cacheGroups`, ensure feed/reels/profile entries use the permanent TTL.
-- Service worker: `CacheFirst` for `avatars/`, `posts/`, `covers/`, `room-media/` storage URLs with no expiry; videos use existing LRU cap.
+### 9. Notification Popup Expand
+- Add Expand icon (lucide `Maximize2`) to header of `NotificationCenter.tsx` / notification dropdown.
+- Onclick: navigate to new full-page route `/notifications` rendering full transparent glass page with:
+  - Glass back arrow (top-left), title "Notifications", list of all notifications.
+  - Cache notifications in localStorage `notifications-cache-v1` so route opens offline.
+- Add route to `App.tsx`.
 
-## Technical notes
-- One DB migration (topic trigger).
-- One file rewrite: `GlobalSearch.tsx`.
-- Targeted edits: `index.html`, `manifest.json`, `Home.tsx`, `Profile.tsx`, `ClickableUserInfo.tsx`, `UserLink.tsx`, `PostCard.tsx`, `index.css`, `useImageCache.tsx`, `offlineDataManager.ts`, reels player components, `public/service-worker.js`.
-- No new dependencies.
+### Theme Awareness
+- Every new/touched component uses semantic tokens (`bg-card`, `text-foreground`, `bg-primary`, etc.). No hardcoded colors.
 
-Approve and I'll implement all 8 in one pass.
+### Files Created
+- `src/services/peopleYouMayKnowService.ts`
+- `src/components/PeopleYouMayKnowCard.tsx` (or update existing)
+- `src/pages/Notifications.tsx`
+- `public/offline.html` (or inline in SW)
+
+### Files Modified
+- `src/components/PwaInstallPrompt.tsx`
+- `public/service-worker.js`
+- `src/pages/Home.tsx`
+- `supabase/functions/wizai-chat/index.ts`, `supabase/config.toml`
+- `src/components/profile/ProfileBackControls.tsx`
+- `src/components/GlobalSearch.tsx` (route push)
+- `src/components/chat/ChatSettingsMenu.tsx` (labels)
+- `src/components/PostCard.tsx` (Media Options dialog)
+- `src/pages/Profile.tsx` (Saved Post Options dialog)
+- `src/pages/Settings.tsx`, `src/index.css` (font system)
+- `src/components/NotificationCenter.tsx`, `src/App.tsx`
+- Multiple files: removal of red offline toasts
