@@ -81,7 +81,8 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
   }, [results]);
 
   const goToProfile = (r: SearchResult) => {
-    onClose();
+    // DON'T close the search modal — Home persists `showSearch` in sessionStorage,
+    // so when the user hits back from the profile they return to the open search.
     const id = r.data?.id || r.id;
     navigate(`/profile/${id}`);
   };

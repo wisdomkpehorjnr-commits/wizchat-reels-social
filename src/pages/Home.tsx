@@ -105,7 +105,17 @@ const Home = () => {
   const [loading, setLoading] = useState(!hasCachedPosts);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<Error | null>(null);
-  const [showSearch, setShowSearch] = useState(false);
+  const [showSearch, setShowSearch] = useState<boolean>(() => {
+    try { return sessionStorage.getItem('wizchat_search_open') === '1'; } catch { return false; }
+  });
+
+  // Persist search-open state so navigating to a profile and back keeps search visible
+  useEffect(() => {
+    try {
+      if (showSearch) sessionStorage.setItem('wizchat_search_open', '1');
+      else sessionStorage.removeItem('wizchat_search_open');
+    } catch {}
+  }, [showSearch]);
   
   const hasLoadedRef = useRef(false);
   const scrollRestoredRef = useRef(false);
