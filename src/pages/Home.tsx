@@ -5,6 +5,7 @@ import PostCard from '@/components/PostCard';
 import StoriesSection from '@/components/StoriesSection';
 import WatchReelsCard from '@/components/WatchReelsCard';
 import FriendsSuggestionCard from '@/components/FriendsSuggestionCard';
+import PeopleYouMayKnowCard from '@/components/PeopleYouMayKnowCard';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Search } from 'lucide-react';
 import { dataService } from '@/services/dataService';
@@ -298,15 +299,10 @@ const Home = () => {
       console.debug('[Home] Fetched', sortedPosts.length, 'posts (silent:', silent, ')');
     } catch (error) {
       console.error('Error fetching posts:', error);
-      // Only show error if we have no cached data to display
+      // Silently fail — never show red error popups for offline / network issues
       if (homeStore.posts.length === 0) {
         const err = error instanceof Error ? error : new Error('Failed to fetch posts');
         setError(err);
-        toast({
-          title: "Error",
-          description: "Failed to load posts",
-          variant: "destructive"
-        });
       }
     } finally {
       setLoading(false);
@@ -538,8 +534,10 @@ const Home = () => {
             onRetry={() => loadPosts()}
           >
             <div className="space-y-6">
+              {/* Pinned PYMK card — always visible, including offline */}
+              <PeopleYouMayKnowCard />
               {regularPosts.map((post, index) => {
-                const shouldShowSuggestion = (index + 1) % 60 === 0;
+                const shouldShowPymk = (index + 1) % 30 === 0;
 
                 return (
                   <div key={post.id} data-post-id={post.id}>
@@ -547,8 +545,8 @@ const Home = () => {
                       post={post}
                       onPostUpdate={loadPosts}
                     />
-                    {shouldShowSuggestion && (
-                      <FriendsSuggestionCard />
+                    {shouldShowPymk && (
+                      <PeopleYouMayKnowCard />
                     )}
                   </div>
                 );
