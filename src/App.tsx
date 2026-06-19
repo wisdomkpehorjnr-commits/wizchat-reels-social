@@ -33,6 +33,7 @@ const Admin = lazy(() => import("./pages/Admin"));
 const Settings = lazy(() => import("./pages/Settings"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const FollowersFollowing = lazy(() => import("./pages/FollowersFollowing"));
+const NotificationsPage = lazy(() => import("./pages/Notifications"));
 
 // ✅ Avatar customization page
 const AvatarStudio = lazy(() => import("./components/AvatarStudio"));
@@ -216,6 +217,14 @@ const App = () => {
                   element={
                     <ProtectedRoute>
                       <Settings />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/notifications"
+                  element={
+                    <ProtectedRoute>
+                      <NotificationsPage />
                     </ProtectedRoute>
                   }
                 />

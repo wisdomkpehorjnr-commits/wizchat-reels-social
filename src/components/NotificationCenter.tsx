@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Bell, BellOff, Check, X } from 'lucide-react';
+import { Bell, BellOff, Check, X, Maximize2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Notification } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
@@ -262,16 +262,27 @@ const NotificationCenter: React.FC = () => {
               </Badge>
             )}
           </CardTitle>
-          {unreadCount > 0 && (
+          <div className="flex items-center gap-1">
             <Button
               size="sm"
               variant="ghost"
-              onClick={markAllAsRead}
+              onClick={() => navigate('/notifications')}
+              aria-label="Expand notifications"
+              title="Open full view"
             >
-              <Check className="w-4 h-4 mr-1" />
-              Mark all read
+              <Maximize2 className="w-4 h-4" />
             </Button>
-          )}
+            {unreadCount > 0 && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={markAllAsRead}
+              >
+                <Check className="w-4 h-4 mr-1" />
+                Mark all read
+              </Button>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-3 max-h-96 overflow-y-auto">
