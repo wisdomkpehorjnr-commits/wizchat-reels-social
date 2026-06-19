@@ -53,6 +53,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useMediaOptimization } from '@/hooks/useMediaOptimization';
+import FontSelector from '@/components/FontSelector';
 
 const ThemeSelector = () => {
   const { themeMode, setThemeMode } = useTheme();
@@ -930,12 +931,13 @@ const Settings = () => {
                 </CardTitle>
                 <CardDescription>Customize how the app looks</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-6">
                 <div className="space-y-3">
                   <Label>Theme</Label>
                   <p className="text-sm text-muted-foreground">Choose a theme for your app experience</p>
                   <ThemeSelector />
                 </div>
+                <FontSelector />
               </CardContent>
             </Card>
           </TabsContent>
