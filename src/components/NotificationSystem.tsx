@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Bell, Check, X, User, MessageCircle, Heart, UserPlus } from 'lucide-react';
+import { Bell, Check, X, User, MessageCircle, Heart, UserPlus, Maximize2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -454,18 +454,30 @@ const NotificationSystem = () => {
       <PopoverContent className="w-80 p-0" align="end">
         <Card className="border-none shadow-none">
           <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <CardTitle className="text-base text-foreground">Notifications</CardTitle>
-              {unreadCount > 0 && (
+              <div className="flex items-center gap-1">
+                {unreadCount > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={markAllAsRead}
+                    className="text-xs text-primary hover:text-primary/80"
+                  >
+                    Mark all as read
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
-                  size="sm"
-                  onClick={markAllAsRead}
-                  className="text-xs text-primary hover:text-primary/80"
+                  size="icon"
+                  onClick={() => { setOpen(false); navigate('/notifications'); }}
+                  aria-label="Expand notifications"
+                  title="Open full view"
+                  className="h-8 w-8 text-foreground"
                 >
-                  Mark all as read
+                  <Maximize2 className="w-4 h-4" />
                 </Button>
-              )}
+              </div>
             </div>
           </CardHeader>
           
