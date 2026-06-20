@@ -29,6 +29,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { badges, clearBadge } = useNotificationBadges();
+  const avatarSrc = user?.photoURL || user?.avatar || '';
+  const { cachedUrl: cachedAvatar } = useImageCache(avatarSrc);
 
   const navItems = [
     { icon: Home, label: 'Home', path: '/', badge: 0 }, // No badge for Home
