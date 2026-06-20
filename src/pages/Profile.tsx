@@ -206,6 +206,8 @@ const Profile = () => {
   const [contentLoading, setContentLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [friendStatus, setFriendStatus] = useState<'none' | 'pending' | 'accepted'>('none');
+  const [friendBusy, setFriendBusy] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showImageModal, setShowImageModal] = useState<string | null>(null);
   const [showAvatarStudio, setShowAvatarStudio] = useState(false);
