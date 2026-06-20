@@ -374,6 +374,17 @@ const Profile = () => {
         if (!isOwnProfile && currentUserId !== user?.id) {
           const following = await ProfileService.isFollowing(currentUserId);
           setIsFollowing(following);
+          // Check friend status
+          try {
+            const { data: fr } = await supabase
+              .from('friends')
+              .select('status, requester_id, addressee_id')
+              .or(`and(requester_id.eq.${user?.id},addressee_id.eq.${currentUserId}),and(requester_id.eq.${currentUserId},addressee_id.eq.${user?.id})`)
+              .maybeSingle();
+            if (fr?.status === 'accepted') setFriendStatus('accepted');
+            else if (fr?.status === 'pending') setFriendStatus('pending');
+            else setFriendStatus('none');
+          } catch { setFriendStatus('none'); }
         }
 
       } catch (err: any) {
