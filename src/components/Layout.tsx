@@ -14,6 +14,7 @@ import {
 import { Home, PlayCircle, MessageCircle, Users, User, Settings, MessageSquare, Crown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotificationBadges } from '@/hooks/useNotificationBadges';
+import { useImageCache } from '@/hooks/useImageCache';
 import Logo from './Logo';
 import ThemeToggle from './ThemeToggle';
 import NotificationSystem from './NotificationSystem';
