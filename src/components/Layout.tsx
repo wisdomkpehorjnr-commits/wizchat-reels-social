@@ -72,23 +72,24 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const homeTapRef = useRef<{ count: number; timer: NodeJS.Timeout | null }>({ count: 0, timer: null });
 
   const handleHomeClick = (e: React.MouseEvent) => {
-    // Double-tap to scroll to top when already on home page
+    // Multi-tap (2+) on Home tab scrolls to top
     if (location.pathname === '/') {
       e.preventDefault();
-      
+
       homeTapRef.current.count += 1;
-      
+
       if (homeTapRef.current.timer) {
         clearTimeout(homeTapRef.current.timer);
       }
-      
+
+      // Scroll to top on every tap after the first within the window
+      if (homeTapRef.current.count >= 2) {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+
       homeTapRef.current.timer = setTimeout(() => {
-        if (homeTapRef.current.count === 2) {
-          // Double tap detected - scroll to top
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
         homeTapRef.current.count = 0;
-      }, 300);
+      }, 400);
     }
   };
 
