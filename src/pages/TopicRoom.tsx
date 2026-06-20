@@ -38,6 +38,13 @@ const TopicRoom = () => {
   const [showFlash, setShowFlash] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingPosts, setLoadingPosts] = useState(true);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setShowScrollTop(window.scrollY > 500);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   useEffect(() => {
     if (roomId && user?.id) {
