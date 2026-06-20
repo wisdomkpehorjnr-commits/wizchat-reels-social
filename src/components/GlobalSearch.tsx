@@ -24,8 +24,12 @@ interface GlobalSearchProps {
 type TabKey = 'all' | 'people' | 'posts' | 'images' | 'groups' | 'reels';
 
 const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
-  const [query, setQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<TabKey>('all');
+  const [query, setQuery] = useState<string>(() => {
+    try { return sessionStorage.getItem('wizchat_search_query') || ''; } catch { return ''; }
+  });
+  const [activeTab, setActiveTab] = useState<TabKey>(() => {
+    try { return (sessionStorage.getItem('wizchat_search_tab') as TabKey) || 'all'; } catch { return 'all'; }
+  });
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
@@ -39,6 +43,14 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [imageModalSrc, setImageModalSrc] = useState('');
+
+  // Persist query + tab so swiping back from a profile restores results
+  useEffect(() => {
+    try { sessionStorage.setItem('wizchat_search_query', query); } catch {}
+  }, [query]);
+  useEffect(() => {
+    try { sessionStorage.setItem('wizchat_search_tab', activeTab); } catch {}
+  }, [activeTab]);
 
   useEffect(() => {
     if (isOpen) {
