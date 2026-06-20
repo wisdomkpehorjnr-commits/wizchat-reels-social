@@ -7,6 +7,23 @@ import { initAppFont } from './components/FontSelector'
 
 initAppFont();
 
+// Apply persisted accessibility settings (font size + language) on boot
+try {
+  const raw = localStorage.getItem('app_settings');
+  if (raw) {
+    const s = JSON.parse(raw);
+    if (s?.fontSize && typeof s.fontSize === 'number') {
+      document.documentElement.style.fontSize = `${s.fontSize}px`;
+    }
+    if (s?.language && typeof s.language === 'string') {
+      document.documentElement.lang = s.language;
+      const rtl = ['ar', 'he', 'fa', 'ur'];
+      document.documentElement.dir = rtl.includes(s.language) ? 'rtl' : 'ltr';
+    }
+    if (s?.highContrast) document.documentElement.classList.add('high-contrast');
+  }
+} catch {}
+
 // Initialize offline-first mode
 initializeOfflineMode().catch(console.error);
 

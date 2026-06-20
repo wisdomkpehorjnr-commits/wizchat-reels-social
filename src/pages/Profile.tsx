@@ -11,7 +11,7 @@ import { dataService } from '@/services/dataService';
 import { ProfileService } from '@/services/profileService';
 import { Post, SavedPost, Follow } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
-import { Calendar, MapPin, Link as LinkIcon, Edit, MessageCircle, UserPlus, UserMinus, Bookmark, Users, UserCircle, WifiOff, Trash2, X } from 'lucide-react';
+import { Calendar, MapPin, Link as LinkIcon, Edit, MessageCircle, UserPlus, UserMinus, Bookmark, Users, UserCircle, WifiOff, Trash2, X, UserCheck, Check, Download } from 'lucide-react';
 import EditProfileDialog from '@/components/EditProfileDialog';
 import PostCard from '@/components/PostCard';
 import ImageModal from '@/components/ImageModal';
@@ -206,6 +206,8 @@ const Profile = () => {
   const [contentLoading, setContentLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [friendStatus, setFriendStatus] = useState<'none' | 'pending' | 'accepted'>('none');
+  const [friendBusy, setFriendBusy] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showImageModal, setShowImageModal] = useState<string | null>(null);
   const [showAvatarStudio, setShowAvatarStudio] = useState(false);
@@ -372,6 +374,17 @@ const Profile = () => {
         if (!isOwnProfile && currentUserId !== user?.id) {
           const following = await ProfileService.isFollowing(currentUserId);
           setIsFollowing(following);
+          // Check friend status
+          try {
+            const { data: fr } = await supabase
+              .from('friends')
+              .select('status, requester_id, addressee_id')
+              .or(`and(requester_id.eq.${user?.id},addressee_id.eq.${currentUserId}),and(requester_id.eq.${currentUserId},addressee_id.eq.${user?.id})`)
+              .maybeSingle();
+            if (fr?.status === 'accepted') setFriendStatus('accepted');
+            else if (fr?.status === 'pending') setFriendStatus('pending');
+            else setFriendStatus('none');
+          } catch { setFriendStatus('none'); }
         }
 
       } catch (err: any) {
@@ -600,7 +613,7 @@ const Profile = () => {
                   <div className="text-center cursor-pointer hover:opacity-80 transition-opacity" onClick={() => navigate(`/followers/${targetUser?.id || user?.id}/following`)}><p className="text-2xl font-bold">{targetUser?.followingCount || 0}</p><p className="text-sm text-muted-foreground">Following</p></div>
                 </div>
 
-                <div className="flex space-x-2 ml-auto">
+                <div className="flex flex-wrap gap-2 ml-auto">
                   {isOwnProfile ? (
                     <>
                       <Button variant="outline" onClick={() => setShowEditDialog(true)}><Edit className="w-4 h-4 mr-2" />Edit Profile</Button>
@@ -608,12 +621,19 @@ const Profile = () => {
                     </>
                   ) : (
                     <>
-                      <Button variant="outline" onClick={handleFollow}>
+                      <Button
+                        onClick={handleFollow}
+                        className={`group relative overflow-hidden rounded-full px-5 h-10 font-semibold shadow-sm transition-all duration-300 active:scale-95 ${
+                          isFollowing
+                            ? 'bg-muted text-foreground hover:bg-muted/80 border border-border'
+                            : 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-primary/20'
+                        }`}
+                      >
                         {isFollowing ? <UserMinus className="w-4 h-4 mr-2" /> : <UserPlus className="w-4 h-4 mr-2" />}
-                        {isFollowing ? 'Unfollow' : 'Follow'}
+                        <span>{isFollowing ? 'Following' : 'Follow'}</span>
                       </Button>
-                      <Button 
-                        variant="outline"
+
+                      <Button
                         onClick={async () => {
                           if (!targetUser?.id || !user?.id) return;
                           try {
@@ -623,18 +643,64 @@ const Profile = () => {
                             if (error) throw error;
                             navigate('/chat');
                             setTimeout(() => {
-                              window.dispatchEvent(new CustomEvent('openChatWithUser', { 
-                                detail: { userId: targetUser.id, chatId } 
+                              window.dispatchEvent(new CustomEvent('openChatWithUser', {
+                                detail: { userId: targetUser.id, chatId }
                               }));
                             }, 300);
                           } catch (error) {
                             console.error('Error opening chat:', error);
-                            toast({ title: "Error", description: "Failed to open chat.", variant: "destructive" });
                           }
                         }}
+                        variant="outline"
+                        className="rounded-full px-5 h-10 font-semibold border-border bg-background hover:bg-accent hover:text-accent-foreground transition-all duration-300 active:scale-95"
                       >
                         <MessageCircle className="w-4 h-4 mr-2" />
                         Message
+                      </Button>
+
+                      <Button
+                        disabled={friendBusy || friendStatus === 'accepted'}
+                        onClick={async () => {
+                          if (!user?.id || !targetUser?.id) return;
+                          setFriendBusy(true);
+                          try {
+                            if (friendStatus === 'none') {
+                              await supabase.from('friends').insert({
+                                requester_id: user.id,
+                                addressee_id: targetUser.id,
+                                status: 'pending',
+                              });
+                              setFriendStatus('pending');
+                              toast({ title: 'Request sent', description: `Friend request sent to ${targetUser.name}` });
+                            } else if (friendStatus === 'pending') {
+                              await supabase
+                                .from('friends')
+                                .delete()
+                                .or(`and(requester_id.eq.${user.id},addressee_id.eq.${targetUser.id}),and(requester_id.eq.${targetUser.id},addressee_id.eq.${user.id})`);
+                              setFriendStatus('none');
+                              toast({ title: 'Request cancelled' });
+                            }
+                          } catch (e) {
+                            console.error('Friend action failed:', e);
+                          } finally {
+                            setFriendBusy(false);
+                          }
+                        }}
+                        className={`rounded-full px-5 h-10 font-semibold transition-all duration-300 active:scale-95 ${
+                          friendStatus === 'accepted'
+                            ? 'bg-primary/15 text-primary hover:bg-primary/20 border border-primary/30'
+                            : friendStatus === 'pending'
+                            ? 'bg-muted text-foreground border border-border hover:bg-muted/80'
+                            : 'bg-gradient-to-r from-primary to-primary/80 text-primary-foreground hover:opacity-90 shadow-sm shadow-primary/20'
+                        }`}
+                      >
+                        {friendStatus === 'accepted' ? (
+                          <><UserCheck className="w-4 h-4 mr-2" />Friends</>
+                        ) : friendStatus === 'pending' ? (
+                          <><Check className="w-4 h-4 mr-2" />Requested</>
+                        ) : (
+                          <><UserPlus className="w-4 h-4 mr-2" />Add Friend</>
+                        )}
                       </Button>
                     </>
                   )}
@@ -807,14 +873,27 @@ const Profile = () => {
             <DialogTitle>Saved Post Options</DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
-            <Button 
-              variant="outline" 
-              className="w-full justify-start" 
+            <Button
+              variant="outline"
+              className="w-full justify-start"
               onClick={() => selectedSaved?.post?.imageUrl && downloadMedia(selectedSaved.post.imageUrl)}
             >
+              <Download className="w-4 h-4 mr-2" />
               Download Media
             </Button>
-            {/* Cancel removed — dismiss by tapping outside the dialog */}
+            <Button
+              variant="outline"
+              className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
+              onClick={async () => {
+                if (!selectedSaved) return;
+                await handleUnsavePost(selectedSaved.id, selectedSaved.postId);
+                setShowSavedOptions(false);
+                setSelectedSaved(null);
+              }}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Remove from Saved
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

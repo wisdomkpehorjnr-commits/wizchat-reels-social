@@ -14,6 +14,7 @@ import {
 import { Home, PlayCircle, MessageCircle, Users, User, Settings, MessageSquare, Crown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotificationBadges } from '@/hooks/useNotificationBadges';
+import { useImageCache } from '@/hooks/useImageCache';
 import Logo from './Logo';
 import ThemeToggle from './ThemeToggle';
 import NotificationSystem from './NotificationSystem';
@@ -28,6 +29,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { badges, clearBadge } = useNotificationBadges();
+  const avatarSrc = user?.photoURL || user?.avatar || '';
+  const { cachedUrl: cachedAvatar } = useImageCache(avatarSrc);
 
   const navItems = [
     { icon: Home, label: 'Home', path: '/', badge: 0 }, // No badge for Home
@@ -69,23 +72,24 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const homeTapRef = useRef<{ count: number; timer: NodeJS.Timeout | null }>({ count: 0, timer: null });
 
   const handleHomeClick = (e: React.MouseEvent) => {
-    // Double-tap to scroll to top when already on home page
+    // Multi-tap (2+) on Home tab scrolls to top
     if (location.pathname === '/') {
       e.preventDefault();
-      
+
       homeTapRef.current.count += 1;
-      
+
       if (homeTapRef.current.timer) {
         clearTimeout(homeTapRef.current.timer);
       }
-      
+
+      // Scroll to top on every tap after the first within the window
+      if (homeTapRef.current.count >= 2) {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+
       homeTapRef.current.timer = setTimeout(() => {
-        if (homeTapRef.current.count === 2) {
-          // Double tap detected - scroll to top
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
         homeTapRef.current.count = 0;
-      }, 300);
+      }, 400);
     }
   };
 
@@ -138,13 +142,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0 ring-2 ring-primary ring-offset-2 ring-offset-background transition-all hover:ring-primary/80">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={user?.photoURL || user?.avatar} alt={user?.name} />
-                    <AvatarFallback className="text-foreground">
+                    <AvatarImage src={cachedAvatar || avatarSrc} alt={user?.name} />
+                    <AvatarFallback className="text-foreground bg-muted">
                       {user?.name?.charAt(0) || user?.email?.charAt(0)}
                     </AvatarFallback>
                   </Avatar>
+                  <span className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-primary ring-2 ring-background" aria-label="online" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent
