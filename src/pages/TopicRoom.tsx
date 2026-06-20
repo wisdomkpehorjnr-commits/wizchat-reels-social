@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Camera, Video, X, RefreshCw } from "lucide-react";
+import { ArrowLeft, Camera, Video, X, RefreshCw, ArrowUp } from "lucide-react";
 import RoomPostCard from '@/components/RoomPostCard';
 
 interface PostType {
