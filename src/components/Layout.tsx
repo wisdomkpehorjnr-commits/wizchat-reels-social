@@ -142,13 +142,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0 ring-2 ring-primary ring-offset-2 ring-offset-background transition-all hover:ring-primary/80">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={user?.photoURL || user?.avatar} alt={user?.name} />
-                    <AvatarFallback className="text-foreground">
+                    <AvatarImage src={cachedAvatar || avatarSrc} alt={user?.name} />
+                    <AvatarFallback className="text-foreground bg-muted">
                       {user?.name?.charAt(0) || user?.email?.charAt(0)}
                     </AvatarFallback>
                   </Avatar>
+                  <span className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-primary ring-2 ring-background" aria-label="online" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent
