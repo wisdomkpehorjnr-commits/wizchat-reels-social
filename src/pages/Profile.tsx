@@ -873,14 +873,27 @@ const Profile = () => {
             <DialogTitle>Saved Post Options</DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
-            <Button 
-              variant="outline" 
-              className="w-full justify-start" 
+            <Button
+              variant="outline"
+              className="w-full justify-start"
               onClick={() => selectedSaved?.post?.imageUrl && downloadMedia(selectedSaved.post.imageUrl)}
             >
+              <Download className="w-4 h-4 mr-2" />
               Download Media
             </Button>
-            {/* Cancel removed — dismiss by tapping outside the dialog */}
+            <Button
+              variant="outline"
+              className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
+              onClick={async () => {
+                if (!selectedSaved) return;
+                await handleUnsavePost(selectedSaved.id, selectedSaved.postId);
+                setShowSavedOptions(false);
+                setSelectedSaved(null);
+              }}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Remove from Saved
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
