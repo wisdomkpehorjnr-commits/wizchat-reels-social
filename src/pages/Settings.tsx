@@ -165,6 +165,24 @@ const Settings = () => {
     } catch {}
   }, []);
 
+  // LIVE: apply font size to <html> root so all rem-based UI scales smoothly
+  useEffect(() => {
+    document.documentElement.style.transition = 'font-size 0.2s ease';
+    document.documentElement.style.fontSize = `${fontSize[0]}px`;
+  }, [fontSize]);
+
+  // LIVE: apply language and text direction
+  useEffect(() => {
+    document.documentElement.lang = language;
+    const rtl = ['ar', 'he', 'fa', 'ur'];
+    document.documentElement.dir = rtl.includes(language) ? 'rtl' : 'ltr';
+  }, [language]);
+
+  // LIVE: apply high-contrast class
+  useEffect(() => {
+    document.documentElement.classList.toggle('high-contrast', highContrast);
+  }, [highContrast]);
+
   const handleSaveSettings = () => {
     const settings = {
       fontSize: fontSize[0],
