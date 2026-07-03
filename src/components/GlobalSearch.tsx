@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, X, User, FileText, Image as ImageIcon, Users, Clock, Trash2, Heart, MessageCircle, Share2, UserPlus } from 'lucide-react';
+import { Search, X, User, FileText, Image as ImageIcon, Users, Clock, Trash2, Heart, MessageCircle, Share2, UserPlus, ChevronRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';

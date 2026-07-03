@@ -116,9 +116,13 @@ export const dataService = {
     const insertData: any = {
       user_id: user.id,
       content: postData.content || '',
-      media_type: postData.mediaType || 'text',
-      is_reel: postData.isReel || false
+      media_type: postData.mediaType === 'image' ? 'image' : 'text',
+      is_reel: false
     };
+
+    if (postData.videoUrl || postData.mediaType === 'video' || postData.isReel) {
+      throw new Error('Video and reels are disabled while storage is being stabilized.');
+    }
 
     // Handle images - store first image in image_url column
     if (postData.imageUrls && Array.isArray(postData.imageUrls) && postData.imageUrls.length > 0) {
@@ -130,12 +134,6 @@ export const dataService = {
       insertData.image_url = postData.imageUrl;
       insertData.media_type = 'image';
       console.log('Setting image_url:', insertData.image_url);
-    }
-
-    // Handle video
-    if (postData.videoUrl) {
-      insertData.video_url = postData.videoUrl;
-      insertData.media_type = 'video';
     }
 
     console.log('Insert data:', insertData);
