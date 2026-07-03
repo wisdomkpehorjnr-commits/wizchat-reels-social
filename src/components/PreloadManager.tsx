@@ -10,7 +10,6 @@ const preloadChunks = async () => {
     // Pre-load all lazy-loaded page chunks by importing them dynamically
     // This forces webpack/vite to bundle them and service worker can cache them
     const chunks = [
-      () => import(/* webpackPrefetch: true */ '../pages/Reels'),
       () => import(/* webpackPrefetch: true */ '../pages/Chat'),
       () => import(/* webpackPrefetch: true */ '../pages/ChatRoom'),
       () => import(/* webpackPrefetch: true */ '../pages/Topics'),

@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Home, PlayCircle, MessageCircle, Users, User, Settings, MessageSquare, Crown } from 'lucide-react';
+import { Home, MessageCircle, Users, User, Settings, MessageSquare, Crown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotificationBadges } from '@/hooks/useNotificationBadges';
 import { useImageCache } from '@/hooks/useImageCache';
@@ -34,7 +34,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const navItems = [
     { icon: Home, label: 'Home', path: '/', badge: 0 }, // No badge for Home
-    { icon: PlayCircle, label: 'Reels', path: '/reels', badge: badges.reels },
     { icon: MessageCircle, label: 'Chat', path: '/chat', badge: 0 },
     { icon: Users, label: 'Friends', path: '/friends', badge: badges.friends },
     { icon: MessageSquare, label: 'Topics', path: '/topics', badge: badges.topics },
@@ -44,7 +43,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   useEffect(() => {
     const tabMap: { [key: string]: keyof typeof badges } = {
       '/': 'home',
-      '/reels': 'reels',
       '/chat': 'chat',
       '/friends': 'friends',
       '/topics': 'topics'
