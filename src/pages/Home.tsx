@@ -3,7 +3,6 @@ import Layout from '@/components/Layout';
 import CreatePost from '@/components/CreatePost';
 import PostCard from '@/components/PostCard';
 import StoriesSection from '@/components/StoriesSection';
-import WatchReelsCard from '@/components/WatchReelsCard';
 import FriendsSuggestionCard from '@/components/FriendsSuggestionCard';
 import PeopleYouMayKnowCard from '@/components/PeopleYouMayKnowCard';
 import { Button } from '@/components/ui/button';
@@ -468,8 +467,7 @@ const Home = () => {
   };
 
   // Memoize post lists
-  const regularPosts = useMemo(() => posts.filter(post => !post.isReel), [posts]);
-  const reelPosts = useMemo(() => posts.filter(post => post.isReel || post.videoUrl), [posts]);
+  const regularPosts = useMemo(() => posts.filter(post => !post.isReel && !post.videoUrl && post.mediaType !== 'video'), [posts]);
 
   return (
     <Layout>
@@ -506,13 +504,6 @@ const Home = () => {
           <div className="mb-6">
             <CreatePost onPostCreated={handlePostCreated} />
           </div>
-
-          {/* Watch Reels Section */}
-          {reelPosts.length > 0 && (
-            <div className="mb-6">
-              <WatchReelsCard reelPosts={reelPosts} />
-            </div>
-          )}
 
           {/* Posts Feed with SmartLoading */}
           <SmartLoading
