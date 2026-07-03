@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, X, User, FileText, Image as ImageIcon, Users, Video, Clock, Trash2, Heart, MessageCircle, Share2, UserPlus, ChevronRight } from 'lucide-react';
+import { Search, X, User, FileText, Image as ImageIcon, Users, Clock, Trash2, Heart, MessageCircle, Share2, UserPlus, ChevronRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -14,14 +14,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
 import VerifiedBadge from './VerifiedBadge';
 import ImageModal from './ImageModal';
-import ReelSearchPreview from './search/ReelSearchPreview';
 
 interface GlobalSearchProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-type TabKey = 'all' | 'people' | 'posts' | 'images' | 'groups' | 'reels';
+type TabKey = 'all' | 'people' | 'posts' | 'images' | 'groups';
 
 const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
   const [query, setQuery] = useState<string>(() => {
@@ -87,7 +86,7 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
 
   // Group results by type
   const grouped = useMemo(() => {
-    const g: Record<string, SearchResult[]> = { people: [], post: [], image: [], group: [], reel: [] };
+    const g: Record<string, SearchResult[]> = { people: [], post: [], image: [], group: [] };
     for (const r of results) if (g[r.type]) g[r.type].push(r);
     return g;
   }, [results]);
@@ -99,7 +98,6 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
     navigate(`/profile/${id}`);
   };
 
-  const goToReels = () => { onClose(); navigate('/reels'); };
   const goToPosts = () => { onClose(); navigate('/'); };
   const goToGroup = (r: SearchResult) => { onClose(); navigate(`/topic-room/${r.id}`); };
 
@@ -232,17 +230,6 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
     </Card>
   );
 
-  const ReelCard = ({ r }: { r: SearchResult }) => (
-    <ReelSearchPreview
-      videoUrl={r.data?.video_url}
-      posterUrl={r.image}
-      title={r.title}
-      likes={r.data?.likes_count}
-      comments={r.data?.comments_count}
-      onClick={goToReels}
-    />
-  );
-
   const ImageTile = ({ r }: { r: SearchResult }) => (
     <button onClick={() => openImage(r.image)} className="relative aspect-square rounded-lg overflow-hidden bg-muted">
       {r.image ? (
@@ -268,9 +255,8 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
     const ppl = grouped.people.slice(0, 5);
     const psts = grouped.post.slice(0, 5);
     const grps = grouped.group.slice(0, 5);
-    const rls = grouped.reel.slice(0, 6);
     const imgs = grouped.image.slice(0, 6);
-    const empty = !ppl.length && !psts.length && !grps.length && !rls.length && !imgs.length;
+    const empty = !ppl.length && !psts.length && !grps.length && !imgs.length;
     if (empty) return <div className="p-8 text-center"><p className="text-muted-foreground">No results found</p></div>;
     return (
       <div className="p-4 pb-12 space-y-1">
@@ -285,10 +271,6 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
         {grps.length > 0 && (<>
           <SectionHeader title="Groups" onMore={grps.length === 5 ? () => setActiveTab('groups') : undefined} />
           <div className="space-y-2">{grps.map(r => <GroupRow key={`g-${r.id}`} r={r} />)}</div>
-        </>)}
-        {rls.length > 0 && (<>
-          <SectionHeader title="Reels" onMore={rls.length === 6 ? () => setActiveTab('reels') : undefined} />
-          <div className="grid grid-cols-3 gap-2">{rls.map(r => <ReelCard key={`r-${r.id}`} r={r} />)}</div>
         </>)}
         {imgs.length > 0 && (<>
           <SectionHeader title="Images" onMore={imgs.length === 6 ? () => setActiveTab('images') : undefined} />
@@ -320,11 +302,6 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
       if (!list.length) return <div className="p-8 text-center text-muted-foreground">No groups found</div>;
       return <div className="p-4 space-y-2">{list.map(r => <GroupRow key={r.id} r={r} />)}</div>;
     }
-    if (activeTab === 'reels') {
-      const list = grouped.reel;
-      if (!list.length) return <div className="p-8 text-center text-muted-foreground">No reels found</div>;
-      return <div className="p-4 grid grid-cols-2 gap-2">{list.map(r => <ReelCard key={r.id} r={r} />)}</div>;
-    }
     return null;
   };
 
@@ -342,7 +319,7 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
               ref={inputRef}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search people, posts, images, groups, reels..."
+              placeholder="Search people, posts, images, groups..."
               className="pl-10 pr-10"
             />
             {query && (
@@ -361,7 +338,6 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
             <TabsTrigger value="posts">Posts</TabsTrigger>
             <TabsTrigger value="images">Images</TabsTrigger>
             <TabsTrigger value="groups">Groups</TabsTrigger>
-            <TabsTrigger value="reels">Reels</TabsTrigger>
           </TabsList>
 
           <div className="flex-1 overflow-auto touch-pan-y min-h-0" style={{ WebkitOverflowScrolling: 'touch' as any, touchAction: 'pan-y', overscrollBehavior: 'contain' }}>

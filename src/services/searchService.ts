@@ -3,7 +3,7 @@ import { Post, User } from '@/types';
 
 export interface SearchResult {
   id: string;
-  type: 'people' | 'post' | 'image' | 'group' | 'reel';
+  type: 'people' | 'post' | 'image' | 'group';
   title: string;
   subtitle?: string;
   image?: string;
@@ -54,7 +54,7 @@ class SearchService {
     }
   }
 
-  async search(query: string, types?: ('people' | 'post' | 'image' | 'group' | 'reel')[]): Promise<SearchResult[]> {
+  async search(query: string, types?: ('people' | 'post' | 'image' | 'group')[]): Promise<SearchResult[]> {
     if (!query.trim()) return [];
 
     const normalizedQuery = query.toLowerCase().trim();
@@ -138,9 +138,9 @@ class SearchService {
     return null;
   }
 
-  private async searchOnline(query: string, types?: ('people' | 'post' | 'image' | 'group' | 'reel')[]): Promise<SearchResult[]> {
+  private async searchOnline(query: string, types?: ('people' | 'post' | 'image' | 'group')[]): Promise<SearchResult[]> {
     const results: SearchResult[] = [];
-    const searchTypes = types || ['people', 'post', 'image', 'group', 'reel'];
+    const searchTypes = types || ['people', 'post', 'image', 'group'];
 
     try {
       // Search People
@@ -262,42 +262,6 @@ class SearchService {
         }
       }
 
-      // Search Reels
-      if (searchTypes.includes('reel')) {
-        const { data: reels } = await supabase
-          .from('posts')
-          .select(`
-            *,
-            user:user_id (
-              id,
-              name,
-              username,
-              avatar
-            )
-          `)
-          .not('video_url', 'is', null)
-          .or(`content.ilike.%${query}%`)
-          .order('created_at', { ascending: false })
-          .limit(50);
-
-        if (reels) {
-          for (const reel of reels) {
-            if (reel.video_url) {
-              // Use reel thumbnail/poster ONLY — never the user's avatar.
-              // Pass the video URL too so the UI can generate a frame thumbnail.
-              results.push({
-                id: reel.id,
-                type: 'reel',
-                title: reel.content?.substring(0, 100) || 'Reel',
-                subtitle: `by ${reel.user?.name || 'Unknown'}`,
-                image: reel.image_url || undefined,
-                data: { ...reel, video_url: reel.video_url },
-                timestamp: new Date(reel.created_at).getTime()
-              });
-            }
-          }
-        }
-      }
     } catch (error) {
       console.error('Error searching online:', error);
     }
@@ -319,7 +283,7 @@ class SearchService {
     this.saveCache();
   }
 
-  async searchOffline(query: string, types?: ('people' | 'post' | 'image' | 'group' | 'reel')[]): Promise<SearchResult[]> {
+  async searchOffline(query: string, types?: ('people' | 'post' | 'image' | 'group')[]): Promise<SearchResult[]> {
     const normalizedQuery = query.toLowerCase().trim();
     const results: SearchResult[] = [];
 

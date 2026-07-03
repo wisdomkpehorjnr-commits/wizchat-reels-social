@@ -1,4 +1,4 @@
-import { Camera, Image, FileText, Music, Video } from 'lucide-react';
+import { Camera, Image, FileText, Music } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRef } from 'react';
@@ -18,7 +18,6 @@ const AttachmentMenu = ({
   onGallery,
   onDocument,
   onAudio,
-  onVideo,
   onClose,
   isOpen,
 }: AttachmentMenuProps) => {
@@ -26,7 +25,6 @@ const AttachmentMenu = ({
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const documentInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
-  const videoInputRef = useRef<HTMLInputElement>(null);
 
   const handleCameraClick = () => {
     cameraInputRef.current?.click();
@@ -44,16 +42,11 @@ const AttachmentMenu = ({
     audioInputRef.current?.click();
   };
 
-  const handleVideoClick = () => {
-    videoInputRef.current?.click();
-  };
-
   const attachments = [
     { icon: Camera, label: 'Camera', action: handleCameraClick, color: 'bg-pink-500' },
     { icon: Image, label: 'Gallery', action: handleGalleryClick, color: 'bg-purple-500' },
     { icon: FileText, label: 'Document', action: handleDocumentClick, color: 'bg-blue-500' },
     { icon: Music, label: 'Audio', action: handleAudioClick, color: 'bg-orange-500' },
-    { icon: Video, label: 'Video', action: handleVideoClick, color: 'bg-red-500' },
   ];
 
   return (
@@ -79,7 +72,7 @@ const AttachmentMenu = ({
           <input
             ref={galleryInputRef}
             type="file"
-            accept="image/*,video/*"
+            accept="image/*"
             multiple
             className="hidden"
             onChange={(e) => {
@@ -119,21 +112,6 @@ const AttachmentMenu = ({
               e.target.value = '';
             }}
           />
-          <input
-            ref={videoInputRef}
-            type="file"
-            accept="video/*"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) {
-                onVideo(file);
-                onClose();
-              }
-              e.target.value = '';
-            }}
-          />
-
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -148,7 +126,7 @@ const AttachmentMenu = ({
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             className="fixed bottom-20 left-2 right-2 bg-background border-2 border-primary/20 rounded-2xl shadow-xl p-3 z-50 max-w-sm mx-auto"
           >
-            <div className="grid grid-cols-5 gap-2">
+            <div className="grid grid-cols-4 gap-2">
               {attachments.map((item, index) => (
                 <motion.div
                   key={index}

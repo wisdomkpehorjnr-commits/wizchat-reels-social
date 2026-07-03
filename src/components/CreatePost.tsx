@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Camera, Video } from 'lucide-react';
+import { Camera } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { MediaService } from '@/services/mediaService';
@@ -26,8 +26,18 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
     if (files.length) {
+      const blockedVideos = files.filter(f => f.type?.startsWith('video/'));
+      if (blockedVideos.length > 0) {
+        toast({
+          title: 'Video uploads disabled',
+          description: 'WizChat is accepting images only while storage is being stabilized.',
+          variant: 'destructive',
+        });
+      }
+
       // Append instead of replace. Prevent duplicates by name + size.
-      const newFiles = files.filter(f => !selectedFiles.some(sel => sel.name === f.name && sel.size === f.size));
+      const imageFiles = files.filter(f => f.type?.startsWith('image/'));
+      const newFiles = imageFiles.filter(f => !selectedFiles.some(sel => sel.name === f.name && sel.size === f.size));
       const allFiles = [...selectedFiles, ...newFiles];
       setSelectedFiles(allFiles);
       setPreviewUrls(allFiles.map(f => URL.createObjectURL(f)));
@@ -49,8 +59,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
     
     try {
       let imageUrls: string[] = [];
-      let videoUrl = '';
-      let mediaType: 'text' | 'image' | 'video' = 'text';
+      let mediaType: 'text' | 'image' = 'text';
       
       // Upload files in parallel for faster processing
       if (selectedFiles.length > 0) {
@@ -59,16 +68,11 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
         const uploadPromises = selectedFiles.map(async (file, index) => {
           try {
             let url: string;
-            if (file.type && file.type.startsWith('video/')) {
-              url = await MediaService.uploadPostVideo(file);
-              return { type: 'video', url };
-            } else if (file.type && file.type.startsWith('image/')) {
+            if (file.type && file.type.startsWith('image/')) {
               url = await MediaService.uploadPostImage(file);
               return { type: 'image', url };
             } else {
-              // fallback for any other
-              url = await MediaService.uploadPostMedia(file);
-              return { type: file.type.startsWith('image/') ? 'image' : 'video', url };
+              throw new Error('Only image uploads are allowed right now.');
             }
           } catch (error) {
             console.error(`Failed to upload file ${index + 1}:`, error);
@@ -91,10 +95,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
         
         // Process results
         for (const result of uploadResults) {
-          if (result.type === 'video') {
-            videoUrl = result.url;
-            mediaType = 'video';
-          } else if (result.type === 'image') {
+          if (result.type === 'image') {
             imageUrls.push(result.url);
             mediaType = 'image';
           }
@@ -105,9 +106,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
       const postData = {
         content: content.trim(),
         imageUrls: mediaType === 'image' ? imageUrls : undefined,
-        videoUrl: mediaType === 'video' ? videoUrl : undefined,
         mediaType,
-        isReel: mediaType === 'video',
+        isReel: false,
       };
       console.log('Creating post with data:', postData);
       console.log('Selected files:', selectedFiles);
@@ -176,24 +176,13 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
           {selectedFiles.length > 0 && previewUrls.length > 0 && (
             <div className="mt-3 p-3 border border-border rounded-lg grid grid-cols-2 md:grid-cols-3 gap-2">
               {previewUrls.map((url, idx) => {
-                const file = selectedFiles[idx];
-                const isVideo = file?.type?.startsWith('video/');
                 return (
                   <div key={idx} className="relative">
-                    {isVideo ? (
-                      <video 
-                        src={url} 
-                        className="object-cover w-full md:w-32 md:h-32 h-24 rounded"
-                        controls
-                        preload="metadata"
-                      />
-                    ) : (
-                      <img 
-                        src={url} 
-                        alt={`Preview ${idx+1}`}
-                        className="object-cover w-full md:w-32 md:h-32 h-24 rounded"
-                      />
-                    )}
+                    <img 
+                      src={url} 
+                      alt={`Preview ${idx+1}`}
+                      className="object-cover w-full md:w-32 md:h-32 h-24 rounded"
+                    />
                     <Button
                       type="button"
                       variant="ghost"
@@ -217,7 +206,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
               <input
                 id="file-input"
                 type="file"
-                accept="image/*,video/*"
+                accept="image/*"
                 multiple
                 onChange={handleFileSelect}
                 className="hidden"
@@ -232,16 +221,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
                 disabled={isSubmitting}
               >
                 <Camera className="w-5 h-5 text-black dark:text-white" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => document.getElementById('file-input')?.click()}
-                className="border border-black/20 dark:border-white/20 rounded p-2 hover:bg-accent transition-colors"
-                disabled={isSubmitting}
-              >
-                <Video className="w-5 h-5 text-black dark:text-white" />
               </Button>
             </div>
             <Button

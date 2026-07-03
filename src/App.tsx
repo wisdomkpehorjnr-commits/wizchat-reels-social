@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { Toaster } from "@/components/ui/toaster";
@@ -22,7 +22,6 @@ import { SyncIndicator } from "./components/SyncIndicator";
 import { NetworkStatusBanner } from "./components/NetworkStatusBanner";
 
 // ✅ Lazy load non-critical pages
-const Reels = lazy(() => import("./pages/Reels"));
 const Chat = lazy(() => import("./pages/Chat"));
 const ChatRoom = lazy(() => import("./pages/ChatRoom"));
 const Topics = lazy(() => import("./pages/Topics"));
@@ -126,11 +125,7 @@ const App = () => {
                 />
                 <Route
                   path="/reels"
-                  element={
-                    <ProtectedRoute>
-                      <Reels />
-                    </ProtectedRoute>
-                  }
+                  element={<Navigate to="/" replace />}
                 />
                 <Route
                   path="/chat"
