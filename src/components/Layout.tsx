@@ -2,7 +2,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
@@ -14,11 +13,12 @@ import {
 import { Home, MessageCircle, Users, User, Settings, MessageSquare, Crown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotificationBadges } from '@/hooks/useNotificationBadges';
-import { useImageCache } from '@/hooks/useImageCache';
 import Logo from './Logo';
 import ThemeToggle from './ThemeToggle';
 import NotificationSystem from './NotificationSystem';
 import LogoutButton from './LogoutButton';
+import SmartAvatar from './SmartAvatar';
+import { useT } from '@/i18n';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -29,14 +29,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { badges, clearBadge } = useNotificationBadges();
+  const { t } = useT();
   const avatarSrc = user?.photoURL || user?.avatar || '';
-  const { cachedUrl: cachedAvatar } = useImageCache(avatarSrc);
 
   const navItems = [
-    { icon: Home, label: 'Home', path: '/', badge: 0 }, // No badge for Home
-    { icon: MessageCircle, label: 'Chat', path: '/chat', badge: 0 },
-    { icon: Users, label: 'Friends', path: '/friends', badge: badges.friends },
-    { icon: MessageSquare, label: 'Topics', path: '/topics', badge: badges.topics },
+    { icon: Home, label: t('home'), path: '/', badge: 0 },
+    { icon: MessageCircle, label: t('chat'), path: '/chat', badge: 0 },
+    { icon: Users, label: t('friends'), path: '/friends', badge: badges.friends },
+    { icon: MessageSquare, label: t('topics'), path: '/topics', badge: badges.topics },
   ];
 
   // Clear badge when navigating to a tab
@@ -141,12 +141,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0 ring-2 ring-primary ring-offset-2 ring-offset-background transition-all hover:ring-primary/80">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={cachedAvatar || avatarSrc} alt={user?.name} />
-                    <AvatarFallback className="text-foreground bg-muted">
-                      {user?.name?.charAt(0) || user?.email?.charAt(0)}
-                    </AvatarFallback>
-                  </Avatar>
+                  <SmartAvatar src={avatarSrc} alt={user?.name} className="h-8 w-8" />
                   <span className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-primary ring-2 ring-background" aria-label="online" />
                 </Button>
               </DropdownMenuTrigger>

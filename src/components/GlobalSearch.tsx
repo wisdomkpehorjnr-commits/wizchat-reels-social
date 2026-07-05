@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, X, User, FileText, Image as ImageIcon, Users, Clock, Trash2, Heart, MessageCircle, Share2, UserPlus, ChevronRight } from 'lucide-react';
+import { Search, X, User, FileText, Image as ImageIcon, Users, Clock, Trash2, Heart, MessageCircle, Share2, UserPlus, ChevronRight, Download, Bookmark } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { searchService, SearchResult } from '@/services/searchService';
@@ -12,8 +11,11 @@ import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AnimatePresence, motion } from 'framer-motion';
+import { useDownload } from '@/hooks/useDownload';
 import VerifiedBadge from './VerifiedBadge';
 import ImageModal from './ImageModal';
+import SmartAvatar from './SmartAvatar';
 
 interface GlobalSearchProps {
   isOpen: boolean;
@@ -42,6 +44,8 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [imageModalSrc, setImageModalSrc] = useState('');
+  const [imageActionSrc, setImageActionSrc] = useState<{ url: string; postId?: string } | null>(null);
+  const { downloadMedia } = useDownload();
 
   // Persist query + tab so swiping back from a profile restores results
   useEffect(() => {
@@ -156,10 +160,7 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
     return (
       <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-accent transition-colors">
         <button onClick={() => goToProfile(r)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
-          <Avatar className="w-12 h-12 flex-shrink-0">
-            <AvatarImage src={r.image} />
-            <AvatarFallback><User className="w-5 h-5" /></AvatarFallback>
-          </Avatar>
+          <SmartAvatar src={r.image} alt={r.title} className="w-12 h-12" />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1">
               <span className="font-medium text-foreground truncate">{r.title}</span>
@@ -230,15 +231,43 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
     </Card>
   );
 
-  const ImageTile = ({ r }: { r: SearchResult }) => (
-    <button onClick={() => openImage(r.image)} className="relative aspect-square rounded-lg overflow-hidden bg-muted">
-      {r.image ? (
-        <img src={r.image} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
-      ) : (
-        <div className="absolute inset-0 flex items-center justify-center"><ImageIcon className="w-8 h-8 text-muted-foreground" /></div>
-      )}
-    </button>
-  );
+  const ImageTile = ({ r }: { r: SearchResult }) => {
+    const pressTimer = useRef<NodeJS.Timeout | null>(null);
+    const longPressed = useRef(false);
+
+    const startPress = () => {
+      longPressed.current = false;
+      pressTimer.current = setTimeout(() => {
+        longPressed.current = true;
+        if (r.image) setImageActionSrc({ url: r.image, postId: r.data?.id || r.id });
+      }, 550);
+    };
+    const endPress = () => {
+      if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; }
+    };
+    const handleClick = () => {
+      if (longPressed.current) { longPressed.current = false; return; }
+      openImage(r.image);
+    };
+
+    return (
+      <button
+        onClick={handleClick}
+        onPointerDown={startPress}
+        onPointerUp={endPress}
+        onPointerLeave={endPress}
+        onPointerCancel={endPress}
+        onContextMenu={(e) => { e.preventDefault(); if (r.image) setImageActionSrc({ url: r.image, postId: r.data?.id || r.id }); }}
+        className="relative aspect-square rounded-lg overflow-hidden bg-muted"
+      >
+        {r.image ? (
+          <img src={r.image} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center"><ImageIcon className="w-8 h-8 text-muted-foreground" /></div>
+        )}
+      </button>
+    );
+  };
 
   const SectionHeader = ({ title, onMore }: { title: string; onMore?: () => void }) => (
     <div className="flex items-center justify-between px-1 mb-2 mt-4">
@@ -320,15 +349,9 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search people, posts, images, groups..."
-              className="pl-10 pr-10"
+              className="pl-10"
             />
-            {query && (
-              <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setQuery('')}>
-                <X className="w-4 h-4" />
-              </Button>
-            )}
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose}><X className="w-5 h-5" /></Button>
         </div>
 
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)} className="flex-1 flex flex-col min-h-0">
@@ -392,6 +415,62 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
       </div>
 
       <ImageModal src={imageModalSrc} alt="Search result" isOpen={imageModalOpen} onClose={() => setImageModalOpen(false)} />
+
+      {/* Long-press image action sheet — theme aware */}
+      <AnimatePresence>
+        {imageActionSrc && (
+          <motion.div
+            className="fixed inset-0 z-[300] flex items-end sm:items-center justify-center p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setImageActionSrc(null)}
+          >
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+            <motion.div
+              className="relative w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl p-4 bg-popover text-popover-foreground border border-border"
+              initial={{ opacity: 0, scale: 0.92, y: 30 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 30 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-base font-semibold mb-3">Image options</h3>
+              <button
+                className="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-left text-sm font-medium hover:bg-primary/10 active:bg-primary/20 transition-colors"
+                onClick={() => {
+                  if (imageActionSrc?.url) downloadMedia(imageActionSrc.url, `wizchat_search_${Date.now()}.jpg`);
+                  setImageActionSrc(null);
+                }}
+              >
+                <Download className="w-5 h-5 text-primary" />
+                Download to device
+              </button>
+              <button
+                className="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-left text-sm font-medium hover:bg-primary/10 active:bg-primary/20 transition-colors"
+                onClick={async () => {
+                  const postId = imageActionSrc?.postId;
+                  if (postId && user?.id) {
+                    try {
+                      const { error } = await supabase.from('saved_posts').insert({ post_id: postId, user_id: user.id });
+                      if (error && error.code !== '23505') throw error;
+                      toast({ title: 'Saved', description: 'Image saved to your profile' });
+                    } catch {
+                      toast({ title: 'Could not save', variant: 'destructive' });
+                    }
+                  } else {
+                    toast({ title: 'Cannot save this image' });
+                  }
+                  setImageActionSrc(null);
+                }}
+              >
+                <Bookmark className="w-5 h-5 text-primary" />
+                Save to profile
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

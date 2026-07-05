@@ -18,6 +18,7 @@ import { activateSwUpdate, isSwUpdateAvailable } from "./lib/swUpdateState";
 import Login from "./pages/Login";
 import Home from "./pages/Home";
 import ProtectedRoute from "./components/ProtectedRoute";
+import PasscodeLock from "./features/passcode/PasscodeLock";
 import { SyncIndicator } from "./components/SyncIndicator";
 import { NetworkStatusBanner } from "./components/NetworkStatusBanner";
 
@@ -109,6 +110,7 @@ const App = () => {
           <BrowserRouter>
             <ScrollPositionProvider>
               <PreloadManager />
+              <PasscodeLock>
               <Suspense fallback={<PageLoader />}>
                 <Routes>
                 {/* Public routes */}
@@ -304,6 +306,7 @@ const App = () => {
                 <Route path="*" element={<NotFound />} />
                 </Routes>
               </Suspense>
+              </PasscodeLock>
             </ScrollPositionProvider>
           </BrowserRouter>
         </AuthProvider>

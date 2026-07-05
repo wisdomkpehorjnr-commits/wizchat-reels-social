@@ -817,3 +817,47 @@ button {
 
 /* Cards explicitly themed in light mode */
 .ultra .bg-card { background-color: #000000 !important; color: #FFFFFF !important; }
+
+/* ============================================
+   HIGH CONTRAST MODE — bold, crisp, unmissable
+   Toggled via `.high-contrast` on <html>
+   ============================================ */
+.high-contrast body,
+.high-contrast * {
+  font-weight: 700 !important;
+  letter-spacing: 0.01em;
+}
+.high-contrast p,
+.high-contrast span,
+.high-contrast a,
+.high-contrast label,
+.high-contrast li,
+.high-contrast div,
+.high-contrast h1,
+.high-contrast h2,
+.high-contrast h3,
+.high-contrast h4,
+.high-contrast h5,
+.high-contrast h6 {
+  color: hsl(var(--foreground)) !important;
+  text-shadow: 0 0 0.5px currentColor;
+}
+.high-contrast .text-muted-foreground {
+  color: hsl(var(--foreground) / 0.85) !important;
+}
+.high-contrast button,
+.high-contrast input,
+.high-contrast textarea,
+.high-contrast select,
+.high-contrast [role="button"],
+.high-contrast .border,
+.high-contrast .border-b,
+.high-contrast .border-t,
+.high-contrast .border-l,
+.high-contrast .border-r {
+  border-width: 2px !important;
+  border-color: hsl(var(--foreground) / 0.7) !important;
+}
+.high-contrast a {
+  text-decoration: underline;
+}

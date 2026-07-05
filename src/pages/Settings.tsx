@@ -45,6 +45,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import ConfirmationDialog from '@/components/ui/confirmation-dialog';
+import PasscodeSetupDialog from '@/features/passcode/PasscodeSetupDialog';
 import {
   Dialog,
   DialogContent,
@@ -140,6 +141,8 @@ const Settings = () => {
   const [messagePermission, setMessagePermission] = useState('everyone');
   const [language, setLanguage] = useState('en');
   const [highContrast, setHighContrast] = useState(false);
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [showPasscodeSetup, setShowPasscodeSetup] = useState(false);
   const [darkMode, setDarkMode] = useState('auto');
   const [reportReason, setReportReason] = useState('');
   const [reportDetails, setReportDetails] = useState('');
@@ -171,17 +174,26 @@ const Settings = () => {
     document.documentElement.style.fontSize = `${fontSize[0]}px`;
   }, [fontSize]);
 
-  // LIVE: apply language and text direction
+  // LIVE: apply language + broadcast to i18n subscribers
   useEffect(() => {
     document.documentElement.lang = language;
     const rtl = ['ar', 'he', 'fa', 'ur'];
     document.documentElement.dir = rtl.includes(language) ? 'rtl' : 'ltr';
+    import('@/i18n').then(({ setStoredLang }) => setStoredLang(language as any));
   }, [language]);
 
   // LIVE: apply high-contrast class
   useEffect(() => {
     document.documentElement.classList.toggle('high-contrast', highContrast);
   }, [highContrast]);
+
+  // Hydrate 2FA state
+  useEffect(() => {
+    if (!user?.id) return;
+    import('@/features/passcode/passcodeStore').then(({ passcode }) => {
+      setTwoFactorEnabled(passcode.isEnabled(user.id));
+    });
+  }, [user?.id]);
 
   const handleSaveSettings = () => {
     const settings = {
@@ -898,10 +910,25 @@ const Settings = () => {
                       <Label>Two-Factor Authentication</Label>
                       <p className="text-sm text-muted-foreground">Add an extra layer of security</p>
                     </div>
-                    <Badge variant="outline">Not enabled</Badge>
+                    <Badge variant="outline">{twoFactorEnabled ? 'Enabled' : 'Not enabled'}</Badge>
                   </div>
-                  <Button variant="outline" className="w-full">
-                    Enable 2FA
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => {
+                      if (!user?.id) return;
+                      if (twoFactorEnabled) {
+                        import('@/features/passcode/passcodeStore').then(({ passcode }) => {
+                          passcode.disable(user.id);
+                          setTwoFactorEnabled(false);
+                          toast({ title: '2FA disabled' });
+                        });
+                      } else {
+                        setShowPasscodeSetup(true);
+                      }
+                    }}
+                  >
+                    {twoFactorEnabled ? 'Disable 2FA' : 'Enable 2FA'}
                   </Button>
                 </div>
 
@@ -1075,6 +1102,15 @@ const Settings = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {user?.id && (
+        <PasscodeSetupDialog
+          open={showPasscodeSetup}
+          onOpenChange={setShowPasscodeSetup}
+          userId={user.id}
+          onEnabled={() => setTwoFactorEnabled(true)}
+        />
+      )}
     </Layout>
   );
 };

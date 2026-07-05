@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { UserPlus, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { getCachedPymk, getPymk, PymkUser } from '@/services/peopleYouMayKnowService';
 import { supabase } from '@/integrations/supabase/client';
+import SmartAvatar from '@/components/SmartAvatar';
 
 /**
  * People You May Know card — pinned and shown every N posts.
@@ -60,12 +60,7 @@ const PeopleYouMayKnowCard = () => {
                   onClick={() => navigate(`/profile/${u.id}`)}
                   className="block mx-auto mb-2"
                 >
-                  <Avatar className="w-14 h-14 mx-auto">
-                    <AvatarImage src={u.avatar} />
-                    <AvatarFallback className="bg-primary/20 text-primary text-base font-semibold">
-                      {u.name?.charAt(0) || 'U'}
-                    </AvatarFallback>
-                  </Avatar>
+                  <SmartAvatar src={u.avatar} alt={u.name} className="w-14 h-14 mx-auto" />
                 </button>
                 <p
                   className="text-xs font-medium text-foreground truncate cursor-pointer hover:text-primary"
