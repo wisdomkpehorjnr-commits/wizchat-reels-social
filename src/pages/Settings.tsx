@@ -45,6 +45,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import ConfirmationDialog from '@/components/ui/confirmation-dialog';
+import PasscodeSetupDialog from '@/features/passcode/PasscodeSetupDialog';
 import {
   Dialog,
   DialogContent,
