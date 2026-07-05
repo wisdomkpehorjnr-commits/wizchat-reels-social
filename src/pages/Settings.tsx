@@ -1101,6 +1101,15 @@ const Settings = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {user?.id && (
+        <PasscodeSetupDialog
+          open={showPasscodeSetup}
+          onOpenChange={setShowPasscodeSetup}
+          userId={user.id}
+          onEnabled={() => setTwoFactorEnabled(true)}
+        />
+      )}
     </Layout>
   );
 };
