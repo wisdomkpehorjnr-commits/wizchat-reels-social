@@ -899,10 +899,25 @@ const Settings = () => {
                       <Label>Two-Factor Authentication</Label>
                       <p className="text-sm text-muted-foreground">Add an extra layer of security</p>
                     </div>
-                    <Badge variant="outline">Not enabled</Badge>
+                    <Badge variant="outline">{twoFactorEnabled ? 'Enabled' : 'Not enabled'}</Badge>
                   </div>
-                  <Button variant="outline" className="w-full">
-                    Enable 2FA
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => {
+                      if (!user?.id) return;
+                      if (twoFactorEnabled) {
+                        import('@/features/passcode/passcodeStore').then(({ passcode }) => {
+                          passcode.disable(user.id);
+                          setTwoFactorEnabled(false);
+                          toast({ title: '2FA disabled' });
+                        });
+                      } else {
+                        setShowPasscodeSetup(true);
+                      }
+                    }}
+                  >
+                    {twoFactorEnabled ? 'Disable 2FA' : 'Enable 2FA'}
                   </Button>
                 </div>
 
