@@ -29,14 +29,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { badges, clearBadge } = useNotificationBadges();
+  const { t } = useT();
   const avatarSrc = user?.photoURL || user?.avatar || '';
-  const { cachedUrl: cachedAvatar } = useImageCache(avatarSrc);
 
   const navItems = [
-    { icon: Home, label: 'Home', path: '/', badge: 0 }, // No badge for Home
-    { icon: MessageCircle, label: 'Chat', path: '/chat', badge: 0 },
-    { icon: Users, label: 'Friends', path: '/friends', badge: badges.friends },
-    { icon: MessageSquare, label: 'Topics', path: '/topics', badge: badges.topics },
+    { icon: Home, label: t('home'), path: '/', badge: 0 },
+    { icon: MessageCircle, label: t('chat'), path: '/chat', badge: 0 },
+    { icon: Users, label: t('friends'), path: '/friends', badge: badges.friends },
+    { icon: MessageSquare, label: t('topics'), path: '/topics', badge: badges.topics },
   ];
 
   // Clear badge when navigating to a tab
