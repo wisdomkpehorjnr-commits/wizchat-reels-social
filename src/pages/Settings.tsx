@@ -186,6 +186,14 @@ const Settings = () => {
     document.documentElement.classList.toggle('high-contrast', highContrast);
   }, [highContrast]);
 
+  // Hydrate 2FA state
+  useEffect(() => {
+    if (!user?.id) return;
+    import('@/features/passcode/passcodeStore').then(({ passcode }) => {
+      setTwoFactorEnabled(passcode.isEnabled(user.id));
+    });
+  }, [user?.id]);
+
   const handleSaveSettings = () => {
     const settings = {
       fontSize: fontSize[0],
