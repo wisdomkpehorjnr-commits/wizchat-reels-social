@@ -306,6 +306,7 @@ const App = () => {
                 <Route path="*" element={<NotFound />} />
                 </Routes>
               </Suspense>
+              </PasscodeLock>
             </ScrollPositionProvider>
           </BrowserRouter>
         </AuthProvider>
