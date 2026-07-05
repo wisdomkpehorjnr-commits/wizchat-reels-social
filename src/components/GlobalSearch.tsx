@@ -231,15 +231,43 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
     </Card>
   );
 
-  const ImageTile = ({ r }: { r: SearchResult }) => (
-    <button onClick={() => openImage(r.image)} className="relative aspect-square rounded-lg overflow-hidden bg-muted">
-      {r.image ? (
-        <img src={r.image} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
-      ) : (
-        <div className="absolute inset-0 flex items-center justify-center"><ImageIcon className="w-8 h-8 text-muted-foreground" /></div>
-      )}
-    </button>
-  );
+  const ImageTile = ({ r }: { r: SearchResult }) => {
+    const pressTimer = useRef<NodeJS.Timeout | null>(null);
+    const longPressed = useRef(false);
+
+    const startPress = () => {
+      longPressed.current = false;
+      pressTimer.current = setTimeout(() => {
+        longPressed.current = true;
+        if (r.image) setImageActionSrc({ url: r.image, postId: r.data?.id || r.id });
+      }, 550);
+    };
+    const endPress = () => {
+      if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; }
+    };
+    const handleClick = () => {
+      if (longPressed.current) { longPressed.current = false; return; }
+      openImage(r.image);
+    };
+
+    return (
+      <button
+        onClick={handleClick}
+        onPointerDown={startPress}
+        onPointerUp={endPress}
+        onPointerLeave={endPress}
+        onPointerCancel={endPress}
+        onContextMenu={(e) => { e.preventDefault(); if (r.image) setImageActionSrc({ url: r.image, postId: r.data?.id || r.id }); }}
+        className="relative aspect-square rounded-lg overflow-hidden bg-muted"
+      >
+        {r.image ? (
+          <img src={r.image} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center"><ImageIcon className="w-8 h-8 text-muted-foreground" /></div>
+        )}
+      </button>
+    );
+  };
 
   const SectionHeader = ({ title, onMore }: { title: string; onMore?: () => void }) => (
     <div className="flex items-center justify-between px-1 mb-2 mt-4">
