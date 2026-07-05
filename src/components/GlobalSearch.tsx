@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, X, User, FileText, Image as ImageIcon, Users, Clock, Trash2, Heart, MessageCircle, Share2, UserPlus, ChevronRight } from 'lucide-react';
+import { Search, X, User, FileText, Image as ImageIcon, Users, Clock, Trash2, Heart, MessageCircle, Share2, UserPlus, ChevronRight, Download, Bookmark } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { searchService, SearchResult } from '@/services/searchService';
@@ -12,8 +11,11 @@ import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AnimatePresence, motion } from 'framer-motion';
+import { useDownload } from '@/hooks/useDownload';
 import VerifiedBadge from './VerifiedBadge';
 import ImageModal from './ImageModal';
+import SmartAvatar from './SmartAvatar';
 
 interface GlobalSearchProps {
   isOpen: boolean;
