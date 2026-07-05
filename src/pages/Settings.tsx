@@ -140,6 +140,8 @@ const Settings = () => {
   const [messagePermission, setMessagePermission] = useState('everyone');
   const [language, setLanguage] = useState('en');
   const [highContrast, setHighContrast] = useState(false);
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [showPasscodeSetup, setShowPasscodeSetup] = useState(false);
   const [darkMode, setDarkMode] = useState('auto');
   const [reportReason, setReportReason] = useState('');
   const [reportDetails, setReportDetails] = useState('');
