@@ -110,6 +110,7 @@ const App = () => {
           <BrowserRouter>
             <ScrollPositionProvider>
               <PreloadManager />
+              <PasscodeLock>
               <Suspense fallback={<PageLoader />}>
                 <Routes>
                 {/* Public routes */}
