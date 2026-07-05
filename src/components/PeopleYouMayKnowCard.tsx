@@ -60,12 +60,7 @@ const PeopleYouMayKnowCard = () => {
                   onClick={() => navigate(`/profile/${u.id}`)}
                   className="block mx-auto mb-2"
                 >
-                  <Avatar className="w-14 h-14 mx-auto">
-                    <AvatarImage src={u.avatar} />
-                    <AvatarFallback className="bg-primary/20 text-primary text-base font-semibold">
-                      {u.name?.charAt(0) || 'U'}
-                    </AvatarFallback>
-                  </Avatar>
+                  <SmartAvatar src={u.avatar} alt={u.name} className="w-14 h-14 mx-auto" />
                 </button>
                 <p
                   className="text-xs font-medium text-foreground truncate cursor-pointer hover:text-primary"
