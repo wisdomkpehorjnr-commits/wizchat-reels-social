@@ -171,11 +171,12 @@ const Settings = () => {
     document.documentElement.style.fontSize = `${fontSize[0]}px`;
   }, [fontSize]);
 
-  // LIVE: apply language and text direction
+  // LIVE: apply language + broadcast to i18n subscribers
   useEffect(() => {
     document.documentElement.lang = language;
     const rtl = ['ar', 'he', 'fa', 'ur'];
     document.documentElement.dir = rtl.includes(language) ? 'rtl' : 'ltr';
+    import('@/i18n').then(({ setStoredLang }) => setStoredLang(language as any));
   }, [language]);
 
   // LIVE: apply high-contrast class
