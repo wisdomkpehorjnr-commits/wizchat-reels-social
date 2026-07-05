@@ -415,6 +415,62 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
       </div>
 
       <ImageModal src={imageModalSrc} alt="Search result" isOpen={imageModalOpen} onClose={() => setImageModalOpen(false)} />
+
+      {/* Long-press image action sheet — theme aware */}
+      <AnimatePresence>
+        {imageActionSrc && (
+          <motion.div
+            className="fixed inset-0 z-[300] flex items-end sm:items-center justify-center p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setImageActionSrc(null)}
+          >
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+            <motion.div
+              className="relative w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl p-4 bg-popover text-popover-foreground border border-border"
+              initial={{ opacity: 0, scale: 0.92, y: 30 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 30 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-base font-semibold mb-3">Image options</h3>
+              <button
+                className="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-left text-sm font-medium hover:bg-primary/10 active:bg-primary/20 transition-colors"
+                onClick={() => {
+                  if (imageActionSrc?.url) downloadMedia(imageActionSrc.url, `wizchat_search_${Date.now()}.jpg`);
+                  setImageActionSrc(null);
+                }}
+              >
+                <Download className="w-5 h-5 text-primary" />
+                Download to device
+              </button>
+              <button
+                className="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-left text-sm font-medium hover:bg-primary/10 active:bg-primary/20 transition-colors"
+                onClick={async () => {
+                  const postId = imageActionSrc?.postId;
+                  if (postId && user?.id) {
+                    try {
+                      const { error } = await supabase.from('saved_posts').insert({ post_id: postId, user_id: user.id });
+                      if (error && error.code !== '23505') throw error;
+                      toast({ title: 'Saved', description: 'Image saved to your profile' });
+                    } catch {
+                      toast({ title: 'Could not save', variant: 'destructive' });
+                    }
+                  } else {
+                    toast({ title: 'Cannot save this image' });
+                  }
+                  setImageActionSrc(null);
+                }}
+              >
+                <Bookmark className="w-5 h-5 text-primary" />
+                Save to profile
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
