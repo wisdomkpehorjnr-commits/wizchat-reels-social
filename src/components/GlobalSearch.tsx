@@ -44,6 +44,8 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [imageModalSrc, setImageModalSrc] = useState('');
+  const [imageActionSrc, setImageActionSrc] = useState<{ url: string; postId?: string } | null>(null);
+  const { downloadMedia } = useDownload();
 
   // Persist query + tab so swiping back from a profile restores results
   useEffect(() => {
