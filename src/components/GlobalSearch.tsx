@@ -349,15 +349,9 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search people, posts, images, groups..."
-              className="pl-10 pr-10"
+              className="pl-10"
             />
-            {query && (
-              <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setQuery('')}>
-                <X className="w-4 h-4" />
-              </Button>
-            )}
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose}><X className="w-5 h-5" /></Button>
         </div>
 
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)} className="flex-1 flex flex-col min-h-0">
