@@ -114,12 +114,7 @@ const ChatSettingsMenu = ({
           >
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
             <motion.div
-              className="absolute top-16 right-4 w-64 max-w-[calc(100vw-2rem)] rounded-2xl border border-white/20 dark:border-white/10 overflow-hidden shadow-2xl"
-              style={{
-                background: 'linear-gradient(135deg, hsl(var(--background) / 0.85), hsl(var(--background) / 0.75))',
-                backdropFilter: 'blur(24px)',
-                WebkitBackdropFilter: 'blur(24px)',
-              }}
+              className="absolute top-16 right-4 w-64 max-w-[calc(100vw-2rem)] rounded-2xl border border-border overflow-hidden shadow-2xl bg-popover text-popover-foreground"
               initial={{ opacity: 0, scale: 0.9, y: -10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: -10 }}
