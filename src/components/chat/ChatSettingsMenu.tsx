@@ -224,12 +224,7 @@ const GlassDialog = ({ open, onClose, title, children }: { open: boolean; onClos
       >
         <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
         <motion.div
-          className="relative w-full max-w-sm rounded-2xl border border-white/15 dark:border-white/10 overflow-hidden shadow-2xl p-5"
-          style={{
-            background: 'linear-gradient(135deg, hsl(var(--background) / 0.92), hsl(var(--background) / 0.85))',
-            backdropFilter: 'blur(24px)',
-            WebkitBackdropFilter: 'blur(24px)',
-          }}
+          className="relative w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl p-5 bg-popover text-popover-foreground border border-border"
           initial={{ opacity: 0, scale: 0.92, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.92, y: 20 }}
