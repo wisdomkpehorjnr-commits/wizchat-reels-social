@@ -2,7 +2,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
@@ -14,11 +13,12 @@ import {
 import { Home, MessageCircle, Users, User, Settings, MessageSquare, Crown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotificationBadges } from '@/hooks/useNotificationBadges';
-import { useImageCache } from '@/hooks/useImageCache';
 import Logo from './Logo';
 import ThemeToggle from './ThemeToggle';
 import NotificationSystem from './NotificationSystem';
 import LogoutButton from './LogoutButton';
+import SmartAvatar from './SmartAvatar';
+import { useT } from '@/i18n';
 
 interface LayoutProps {
   children: React.ReactNode;
