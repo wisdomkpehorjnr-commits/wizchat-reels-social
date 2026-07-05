@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { UserPlus, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { getCachedPymk, getPymk, PymkUser } from '@/services/peopleYouMayKnowService';
 import { supabase } from '@/integrations/supabase/client';
+import SmartAvatar from '@/components/SmartAvatar';
 
 /**
  * People You May Know card — pinned and shown every N posts.
