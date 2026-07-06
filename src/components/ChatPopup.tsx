@@ -801,7 +801,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         const fileName = `${currentUser.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
         
         // Try different bucket names
-        const buckets = ['chat-media', 'media', 'uploads'];
+        const buckets = ['chat-images', 'posts'];
         let uploadSuccess = false;
         
         for (const bucket of buckets) {
@@ -941,7 +941,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       } catch (mediaServiceError) {
         // Fallback: Direct upload
         const fileName = `${currentUser.id}/voice_${Date.now()}.webm`;
-        const buckets = ['chat-media', 'media', 'uploads'];
+        const buckets = ['voice-notes', 'chat-images'];
         let uploadSuccess = false;
         
         for (const bucket of buckets) {
