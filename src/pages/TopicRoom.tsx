@@ -239,7 +239,7 @@ const TopicRoom = () => {
       let mediaUrl = null;
       if (mediaFile) {
         const fileName = `${Date.now()}.${mediaFile.name.split(".").pop()}`;
-        const { error: uploadError } = await supabase.storage.from("room-media").upload(fileName, mediaFile);
+        const { error: uploadError } = await supabase.storage.from("posts").upload(fileName, mediaFile);
         if (uploadError) {
           console.error('Upload error:', uploadError);
           throw new Error('Failed to upload media');

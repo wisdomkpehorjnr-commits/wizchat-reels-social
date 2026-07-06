@@ -53,7 +53,7 @@ export class MediaService {
 
   static async uploadCover(file: File): Promise<string> {
     const compressedFile = await this.compressImage(file, 1280, 0.82, this.MAX_IMAGE_BYTES);
-    return this.uploadFile(compressedFile, 'covers');
+    return this.uploadFile(compressedFile, 'avatars', 'covers');
   }
 
   static async uploadPostMedia(file: File): Promise<string> {
@@ -73,16 +73,33 @@ export class MediaService {
 
   static async uploadStoryMedia(file: File): Promise<string> {
     const compressedFile = await this.compressImage(file, 720, 0.82, this.MAX_IMAGE_BYTES);
-    return this.uploadFile(compressedFile, 'stories');
+    return this.uploadFile(compressedFile, 'status-images');
   }
 
   static async uploadChatMedia(file: File): Promise<string> {
     if (file.type?.startsWith('image/')) {
       const compressedFile = await this.compressImage(file, 1080, 0.82, this.MAX_IMAGE_BYTES);
-      return this.uploadFile(compressedFile, 'chat-media');
+      return this.uploadFile(compressedFile, 'chat-images');
     }
 
-    return this.uploadFile(file, 'chat-media');
+    if (file.type?.startsWith('audio/')) {
+      return this.uploadFile(file, 'voice-notes');
+    }
+
+    return this.uploadFile(file, 'chat-images');
+  }
+
+  static async uploadGroupAvatar(file: File): Promise<string> {
+    const compressedFile = await this.compressImage(file, 512, 0.82, this.MAX_IMAGE_BYTES);
+    return this.uploadFile(compressedFile, 'group-avatars');
+  }
+
+  static async uploadVoiceNote(file: File): Promise<string> {
+    return this.uploadFile(file, 'voice-notes');
+  }
+
+  static async uploadMusic(file: File): Promise<string> {
+    return this.uploadFile(file, 'music');
   }
 
   static getMediaType(file: File): 'image' | 'video' | 'audio' {
