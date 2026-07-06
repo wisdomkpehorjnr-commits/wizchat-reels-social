@@ -244,7 +244,7 @@ const TopicRoom = () => {
           console.error('Upload error:', uploadError);
           throw new Error('Failed to upload media');
         }
-        mediaUrl = supabase.storage.from("room-media").getPublicUrl(fileName).data.publicUrl;
+        mediaUrl = supabase.storage.from("posts").getPublicUrl(fileName).data.publicUrl;
       }
 
       // Optimistic update - create temporary post

@@ -138,7 +138,7 @@ Deno.serve(async (req) => {
     stats.storiesDeleted = storyCount ?? 0
 
     const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000
-    for (const bucket of ['avatars', 'covers', 'posts', 'stories', 'chat-media', 'room-media']) {
+    for (const bucket of ['avatars', 'posts', 'status-images', 'chat-images', 'voice-notes', 'group-avatars', 'music']) {
       try {
         const files = await listAll(supabase, bucket)
         const toDelete = files.filter((file) => {
