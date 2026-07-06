@@ -110,7 +110,7 @@ Deno.serve(async (req) => {
     const { data: profiles } = await supabase.from('profiles').select('avatar, cover_image')
     for (const profile of profiles ?? []) {
       add(keepAvatars, publicPath(profile.avatar, 'avatars'))
-      add(keepCovers, publicPath(profile.cover_image, 'covers'))
+      add(keepCovers, publicPath(profile.cover_image, 'avatars'))
     }
 
     const { data: posts } = await supabase.from('posts').select('id, image_url, video_url, media_type, is_reel')
@@ -124,14 +124,14 @@ Deno.serve(async (req) => {
     const roomVideoPostIds: string[] = []
     for (const post of roomPosts ?? []) {
       if (post.video_url || post.media_type === 'video') roomVideoPostIds.push(post.id)
-      else add(keepRooms, publicPath(post.image_url, 'room-media'))
+      else add(keepRooms, publicPath(post.image_url, 'posts'))
     }
 
     const { data: messages } = await supabase.from('messages').select('id, type, media_url')
     const videoMessageIds: string[] = []
     for (const message of messages ?? []) {
       if (message.type === 'video' || VIDEO_RE.test(message.media_url ?? '')) videoMessageIds.push(message.id)
-      else add(keepChat, publicPath(message.media_url, 'chat-media'))
+      else add(keepChat, publicPath(message.media_url, 'chat-images'))
     }
 
     const { count: storyCount } = await supabase.from('stories').select('id', { count: 'exact', head: true })
@@ -142,13 +142,13 @@ Deno.serve(async (req) => {
       try {
         const files = await listAll(supabase, bucket)
         const toDelete = files.filter((file) => {
-          if (bucket === 'stories') return true
+          if (bucket === 'status-images') return true
           if (VIDEO_RE.test(file.path) || JUNK_RE.test(file.path)) return true
-          if (bucket === 'avatars') return !keepAvatars.has(file.path)
-          if (bucket === 'covers') return !keepCovers.has(file.path)
-          if (bucket === 'posts') return !keepPosts.has(file.path)
-          if (bucket === 'room-media') return !keepRooms.has(file.path)
-          if (bucket === 'chat-media') {
+          if (bucket === 'avatars') return !keepAvatars.has(file.path) && !keepCovers.has(file.path)
+          if (bucket === 'posts') return !keepPosts.has(file.path) && !keepRooms.has(file.path)
+          if (bucket === 'group-avatars') return false
+          if (bucket === 'music' || bucket === 'voice-notes') return false
+          if (bucket === 'chat-images') {
             const createdAt = file.createdAt ? Date.parse(file.createdAt) : 0
             return !keepChat.has(file.path) || (createdAt > 0 && createdAt < cutoff && !KEEP_IMAGE_RE.test(file.path))
           }
