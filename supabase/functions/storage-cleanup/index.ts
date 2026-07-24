@@ -8,6 +8,8 @@ type Stats = {
   roomVideoPostsDeleted: number
   storiesDeleted: number
   chatVideoMessagesCleared: number
+  postsDeleted: number
+  roomPostsDeleted: number
   errors: string[]
 }
 
@@ -93,6 +95,8 @@ Deno.serve(async (req) => {
     roomVideoPostsDeleted: 0,
     storiesDeleted: 0,
     chatVideoMessagesCleared: 0,
+    postsDeleted: 0,
+    roomPostsDeleted: 0,
     errors: [],
   }
 
@@ -103,8 +107,6 @@ Deno.serve(async (req) => {
 
     const keepAvatars = new Set<string>()
     const keepCovers = new Set<string>()
-    const keepPosts = new Set<string>()
-    const keepRooms = new Set<string>()
     const keepChat = new Set<string>()
 
     const { data: profiles } = await supabase.from('profiles').select('avatar, cover_image')
@@ -113,19 +115,10 @@ Deno.serve(async (req) => {
       add(keepCovers, publicPath(profile.cover_image, 'avatars'))
     }
 
-    const { data: posts } = await supabase.from('posts').select('id, image_url, video_url, media_type, is_reel')
-    const videoPostIds: string[] = []
-    for (const post of posts ?? []) {
-      if (post.is_reel || post.video_url || post.media_type === 'video') videoPostIds.push(post.id)
-      else add(keepPosts, publicPath(post.image_url, 'posts'))
-    }
-
-    const { data: roomPosts } = await supabase.from('room_posts').select('id, image_url, video_url, media_type')
-    const roomVideoPostIds: string[] = []
-    for (const post of roomPosts ?? []) {
-      if (post.video_url || post.media_type === 'video') roomVideoPostIds.push(post.id)
-      else add(keepRooms, publicPath(post.image_url, 'posts'))
-    }
+    const { count: postsCount } = await supabase.from('posts').select('id', { count: 'exact', head: true })
+    const { count: roomPostsCount } = await supabase.from('room_posts').select('id', { count: 'exact', head: true })
+    stats.postsDeleted = postsCount ?? 0
+    stats.roomPostsDeleted = roomPostsCount ?? 0
 
     const { data: messages } = await supabase.from('messages').select('id, type, media_url')
     const videoMessageIds: string[] = []
@@ -138,17 +131,17 @@ Deno.serve(async (req) => {
     stats.storiesDeleted = storyCount ?? 0
 
     const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000
-    for (const bucket of ['avatars', 'posts', 'status-images', 'chat-images', 'voice-notes', 'group-avatars', 'music']) {
+    for (const bucket of ['avatars', 'covers', 'posts', 'room-media', 'stories', 'status-images', 'story-videos', 'reels', 'chat-media', 'chat-images', 'voice-notes', 'group-avatars', 'music']) {
       try {
         const files = await listAll(supabase, bucket)
         const toDelete = files.filter((file) => {
-          if (bucket === 'status-images') return true
+          if (['posts', 'room-media', 'stories', 'status-images', 'story-videos', 'reels'].includes(bucket)) return true
           if (VIDEO_RE.test(file.path) || JUNK_RE.test(file.path)) return true
           if (bucket === 'avatars') return !keepAvatars.has(file.path) && !keepCovers.has(file.path)
-          if (bucket === 'posts') return !keepPosts.has(file.path) && !keepRooms.has(file.path)
+          if (bucket === 'covers') return false
           if (bucket === 'group-avatars') return false
           if (bucket === 'music' || bucket === 'voice-notes') return false
-          if (bucket === 'chat-images') {
+          if (bucket === 'chat-media' || bucket === 'chat-images') {
             const createdAt = file.createdAt ? Date.parse(file.createdAt) : 0
             return !keepChat.has(file.path) || (createdAt > 0 && createdAt < cutoff && !KEEP_IMAGE_RE.test(file.path))
           }
@@ -160,19 +153,11 @@ Deno.serve(async (req) => {
       }
     }
 
-    for (let index = 0; index < videoPostIds.length; index += 100) {
-      const batch = videoPostIds.slice(index, index + 100)
-      const { count, error } = await supabase.from('posts').delete({ count: 'exact' }).in('id', batch)
-      if (error) stats.errors.push(`posts: ${error.message}`)
-      stats.videoOrReelPostsDeleted += count ?? batch.length
-    }
+    const { error: postsDeleteError } = await supabase.from('posts').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+    if (postsDeleteError) stats.errors.push(`posts: ${postsDeleteError.message}`)
 
-    for (let index = 0; index < roomVideoPostIds.length; index += 100) {
-      const batch = roomVideoPostIds.slice(index, index + 100)
-      const { count, error } = await supabase.from('room_posts').delete({ count: 'exact' }).in('id', batch)
-      if (error) stats.errors.push(`room_posts: ${error.message}`)
-      stats.roomVideoPostsDeleted += count ?? batch.length
-    }
+    const { error: roomPostsDeleteError } = await supabase.from('room_posts').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+    if (roomPostsDeleteError) stats.errors.push(`room_posts: ${roomPostsDeleteError.message}`)
 
     for (let index = 0; index < videoMessageIds.length; index += 100) {
       const batch = videoMessageIds.slice(index, index + 100)

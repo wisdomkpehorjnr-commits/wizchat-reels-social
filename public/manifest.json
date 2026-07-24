@@ -1,7 +1,7 @@
 {
   "name": "WizChat",
   "short_name": "WizChat",
-  "description": "WizChat — Your social chat, reels & stories app",
+  "description": "WizChat — chat, share photos, and connect with friends",
   "start_url": "/",
   "display": "fullscreen",
   "display_override": ["fullscreen", "standalone"],

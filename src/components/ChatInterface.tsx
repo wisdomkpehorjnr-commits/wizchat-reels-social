@@ -211,9 +211,9 @@ const ChatInterface = ({ chat, onClose }: ChatInterfaceProps) => {
       const mediaUrl = await MediaService.uploadChatMedia(file);
       const mediaType = MediaService.getMediaType(file);
       
-      // Only handle image and video for media messages
-      if (mediaType === 'image' || mediaType === 'video') {
-        await dataService.createMediaMessage(chat.id, mediaUrl, mediaType);
+      // Images only — video uploads are blocked to prevent storage quota lockouts.
+      if (mediaType === 'image') {
+        await dataService.createMediaMessage(chat.id, mediaUrl, 'image');
         
         toast({
           title: "Success",
@@ -376,7 +376,7 @@ const ChatInterface = ({ chat, onClose }: ChatInterfaceProps) => {
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*,video/*"
+            accept="image/*"
             onChange={handleFileUpload}
             className="hidden"
           />
