@@ -53,7 +53,7 @@ export class MediaService {
 
   static async uploadCover(file: File): Promise<string> {
     const compressedFile = await this.compressImage(file, 1280, 0.82, this.MAX_IMAGE_BYTES);
-    return this.uploadFile(compressedFile, 'avatars', 'covers');
+    return this.uploadFile(compressedFile, 'covers');
   }
 
   static async uploadPostMedia(file: File): Promise<string> {
@@ -73,33 +73,33 @@ export class MediaService {
 
   static async uploadStoryMedia(file: File): Promise<string> {
     const compressedFile = await this.compressImage(file, 720, 0.82, this.MAX_IMAGE_BYTES);
-    return this.uploadFile(compressedFile, 'status-images');
+    return this.uploadFile(compressedFile, 'stories');
   }
 
   static async uploadChatMedia(file: File): Promise<string> {
     if (file.type?.startsWith('image/')) {
       const compressedFile = await this.compressImage(file, 1080, 0.82, this.MAX_IMAGE_BYTES);
-      return this.uploadFile(compressedFile, 'chat-images');
+      return this.uploadFile(compressedFile, 'chat-media');
     }
 
     if (file.type?.startsWith('audio/')) {
-      return this.uploadFile(file, 'voice-notes');
+      return this.uploadFile(file, 'chat-media', 'voice-notes');
     }
 
-    return this.uploadFile(file, 'chat-images');
+    return this.uploadFile(file, 'chat-media');
   }
 
   static async uploadGroupAvatar(file: File): Promise<string> {
     const compressedFile = await this.compressImage(file, 512, 0.82, this.MAX_IMAGE_BYTES);
-    return this.uploadFile(compressedFile, 'group-avatars');
+    return this.uploadFile(compressedFile, 'room-media', 'group-avatars');
   }
 
   static async uploadVoiceNote(file: File): Promise<string> {
-    return this.uploadFile(file, 'voice-notes');
+    return this.uploadFile(file, 'chat-media', 'voice-notes');
   }
 
   static async uploadMusic(file: File): Promise<string> {
-    return this.uploadFile(file, 'music');
+    return this.uploadFile(file, 'chat-media', 'music');
   }
 
   static getMediaType(file: File): 'image' | 'video' | 'audio' {
