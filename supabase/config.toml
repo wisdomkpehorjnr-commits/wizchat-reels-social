@@ -1,7 +1,10 @@
-project_id = "eyrimzijqqfviwvoafpk"
+project_id = "cgydbjsuhwsnqsiskmex"
 
 [functions.wizai-chat]
 verify_jwt = false
 
 [functions.wizai-image]
+verify_jwt = false
+
+[functions.storage-cleanup]
 verify_jwt = false

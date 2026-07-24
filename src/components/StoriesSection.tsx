@@ -491,16 +491,16 @@ const StoriesSection: React.FC = () => {
     const file = e.target.files?.[0];
     if (file) {
       const detectedMediaType = MediaService.getMediaType(file);
-      if (detectedMediaType === 'audio') {
+      if (detectedMediaType !== 'image') {
         toast({
           title: "Invalid file type",
-          description: "Stories only support images and videos",
+          description: "Stories only support images while storage is being stabilized.",
           variant: "destructive"
         });
         return;
       }
       setStoryMedia(file);
-      setMediaType(detectedMediaType as 'image' | 'video');
+      setMediaType('image');
       const reader = new FileReader();
       reader.onload = () => setStoryPreview(reader.result as string);
       reader.readAsDataURL(file);
@@ -521,11 +521,11 @@ const StoriesSection: React.FC = () => {
       let finalMediaType: 'image' | 'video' = 'image';
       if (storyMedia) {
         const detectedType = MediaService.getMediaType(storyMedia);
-        if (detectedType === 'audio') {
-          throw new Error('Audio files are not supported for stories');
+        if (detectedType !== 'image') {
+          throw new Error('Only image stories are allowed right now.');
         }
         mediaUrl = await MediaService.uploadStoryMedia(storyMedia);
-        finalMediaType = detectedType as 'image' | 'video';
+        finalMediaType = 'image';
       }
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       if (!currentUser) throw new Error('User not authenticated');
@@ -663,7 +663,7 @@ const StoriesSection: React.FC = () => {
             <div className="flex space-x-2">
               <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} className="text-foreground">
                 <Camera className="w-4 h-4 mr-2" />
-                Photo/Video
+                Photo
               </Button>
             </div>
 
@@ -676,7 +676,7 @@ const StoriesSection: React.FC = () => {
               </Button>
             </div>
 
-            <input ref={fileInputRef} type="file" accept="image/*,video/*" onChange={handleMediaSelect} className="hidden" />
+            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleMediaSelect} className="hidden" />
           </div>
         </DialogContent>
       </Dialog>
