@@ -767,8 +767,13 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
   };
 
   const handleAttachment = async (file: File, type: string) => {
-    // Show preview for images, videos, and documents
-    if (file.type.startsWith('image/') || file.type.startsWith('video/') || 
+    if (file.type.startsWith('video/')) {
+      toast({ title: "Video disabled", description: "Videos are disabled while storage is being stabilized.", variant: "destructive" });
+      return;
+    }
+
+    // Show preview for images and documents
+    if (file.type.startsWith('image/') || 
         file.type.includes('pdf') || file.type.includes('document') || 
         file.type.includes('text') || file.type.includes('sheet') || 
         file.type.includes('presentation')) {
@@ -800,8 +805,8 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         const fileExt = file.name.split('.').pop() || 'bin';
         const fileName = `${currentUser.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
         
-        // Try different bucket names
-        const buckets = ['chat-images', 'posts'];
+        // Try the active chat media bucket only.
+        const buckets = ['chat-media'];
         let uploadSuccess = false;
         
         for (const bucket of buckets) {
@@ -834,7 +839,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         }
       }
 
-      // Determine media type based on DB constraint (only 'text', 'image', 'video' allowed)
+      // Determine media type based on DB constraint. Video is blocked above.
       let mediaType: 'image' | 'video' | 'text' = 'text';
       const fileName = file.name;
       const fileSize = file.size;
@@ -842,7 +847,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       if (file.type.startsWith('image/')) {
         mediaType = 'image';
       } else if (file.type.startsWith('video/')) {
-        mediaType = 'video';
+        throw new Error('Video uploads are disabled while storage is being stabilized.');
       } else {
         // Audio files and documents use 'text' type, identified by media_url + file extension
         mediaType = 'text';
@@ -941,7 +946,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
       } catch (mediaServiceError) {
         // Fallback: Direct upload
         const fileName = `${currentUser.id}/voice_${Date.now()}.webm`;
-        const buckets = ['voice-notes', 'chat-images'];
+        const buckets = ['chat-media'];
         let uploadSuccess = false;
         
         for (const bucket of buckets) {

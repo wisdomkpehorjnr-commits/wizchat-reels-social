@@ -124,7 +124,7 @@ Deno.serve(async (req) => {
     const videoMessageIds: string[] = []
     for (const message of messages ?? []) {
       if (message.type === 'video' || VIDEO_RE.test(message.media_url ?? '')) videoMessageIds.push(message.id)
-      else add(keepChat, publicPath(message.media_url, 'chat-images'))
+      else add(keepChat, publicPath(message.media_url, 'chat-media'))
     }
 
     const { count: storyCount } = await supabase.from('stories').select('id', { count: 'exact', head: true })
