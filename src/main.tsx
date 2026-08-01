@@ -88,4 +88,8 @@ if ('serviceWorker' in navigator && !isInIframe && !isPreviewHost) {
   navigator.serviceWorker?.getRegistrations().then(regs => regs.forEach(r => r.unregister()));
 }
 
-createRoot(document.getElementById("root")!).render(<App />);
+createRoot(document.getElementById("root")!).render(
+  <AppErrorBoundary>
+    <App />
+  </AppErrorBoundary>
+);
