@@ -1,5 +1,6 @@
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
+import AppErrorBoundary from './components/AppErrorBoundary'
 import './index.css'
 import { initializeOfflineMode } from './lib/offlineConfig'
 import { setWaitingSW } from './lib/swUpdateState'
