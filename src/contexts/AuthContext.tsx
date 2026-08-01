@@ -65,13 +65,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     let mounted = true;
+    let subscription: { unsubscribe: () => void } | undefined;
+
+    const withTimeout = async <T,>(promise: Promise<T>, timeoutMs = 8000): Promise<T> =>
+      Promise.race([
+        promise,
+        new Promise<T>((_, reject) =>
+          window.setTimeout(() => reject(new Error('Session check timed out')), timeoutMs)
+        ),
+      ]);
 
     const initializeAuth = async () => {
       try {
         console.log('Initializing auth...');
         
         // Set up auth state listener first
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
           console.log('Auth state changed:', event, session?.user?.id);
           
           if (!mounted) return;
@@ -89,19 +98,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           }
         });
+        subscription = data.subscription;
 
         // If offline and we have a cached user, don't wait for network
         if (!navigator.onLine && cachedUser) {
           console.log('[Auth] Offline with cached user, skipping network check');
           setLoading(false);
-          return () => {
-            mounted = false;
-            subscription.unsubscribe();
-          };
+          return;
         }
 
         // Check for existing session
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const { data: { session }, error } = await withTimeout(supabase.auth.getSession());
         console.log('Initial session check:', { session: !!session, error });
 
         if (error) {
@@ -125,10 +132,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
 
-        return () => {
-          mounted = false;
-          subscription.unsubscribe();
-        };
       } catch (error) {
         console.error('Auth initialization error:', error);
         if (mounted) {
@@ -143,6 +146,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => {
       mounted = false;
+      subscription?.unsubscribe();
     };
   }, []);
 

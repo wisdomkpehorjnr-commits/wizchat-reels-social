@@ -16,6 +16,8 @@ const PwaInstallPrompt: React.FC = () => {
   const [installed, setInstalled] = useState(false);
 
   useEffect(() => {
+    // The install prompt must never cover login or sign-up controls.
+    if (window.location.pathname === '/login') return;
     if (window.matchMedia('(display-mode: standalone)').matches) return;
     try { if (window.self !== window.top) return; } catch { return; }
     try {
@@ -54,7 +56,7 @@ const PwaInstallPrompt: React.FC = () => {
     try { localStorage.setItem(PWA_DISMISS_KEY, String(Date.now())); } catch {}
   }, []);
 
-  if (installed) return null;
+  if (installed || window.location.pathname === '/login') return null;
 
   return (
     <AnimatePresence>

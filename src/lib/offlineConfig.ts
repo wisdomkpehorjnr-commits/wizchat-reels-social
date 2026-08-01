@@ -116,20 +116,14 @@ export async function initializeOfflineMode() {
     // 4. Initialize data manager
     console.log('[Offline] Data manager initialized');
 
-    // 5. Register service worker
-    if ('serviceWorker' in navigator && OFFLINE_CONFIG.cache.enabled) {
-      try {
-        const registration = await navigator.serviceWorker.register('/service-worker.js', {
-          scope: '/',
-        });
-        console.log('[Offline] Service Worker registered:', registration);
-      } catch (error) {
-        console.warn('[Offline] Service Worker registration failed:', error);
-      }
-    }
+    // Service-worker ownership lives in main.tsx. A single registration path
+    // prevents stale preview workers from serving an outdated app shell.
 
     // 6. Enable periodic sync (if supported)
-    if ('serviceWorker' in navigator && OFFLINE_CONFIG.sync.enabled) {
+    const isPreview = window.location.hostname.includes('id-preview--') ||
+      window.location.hostname.includes('lovableproject.com') ||
+      (() => { try { return window.self !== window.top; } catch { return true; } })();
+    if ('serviceWorker' in navigator && OFFLINE_CONFIG.sync.enabled && !isPreview) {
       try {
         const registration = await navigator.serviceWorker.ready;
         // Check if SyncManager is available
