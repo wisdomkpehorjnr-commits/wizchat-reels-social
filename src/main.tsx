@@ -1,5 +1,6 @@
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
+import AppErrorBoundary from './components/AppErrorBoundary'
 import './index.css'
 import { initializeOfflineMode } from './lib/offlineConfig'
 import { setWaitingSW } from './lib/swUpdateState'
@@ -88,4 +89,8 @@ if ('serviceWorker' in navigator && !isInIframe && !isPreviewHost) {
   navigator.serviceWorker?.getRegistrations().then(regs => regs.forEach(r => r.unregister()));
 }
 
-createRoot(document.getElementById("root")!).render(<App />);
+createRoot(document.getElementById("root")!).render(
+  <AppErrorBoundary>
+    <App />
+  </AppErrorBoundary>
+);
