@@ -7,15 +7,16 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import Logo from '@/components/Logo';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, Eye, EyeOff, Mail, Lock, User } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User } from 'lucide-react';
 import OfflineScreen from '@/components/OfflineScreen';
 
-type Screen = 'welcome' | 'login' | 'signup';
+type Screen = 'login' | 'signup';
 
 const Login = () => {
   const { user, login, signUp, loginWithGoogle, loading } = useAuth();
   const { toast } = useToast();
-  const [screen, setScreen] = useState<Screen>('welcome');
+  // Launch directly into authentication; no intermediate welcome screen.
+  const [screen, setScreen] = useState<Screen>('login');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -88,21 +89,10 @@ const Login = () => {
     }
   };
 
-  if (loading && !user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center space-y-4">
-          <Logo size="lg" className="mx-auto" />
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen flex flex-col bg-background overflow-hidden relative">
       {/* Top colored section with wave */}
-      <div className="relative flex-shrink-0" style={{ minHeight: screen === 'welcome' ? '65vh' : '35vh', transition: 'min-height 0.5s ease' }}>
+      <div className="relative flex-shrink-0" style={{ minHeight: '35vh' }}>
         <div className="absolute inset-0 bg-primary overflow-hidden">
           {/* Topographic pattern overlay */}
           <svg className="absolute inset-0 w-full h-full opacity-15" viewBox="0 0 400 400" preserveAspectRatio="none">
@@ -151,24 +141,7 @@ const Login = () => {
 
         {/* Logo centered in the colored area */}
         <AnimatePresence mode="wait">
-          {screen === 'welcome' && (
-            <motion.div
-              key="welcome-logo"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.4 }}
-              className="relative z-10 flex flex-col items-center justify-center h-full pt-16 pb-24 px-6"
-              style={{ minHeight: '65vh' }}
-            >
-              <Logo size="xl" className="mb-6 shadow-lg" />
-              <h1 className="text-4xl font-bold text-primary-foreground mb-2">WizchatPro</h1>
-              <p className="text-primary-foreground/80 text-center max-w-xs">
-                Connect, share, and chat with friends worldwide
-              </p>
-            </motion.div>
-          )}
-          {screen !== 'welcome' && (
+          {(
             <motion.div
               key="form-logo"
               initial={{ opacity: 0, scale: 0.8 }}
@@ -186,40 +159,6 @@ const Login = () => {
       {/* Bottom content area */}
       <div className="flex-1 bg-background px-6 pb-8 -mt-2 relative z-10">
         <AnimatePresence mode="wait">
-          {/* Welcome Screen */}
-          {screen === 'welcome' && (
-            <motion.div
-              key="welcome"
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -30 }}
-              transition={{ duration: 0.4 }}
-              className="max-w-sm mx-auto space-y-8 pt-4"
-            >
-              <div>
-                <h2 className="text-3xl font-bold text-foreground">Welcome</h2>
-                <p className="text-muted-foreground mt-2">
-                  Your social world awaits. Sign in to continue or create a new account.
-                </p>
-              </div>
-
-              <div className="flex items-center justify-end">
-                <button
-                  onClick={() => setScreen('login')}
-                  className="flex items-center gap-3 text-foreground font-medium group"
-                >
-                  <span>Continue</span>
-                  <motion.div
-                    whileHover={{ x: 4 }}
-                    className="w-10 h-10 rounded-full bg-primary flex items-center justify-center"
-                  >
-                    <ArrowRight className="w-5 h-5 text-primary-foreground" />
-                  </motion.div>
-                </button>
-              </div>
-            </motion.div>
-          )}
-
           {/* Sign In Screen */}
           {screen === 'login' && (
             <motion.div
