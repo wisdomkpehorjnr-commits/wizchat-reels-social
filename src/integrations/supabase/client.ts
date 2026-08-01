@@ -2,8 +2,27 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? "https://cgydbjsuhwsnqsiskmex.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? import.meta.env.VITE_SUPABASE_ANON_KEY ?? "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNneWRianN1aHdzbnFzaXNrbWV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMwNTI5MTgsImV4cCI6MjA2ODYyODkxOH0.eCdvFODSW4VSRjgYf6me2fTVsGTmhv_P7uWWgJYD8ak";
+const FALLBACK_URL = "https://cgydbjsuhwsnqsiskmex.supabase.co";
+const FALLBACK_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNneWRianN1aHdzbnFzaXNrbWV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMwNTI5MTgsImV4cCI6MjA2ODYyODkxOH0.eCdvFODSW4VSRjgYf6me2fTVsGTmhv_P7uWWgJYD8ak";
+
+// Guard against missing/blank/invalid env values in some deployments (they would
+// otherwise crash the whole app with "Failed to construct 'URL': Invalid URL").
+const isValidUrl = (value: unknown): value is string => {
+  if (typeof value !== 'string' || value.trim() === '') return false;
+  try {
+    const u = new URL(value.trim());
+    return u.protocol === 'https:' || u.protocol === 'http:';
+  } catch {
+    return false;
+  }
+};
+
+const envUrl = import.meta.env.VITE_SUPABASE_URL;
+const envKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+const SUPABASE_URL = isValidUrl(envUrl) ? envUrl.trim() : FALLBACK_URL;
+const SUPABASE_PUBLISHABLE_KEY =
+  typeof envKey === 'string' && envKey.trim() !== '' ? envKey.trim() : FALLBACK_KEY;
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
