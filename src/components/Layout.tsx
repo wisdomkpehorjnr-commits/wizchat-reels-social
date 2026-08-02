@@ -70,25 +70,30 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const homeTapRef = useRef<{ count: number; timer: NodeJS.Timeout | null }>({ count: 0, timer: null });
 
   const handleHomeClick = (e: React.MouseEvent) => {
-    // Multi-tap (2+) on Home tab scrolls to top
-    if (location.pathname === '/') {
-      e.preventDefault();
+    e.preventDefault();
 
-      homeTapRef.current.count += 1;
-
-      if (homeTapRef.current.timer) {
-        clearTimeout(homeTapRef.current.timer);
-      }
-
-      // Scroll to top on every tap after the first within the window
-      if (homeTapRef.current.count >= 2) {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
-
-      homeTapRef.current.timer = setTimeout(() => {
-        homeTapRef.current.count = 0;
-      }, 400);
+    // Home always closes the current route and returns to the main feed.
+    if (location.pathname !== '/') {
+      homeTapRef.current.count = 0;
+      navigate('/');
+      return;
     }
+
+    // Multi-tap (2+) while already on Home scrolls to the top.
+    homeTapRef.current.count += 1;
+
+    if (homeTapRef.current.timer) {
+      clearTimeout(homeTapRef.current.timer);
+    }
+
+    // Scroll to top on every tap after the first within the window
+    if (homeTapRef.current.count >= 2) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    homeTapRef.current.timer = setTimeout(() => {
+      homeTapRef.current.count = 0;
+    }, 400);
   };
 
   return (

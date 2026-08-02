@@ -40,6 +40,11 @@ document.addEventListener('gestureend', (e) => e.preventDefault());
 let lastTouchEnd = 0;
 document.addEventListener('touchend', (e) => {
   const now = Date.now();
+  const target = e.target as HTMLElement | null;
+  if (target?.closest('a, button, [role="button"]')) {
+    lastTouchEnd = now;
+    return;
+  }
   if (now - lastTouchEnd <= 300) e.preventDefault();
   lastTouchEnd = now;
 }, { passive: false });
