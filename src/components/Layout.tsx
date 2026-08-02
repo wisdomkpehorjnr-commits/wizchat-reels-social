@@ -80,20 +80,20 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     }
 
     // Multi-tap (2+) while already on Home scrolls to the top.
-      homeTapRef.current.count += 1;
+    homeTapRef.current.count += 1;
 
-      if (homeTapRef.current.timer) {
-        clearTimeout(homeTapRef.current.timer);
-      }
+    if (homeTapRef.current.timer) {
+      clearTimeout(homeTapRef.current.timer);
+    }
 
-      // Scroll to top on every tap after the first within the window
-      if (homeTapRef.current.count >= 2) {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
+    // Scroll to top on every tap after the first within the window
+    if (homeTapRef.current.count >= 2) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
 
-      homeTapRef.current.timer = setTimeout(() => {
-        homeTapRef.current.count = 0;
-      }, 400);
+    homeTapRef.current.timer = setTimeout(() => {
+      homeTapRef.current.count = 0;
+    }, 400);
   };
 
   return (
