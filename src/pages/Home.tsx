@@ -547,10 +547,12 @@ const Home = () => {
               {/* Pinned PYMK card — always visible, including offline */}
               <PeopleYouMayKnowCard />
               {regularPosts.map((post, index) => {
-                const shouldShowPymk = (index + 1) % 30 === 0;
+                const position = index + 1;
+                const shouldShowReels = position % 30 === 0;
+                const shouldShowPymk = position % 30 === 15;
 
                 return (
-                  <div key={post.id} data-post-id={post.id}>
+                  <div key={post.id} data-post-id={post.id} className="space-y-6">
                     <PostCard
                       post={post}
                       onPostUpdate={loadPosts}
@@ -558,11 +560,15 @@ const Home = () => {
                     {shouldShowPymk && (
                       <PeopleYouMayKnowCard />
                     )}
+                    {shouldShowReels && (
+                      <ReelsPromoCard reels={reelPosts} />
+                    )}
                   </div>
                 );
               })}
             </div>
           </SmartLoading>
+
         </div>
       </div>
       <GlobalSearch isOpen={showSearch} onClose={() => setShowSearch(false)} />
