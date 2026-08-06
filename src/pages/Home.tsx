@@ -476,6 +476,7 @@ const Home = () => {
 
   // Memoize post lists
   const regularPosts = useMemo(() => posts.filter(post => !post.isReel && !post.videoUrl && post.mediaType !== 'video'), [posts]);
+  const reelPosts = useMemo(() => posts.filter(post => post.isReel || post.videoUrl || post.mediaType === 'video'), [posts]);
 
   return (
     <Layout>
