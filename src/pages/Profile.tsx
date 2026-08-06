@@ -727,31 +727,35 @@ const Profile = () => {
             ) : userPosts.length > 0 ? (
               <div className="grid grid-cols-3 md:grid-cols-4 gap-1.5">
                 {userPosts.map(post => (
-                  <Card key={post.id} className="overflow-hidden cursor-pointer hover:ring-2 ring-primary group relative rounded-md">
-                    <div className="aspect-square relative bg-muted">
-                      {post.imageUrl ? (
-                        <img
-                          src={post.imageUrl}
-                          alt=""
-                          className="w-full h-full object-cover"
-                          onError={(e) => { (e.currentTarget as HTMLImageElement).src = OFFLINE_IMG; }}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center p-3">
-                          <p className="text-xs text-muted-foreground line-clamp-4">{post.content}</p>
-                        </div>
-                      )}
-                      {isOwnProfile && (
-                        <button
-                          className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-destructive/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                          onClick={(e) => { e.stopPropagation(); handleDeletePost(post.id); }}
-                        >
-                          <X className="w-3.5 h-3.5 text-white" />
-                        </button>
-                      )}
-                    </div>
-                  </Card>
+                  <div key={post.id}>
+                    <Card className="overflow-hidden cursor-pointer hover:ring-2 ring-primary group relative rounded-md">
+                      <div className="aspect-square relative bg-muted">
+                        {post.imageUrl ? (
+                          <img
+                            src={post.imageUrl}
+                            alt=""
+                            className="w-full h-full object-cover"
+                            onError={(e) => { (e.currentTarget as HTMLImageElement).src = OFFLINE_IMG; }}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center p-3">
+                            <p className="text-xs text-muted-foreground line-clamp-4">{post.content}</p>
+                          </div>
+                        )}
+                        {isOwnProfile && (
+                          <button
+                            className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-destructive/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                            onClick={(e) => { e.stopPropagation(); handleDeletePost(post.id); }}
+                          >
+                            <X className="w-3.5 h-3.5 text-white" />
+                          </button>
+                        )}
+                      </div>
+                    </Card>
+                    <PostExpiryBadge postId={post.id} expiresAt={post.expiresAt} isOwner={isOwnProfile} />
+                  </div>
                 ))}
+
               </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">No posts yet</div>
