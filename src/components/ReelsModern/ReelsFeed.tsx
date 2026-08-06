@@ -121,9 +121,19 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({ searchQuery = '' }) => {
     });
   }, [posts]);
 
-  const displayPosts = activeTab === 'following'
+  const tabPosts = activeTab === 'following'
     ? posts.filter(p => followedUsers.has(p.userId))
     : posts;
+
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const displayPosts = normalizedQuery
+    ? tabPosts.filter(p =>
+        (p.content || '').toLowerCase().includes(normalizedQuery) ||
+        (p.user?.name || '').toLowerCase().includes(normalizedQuery) ||
+        (p.user?.username || '').toLowerCase().includes(normalizedQuery)
+      )
+    : tabPosts;
+
 
   const handleLike = useCallback(async (id: string) => {
     if (!user) { toast({ title: 'Login required' }); return; }
