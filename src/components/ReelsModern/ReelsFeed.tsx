@@ -45,7 +45,11 @@ type FeedTab = 'foryou' | 'following';
 // Bottom nav height on mobile
 const BOTTOM_NAV_HEIGHT = 64;
 
-export const ReelsFeed: React.FC = () => {
+interface ReelsFeedProps {
+  searchQuery?: string;
+}
+
+export const ReelsFeed: React.FC<ReelsFeedProps> = ({ searchQuery = '' }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const obsRef = useRef<IntersectionObserver | null>(null);
   const hasLoadedRef = useRef(false);
