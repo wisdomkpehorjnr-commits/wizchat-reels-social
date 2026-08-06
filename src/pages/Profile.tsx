@@ -13,6 +13,7 @@ import { Post, SavedPost, Follow } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { Calendar, MapPin, Link as LinkIcon, Edit, MessageCircle, UserPlus, UserMinus, Bookmark, Users, UserCircle, WifiOff, Trash2, X, UserCheck, Check, Download } from 'lucide-react';
 import EditProfileDialog from '@/components/EditProfileDialog';
+import PostExpiryBadge from '@/components/PostExpiryBadge';
 import PostCard from '@/components/PostCard';
 import ImageModal from '@/components/ImageModal';
 import AvatarStudio from '@/components/AvatarStudio';
