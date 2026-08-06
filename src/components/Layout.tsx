@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Home, MessageCircle, Users, User, Settings, MessageSquare, Crown } from 'lucide-react';
+import { Home, MessageCircle, Users, User, Settings, MessageSquare, Crown, Clapperboard } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotificationBadges } from '@/hooks/useNotificationBadges';
 import Logo from './Logo';
