@@ -34,6 +34,7 @@ const Settings = lazy(() => import("./pages/Settings"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const FollowersFollowing = lazy(() => import("./pages/FollowersFollowing"));
 const NotificationsPage = lazy(() => import("./pages/Notifications"));
+const Reels = lazy(() => import("./pages/Reels"));
 
 // ✅ Avatar customization page
 const AvatarStudio = lazy(() => import("./components/AvatarStudio"));
