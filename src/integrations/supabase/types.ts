@@ -889,6 +889,7 @@ export type Database = {
         Row: {
           content: string
           created_at: string | null
+          expires_at: string
           id: string
           image_url: string | null
           is_reel: boolean | null
@@ -901,6 +902,7 @@ export type Database = {
         Insert: {
           content: string
           created_at?: string | null
+          expires_at?: string
           id?: string
           image_url?: string | null
           is_reel?: boolean | null
@@ -913,6 +915,7 @@ export type Database = {
         Update: {
           content?: string
           created_at?: string | null
+          expires_at?: string
           id?: string
           image_url?: string | null
           is_reel?: boolean | null
@@ -1507,6 +1510,8 @@ export type Database = {
         }
         Returns: string
       }
+      delete_expired_posts: { Args: never; Returns: number }
+      extend_post_expiry: { Args: { p_post_id: string }; Returns: string }
       get_chat_summaries: {
         Args: never
         Returns: {
