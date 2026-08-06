@@ -73,6 +73,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const handleHomeClick = (e: React.MouseEvent) => {
     e.preventDefault();
 
+    // Always signal Home so overlays (e.g. global search) can close themselves.
+    window.dispatchEvent(new CustomEvent('wizchat-home-pressed'));
+
     // Home always closes the current route and returns to the main feed.
     if (location.pathname !== '/') {
       homeTapRef.current.count = 0;
@@ -80,22 +83,23 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       return;
     }
 
-    // Multi-tap (2+) while already on Home scrolls to the top.
+    // Double-tap (2+) while already on Home scrolls to the top.
     homeTapRef.current.count += 1;
 
     if (homeTapRef.current.timer) {
       clearTimeout(homeTapRef.current.timer);
     }
 
-    // Scroll to top on every tap after the first within the window
     if (homeTapRef.current.count >= 2) {
       window.scrollTo({ top: 0, behavior: 'smooth' });
+      document.scrollingElement?.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     homeTapRef.current.timer = setTimeout(() => {
       homeTapRef.current.count = 0;
-    }, 400);
+    }, 500);
   };
+
 
   return (
     <div className="min-h-screen bg-background">
