@@ -67,7 +67,8 @@ const mapPostsFromQuery = (rows: any[], currentUserId?: string): Post[] => {
       })),
       reactions: [],
       hashtags: [],
-      createdAt: new Date(post.created_at)
+      createdAt: new Date(post.created_at),
+      expiresAt: post.expires_at ? new Date(post.expires_at) : undefined
     };
   });
 };
