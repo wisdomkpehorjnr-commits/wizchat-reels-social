@@ -5,6 +5,7 @@ import PostCard from '@/components/PostCard';
 import StoriesSection from '@/components/StoriesSection';
 import FriendsSuggestionCard from '@/components/FriendsSuggestionCard';
 import PeopleYouMayKnowCard from '@/components/PeopleYouMayKnowCard';
+import ReelsPromoCard from '@/components/ReelsPromoCard';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Search } from 'lucide-react';
 import { dataService } from '@/services/dataService';
