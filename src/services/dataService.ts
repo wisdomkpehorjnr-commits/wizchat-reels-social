@@ -121,9 +121,13 @@ export const dataService = {
       is_reel: false
     };
 
-    if (postData.videoUrl || postData.mediaType === 'video' || postData.isReel) {
-      throw new Error('Video and reels are disabled while storage is being stabilized.');
+    // Video / reel support
+    if (postData.videoUrl) {
+      insertData.video_url = postData.videoUrl;
+      insertData.media_type = 'video';
+      insertData.is_reel = true;
     }
+
 
     // Handle images - store first image in image_url column
     if (postData.imageUrls && Array.isArray(postData.imageUrls) && postData.imageUrls.length > 0) {
