@@ -5,6 +5,7 @@ import PostCard from '@/components/PostCard';
 import StoriesSection from '@/components/StoriesSection';
 import FriendsSuggestionCard from '@/components/FriendsSuggestionCard';
 import PeopleYouMayKnowCard from '@/components/PeopleYouMayKnowCard';
+import ReelsPromoCard from '@/components/ReelsPromoCard';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Search } from 'lucide-react';
 import { dataService } from '@/services/dataService';
@@ -115,6 +116,14 @@ const Home = () => {
       else sessionStorage.removeItem('wizchat_search_open');
     } catch {}
   }, [showSearch]);
+
+  // Pressing the Home tab always exits the global search overlay
+  useEffect(() => {
+    const closeSearch = () => setShowSearch(false);
+    window.addEventListener('wizchat-home-pressed', closeSearch);
+    return () => window.removeEventListener('wizchat-home-pressed', closeSearch);
+  }, []);
+
   
   const hasLoadedRef = useRef(false);
   const scrollRestoredRef = useRef(false);
@@ -468,6 +477,7 @@ const Home = () => {
 
   // Memoize post lists
   const regularPosts = useMemo(() => posts.filter(post => !post.isReel && !post.videoUrl && post.mediaType !== 'video'), [posts]);
+  const reelPosts = useMemo(() => posts.filter(post => post.isReel || post.videoUrl || post.mediaType === 'video'), [posts]);
 
   return (
     <Layout>
@@ -538,10 +548,12 @@ const Home = () => {
               {/* Pinned PYMK card — always visible, including offline */}
               <PeopleYouMayKnowCard />
               {regularPosts.map((post, index) => {
-                const shouldShowPymk = (index + 1) % 30 === 0;
+                const position = index + 1;
+                const shouldShowReels = position % 30 === 0;
+                const shouldShowPymk = position % 30 === 15;
 
                 return (
-                  <div key={post.id} data-post-id={post.id}>
+                  <div key={post.id} data-post-id={post.id} className="space-y-6">
                     <PostCard
                       post={post}
                       onPostUpdate={loadPosts}
@@ -549,11 +561,15 @@ const Home = () => {
                     {shouldShowPymk && (
                       <PeopleYouMayKnowCard />
                     )}
+                    {shouldShowReels && (
+                      <ReelsPromoCard reels={reelPosts} />
+                    )}
                   </div>
                 );
               })}
             </div>
           </SmartLoading>
+
         </div>
       </div>
       <GlobalSearch isOpen={showSearch} onClose={() => setShowSearch(false)} />

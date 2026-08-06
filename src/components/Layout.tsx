@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Home, MessageCircle, Users, User, Settings, MessageSquare, Crown } from 'lucide-react';
+import { Home, MessageCircle, Users, User, Settings, MessageSquare, Crown, Clapperboard } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotificationBadges } from '@/hooks/useNotificationBadges';
 import Logo from './Logo';
@@ -34,6 +34,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const navItems = [
     { icon: Home, label: t('home'), path: '/', badge: 0 },
+    { icon: Clapperboard, label: 'Reels', path: '/reels', badge: 0 },
     { icon: MessageCircle, label: t('chat'), path: '/chat', badge: 0 },
     { icon: Users, label: t('friends'), path: '/friends', badge: badges.friends },
     { icon: MessageSquare, label: t('topics'), path: '/topics', badge: badges.topics },
@@ -72,6 +73,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const handleHomeClick = (e: React.MouseEvent) => {
     e.preventDefault();
 
+    // Always signal Home so overlays (e.g. global search) can close themselves.
+    window.dispatchEvent(new CustomEvent('wizchat-home-pressed'));
+
     // Home always closes the current route and returns to the main feed.
     if (location.pathname !== '/') {
       homeTapRef.current.count = 0;
@@ -79,22 +83,23 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       return;
     }
 
-    // Multi-tap (2+) while already on Home scrolls to the top.
+    // Double-tap (2+) while already on Home scrolls to the top.
     homeTapRef.current.count += 1;
 
     if (homeTapRef.current.timer) {
       clearTimeout(homeTapRef.current.timer);
     }
 
-    // Scroll to top on every tap after the first within the window
     if (homeTapRef.current.count >= 2) {
       window.scrollTo({ top: 0, behavior: 'smooth' });
+      document.scrollingElement?.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     homeTapRef.current.timer = setTimeout(() => {
       homeTapRef.current.count = 0;
-    }, 400);
+    }, 500);
   };
+
 
   return (
     <div className="min-h-screen bg-background">

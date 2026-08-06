@@ -13,6 +13,7 @@ import { Post, SavedPost, Follow } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { Calendar, MapPin, Link as LinkIcon, Edit, MessageCircle, UserPlus, UserMinus, Bookmark, Users, UserCircle, WifiOff, Trash2, X, UserCheck, Check, Download } from 'lucide-react';
 import EditProfileDialog from '@/components/EditProfileDialog';
+import PostExpiryBadge from '@/components/PostExpiryBadge';
 import PostCard from '@/components/PostCard';
 import ImageModal from '@/components/ImageModal';
 import AvatarStudio from '@/components/AvatarStudio';
@@ -727,31 +728,35 @@ const Profile = () => {
             ) : userPosts.length > 0 ? (
               <div className="grid grid-cols-3 md:grid-cols-4 gap-1.5">
                 {userPosts.map(post => (
-                  <Card key={post.id} className="overflow-hidden cursor-pointer hover:ring-2 ring-primary group relative rounded-md">
-                    <div className="aspect-square relative bg-muted">
-                      {post.imageUrl ? (
-                        <img
-                          src={post.imageUrl}
-                          alt=""
-                          className="w-full h-full object-cover"
-                          onError={(e) => { (e.currentTarget as HTMLImageElement).src = OFFLINE_IMG; }}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center p-3">
-                          <p className="text-xs text-muted-foreground line-clamp-4">{post.content}</p>
-                        </div>
-                      )}
-                      {isOwnProfile && (
-                        <button
-                          className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-destructive/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                          onClick={(e) => { e.stopPropagation(); handleDeletePost(post.id); }}
-                        >
-                          <X className="w-3.5 h-3.5 text-white" />
-                        </button>
-                      )}
-                    </div>
-                  </Card>
+                  <div key={post.id}>
+                    <Card className="overflow-hidden cursor-pointer hover:ring-2 ring-primary group relative rounded-md">
+                      <div className="aspect-square relative bg-muted">
+                        {post.imageUrl ? (
+                          <img
+                            src={post.imageUrl}
+                            alt=""
+                            className="w-full h-full object-cover"
+                            onError={(e) => { (e.currentTarget as HTMLImageElement).src = OFFLINE_IMG; }}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center p-3">
+                            <p className="text-xs text-muted-foreground line-clamp-4">{post.content}</p>
+                          </div>
+                        )}
+                        {isOwnProfile && (
+                          <button
+                            className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-destructive/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                            onClick={(e) => { e.stopPropagation(); handleDeletePost(post.id); }}
+                          >
+                            <X className="w-3.5 h-3.5 text-white" />
+                          </button>
+                        )}
+                      </div>
+                    </Card>
+                    <PostExpiryBadge postId={post.id} expiresAt={post.expiresAt} isOwner={isOwnProfile} />
+                  </div>
                 ))}
+
               </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">No posts yet</div>
@@ -766,12 +771,16 @@ const Profile = () => {
               ) : userReels.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
                 {userReels.map(reel => (
-                  <Card key={reel.id} className="overflow-hidden cursor-pointer hover:ring-2 ring-primary group relative">
-                    <div className="aspect-[9/16] relative bg-muted">
-                      <ReelPreview reel={reel} isMuted={isMuted} onDelete={handleDeletePost} isOwnProfile={isOwnProfile} />
-                    </div>
-                  </Card>
+                  <div key={reel.id}>
+                    <Card className="overflow-hidden cursor-pointer hover:ring-2 ring-primary group relative">
+                      <div className="aspect-[9/16] relative bg-muted">
+                        <ReelPreview reel={reel} isMuted={isMuted} onDelete={handleDeletePost} isOwnProfile={isOwnProfile} />
+                      </div>
+                    </Card>
+                    <PostExpiryBadge postId={reel.id} expiresAt={reel.expiresAt} isOwner={isOwnProfile} />
+                  </div>
                 ))}
+
               </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">No reels yet</div>

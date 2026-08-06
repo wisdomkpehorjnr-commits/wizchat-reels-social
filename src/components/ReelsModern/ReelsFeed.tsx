@@ -45,7 +45,11 @@ type FeedTab = 'foryou' | 'following';
 // Bottom nav height on mobile
 const BOTTOM_NAV_HEIGHT = 64;
 
-export const ReelsFeed: React.FC = () => {
+interface ReelsFeedProps {
+  searchQuery?: string;
+}
+
+export const ReelsFeed: React.FC<ReelsFeedProps> = ({ searchQuery = '' }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const obsRef = useRef<IntersectionObserver | null>(null);
   const hasLoadedRef = useRef(false);
@@ -117,9 +121,19 @@ export const ReelsFeed: React.FC = () => {
     });
   }, [posts]);
 
-  const displayPosts = activeTab === 'following'
+  const tabPosts = activeTab === 'following'
     ? posts.filter(p => followedUsers.has(p.userId))
     : posts;
+
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const displayPosts = normalizedQuery
+    ? tabPosts.filter(p =>
+        (p.content || '').toLowerCase().includes(normalizedQuery) ||
+        (p.user?.name || '').toLowerCase().includes(normalizedQuery) ||
+        (p.user?.username || '').toLowerCase().includes(normalizedQuery)
+      )
+    : tabPosts;
+
 
   const handleLike = useCallback(async (id: string) => {
     if (!user) { toast({ title: 'Login required' }); return; }

@@ -819,45 +819,41 @@ button {
 .ultra .bg-card { background-color: #000000 !important; color: #FFFFFF !important; }
 
 /* ============================================
-   HIGH CONTRAST MODE — bold, crisp, unmissable
-   Toggled via `.high-contrast` on <html>
+   HIGH CONTRAST MODE — text only
+   Toggled via `.high-contrast` on <html>.
+   Rule: bolder + higher-contrast TEXT only.
+   No borders, boxes, shadows or icon changes.
    ============================================ */
-.high-contrast body,
-.high-contrast * {
-  font-weight: 700 !important;
-  letter-spacing: 0.01em;
-}
 .high-contrast p,
 .high-contrast span,
 .high-contrast a,
 .high-contrast label,
 .high-contrast li,
-.high-contrast div,
 .high-contrast h1,
 .high-contrast h2,
 .high-contrast h3,
 .high-contrast h4,
 .high-contrast h5,
-.high-contrast h6 {
-  color: hsl(var(--foreground)) !important;
-  text-shadow: 0 0 0.5px currentColor;
-}
-.high-contrast .text-muted-foreground {
-  color: hsl(var(--foreground) / 0.85) !important;
-}
+.high-contrast h6,
 .high-contrast button,
 .high-contrast input,
 .high-contrast textarea,
-.high-contrast select,
-.high-contrast [role="button"],
-.high-contrast .border,
-.high-contrast .border-b,
-.high-contrast .border-t,
-.high-contrast .border-l,
-.high-contrast .border-r {
-  border-width: 2px !important;
-  border-color: hsl(var(--foreground) / 0.7) !important;
+.high-contrast select {
+  font-weight: 700 !important;
+  color: hsl(var(--foreground)) !important;
 }
-.high-contrast a {
-  text-decoration: underline;
+
+/* Muted/secondary text becomes fully readable */
+.high-contrast .text-muted-foreground,
+.high-contrast .text-muted-foreground * {
+  color: hsl(var(--foreground)) !important;
 }
+
+/* Never touch icons, images, media or layout chrome */
+.high-contrast svg,
+.high-contrast img,
+.high-contrast video,
+.high-contrast canvas {
+  font-weight: normal !important;
+}
+

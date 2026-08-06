@@ -38,6 +38,7 @@ export interface Post {
   reactions: Reaction[];
   hashtags: Hashtag[];
   createdAt: Date;
+  expiresAt?: Date;
 }
 
 export interface Comment {

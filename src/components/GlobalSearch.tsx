@@ -352,7 +352,16 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
               className="pl-10"
             />
           </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close search"
+            className="shrink-0 rounded-full px-4 py-2 text-sm font-medium text-foreground bg-foreground/10 backdrop-blur-xl border border-foreground/20 shadow-sm transition-all active:scale-95 hover:bg-foreground/20"
+          >
+            Close
+          </button>
         </div>
+
 
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)} className="flex-1 flex flex-col min-h-0">
           <TabsList className="w-full justify-start rounded-none border-b px-2 overflow-x-auto no-scrollbar">
