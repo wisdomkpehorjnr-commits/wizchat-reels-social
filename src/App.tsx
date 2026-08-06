@@ -127,8 +127,13 @@ const App = () => {
                 />
                 <Route
                   path="/reels"
-                  element={<Navigate to="/" replace />}
+                  element={
+                    <ProtectedRoute>
+                      <Reels />
+                    </ProtectedRoute>
+                  }
                 />
+
                 <Route
                   path="/chat"
                   element={
