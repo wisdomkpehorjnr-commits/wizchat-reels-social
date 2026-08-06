@@ -115,6 +115,14 @@ const Home = () => {
       else sessionStorage.removeItem('wizchat_search_open');
     } catch {}
   }, [showSearch]);
+
+  // Pressing the Home tab always exits the global search overlay
+  useEffect(() => {
+    const closeSearch = () => setShowSearch(false);
+    window.addEventListener('wizchat-home-pressed', closeSearch);
+    return () => window.removeEventListener('wizchat-home-pressed', closeSearch);
+  }, []);
+
   
   const hasLoadedRef = useRef(false);
   const scrollRestoredRef = useRef(false);
