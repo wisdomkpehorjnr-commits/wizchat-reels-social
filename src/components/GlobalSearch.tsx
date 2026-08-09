@@ -191,7 +191,7 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
   };
 
   const PostRow = ({ r }: { r: SearchResult }) => (
-    <Card className="cursor-pointer hover:bg-accent transition-colors overflow-hidden" onClick={goToPosts}>
+    <Card className="cursor-pointer hover:bg-accent transition-colors overflow-hidden" onClick={() => goToPost(r)}>
       <CardContent className="p-3">
         <div className="flex items-start gap-3">
           {r.image ? (
