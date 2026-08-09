@@ -10,9 +10,10 @@ export class MediaService {
     }
   }
 
-  private static async uploadFile(file: File, bucket: string, folder?: string): Promise<string> {
+  private static async uploadFile(file: File, bucket: string, folder?: string, allowVideo = false): Promise<string> {
     try {
-      this.assertNoVideo(file);
+      if (!allowVideo) this.assertNoVideo(file);
+
 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
