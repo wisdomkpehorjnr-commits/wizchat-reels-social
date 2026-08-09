@@ -47,9 +47,14 @@ const BOTTOM_NAV_HEIGHT = 64;
 
 interface ReelsFeedProps {
   searchQuery?: string;
+  /** Called when a search result tile is opened so the page can close search UI */
+  onClearSearch?: () => void;
+  /** Deep link: reel id to jump to on mount */
+  initialReelId?: string;
 }
 
-export const ReelsFeed: React.FC<ReelsFeedProps> = ({ searchQuery = '' }) => {
+export const ReelsFeed: React.FC<ReelsFeedProps> = ({ searchQuery = '', onClearSearch, initialReelId }) => {
+
   const containerRef = useRef<HTMLDivElement | null>(null);
   const obsRef = useRef<IntersectionObserver | null>(null);
   const hasLoadedRef = useRef(false);
