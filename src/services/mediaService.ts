@@ -10,9 +10,10 @@ export class MediaService {
     }
   }
 
-  private static async uploadFile(file: File, bucket: string, folder?: string): Promise<string> {
+  private static async uploadFile(file: File, bucket: string, folder?: string, allowVideo = false): Promise<string> {
     try {
-      this.assertNoVideo(file);
+      if (!allowVideo) this.assertNoVideo(file);
+
 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
@@ -66,10 +67,16 @@ export class MediaService {
     return this.uploadFile(compressedFile, 'posts', 'images');
   }
 
+  static readonly MAX_VIDEO_BYTES = 25 * 1024 * 1024;
+
   static async uploadPostVideo(file: File): Promise<string> {
-    this.assertNoVideo(file);
-    throw new Error('Video uploads are disabled.');
+    if (!file.type?.startsWith('video/')) throw new Error('Please select a video file.');
+    if (file.size > this.MAX_VIDEO_BYTES) {
+      throw new Error('Video is too large. Please keep reels under 25MB.');
+    }
+    return this.uploadFile(file, 'posts', 'reels', true);
   }
+
 
   static async uploadStoryMedia(file: File): Promise<string> {
     const compressedFile = await this.compressImage(file, 720, 0.82, this.MAX_IMAGE_BYTES);

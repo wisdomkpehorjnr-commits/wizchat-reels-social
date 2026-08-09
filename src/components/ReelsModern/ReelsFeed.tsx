@@ -47,9 +47,14 @@ const BOTTOM_NAV_HEIGHT = 64;
 
 interface ReelsFeedProps {
   searchQuery?: string;
+  /** Called when a search result tile is opened so the page can close search UI */
+  onClearSearch?: () => void;
+  /** Deep link: reel id to jump to on mount */
+  initialReelId?: string;
 }
 
-export const ReelsFeed: React.FC<ReelsFeedProps> = ({ searchQuery = '' }) => {
+export const ReelsFeed: React.FC<ReelsFeedProps> = ({ searchQuery = '', onClearSearch, initialReelId }) => {
+
   const containerRef = useRef<HTMLDivElement | null>(null);
   const obsRef = useRef<IntersectionObserver | null>(null);
   const hasLoadedRef = useRef(false);
@@ -126,13 +131,41 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({ searchQuery = '' }) => {
     : posts;
 
   const normalizedQuery = searchQuery.trim().toLowerCase();
-  const displayPosts = normalizedQuery
-    ? tabPosts.filter(p =>
+
+  // Search matches reels by caption OR by the person who posted them.
+  // Users without reels never appear.
+  const searchResults = normalizedQuery
+    ? posts.filter(p =>
         (p.content || '').toLowerCase().includes(normalizedQuery) ||
         (p.user?.name || '').toLowerCase().includes(normalizedQuery) ||
-        (p.user?.username || '').toLowerCase().includes(normalizedQuery)
+        ((p.user as any)?.username || '').toLowerCase().includes(normalizedQuery)
       )
-    : tabPosts;
+    : [];
+
+  const displayPosts = tabPosts;
+
+  // Jump to a specific reel (deep link or a search result tile)
+  const [jumpToId, setJumpToId] = useState<string | null>(initialReelId || null);
+  useEffect(() => { if (initialReelId) setJumpToId(initialReelId); }, [initialReelId]);
+
+  useEffect(() => {
+    if (!jumpToId || !containerRef.current || displayPosts.length === 0) return;
+    const index = displayPosts.findIndex(p => p.id === jumpToId);
+    if (index < 0) return;
+    const container = containerRef.current;
+    requestAnimationFrame(() => {
+      container.scrollTo({ top: index * container.clientHeight, behavior: 'auto' });
+      setActiveIndex(index);
+      setVisibleRange({ start: Math.max(0, index - 1), end: index + 3 });
+      setJumpToId(null);
+    });
+  }, [jumpToId, displayPosts.length]);
+
+  const openFromSearch = useCallback((id: string) => {
+    setJumpToId(id);
+    onClearSearch?.();
+  }, [onClearSearch]);
+
 
 
   const handleLike = useCallback(async (id: string) => {
@@ -230,7 +263,40 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({ searchQuery = '' }) => {
     );
   }
 
+  // Search results grid — tap a tile to watch it fullscreen
+  if (normalizedQuery) {
+    return (
+      <div className="w-full h-full bg-background overflow-y-auto">
+        {searchResults.length === 0 ? (
+          <div className="flex items-center justify-center h-full px-8">
+            <p className="text-muted-foreground text-sm text-center">No reels found for "{searchQuery}"</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-1.5 p-2">
+            {searchResults.map(p => (
+              <button
+                key={p.id}
+                onClick={() => openFromSearch(p.id)}
+                className="relative aspect-[9/16] rounded-xl overflow-hidden bg-muted transition-transform active:scale-95"
+              >
+                {p.videoUrl ? (
+                  <video src={`${p.videoUrl}#t=0.1`} className="absolute inset-0 w-full h-full object-cover" muted playsInline preload="metadata" />
+                ) : p.imageUrl ? (
+                  <img src={p.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                ) : null}
+                <div className="absolute inset-x-0 bottom-0 p-1.5 bg-gradient-to-t from-black/80 to-transparent">
+                  <p className="text-[10px] font-semibold text-white truncate text-left">{p.user?.name || 'User'}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
+
     <div className="relative w-full h-full bg-background overflow-hidden">
       {/* For You / Following tabs - theme-aware sticky pill */}
       <div className="reels-feed-tabs absolute top-0 left-0 right-0 z-50 pt-3 pb-2 flex justify-center gap-6 bg-background/80 backdrop-blur-xl border-b border-border/40">
@@ -333,7 +399,7 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({ searchQuery = '' }) => {
               {/* Controls */}
               <ReelControls
                 likesCount={Array.isArray(p.likes) ? p.likes.length : ((p as any).likeCount || 0)}
-                commentsCount={(p as any).commentCount || 0}
+                commentsCount={Array.isArray((p as any).comments) ? (p as any).comments.length : ((p as any).commentCount || 0)}
                 isLiked={!!(p as any).isLiked || !!likes[p.id]}
                 onLike={() => handleLike(p.id)}
                 onComment={() => setCommentsOpenFor(p.id)}
@@ -346,7 +412,17 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({ searchQuery = '' }) => {
       </div>
 
       {commentsOpenFor && (
-        <CommentsModal reelId={commentsOpenFor} open={!!commentsOpenFor} onClose={() => setCommentsOpenFor(null)} />
+        <CommentsModal
+          reelId={commentsOpenFor}
+          open={!!commentsOpenFor}
+          onClose={() => setCommentsOpenFor(null)}
+          onCountChange={(count) => {
+            setPosts(prev => prev.map(p => p.id === commentsOpenFor
+              ? ({ ...p, comments: new Array(count).fill(null) } as any)
+              : p));
+          }}
+        />
+
       )}
 
       {sheetOpen && sheetPost && (

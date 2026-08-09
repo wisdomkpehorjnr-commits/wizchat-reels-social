@@ -325,17 +325,55 @@ export const dataService = {
       throw error;
     }
 
+    const ids = (data || []).map((c: any) => c.id);
+    let likeRows: any[] = [];
+    if (ids.length) {
+      const { data: likes } = await supabase
+        .from('comment_likes')
+        .select('comment_id, user_id')
+        .in('comment_id', ids);
+      likeRows = likes || [];
+    }
+    const { data: { user } } = await supabase.auth.getUser();
+
     return data.map(comment => ({
       id: comment.id,
       userId: comment.user_id,
       user: comment.user as User,
       postId: comment.post_id,
+      parentId: (comment as any).parent_id || null,
+      likes: likeRows.filter(l => l.comment_id === comment.id).length,
+      isLiked: !!user && likeRows.some(l => l.comment_id === comment.id && l.user_id === user.id),
       content: comment.content,
       createdAt: new Date(comment.created_at)
-    }));
+    })) as any;
   },
 
-  async createComment(postId: string, content: string): Promise<Comment> {
+  async toggleCommentLike(commentId: string): Promise<boolean> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { data: existing } = await supabase
+      .from('comment_likes')
+      .select('id')
+      .eq('comment_id', commentId)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (existing) {
+      await supabase.from('comment_likes').delete().eq('id', existing.id);
+      return false;
+    }
+    await supabase.from('comment_likes').insert({ comment_id: commentId, user_id: user.id });
+    return true;
+  },
+
+  async updateComment(commentId: string, content: string): Promise<void> {
+    const { error } = await supabase.from('comments').update({ content }).eq('id', commentId);
+    if (error) throw error;
+  },
+
+  async createComment(postId: string, content: string, parentId?: string | null): Promise<Comment> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
@@ -344,8 +382,10 @@ export const dataService = {
       .insert({
         post_id: postId,
         user_id: user.id,
-        content: content
+        content: content,
+        parent_id: parentId || null
       })
+
       .select(`
         *,
         user:user_id (

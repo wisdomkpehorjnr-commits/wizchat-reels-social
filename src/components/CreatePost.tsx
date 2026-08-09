@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Camera } from 'lucide-react';
+import { Camera, Video, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { MediaService } from '@/services/mediaService';
@@ -20,33 +20,45 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
   const [content, setContent] = useState('');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoPreview, setVideoPreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
     if (files.length) {
-      const blockedVideos = files.filter(f => f.type?.startsWith('video/'));
-      if (blockedVideos.length > 0) {
-        toast({
-          title: 'Video uploads disabled',
-          description: 'WizChat is accepting images only while storage is being stabilized.',
-          variant: 'destructive',
-        });
-      }
-
       // Append instead of replace. Prevent duplicates by name + size.
       const imageFiles = files.filter(f => f.type?.startsWith('image/'));
       const newFiles = imageFiles.filter(f => !selectedFiles.some(sel => sel.name === f.name && sel.size === f.size));
       const allFiles = [...selectedFiles, ...newFiles];
       setSelectedFiles(allFiles);
       setPreviewUrls(allFiles.map(f => URL.createObjectURL(f)));
+      if (imageFiles.length) { setVideoFile(null); setVideoPreview(null); }
     }
   };
 
+  const handleVideoSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = (event.target.files || [])[0];
+    if (!file) return;
+    if (!file.type?.startsWith('video/')) {
+      toast({ title: 'Please select a video file', variant: 'destructive' });
+      return;
+    }
+    if (file.size > MediaService.MAX_VIDEO_BYTES) {
+      toast({ title: 'Video too large', description: 'Reels must be under 25MB.', variant: 'destructive' });
+      return;
+    }
+    setSelectedFiles([]);
+    setPreviewUrls([]);
+    setVideoFile(file);
+    setVideoPreview(URL.createObjectURL(file));
+  };
+
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!content.trim() && selectedFiles.length === 0) {
+    if (!content.trim() && selectedFiles.length === 0 && !videoFile) {
       toast({
         title: "Error",
         description: "Please add some content or select a file",
@@ -56,10 +68,21 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
     }
     setIsSubmitting(true);
     setUploadProgress(0);
-    
+
     try {
       let imageUrls: string[] = [];
-      let mediaType: 'text' | 'image' = 'text';
+      let mediaType: 'text' | 'image' | 'video' = 'text';
+      let videoUrl: string | undefined;
+
+      // Reel / video upload
+      if (videoFile) {
+        setUploadProgress(20);
+        videoUrl = await MediaService.uploadPostVideo(videoFile);
+        mediaType = 'video';
+        setUploadProgress(80);
+      }
+
+
       
       // Upload files in parallel for faster processing
       if (selectedFiles.length > 0) {
@@ -106,24 +129,27 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
       const postData = {
         content: content.trim(),
         imageUrls: mediaType === 'image' ? imageUrls : undefined,
+        videoUrl,
         mediaType,
-        isReel: false,
+        isReel: mediaType === 'video',
       };
-      console.log('Creating post with data:', postData);
-      console.log('Selected files:', selectedFiles);
-      console.log('Image URLs:', imageUrls);
       setUploadProgress(95);
-      
+
       if (onPostCreated) {
         await onPostCreated(postData);
       }
-      
+
       setUploadProgress(100);
       setContent('');
       setSelectedFiles([]);
       setPreviewUrls([]);
+      setVideoFile(null);
+      setVideoPreview(null);
       const fileInput = document.getElementById('file-input') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
+      const videoInput = document.getElementById('video-input') as HTMLInputElement;
+      if (videoInput) videoInput.value = '';
+
       
       // Success feedback
       toast({ 
@@ -201,6 +227,25 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
             </div>
           )}
           
+
+          {/* Video preview (reel) */}
+          {videoPreview && (
+            <div className="mt-3 p-3 border border-border rounded-xl">
+              <div className="relative w-40 aspect-[9/16] rounded-xl overflow-hidden bg-muted">
+                <video src={videoPreview} className="w-full h-full object-cover" muted playsInline controls />
+                <button
+                  type="button"
+                  aria-label="Remove video"
+                  onClick={() => { setVideoFile(null); setVideoPreview(null); }}
+                  className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full bg-background/80 border border-border flex items-center justify-center"
+                >
+                  <X className="w-3.5 h-3.5 text-foreground" />
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">This will be posted to Reels.</p>
+            </div>
+          )}
+
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <input
@@ -212,22 +257,43 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
                 className="hidden"
                 disabled={isSubmitting}
               />
+              <input
+                id="video-input"
+                type="file"
+                accept="video/*"
+                onChange={handleVideoSelect}
+                className="hidden"
+                disabled={isSubmitting}
+              />
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
+                aria-label="Add photo"
                 onClick={() => document.getElementById('file-input')?.click()}
-                className="border border-black/20 dark:border-white/20 rounded p-2 hover:bg-accent transition-colors"
+                className="border border-border rounded-xl p-2 hover:bg-accent transition-colors"
                 disabled={isSubmitting}
               >
-                <Camera className="w-5 h-5 text-black dark:text-white" />
+                <Camera className="w-5 h-5 text-foreground" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-label="Add video to Reels"
+                onClick={() => document.getElementById('video-input')?.click()}
+                className="border border-border rounded-xl p-2 hover:bg-accent transition-colors"
+                disabled={isSubmitting}
+              >
+                <Video className="w-5 h-5 text-primary" />
               </Button>
             </div>
             <Button
               type="submit"
-              disabled={(!content.trim() && selectedFiles.length === 0) || isSubmitting}
+              disabled={(!content.trim() && selectedFiles.length === 0 && !videoFile) || isSubmitting}
               className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
+
               {isSubmitting ? (
                 <div className="flex items-center space-x-2">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>

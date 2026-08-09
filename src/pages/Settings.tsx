@@ -133,17 +133,23 @@ const Settings = () => {
     isOnWifi
   } = useMediaOptimization();
   
-  const [fontSize, setFontSize] = useState([16]);
-  const [notifications, setNotifications] = useState(true);
-  const [soundEnabled, setSoundEnabled] = useState(true);
-  const [vibrationEnabled, setVibrationEnabled] = useState(true);
-  const [hideOnlineStatus, setHideOnlineStatus] = useState(false);
-  const [messagePermission, setMessagePermission] = useState('everyone');
-  const [language, setLanguage] = useState('en');
-  const [highContrast, setHighContrast] = useState(false);
+  // Read persisted settings synchronously so nothing ever renders as "default"
+  const storedSettings: any = (() => {
+    try { return JSON.parse(localStorage.getItem('app_settings') || '{}') || {}; } catch { return {}; }
+  })();
+
+  const [fontSize, setFontSize] = useState([storedSettings.fontSize ?? 16]);
+  const [notifications, setNotifications] = useState(storedSettings.notifications ?? true);
+  const [soundEnabled, setSoundEnabled] = useState(storedSettings.soundEnabled ?? true);
+  const [vibrationEnabled, setVibrationEnabled] = useState(storedSettings.vibrationEnabled ?? true);
+  const [hideOnlineStatus, setHideOnlineStatus] = useState(storedSettings.hideOnlineStatus ?? false);
+  const [messagePermission, setMessagePermission] = useState(storedSettings.messagePermission ?? 'everyone');
+  const [language, setLanguage] = useState(storedSettings.language ?? 'en');
+  const [highContrast, setHighContrast] = useState(storedSettings.highContrast ?? false);
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [showPasscodeSetup, setShowPasscodeSetup] = useState(false);
-  const [darkMode, setDarkMode] = useState('auto');
+  const [darkMode, setDarkMode] = useState(storedSettings.darkMode ?? 'auto');
+
   const [reportReason, setReportReason] = useState('');
   const [reportDetails, setReportDetails] = useState('');
   const [feedbackText, setFeedbackText] = useState('');
@@ -151,22 +157,21 @@ const Settings = () => {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showContactDialog, setShowContactDialog] = useState(false);
 
+  // Auto-persist every change so settings survive leaving and returning
   useEffect(() => {
-    const raw = localStorage.getItem('app_settings');
-    if (!raw) return;
-    try {
-      const s = JSON.parse(raw);
-      if (s.fontSize) setFontSize([s.fontSize]);
-      if (typeof s.notifications === 'boolean') setNotifications(s.notifications);
-      if (typeof s.soundEnabled === 'boolean') setSoundEnabled(s.soundEnabled);
-      if (typeof s.vibrationEnabled === 'boolean') setVibrationEnabled(s.vibrationEnabled);
-      if (typeof s.hideOnlineStatus === 'boolean') setHideOnlineStatus(s.hideOnlineStatus);
-      if (s.messagePermission) setMessagePermission(s.messagePermission);
-      if (s.language) setLanguage(s.language);
-      if (typeof s.highContrast === 'boolean') setHighContrast(s.highContrast);
-      if (s.darkMode) setDarkMode(s.darkMode);
-    } catch {}
-  }, []);
+    localStorage.setItem('app_settings', JSON.stringify({
+      fontSize: fontSize[0],
+      notifications,
+      soundEnabled,
+      vibrationEnabled,
+      hideOnlineStatus,
+      messagePermission,
+      language,
+      highContrast,
+      darkMode,
+    }));
+  }, [fontSize, notifications, soundEnabled, vibrationEnabled, hideOnlineStatus, messagePermission, language, highContrast, darkMode]);
+
 
   // LIVE: apply font size to <html> root so all rem-based UI scales smoothly
   useEffect(() => {

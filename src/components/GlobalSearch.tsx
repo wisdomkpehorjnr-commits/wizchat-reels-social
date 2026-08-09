@@ -102,7 +102,14 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
     navigate(`/profile/${id}`);
   };
 
-  const goToPosts = () => { onClose(); navigate('/'); };
+  const goToPost = (r?: SearchResult) => {
+    onClose();
+    const id = r?.data?.id || r?.id;
+    const isReel = !!(r?.data?.isReel || r?.data?.is_reel || r?.data?.videoUrl);
+    if (!id) { navigate('/'); return; }
+    navigate(isReel ? `/reels?reel=${id}` : `/?post=${id}`);
+  };
+
   const goToGroup = (r: SearchResult) => { onClose(); navigate(`/topic-room/${r.id}`); };
 
   const openImage = (src?: string) => { if (!src) return; setImageModalSrc(src); setImageModalOpen(true); };
@@ -184,7 +191,7 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
   };
 
   const PostRow = ({ r }: { r: SearchResult }) => (
-    <Card className="cursor-pointer hover:bg-accent transition-colors overflow-hidden" onClick={goToPosts}>
+    <Card className="cursor-pointer hover:bg-accent transition-colors overflow-hidden" onClick={() => goToPost(r)}>
       <CardContent className="p-3">
         <div className="flex items-start gap-3">
           {r.image ? (
