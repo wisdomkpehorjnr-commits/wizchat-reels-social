@@ -263,7 +263,40 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({ searchQuery = '', onClearS
     );
   }
 
+  // Search results grid — tap a tile to watch it fullscreen
+  if (normalizedQuery) {
+    return (
+      <div className="w-full h-full bg-background overflow-y-auto">
+        {searchResults.length === 0 ? (
+          <div className="flex items-center justify-center h-full px-8">
+            <p className="text-muted-foreground text-sm text-center">No reels found for "{searchQuery}"</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-1.5 p-2">
+            {searchResults.map(p => (
+              <button
+                key={p.id}
+                onClick={() => openFromSearch(p.id)}
+                className="relative aspect-[9/16] rounded-xl overflow-hidden bg-muted transition-transform active:scale-95"
+              >
+                {p.videoUrl ? (
+                  <video src={`${p.videoUrl}#t=0.1`} className="absolute inset-0 w-full h-full object-cover" muted playsInline preload="metadata" />
+                ) : p.imageUrl ? (
+                  <img src={p.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                ) : null}
+                <div className="absolute inset-x-0 bottom-0 p-1.5 bg-gradient-to-t from-black/80 to-transparent">
+                  <p className="text-[10px] font-semibold text-white truncate text-left">{p.user?.name || 'User'}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
+
     <div className="relative w-full h-full bg-background overflow-hidden">
       {/* For You / Following tabs - theme-aware sticky pill */}
       <div className="reels-feed-tabs absolute top-0 left-0 right-0 z-50 pt-3 pb-2 flex justify-center gap-6 bg-background/80 backdrop-blur-xl border-b border-border/40">
