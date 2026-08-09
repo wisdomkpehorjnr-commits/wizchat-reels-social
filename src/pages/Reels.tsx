@@ -70,8 +70,13 @@ const ReelsPage: React.FC = () => {
 
       {/* Feed: viewport minus header (64) minus reels bar (56) */}
       <div className="h-[calc(100vh-120px)] overflow-hidden">
-        <ReelsFeed searchQuery={query} />
+        <ReelsFeed
+          searchQuery={query}
+          initialReelId={initialReelId}
+          onClearSearch={() => { setQuery(''); setSearchOpen(false); }}
+        />
       </div>
+
     </Layout>
   );
 };
