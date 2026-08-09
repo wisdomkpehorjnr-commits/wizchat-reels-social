@@ -258,7 +258,16 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({ reelId, open, onCl
 
           {/* Actions */}
           <div className="flex items-center gap-3 mt-1.5">
+            <button
+              onClick={() => handleToggleCommentLike(comment.id)}
+              aria-label="Like comment"
+              className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+            >
+              <Heart className={`w-3.5 h-3.5 ${comment.isLiked ? 'text-destructive fill-current' : ''}`} />
+              {comment.likes > 0 && <span>{comment.likes}</span>}
+            </button>
             {!isReply && (
+
               <button
                 onClick={() => handleReply(comment)}
                 className="text-xs font-medium text-muted-foreground hover:text-foreground"
