@@ -102,7 +102,14 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
     navigate(`/profile/${id}`);
   };
 
-  const goToPosts = () => { onClose(); navigate('/'); };
+  const goToPost = (r?: SearchResult) => {
+    onClose();
+    const id = r?.data?.id || r?.id;
+    const isReel = !!(r?.data?.isReel || r?.data?.is_reel || r?.data?.videoUrl);
+    if (!id) { navigate('/'); return; }
+    navigate(isReel ? `/reels?reel=${id}` : `/?post=${id}`);
+  };
+
   const goToGroup = (r: SearchResult) => { onClose(); navigate(`/topic-room/${r.id}`); };
 
   const openImage = (src?: string) => { if (!src) return; setImageModalSrc(src); setImageModalOpen(true); };
