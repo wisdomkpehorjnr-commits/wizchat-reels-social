@@ -131,13 +131,41 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({ searchQuery = '', onClearS
     : posts;
 
   const normalizedQuery = searchQuery.trim().toLowerCase();
-  const displayPosts = normalizedQuery
-    ? tabPosts.filter(p =>
+
+  // Search matches reels by caption OR by the person who posted them.
+  // Users without reels never appear.
+  const searchResults = normalizedQuery
+    ? posts.filter(p =>
         (p.content || '').toLowerCase().includes(normalizedQuery) ||
         (p.user?.name || '').toLowerCase().includes(normalizedQuery) ||
-        (p.user?.username || '').toLowerCase().includes(normalizedQuery)
+        ((p.user as any)?.username || '').toLowerCase().includes(normalizedQuery)
       )
-    : tabPosts;
+    : [];
+
+  const displayPosts = tabPosts;
+
+  // Jump to a specific reel (deep link or a search result tile)
+  const [jumpToId, setJumpToId] = useState<string | null>(initialReelId || null);
+  useEffect(() => { if (initialReelId) setJumpToId(initialReelId); }, [initialReelId]);
+
+  useEffect(() => {
+    if (!jumpToId || !containerRef.current || displayPosts.length === 0) return;
+    const index = displayPosts.findIndex(p => p.id === jumpToId);
+    if (index < 0) return;
+    const container = containerRef.current;
+    requestAnimationFrame(() => {
+      container.scrollTo({ top: index * container.clientHeight, behavior: 'auto' });
+      setActiveIndex(index);
+      setVisibleRange({ start: Math.max(0, index - 1), end: index + 3 });
+      setJumpToId(null);
+    });
+  }, [jumpToId, displayPosts.length]);
+
+  const openFromSearch = useCallback((id: string) => {
+    setJumpToId(id);
+    onClearSearch?.();
+  }, [onClearSearch]);
+
 
 
   const handleLike = useCallback(async (id: string) => {
