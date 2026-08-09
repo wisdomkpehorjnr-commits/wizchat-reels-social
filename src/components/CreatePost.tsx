@@ -227,6 +227,25 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
             </div>
           )}
           
+
+          {/* Video preview (reel) */}
+          {videoPreview && (
+            <div className="mt-3 p-3 border border-border rounded-xl">
+              <div className="relative w-40 aspect-[9/16] rounded-xl overflow-hidden bg-muted">
+                <video src={videoPreview} className="w-full h-full object-cover" muted playsInline controls />
+                <button
+                  type="button"
+                  aria-label="Remove video"
+                  onClick={() => { setVideoFile(null); setVideoPreview(null); }}
+                  className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full bg-background/80 border border-border flex items-center justify-center"
+                >
+                  <X className="w-3.5 h-3.5 text-foreground" />
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">This will be posted to Reels.</p>
+            </div>
+          )}
+
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <input
@@ -238,22 +257,43 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
                 className="hidden"
                 disabled={isSubmitting}
               />
+              <input
+                id="video-input"
+                type="file"
+                accept="video/*"
+                onChange={handleVideoSelect}
+                className="hidden"
+                disabled={isSubmitting}
+              />
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
+                aria-label="Add photo"
                 onClick={() => document.getElementById('file-input')?.click()}
-                className="border border-black/20 dark:border-white/20 rounded p-2 hover:bg-accent transition-colors"
+                className="border border-border rounded-xl p-2 hover:bg-accent transition-colors"
                 disabled={isSubmitting}
               >
-                <Camera className="w-5 h-5 text-black dark:text-white" />
+                <Camera className="w-5 h-5 text-foreground" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-label="Add video to Reels"
+                onClick={() => document.getElementById('video-input')?.click()}
+                className="border border-border rounded-xl p-2 hover:bg-accent transition-colors"
+                disabled={isSubmitting}
+              >
+                <Video className="w-5 h-5 text-primary" />
               </Button>
             </div>
             <Button
               type="submit"
-              disabled={(!content.trim() && selectedFiles.length === 0) || isSubmitting}
+              disabled={(!content.trim() && selectedFiles.length === 0 && !videoFile) || isSubmitting}
               className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
+
               {isSubmitting ? (
                 <div className="flex items-center space-x-2">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
