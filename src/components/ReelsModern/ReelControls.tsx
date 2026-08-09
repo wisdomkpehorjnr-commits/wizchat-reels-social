@@ -35,40 +35,44 @@ export const ReelControls: React.FC<ReelControlsProps> = ({
     return String(n);
   };
 
+  const btn =
+    'w-12 h-12 rounded-2xl bg-background border border-border shadow-md flex items-center justify-center transition-transform active:scale-90';
+
   return (
-    <div className="absolute right-3 bottom-6 z-40 flex flex-col items-center gap-5">
-      {/* Like - bold white, red when liked */}
-      <button onClick={handleLike} className="flex flex-col items-center gap-1 active:scale-90 transition-transform">
-        <motion.div animate={animateLike ? { scale: [1, 1.4, 1] } : {}} transition={{ duration: 0.4 }}>
-          <Heart
-            className={`w-7 h-7 ${isLiked ? 'text-red-500 fill-red-500' : 'text-white fill-none'}`}
-            strokeWidth={2.5}
-          />
-        </motion.div>
-        {likesCount > 0 && (
-          <span className="text-white text-xs font-bold">{formatCount(likesCount)}</span>
-        )}
+    <div className="absolute right-3 bottom-6 z-40 flex flex-col items-center gap-4">
+      {/* Like */}
+      <div className="flex flex-col items-center gap-1">
+        <button onClick={handleLike} aria-label="Like" className={btn}>
+          <motion.div animate={animateLike ? { scale: [1, 1.4, 1] } : {}} transition={{ duration: 0.4 }}>
+            <Heart
+              className={`w-6 h-6 ${isLiked ? 'text-destructive fill-current' : 'text-foreground fill-none'}`}
+              strokeWidth={2.2}
+            />
+          </motion.div>
+        </button>
+        <span className="text-white text-xs font-bold drop-shadow">{formatCount(likesCount)}</span>
+      </div>
+
+      {/* Comment */}
+      <div className="flex flex-col items-center gap-1">
+        <button onClick={onComment} aria-label="Comments" className={btn}>
+          <MessageCircle className="w-6 h-6 text-foreground" strokeWidth={2.2} />
+        </button>
+        <span className="text-white text-xs font-bold drop-shadow">{formatCount(commentsCount)}</span>
+      </div>
+
+      {/* Share */}
+      <button onClick={onShare} aria-label="Share" className={btn}>
+        <Send className="w-6 h-6 text-foreground" strokeWidth={2.2} />
       </button>
 
-      {/* Comment - bold white, no background */}
-      <button onClick={onComment} className="flex flex-col items-center gap-1 active:scale-90 transition-transform">
-        <MessageCircle className="w-7 h-7 text-white" strokeWidth={2.5} />
-        {commentsCount > 0 && (
-          <span className="text-white text-xs font-bold">{formatCount(commentsCount)}</span>
-        )}
-      </button>
-
-      {/* Share - bold white */}
-      <button onClick={onShare} className="flex flex-col items-center gap-1 active:scale-90 transition-transform">
-        <Send className="w-7 h-7 text-white" strokeWidth={2.5} />
-      </button>
-
-      {/* More - bold white */}
-      <button onClick={onMore} className="flex flex-col items-center gap-1 active:scale-90 transition-transform">
-        <MoreVertical className="w-7 h-7 text-white" strokeWidth={2.5} />
+      {/* More */}
+      <button onClick={onMore} aria-label="More options" className={btn}>
+        <MoreVertical className="w-6 h-6 text-foreground" strokeWidth={2.2} />
       </button>
     </div>
   );
 };
+
 
 export default ReelControls;
