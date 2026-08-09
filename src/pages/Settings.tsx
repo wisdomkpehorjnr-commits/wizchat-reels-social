@@ -157,22 +157,21 @@ const Settings = () => {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showContactDialog, setShowContactDialog] = useState(false);
 
+  // Auto-persist every change so settings survive leaving and returning
   useEffect(() => {
-    const raw = localStorage.getItem('app_settings');
-    if (!raw) return;
-    try {
-      const s = JSON.parse(raw);
-      if (s.fontSize) setFontSize([s.fontSize]);
-      if (typeof s.notifications === 'boolean') setNotifications(s.notifications);
-      if (typeof s.soundEnabled === 'boolean') setSoundEnabled(s.soundEnabled);
-      if (typeof s.vibrationEnabled === 'boolean') setVibrationEnabled(s.vibrationEnabled);
-      if (typeof s.hideOnlineStatus === 'boolean') setHideOnlineStatus(s.hideOnlineStatus);
-      if (s.messagePermission) setMessagePermission(s.messagePermission);
-      if (s.language) setLanguage(s.language);
-      if (typeof s.highContrast === 'boolean') setHighContrast(s.highContrast);
-      if (s.darkMode) setDarkMode(s.darkMode);
-    } catch {}
-  }, []);
+    localStorage.setItem('app_settings', JSON.stringify({
+      fontSize: fontSize[0],
+      notifications,
+      soundEnabled,
+      vibrationEnabled,
+      hideOnlineStatus,
+      messagePermission,
+      language,
+      highContrast,
+      darkMode,
+    }));
+  }, [fontSize, notifications, soundEnabled, vibrationEnabled, hideOnlineStatus, messagePermission, language, highContrast, darkMode]);
+
 
   // LIVE: apply font size to <html> root so all rem-based UI scales smoothly
   useEffect(() => {
