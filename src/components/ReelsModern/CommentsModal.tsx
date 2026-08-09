@@ -24,7 +24,9 @@ interface CommentsModalProps {
   reelId: string;
   open: boolean;
   onClose: () => void;
+  onCountChange?: (count: number) => void;
 }
+
 
 const formatTimeAgo = (dateStr: string) => {
   const diff = Date.now() - new Date(dateStr).getTime();
