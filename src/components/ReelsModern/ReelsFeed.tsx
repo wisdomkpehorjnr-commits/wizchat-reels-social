@@ -412,7 +412,17 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({ searchQuery = '', onClearS
       </div>
 
       {commentsOpenFor && (
-        <CommentsModal reelId={commentsOpenFor} open={!!commentsOpenFor} onClose={() => setCommentsOpenFor(null)} />
+        <CommentsModal
+          reelId={commentsOpenFor}
+          open={!!commentsOpenFor}
+          onClose={() => setCommentsOpenFor(null)}
+          onCountChange={(count) => {
+            setPosts(prev => prev.map(p => p.id === commentsOpenFor
+              ? ({ ...p, comments: new Array(count).fill(null) } as any)
+              : p));
+          }}
+        />
+
       )}
 
       {sheetOpen && sheetPost && (
