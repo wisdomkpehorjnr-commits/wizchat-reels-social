@@ -45,7 +45,7 @@ const formatTimeAgo = (dateStr: string) => {
 const PEEK_HEIGHT_VH = 30;
 const EXPANDED_HEIGHT_VH = 55;
 
-export const CommentsModal: React.FC<CommentsModalProps> = ({ reelId, open, onClose }) => {
+export const CommentsModal: React.FC<CommentsModalProps> = ({ reelId, open, onClose, onCountChange }) => {
   const [comments, setComments] = useState<CommentData[]>([]);
   const [text, setText] = useState('');
   const [replyingTo, setReplyingTo] = useState<{ id: string; userName: string } | null>(null);
@@ -66,22 +66,39 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({ reelId, open, onCl
     loadComments();
   }, [open, reelId]);
 
+  const totalCount = (list: CommentData[]) =>
+    list.reduce((sum, c) => sum + 1 + (c.replies?.length || 0), 0);
+
+  useEffect(() => {
+    onCountChange?.(totalCount(comments));
+  }, [comments]);
+
   const loadComments = async () => {
     setLoading(true);
     try {
       const fetched = await dataService.getComments(reelId);
-      const mapped: CommentData[] = fetched.map((c: any) => ({
+      const mapAll: CommentData[] = fetched.map((c: any) => ({
         id: c.id,
         userId: c.userId || c.user?.id || '',
         userName: c.user?.name || 'User',
         userAvatar: c.user?.avatar || c.user?.photoURL,
         content: c.content,
         createdAt: c.createdAt?.toISOString?.() || new Date().toISOString(),
-        likes: 0,
-        isLiked: false,
+        likes: c.likes || 0,
+        isLiked: !!c.isLiked,
+        parentId: c.parentId || null,
         replies: [],
-      }));
-      setComments(mapped);
+      })) as any;
+
+      const roots = mapAll.filter((c: any) => !c.parentId);
+      mapAll.forEach((c: any) => {
+        if (!c.parentId) return;
+        const parent = roots.find(r => r.id === c.parentId);
+        if (parent) parent.replies = [...(parent.replies || []), c];
+        else roots.push(c);
+      });
+      roots.forEach(r => r.replies?.sort((a, b) => a.createdAt.localeCompare(b.createdAt)));
+      setComments(roots);
     } catch {
       try {
         const raw = localStorage.getItem(`reel_comments_${reelId}`) || '[]';
@@ -90,13 +107,29 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({ reelId, open, onCl
     } finally { setLoading(false); }
   };
 
+  const handleToggleCommentLike = async (commentId: string) => {
+    const apply = (list: CommentData[]): CommentData[] =>
+      list.map(c => {
+        if (c.id === commentId) {
+          return { ...c, isLiked: !c.isLiked, likes: Math.max(0, (c.likes || 0) + (c.isLiked ? -1 : 1)) };
+        }
+        return c.replies?.length ? { ...c, replies: apply(c.replies) } : c;
+      });
+    setComments(prev => apply(prev));
+    try {
+      await dataService.toggleCommentLike(commentId);
+    } catch {
+      setComments(prev => apply(prev));
+    }
+  };
+
   const handleSend = async () => {
     const trimmed = text.trim();
     if (!trimmed) return;
 
     try {
       if (user) {
-        const created = await dataService.createComment(reelId, trimmed);
+        const created = await dataService.createComment(reelId, trimmed, replyingTo?.id || null);
         const newComment: CommentData = {
           id: created.id,
           userId: user.id,
@@ -109,12 +142,11 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({ reelId, open, onCl
         };
 
         if (replyingTo) {
-          setComments(prev => prev.map(c => {
-            if (c.id === replyingTo.id) {
-              return { ...c, replies: [...(c.replies || []), newComment] };
-            }
-            return c;
-          }));
+          const parentId = replyingTo.id;
+          setComments(prev => prev.map(c => (
+            c.id === parentId ? { ...c, replies: [...(c.replies || []), newComment] } : c
+          )));
+          setExpandedReplies(prev => new Set(prev).add(parentId));
         } else {
           setComments(prev => [newComment, ...prev]);
         }
@@ -125,6 +157,7 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({ reelId, open, onCl
       toast({ title: 'Failed', description: err?.message, variant: 'destructive' });
     }
   };
+
 
   const handleDelete = async (commentId: string) => {
     try {
