@@ -129,24 +129,27 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
       const postData = {
         content: content.trim(),
         imageUrls: mediaType === 'image' ? imageUrls : undefined,
+        videoUrl,
         mediaType,
-        isReel: false,
+        isReel: mediaType === 'video',
       };
-      console.log('Creating post with data:', postData);
-      console.log('Selected files:', selectedFiles);
-      console.log('Image URLs:', imageUrls);
       setUploadProgress(95);
-      
+
       if (onPostCreated) {
         await onPostCreated(postData);
       }
-      
+
       setUploadProgress(100);
       setContent('');
       setSelectedFiles([]);
       setPreviewUrls([]);
+      setVideoFile(null);
+      setVideoPreview(null);
       const fileInput = document.getElementById('file-input') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
+      const videoInput = document.getElementById('video-input') as HTMLInputElement;
+      if (videoInput) videoInput.value = '';
+
       
       // Success feedback
       toast({ 
