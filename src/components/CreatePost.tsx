@@ -20,29 +20,41 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
   const [content, setContent] = useState('');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoPreview, setVideoPreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
     if (files.length) {
-      const blockedVideos = files.filter(f => f.type?.startsWith('video/'));
-      if (blockedVideos.length > 0) {
-        toast({
-          title: 'Video uploads disabled',
-          description: 'WizChat is accepting images only while storage is being stabilized.',
-          variant: 'destructive',
-        });
-      }
-
       // Append instead of replace. Prevent duplicates by name + size.
       const imageFiles = files.filter(f => f.type?.startsWith('image/'));
       const newFiles = imageFiles.filter(f => !selectedFiles.some(sel => sel.name === f.name && sel.size === f.size));
       const allFiles = [...selectedFiles, ...newFiles];
       setSelectedFiles(allFiles);
       setPreviewUrls(allFiles.map(f => URL.createObjectURL(f)));
+      if (imageFiles.length) { setVideoFile(null); setVideoPreview(null); }
     }
   };
+
+  const handleVideoSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = (event.target.files || [])[0];
+    if (!file) return;
+    if (!file.type?.startsWith('video/')) {
+      toast({ title: 'Please select a video file', variant: 'destructive' });
+      return;
+    }
+    if (file.size > MediaService.MAX_VIDEO_BYTES) {
+      toast({ title: 'Video too large', description: 'Reels must be under 25MB.', variant: 'destructive' });
+      return;
+    }
+    setSelectedFiles([]);
+    setPreviewUrls([]);
+    setVideoFile(file);
+    setVideoPreview(URL.createObjectURL(file));
+  };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
