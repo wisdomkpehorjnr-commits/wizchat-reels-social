@@ -58,7 +58,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!content.trim() && selectedFiles.length === 0) {
+    if (!content.trim() && selectedFiles.length === 0 && !videoFile) {
       toast({
         title: "Error",
         description: "Please add some content or select a file",
@@ -68,10 +68,21 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
     }
     setIsSubmitting(true);
     setUploadProgress(0);
-    
+
     try {
       let imageUrls: string[] = [];
-      let mediaType: 'text' | 'image' = 'text';
+      let mediaType: 'text' | 'image' | 'video' = 'text';
+      let videoUrl: string | undefined;
+
+      // Reel / video upload
+      if (videoFile) {
+        setUploadProgress(20);
+        videoUrl = await MediaService.uploadPostVideo(videoFile);
+        mediaType = 'video';
+        setUploadProgress(80);
+      }
+
+
       
       // Upload files in parallel for faster processing
       if (selectedFiles.length > 0) {
