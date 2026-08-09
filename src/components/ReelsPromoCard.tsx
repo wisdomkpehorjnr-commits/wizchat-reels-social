@@ -1,24 +1,34 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, Clapperboard, ChevronRight } from 'lucide-react';
+import { Clapperboard, ChevronRight } from 'lucide-react';
 
 interface ReelsPromoCardProps {
-  reels?: { id: string; imageUrl?: string; videoUrl?: string }[];
+  reels?: { id: string; imageUrl?: string; videoUrl?: string; content?: string; user?: any }[];
 }
 
 /**
- * Pinned "Reels" card injected into the home feed every 30 posts.
- * Theme-aware, rounded, glass styled.
+ * "Explore Reels" card injected into the home feed every 30 posts.
+ * Shows a clean, non-autoplaying preview of one random reel and deep-links
+ * straight to that reel inside the Reels feed.
  */
 const ReelsPromoCard: React.FC<ReelsPromoCardProps> = ({ reels = [] }) => {
   const navigate = useNavigate();
-  const previews = reels.slice(0, 3);
+
+  const reel = useMemo(() => {
+    if (!reels.length) return null;
+    return reels[Math.floor(Math.random() * reels.length)];
+  }, [reels.length]);
+
+  const open = () => {
+    if (reel?.id) navigate(`/reels?reel=${reel.id}`);
+    else navigate('/reels');
+  };
 
   return (
     <button
       type="button"
-      onClick={() => navigate('/reels')}
-      className="w-full text-left rounded-3xl overflow-hidden border border-border/60 bg-card/70 backdrop-blur-xl shadow-sm transition-all active:scale-[0.99] hover:shadow-md"
+      onClick={open}
+      className="w-full text-left rounded-3xl overflow-hidden border border-border bg-card shadow-sm transition-all active:scale-[0.99] hover:shadow-md"
     >
       <div className="flex items-center justify-between px-4 pt-4 pb-3">
         <div className="flex items-center gap-3 min-w-0">
@@ -26,38 +36,38 @@ const ReelsPromoCard: React.FC<ReelsPromoCardProps> = ({ reels = [] }) => {
             <Clapperboard className="w-5 h-5 text-primary" />
           </div>
           <div className="min-w-0">
-            <p className="text-base font-semibold text-foreground truncate">Reels</p>
-            <p className="text-xs text-muted-foreground truncate">Short videos picked for you</p>
+            <p className="text-base font-semibold text-foreground truncate">Explore Reels</p>
+            <p className="text-xs text-muted-foreground truncate">
+              {reel?.user?.name ? `From ${reel.user.name}` : 'Short videos picked for you'}
+            </p>
           </div>
         </div>
-        <span className="inline-flex items-center gap-1 rounded-full bg-foreground/10 backdrop-blur-xl px-3 py-1.5 text-xs font-medium text-foreground shrink-0">
+        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-foreground shrink-0">
           Watch <ChevronRight className="w-3.5 h-3.5" />
         </span>
       </div>
 
-      <div className="grid grid-cols-3 gap-1.5 px-3 pb-4">
-        {[0, 1, 2].map((i) => {
-          const reel = previews[i];
-          return (
-            <div
-              key={reel?.id ?? `ph-${i}`}
-              className="relative aspect-[9/16] rounded-2xl overflow-hidden bg-muted"
-            >
-              {reel?.imageUrl ? (
-                <img src={reel.imageUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
-              ) : reel?.videoUrl ? (
-                <video src={reel.videoUrl} muted playsInline preload="metadata" className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-primary/25 via-primary/10 to-transparent" />
-              )}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="w-8 h-8 rounded-full bg-background/40 backdrop-blur-xl border border-foreground/20 flex items-center justify-center">
-                  <Play className="w-3.5 h-3.5 text-foreground fill-current" />
-                </span>
-              </div>
+      <div className="px-3 pb-4">
+        <div className="relative w-full aspect-[16/10] rounded-2xl overflow-hidden bg-muted">
+          {reel?.videoUrl ? (
+            <video
+              src={`${reel.videoUrl}#t=0.1`}
+              className="absolute inset-0 w-full h-full object-cover"
+              muted
+              playsInline
+              preload="metadata"
+            />
+          ) : reel?.imageUrl ? (
+            <img src={reel.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/25 via-primary/10 to-transparent" />
+          )}
+          {reel?.content && (
+            <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-background/90 to-transparent">
+              <p className="text-xs font-medium text-foreground line-clamp-1">{reel.content}</p>
             </div>
-          );
-        })}
+          )}
+        </div>
       </div>
     </button>
   );
