@@ -208,35 +208,39 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       </main>
 
       {/* Mobile Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="flex items-center justify-around px-4 py-2">
-          {navItems.map((item) => (
-            <Button
-              key={item.path}
-              variant={isActivePath(item.path) ? "default" : "ghost"}
-              size="sm"
-              asChild
-              className="flex-col h-auto py-2 relative"
-            >
-              <Link 
+      <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden px-3 pb-3 pt-1 pointer-events-none">
+        <div className="pointer-events-auto flex items-center justify-around gap-1 rounded-3xl border border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70 shadow-lg px-2 py-2">
+          {navItems.map((item) => {
+            const active = isActivePath(item.path);
+            return (
+              <Link
+                key={item.path}
                 to={item.path}
                 onClick={item.path === '/' ? handleHomeClick : undefined}
+                className={`relative flex flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl px-2 py-2 transition-all duration-200 active:scale-95 ${
+                  active
+                    ? 'bg-primary text-primary-foreground shadow-md scale-[1.04]'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
               >
-                <item.icon className="w-4 h-4" />
-                <span className="text-xs mt-1 text-foreground">{item.label}</span>
+                <item.icon className="w-6 h-6" strokeWidth={active ? 2.6 : 2.2} />
+                <span className={`text-[10px] font-medium leading-none ${active ? 'text-primary-foreground' : 'text-muted-foreground'}`}>
+                  {item.label}
+                </span>
                 {item.badge && item.badge > 0 ? (
-                  <Badge 
-                    variant="destructive" 
-                    className="absolute -top-1 -right-1 h-4 w-4 p-0 text-xs flex items-center justify-center"
+                  <Badge
+                    variant="destructive"
+                    className="absolute top-0.5 right-2 h-4 min-w-4 px-1 p-0 text-[10px] flex items-center justify-center"
                   >
                     {item.badge > 9 ? '9+' : item.badge}
                   </Badge>
-                ) : null }
+                ) : null}
               </Link>
-            </Button>
-          ))}
+            );
+          })}
         </div>
       </nav>
+
     </div>
   );
 };

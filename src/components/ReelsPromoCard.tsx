@@ -4,20 +4,24 @@ import { Clapperboard, ChevronRight } from 'lucide-react';
 
 interface ReelsPromoCardProps {
   reels?: { id: string; imageUrl?: string; videoUrl?: string; content?: string; user?: any }[];
+  /** Rotating index of this promo card occurrence within the feed */
+  promoIndex?: number;
 }
 
 /**
- * "Explore Reels" card injected into the home feed every 30 posts.
- * Shows a clean, non-autoplaying preview of one random reel and deep-links
- * straight to that reel inside the Reels feed.
+ * "Explore Reels" card injected into the home feed.
+ * Shows a clean, non-autoplaying preview of one reel (cycled deterministically
+ * so consecutive cards never repeat) and deep-links straight to that reel.
  */
-const ReelsPromoCard: React.FC<ReelsPromoCardProps> = ({ reels = [] }) => {
+const ReelsPromoCard: React.FC<ReelsPromoCardProps> = ({ reels = [], promoIndex = 0 }) => {
   const navigate = useNavigate();
 
   const reel = useMemo(() => {
     if (!reels.length) return null;
-    return reels[Math.floor(Math.random() * reels.length)];
-  }, [reels.length]);
+    const idx = ((promoIndex % reels.length) + reels.length) % reels.length;
+    return reels[idx];
+  }, [reels, promoIndex]);
+
 
   const open = () => {
     if (reel?.id) navigate(`/reels?reel=${reel.id}`);

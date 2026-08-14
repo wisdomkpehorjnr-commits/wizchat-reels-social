@@ -204,11 +204,12 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-foreground truncate">{r.title}</p>
             {r.subtitle && <p className="text-xs text-muted-foreground line-clamp-2">{r.subtitle}</p>}
-            <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1"><Heart className="w-3 h-3" />{r.data?.likes_count ?? 0}</span>
-              <span className="flex items-center gap-1"><MessageCircle className="w-3 h-3" />{r.data?.comments_count ?? 0}</span>
-              <span className="flex items-center gap-1"><Share2 className="w-3 h-3" />{r.data?.shares_count ?? 0}</span>
+            <div className="flex items-center gap-4 mt-1.5 text-muted-foreground">
+              <span className="flex items-center gap-1"><Heart className="w-4 h-4" strokeWidth={2.2} /><span className="text-xs font-semibold">{r.data?.likes_count ?? 0}</span></span>
+              <span className="flex items-center gap-1"><MessageCircle className="w-4 h-4" strokeWidth={2.2} /><span className="text-xs font-semibold">{r.data?.comments_count ?? 0}</span></span>
+              <span className="flex items-center"><Share2 className="w-4 h-4" strokeWidth={2.2} /></span>
             </div>
+
           </div>
         </div>
       </CardContent>
