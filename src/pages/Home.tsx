@@ -549,8 +549,9 @@ const Home = () => {
               <PeopleYouMayKnowCard />
               {regularPosts.map((post, index) => {
                 const position = index + 1;
-                const shouldShowReels = position % 30 === 0;
+                const shouldShowReels = position % 8 === 0;
                 const shouldShowPymk = position % 30 === 15;
+                const promoIndex = position / 8 - 1;
 
                 return (
                   <div key={post.id} data-post-id={post.id} className="space-y-6">
