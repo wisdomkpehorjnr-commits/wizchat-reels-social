@@ -478,6 +478,15 @@ const Home = () => {
   // Memoize post lists
   const regularPosts = useMemo(() => posts.filter(post => !post.isReel && !post.videoUrl && post.mediaType !== 'video'), [posts]);
   const reelPosts = useMemo(() => posts.filter(post => post.isReel || post.videoUrl || post.mediaType === 'video'), [posts]);
+  // Rotate the reel order once per feed load so promo cards don't always start at the same reel
+  const reelRotationOffsetRef = useRef<number>(Math.random());
+  const rotatedReelPosts = useMemo(() => {
+    if (reelPosts.length <= 1) return reelPosts;
+    const offset = Math.floor(reelRotationOffsetRef.current * reelPosts.length);
+    return [...reelPosts.slice(offset), ...reelPosts.slice(0, offset)];
+  }, [reelPosts]);
+
+
 
   return (
     <Layout>
