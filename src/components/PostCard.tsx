@@ -676,53 +676,54 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
           )}
 
           {/* Actions */}
-          <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between border border-border rounded-lg p-0.5 sm:p-1 overflow-hidden">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={handleLikePost} 
-                className={`relative hover:text-green-500 transition-colors flex-1 min-w-0 ${isLiked ? 'text-green-500' : 'text-gray-600 dark:text-gray-400'} border-0 px-1 sm:px-2`}
+          <div className="pt-3">
+            <div className="flex items-center gap-5 sm:gap-6">
+              <button
+                type="button"
+                onClick={handleLikePost}
                 disabled={isOptimistic}
+                aria-label="Like"
+                className={`relative flex items-center gap-1.5 transition-colors disabled:opacity-50 ${isLiked ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
               >
-                <ThumbsUp 
-                  className={`mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0 transition-all duration-300 ${isLiked ? 'fill-green-500 text-green-500' : ''} ${isAnimating ? 'scale-150 rotate-12' : 'scale-100 rotate-0'}`} 
+                <ThumbsUp
+                  strokeWidth={2.2}
+                  className={`h-6 w-6 flex-shrink-0 transition-all duration-300 ${isLiked ? 'fill-current' : ''} ${isAnimating ? 'scale-150 rotate-12' : 'scale-100 rotate-0'}`}
                 />
-                <span className="text-xs sm:text-sm truncate">Like</span>
                 {likeCount > 0 && (
-                  <span className={`ml-0.5 sm:ml-1 text-xs sm:text-sm flex-shrink-0 transition-all duration-300 ${isAnimating ? 'scale-125 font-bold' : ''}`}>
-                    ({likeCount})
+                  <span className={`text-sm font-semibold transition-all duration-300 ${isAnimating ? 'scale-125' : ''}`}>
+                    {likeCount}
                   </span>
                 )}
                 {isAnimating && (
-                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full animate-ping"></span>
+                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full animate-ping"></span>
                 )}
-              </Button>
-              <div className="w-px h-4 sm:h-6 bg-foreground flex-shrink-0"></div>
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setShowCommentModal(true)}
-                className="text-gray-600 dark:text-gray-400 border-0 flex-1 min-w-0 px-1 sm:px-2"
                 disabled={isOptimistic}
+                aria-label="Comment"
+                className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
               >
-                <MessageSquare className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                <span className="text-xs sm:text-sm truncate">Comment</span>
-                {comments.length > 0 && <span className="ml-0.5 sm:ml-1 text-xs sm:text-sm flex-shrink-0">({comments.length})</span>}
-              </Button>
-              <div className="w-px h-4 sm:h-6 bg-foreground flex-shrink-0"></div>
-              <Button 
-                variant="ghost" 
-                size="sm"
+                <MessageSquare strokeWidth={2.2} className="h-6 w-6 flex-shrink-0" />
+                {comments.length > 0 && (
+                  <span className="text-sm font-semibold">{comments.length}</span>
+                )}
+              </button>
+
+              <button
+                type="button"
                 disabled={isOptimistic}
-                className="text-gray-600 dark:text-gray-400 border-0 flex-1 min-w-0 px-1 sm:px-2"
                 onClick={() => setShowShareBoard(true)}
+                aria-label="Share"
+                className="flex items-center text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
               >
-                <Share2 className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                <span className="text-xs sm:text-sm truncate">Share</span>
-              </Button>
+                <Share2 strokeWidth={2.2} className="h-6 w-6 flex-shrink-0" />
+              </button>
             </div>
           </div>
+
         </CardContent>
         
         <ConfirmationDialog
