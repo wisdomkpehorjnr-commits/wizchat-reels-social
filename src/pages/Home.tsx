@@ -563,7 +563,7 @@ const Home = () => {
                       <PeopleYouMayKnowCard />
                     )}
                     {shouldShowReels && (
-                      <ReelsPromoCard reels={reelPosts} />
+                      <ReelsPromoCard reels={rotatedReelPosts} promoIndex={promoIndex} />
                     )}
                   </div>
                 );
