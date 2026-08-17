@@ -343,22 +343,45 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
     </div>
   );
 
+  const WizAiBanner = () => (
+    <button
+      type="button"
+      onClick={() => { commitHistory(); setWizAiQuery(query.trim()); }}
+      className="w-full rounded-2xl px-4 py-3.5 flex items-center gap-3 text-left bg-gradient-to-r from-primary/20 via-primary/10 to-transparent border border-primary/30 shadow-sm transition-transform active:scale-[0.98]"
+    >
+      <span className="h-9 w-9 rounded-xl bg-primary/25 flex items-center justify-center flex-shrink-0">
+        <Sparkles className="w-4.5 h-4.5 text-primary" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-bold text-foreground">Search with WizAI ✨</span>
+        <span className="block text-xs text-muted-foreground truncate">Get an AI answer for “{query.trim()}”</span>
+      </span>
+      <ChevronRight className="w-4 h-4 text-primary flex-shrink-0" />
+    </button>
+  );
+
   const renderAll = () => {
     const ppl = grouped.people.slice(0, 5);
     const psts = grouped.post.slice(0, 5);
+    const rls = grouped.reel.slice(0, 6);
     const grps = grouped.group.slice(0, 5);
     const imgs = grouped.image.slice(0, 6);
-    const empty = !ppl.length && !psts.length && !grps.length && !imgs.length;
-    if (empty) return <div className="p-8 text-center"><p className="text-muted-foreground">No results found</p></div>;
+    const empty = !ppl.length && !psts.length && !grps.length && !imgs.length && !rls.length;
     return (
       <div className="p-4 pb-12 space-y-1">
+        <WizAiBanner />
+        {empty && <div className="p-8 text-center"><p className="text-muted-foreground">No results found</p></div>}
         {ppl.length > 0 && (<>
           <SectionHeader title="People" onMore={ppl.length === 5 ? () => setActiveTab('people') : undefined} />
           <div className="space-y-1">{ppl.map(r => <PersonRow key={`p-${r.id}`} r={r} />)}</div>
         </>)}
+        {rls.length > 0 && (<>
+          <SectionHeader title="Reels" />
+          <div className="grid grid-cols-3 gap-2">{rls.map(r => <ReelTile key={`r-${r.id}`} r={r} />)}</div>
+        </>)}
         {psts.length > 0 && (<>
           <SectionHeader title="Posts" onMore={psts.length === 5 ? () => setActiveTab('posts') : undefined} />
-          <div className="space-y-2">{psts.map(r => <PostRow key={`o-${r.id}`} r={r} />)}</div>
+          <div className="space-y-3">{psts.map(r => <PostRow key={`o-${r.id}`} r={r} />)}</div>
         </>)}
         {grps.length > 0 && (<>
           <SectionHeader title="Groups" onMore={grps.length === 5 ? () => setActiveTab('groups') : undefined} />
@@ -381,8 +404,16 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
     }
     if (activeTab === 'posts') {
       const list = grouped.post;
-      if (!list.length) return <div className="p-8 text-center text-muted-foreground">No posts found</div>;
-      return <div className="p-4 space-y-2">{list.map(r => <PostRow key={r.id} r={r} />)}</div>;
+      const reels = grouped.reel;
+      if (!list.length && !reels.length) return <div className="p-8 text-center text-muted-foreground">No posts found</div>;
+      return (
+        <div className="p-4 space-y-3">
+          {reels.length > 0 && (
+            <div className="grid grid-cols-3 gap-2">{reels.map(r => <ReelTile key={`r-${r.id}`} r={r} />)}</div>
+          )}
+          {list.map(r => <PostRow key={r.id} r={r} />)}
+        </div>
+      );
     }
     if (activeTab === 'images') {
       const list = grouped.image;
@@ -396,6 +427,7 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
     }
     return null;
   };
+
 
   return (
     <div
