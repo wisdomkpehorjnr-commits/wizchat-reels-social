@@ -51,6 +51,10 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
   const [imageModalSrc, setImageModalSrc] = useState('');
   const [imageActionSrc, setImageActionSrc] = useState<{ url: string; postId?: string } | null>(null);
   const { downloadMedia } = useDownload();
+  // Immersive overlays opened ON TOP of search (search stays mounted underneath)
+  const [detailPost, setDetailPost] = useState<{ id: string; data?: any } | null>(null);
+  const [detailReelId, setDetailReelId] = useState<string | null>(null);
+  const [wizAiQuery, setWizAiQuery] = useState<string | null>(null);
 
   // Persist query + tab so swiping back from a profile restores results
   useEffect(() => {
