@@ -578,6 +578,24 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Immersive overlays — search stays mounted underneath */}
+      <AnimatePresence>
+        {detailPost && (
+          <SearchPostDetail
+            key="post-detail"
+            postId={detailPost.id}
+            initialPost={detailPost.data}
+            onClose={() => setDetailPost(null)}
+          />
+        )}
+        {detailReelId && (
+          <SearchReelViewer key="reel-viewer" reelId={detailReelId} onClose={() => setDetailReelId(null)} />
+        )}
+        {wizAiQuery && (
+          <WizAISearchResults key="wizai" query={wizAiQuery} onClose={() => setWizAiQuery(null)} />
+        )}
+      </AnimatePresence>
     </div>
   );
 };
