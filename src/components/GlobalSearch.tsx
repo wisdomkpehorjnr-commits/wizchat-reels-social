@@ -321,7 +321,7 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
         onPointerLeave={endPress}
         onPointerCancel={endPress}
         onContextMenu={(e) => { e.preventDefault(); if (r.image) setImageActionSrc({ url: r.image, postId: r.data?.id || r.id }); }}
-        className="relative aspect-square rounded-lg overflow-hidden bg-muted"
+        className="relative aspect-square rounded-xl overflow-hidden bg-muted transition-transform duration-200 hover:scale-[1.03] active:scale-[0.97]"
       >
         {r.image ? (
           <img src={r.image} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
