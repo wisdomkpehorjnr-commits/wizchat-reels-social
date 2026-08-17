@@ -97,29 +97,46 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
     }
   };
 
-  // Group results by type
+  const isReelResult = (r: SearchResult) =>
+    !!(r.data?.isReel || r.data?.is_reel || r.data?.videoUrl || r.data?.video_url);
+
+  const reelVideoUrl = (r: SearchResult) => r.data?.videoUrl || r.data?.video_url || undefined;
+
+  // Group results by type (posts split into static posts vs reels)
   const grouped = useMemo(() => {
-    const g: Record<string, SearchResult[]> = { people: [], post: [], image: [], group: [] };
-    for (const r of results) if (g[r.type]) g[r.type].push(r);
+    const g: Record<string, SearchResult[]> = { people: [], post: [], image: [], group: [], reel: [] };
+    for (const r of results) {
+      if (r.type === 'post' && isReelResult(r)) g.reel.push(r);
+      else if (g[r.type]) g[r.type].push(r);
+    }
     return g;
   }, [results]);
+
+  /** Commit the query to recent searches — only on deliberate intent. */
+  const commitHistory = () => {
+    if (!query.trim()) return;
+    searchService.commitSearchHistory(query);
+    setSearchHistory(searchService.getSearchHistory());
+  };
 
   const goToProfile = (r: SearchResult) => {
     // DON'T close the search modal — Home persists `showSearch` in sessionStorage,
     // so when the user hits back from the profile they return to the open search.
+    commitHistory();
     const id = r.data?.id || r.id;
     navigate(`/profile/${id}`);
   };
 
+  /** Opens an immersive overlay on top of search — never navigates away. */
   const goToPost = (r?: SearchResult) => {
-    onClose();
     const id = r?.data?.id || r?.id;
-    const isReel = !!(r?.data?.isReel || r?.data?.is_reel || r?.data?.videoUrl);
-    if (!id) { navigate('/'); return; }
-    navigate(isReel ? `/reels?reel=${id}` : `/?post=${id}`);
+    if (!id) return;
+    commitHistory();
+    if (r && isReelResult(r)) setDetailReelId(id);
+    else setDetailPost({ id, data: r?.data });
   };
 
-  const goToGroup = (r: SearchResult) => { onClose(); navigate(`/topic-room/${r.id}`); };
+  const goToGroup = (r: SearchResult) => { commitHistory(); onClose(); navigate(`/topic-room/${r.id}`); };
 
   const openImage = (src?: string) => { if (!src) return; setImageModalSrc(src); setImageModalOpen(true); };
 
