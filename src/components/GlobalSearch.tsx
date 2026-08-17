@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, X, User, FileText, Image as ImageIcon, Users, Clock, Trash2, Heart, MessageCircle, Share2, UserPlus, ChevronRight, Download, Bookmark } from 'lucide-react';
+import { Search, X, User, FileText, Image as ImageIcon, Users, Clock, Trash2, Heart, MessageCircle, Share2, UserPlus, ChevronRight, Download, Bookmark, Sparkles } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -16,6 +16,11 @@ import { useDownload } from '@/hooks/useDownload';
 import VerifiedBadge from './VerifiedBadge';
 import ImageModal from './ImageModal';
 import SmartAvatar from './SmartAvatar';
+import SearchPostDetail from './search/SearchPostDetail';
+import SearchReelViewer from './search/SearchReelViewer';
+import WizAISearchResults from './search/WizAISearchResults';
+import ReelResultTile from './search/ReelResultTile';
+import SwipeToDeleteRow from './search/SwipeToDeleteRow';
 
 interface GlobalSearchProps {
   isOpen: boolean;
