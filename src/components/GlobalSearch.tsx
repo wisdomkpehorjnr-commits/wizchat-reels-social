@@ -443,6 +443,8 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
               ref={inputRef}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { commitHistory(); (e.target as HTMLInputElement).blur(); } }}
+              enterKeyHint="search"
               placeholder="Search people, posts, images, groups..."
               className="pl-10"
             />
