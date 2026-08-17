@@ -216,31 +216,60 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
     );
   };
 
-  const PostRow = ({ r }: { r: SearchResult }) => (
-    <Card className="cursor-pointer hover:bg-accent transition-colors overflow-hidden" onClick={() => goToPost(r)}>
-      <CardContent className="p-3">
-        <div className="flex items-start gap-3">
-          {r.image ? (
-            <img src={r.image} alt="" className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
-          ) : (
-            <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-              <FileText className="w-6 h-6 text-muted-foreground" />
+  const PostRow = ({ r }: { r: SearchResult }) => {
+    const author = r.data?.user;
+    return (
+      <Card
+        className="cursor-pointer rounded-2xl overflow-hidden border-border/60 hover:bg-accent/50 transition-all active:scale-[0.99]"
+        onClick={() => goToPost(r)}
+      >
+        <CardContent className="p-0">
+          {/* Author */}
+          <div className="flex items-center gap-2.5 px-4 pt-4 pb-3">
+            <SmartAvatar src={author?.avatar} alt={author?.name || ''} className="w-9 h-9" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-foreground truncate">{author?.name || r.subtitle?.replace(/^by /, '') || 'Unknown'}</p>
+              {author?.username && <p className="text-xs text-muted-foreground truncate">@{author.username}</p>}
             </div>
-          )}
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-foreground truncate">{r.title}</p>
-            {r.subtitle && <p className="text-xs text-muted-foreground line-clamp-2">{r.subtitle}</p>}
-            <div className="flex items-center gap-4 mt-1.5 text-muted-foreground">
-              <span className="flex items-center gap-1"><Heart className="w-4 h-4" strokeWidth={2.2} /><span className="text-xs font-semibold">{r.data?.likes_count ?? 0}</span></span>
-              <span className="flex items-center gap-1"><MessageCircle className="w-4 h-4" strokeWidth={2.2} /><span className="text-xs font-semibold">{r.data?.comments_count ?? 0}</span></span>
-              <span className="flex items-center"><Share2 className="w-4 h-4" strokeWidth={2.2} /></span>
-            </div>
-
           </div>
-        </div>
-      </CardContent>
-    </Card>
+
+          {/* Caption */}
+          {r.title && <p className="px-4 pb-3 text-sm text-foreground line-clamp-3">{r.title}</p>}
+
+          {/* Prominent media preview */}
+          {r.image ? (
+            <div className="relative w-full aspect-[4/3] bg-muted">
+              <img src={r.image} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
+            </div>
+          ) : null}
+
+          {/* Left-grouped icon-only actions — matches the main feed pattern */}
+          <div className="flex items-center gap-5 px-4 py-3 text-foreground">
+            <span className="flex items-center gap-1.5">
+              <Heart className="w-[22px] h-[22px]" strokeWidth={2} />
+              <span className="text-xs font-semibold">{r.data?.likes_count ?? r.data?.likeCount ?? 0}</span>
+            </span>
+            <span className="flex items-center gap-1.5">
+              <MessageCircle className="w-[22px] h-[22px]" strokeWidth={2} />
+              <span className="text-xs font-semibold">{r.data?.comments_count ?? 0}</span>
+            </span>
+            <span className="flex items-center">
+              <Share2 className="w-[22px] h-[22px]" strokeWidth={2} />
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const ReelTile = ({ r }: { r: SearchResult }) => (
+    <ReelResultTile
+      videoUrl={reelVideoUrl(r)}
+      posterUrl={r.image}
+      onOpen={() => goToPost(r)}
+    />
   );
+
 
   const GroupRow = ({ r }: { r: SearchResult }) => (
     <Card className="cursor-pointer hover:bg-accent transition-colors" onClick={() => goToGroup(r)}>
