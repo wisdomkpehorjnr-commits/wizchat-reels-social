@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, X, User, FileText, Image as ImageIcon, Users, Clock, Trash2, Heart, MessageCircle, Share2, UserPlus, ChevronRight, Download, Bookmark } from 'lucide-react';
+import { Search, X, User, FileText, Image as ImageIcon, Users, Clock, Trash2, Heart, MessageCircle, Share2, UserPlus, ChevronRight, Download, Bookmark, Sparkles } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -16,6 +16,11 @@ import { useDownload } from '@/hooks/useDownload';
 import VerifiedBadge from './VerifiedBadge';
 import ImageModal from './ImageModal';
 import SmartAvatar from './SmartAvatar';
+import SearchPostDetail from './search/SearchPostDetail';
+import SearchReelViewer from './search/SearchReelViewer';
+import WizAISearchResults from './search/WizAISearchResults';
+import ReelResultTile from './search/ReelResultTile';
+import SwipeToDeleteRow from './search/SwipeToDeleteRow';
 
 interface GlobalSearchProps {
   isOpen: boolean;
@@ -46,6 +51,10 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
   const [imageModalSrc, setImageModalSrc] = useState('');
   const [imageActionSrc, setImageActionSrc] = useState<{ url: string; postId?: string } | null>(null);
   const { downloadMedia } = useDownload();
+  // Immersive overlays opened ON TOP of search (search stays mounted underneath)
+  const [detailPost, setDetailPost] = useState<{ id: string; data?: any } | null>(null);
+  const [detailReelId, setDetailReelId] = useState<string | null>(null);
+  const [wizAiQuery, setWizAiQuery] = useState<string | null>(null);
 
   // Persist query + tab so swiping back from a profile restores results
   useEffect(() => {
@@ -88,29 +97,46 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
     }
   };
 
-  // Group results by type
+  const isReelResult = (r: SearchResult) =>
+    !!(r.data?.isReel || r.data?.is_reel || r.data?.videoUrl || r.data?.video_url);
+
+  const reelVideoUrl = (r: SearchResult) => r.data?.videoUrl || r.data?.video_url || undefined;
+
+  // Group results by type (posts split into static posts vs reels)
   const grouped = useMemo(() => {
-    const g: Record<string, SearchResult[]> = { people: [], post: [], image: [], group: [] };
-    for (const r of results) if (g[r.type]) g[r.type].push(r);
+    const g: Record<string, SearchResult[]> = { people: [], post: [], image: [], group: [], reel: [] };
+    for (const r of results) {
+      if (r.type === 'post' && isReelResult(r)) g.reel.push(r);
+      else if (g[r.type]) g[r.type].push(r);
+    }
     return g;
   }, [results]);
+
+  /** Commit the query to recent searches — only on deliberate intent. */
+  const commitHistory = () => {
+    if (!query.trim()) return;
+    searchService.commitSearchHistory(query);
+    setSearchHistory(searchService.getSearchHistory());
+  };
 
   const goToProfile = (r: SearchResult) => {
     // DON'T close the search modal — Home persists `showSearch` in sessionStorage,
     // so when the user hits back from the profile they return to the open search.
+    commitHistory();
     const id = r.data?.id || r.id;
     navigate(`/profile/${id}`);
   };
 
+  /** Opens an immersive overlay on top of search — never navigates away. */
   const goToPost = (r?: SearchResult) => {
-    onClose();
     const id = r?.data?.id || r?.id;
-    const isReel = !!(r?.data?.isReel || r?.data?.is_reel || r?.data?.videoUrl);
-    if (!id) { navigate('/'); return; }
-    navigate(isReel ? `/reels?reel=${id}` : `/?post=${id}`);
+    if (!id) return;
+    commitHistory();
+    if (r && isReelResult(r)) setDetailReelId(id);
+    else setDetailPost({ id, data: r?.data });
   };
 
-  const goToGroup = (r: SearchResult) => { onClose(); navigate(`/topic-room/${r.id}`); };
+  const goToGroup = (r: SearchResult) => { commitHistory(); onClose(); navigate(`/topic-room/${r.id}`); };
 
   const openImage = (src?: string) => { if (!src) return; setImageModalSrc(src); setImageModalOpen(true); };
 
@@ -190,31 +216,60 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
     );
   };
 
-  const PostRow = ({ r }: { r: SearchResult }) => (
-    <Card className="cursor-pointer hover:bg-accent transition-colors overflow-hidden" onClick={() => goToPost(r)}>
-      <CardContent className="p-3">
-        <div className="flex items-start gap-3">
-          {r.image ? (
-            <img src={r.image} alt="" className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
-          ) : (
-            <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-              <FileText className="w-6 h-6 text-muted-foreground" />
+  const PostRow = ({ r }: { r: SearchResult }) => {
+    const author = r.data?.user;
+    return (
+      <Card
+        className="cursor-pointer rounded-2xl overflow-hidden border-border/60 hover:bg-accent/50 transition-all active:scale-[0.99]"
+        onClick={() => goToPost(r)}
+      >
+        <CardContent className="p-0">
+          {/* Author */}
+          <div className="flex items-center gap-2.5 px-4 pt-4 pb-3">
+            <SmartAvatar src={author?.avatar} alt={author?.name || ''} className="w-9 h-9" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-foreground truncate">{author?.name || r.subtitle?.replace(/^by /, '') || 'Unknown'}</p>
+              {author?.username && <p className="text-xs text-muted-foreground truncate">@{author.username}</p>}
             </div>
-          )}
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-foreground truncate">{r.title}</p>
-            {r.subtitle && <p className="text-xs text-muted-foreground line-clamp-2">{r.subtitle}</p>}
-            <div className="flex items-center gap-4 mt-1.5 text-muted-foreground">
-              <span className="flex items-center gap-1"><Heart className="w-4 h-4" strokeWidth={2.2} /><span className="text-xs font-semibold">{r.data?.likes_count ?? 0}</span></span>
-              <span className="flex items-center gap-1"><MessageCircle className="w-4 h-4" strokeWidth={2.2} /><span className="text-xs font-semibold">{r.data?.comments_count ?? 0}</span></span>
-              <span className="flex items-center"><Share2 className="w-4 h-4" strokeWidth={2.2} /></span>
-            </div>
-
           </div>
-        </div>
-      </CardContent>
-    </Card>
+
+          {/* Caption */}
+          {r.title && <p className="px-4 pb-3 text-sm text-foreground line-clamp-3">{r.title}</p>}
+
+          {/* Prominent media preview */}
+          {r.image ? (
+            <div className="relative w-full aspect-[4/3] bg-muted">
+              <img src={r.image} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
+            </div>
+          ) : null}
+
+          {/* Left-grouped icon-only actions — matches the main feed pattern */}
+          <div className="flex items-center gap-5 px-4 py-3 text-foreground">
+            <span className="flex items-center gap-1.5">
+              <Heart className="w-[22px] h-[22px]" strokeWidth={2} />
+              <span className="text-xs font-semibold">{r.data?.likes_count ?? r.data?.likeCount ?? 0}</span>
+            </span>
+            <span className="flex items-center gap-1.5">
+              <MessageCircle className="w-[22px] h-[22px]" strokeWidth={2} />
+              <span className="text-xs font-semibold">{r.data?.comments_count ?? 0}</span>
+            </span>
+            <span className="flex items-center">
+              <Share2 className="w-[22px] h-[22px]" strokeWidth={2} />
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const ReelTile = ({ r }: { r: SearchResult }) => (
+    <ReelResultTile
+      videoUrl={reelVideoUrl(r)}
+      posterUrl={r.image}
+      onOpen={() => goToPost(r)}
+    />
   );
+
 
   const GroupRow = ({ r }: { r: SearchResult }) => (
     <Card className="cursor-pointer hover:bg-accent transition-colors" onClick={() => goToGroup(r)}>
@@ -266,7 +321,7 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
         onPointerLeave={endPress}
         onPointerCancel={endPress}
         onContextMenu={(e) => { e.preventDefault(); if (r.image) setImageActionSrc({ url: r.image, postId: r.data?.id || r.id }); }}
-        className="relative aspect-square rounded-lg overflow-hidden bg-muted"
+        className="relative aspect-square rounded-xl overflow-hidden bg-muted transition-transform duration-200 hover:scale-[1.03] active:scale-[0.97]"
       >
         {r.image ? (
           <img src={r.image} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
@@ -288,22 +343,45 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
     </div>
   );
 
+  const WizAiBanner = () => (
+    <button
+      type="button"
+      onClick={() => { commitHistory(); setWizAiQuery(query.trim()); }}
+      className="w-full rounded-2xl px-4 py-3.5 flex items-center gap-3 text-left bg-gradient-to-r from-primary/20 via-primary/10 to-transparent border border-primary/30 shadow-sm transition-transform active:scale-[0.98]"
+    >
+      <span className="h-9 w-9 rounded-xl bg-primary/25 flex items-center justify-center flex-shrink-0">
+        <Sparkles className="w-4.5 h-4.5 text-primary" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-bold text-foreground">Search with WizAI ✨</span>
+        <span className="block text-xs text-muted-foreground truncate">Get an AI answer for “{query.trim()}”</span>
+      </span>
+      <ChevronRight className="w-4 h-4 text-primary flex-shrink-0" />
+    </button>
+  );
+
   const renderAll = () => {
     const ppl = grouped.people.slice(0, 5);
     const psts = grouped.post.slice(0, 5);
+    const rls = grouped.reel.slice(0, 6);
     const grps = grouped.group.slice(0, 5);
     const imgs = grouped.image.slice(0, 6);
-    const empty = !ppl.length && !psts.length && !grps.length && !imgs.length;
-    if (empty) return <div className="p-8 text-center"><p className="text-muted-foreground">No results found</p></div>;
+    const empty = !ppl.length && !psts.length && !grps.length && !imgs.length && !rls.length;
     return (
       <div className="p-4 pb-12 space-y-1">
+        <WizAiBanner />
+        {empty && <div className="p-8 text-center"><p className="text-muted-foreground">No results found</p></div>}
         {ppl.length > 0 && (<>
           <SectionHeader title="People" onMore={ppl.length === 5 ? () => setActiveTab('people') : undefined} />
           <div className="space-y-1">{ppl.map(r => <PersonRow key={`p-${r.id}`} r={r} />)}</div>
         </>)}
+        {rls.length > 0 && (<>
+          <SectionHeader title="Reels" />
+          <div className="grid grid-cols-3 gap-2">{rls.map(r => <ReelTile key={`r-${r.id}`} r={r} />)}</div>
+        </>)}
         {psts.length > 0 && (<>
           <SectionHeader title="Posts" onMore={psts.length === 5 ? () => setActiveTab('posts') : undefined} />
-          <div className="space-y-2">{psts.map(r => <PostRow key={`o-${r.id}`} r={r} />)}</div>
+          <div className="space-y-3">{psts.map(r => <PostRow key={`o-${r.id}`} r={r} />)}</div>
         </>)}
         {grps.length > 0 && (<>
           <SectionHeader title="Groups" onMore={grps.length === 5 ? () => setActiveTab('groups') : undefined} />
@@ -326,8 +404,16 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
     }
     if (activeTab === 'posts') {
       const list = grouped.post;
-      if (!list.length) return <div className="p-8 text-center text-muted-foreground">No posts found</div>;
-      return <div className="p-4 space-y-2">{list.map(r => <PostRow key={r.id} r={r} />)}</div>;
+      const reels = grouped.reel;
+      if (!list.length && !reels.length) return <div className="p-8 text-center text-muted-foreground">No posts found</div>;
+      return (
+        <div className="p-4 space-y-3">
+          {reels.length > 0 && (
+            <div className="grid grid-cols-3 gap-2">{reels.map(r => <ReelTile key={`r-${r.id}`} r={r} />)}</div>
+          )}
+          {list.map(r => <PostRow key={r.id} r={r} />)}
+        </div>
+      );
     }
     if (activeTab === 'images') {
       const list = grouped.image;
@@ -341,6 +427,7 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
     }
     return null;
   };
+
 
   return (
     <div
@@ -356,6 +443,8 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
               ref={inputRef}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { commitHistory(); (e.target as HTMLInputElement).blur(); } }}
+              enterKeyHint="search"
               placeholder="Search people, posts, images, groups..."
               className="pl-10"
             />
@@ -394,15 +483,16 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
                 {searchHistory.length > 0 ? (
                   <div className="space-y-1">
                     {searchHistory.map((item, idx) => (
-                      <div key={idx} className="flex items-center gap-1">
-                        <Button variant="ghost" className="flex-1 justify-start min-w-0" onClick={() => setQuery(item)}>
-                          <Clock className="w-4 h-4 mr-2 text-muted-foreground flex-shrink-0" />
-                          <span className="truncate">{item}</span>
-                        </Button>
-                        <Button variant="ghost" size="icon" aria-label={`Remove ${item}`} className="h-8 w-8 flex-shrink-0 text-muted-foreground hover:text-destructive" onClick={(e) => { e.stopPropagation(); removeHistoryItem(item); }}>
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
+                      <SwipeToDeleteRow key={`${item}-${idx}`} onDelete={() => removeHistoryItem(item)}>
+                        <button
+                          type="button"
+                          className="w-full flex items-center gap-2 px-3 py-3 text-left bg-background"
+                          onClick={() => setQuery(item)}
+                        >
+                          <Clock className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                          <span className="truncate text-sm text-foreground">{item}</span>
+                        </button>
+                      </SwipeToDeleteRow>
                     ))}
                   </div>
                 ) : (
@@ -486,6 +576,24 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
               </button>
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Immersive overlays — search stays mounted underneath */}
+      <AnimatePresence>
+        {detailPost && (
+          <SearchPostDetail
+            key="post-detail"
+            postId={detailPost.id}
+            initialPost={detailPost.data}
+            onClose={() => setDetailPost(null)}
+          />
+        )}
+        {detailReelId && (
+          <SearchReelViewer key="reel-viewer" reelId={detailReelId} onClose={() => setDetailReelId(null)} />
+        )}
+        {wizAiQuery && (
+          <WizAISearchResults key="wizai" query={wizAiQuery} onClose={() => setWizAiQuery(null)} />
         )}
       </AnimatePresence>
     </div>

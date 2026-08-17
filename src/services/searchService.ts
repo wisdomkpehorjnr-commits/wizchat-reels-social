@@ -69,11 +69,9 @@ class SearchService {
       return cached.results;
     }
 
-    // Add to search history
-    if (!this.searchHistory.includes(normalizedQuery)) {
-      this.searchHistory.unshift(normalizedQuery);
-      this.searchHistory = this.searchHistory.slice(0, 20); // Keep last 20 searches
-    }
+    // NOTE: search history is NOT written here — debounced typing would pollute it.
+    // Call `commitSearchHistory(query)` on explicit intent (Enter / opening a result).
+
 
     try {
       const results = await this.searchOnline(normalizedQuery, types);
@@ -269,9 +267,22 @@ class SearchService {
     return results;
   }
 
+  /**
+   * Commit a query to recent searches. Call ONLY on deliberate intent
+   * (submitting the search, or opening a result from that query) —
+   * never from the debounced as-you-type search.
+   */
+  commitSearchHistory(query: string) {
+    const normalized = query.toLowerCase().trim();
+    if (!normalized) return;
+    this.searchHistory = [normalized, ...this.searchHistory.filter((q) => q !== normalized)].slice(0, 20);
+    this.saveCache();
+  }
+
   getSearchHistory(): string[] {
     return this.searchHistory;
   }
+
 
   clearSearchHistory() {
     this.searchHistory = [];
