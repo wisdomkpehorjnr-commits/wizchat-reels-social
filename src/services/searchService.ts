@@ -267,9 +267,22 @@ class SearchService {
     return results;
   }
 
+  /**
+   * Commit a query to recent searches. Call ONLY on deliberate intent
+   * (submitting the search, or opening a result from that query) —
+   * never from the debounced as-you-type search.
+   */
+  commitSearchHistory(query: string) {
+    const normalized = query.toLowerCase().trim();
+    if (!normalized) return;
+    this.searchHistory = [normalized, ...this.searchHistory.filter((q) => q !== normalized)].slice(0, 20);
+    this.saveCache();
+  }
+
   getSearchHistory(): string[] {
     return this.searchHistory;
   }
+
 
   clearSearchHistory() {
     this.searchHistory = [];
