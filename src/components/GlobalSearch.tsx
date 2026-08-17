@@ -483,15 +483,16 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
                 {searchHistory.length > 0 ? (
                   <div className="space-y-1">
                     {searchHistory.map((item, idx) => (
-                      <div key={idx} className="flex items-center gap-1">
-                        <Button variant="ghost" className="flex-1 justify-start min-w-0" onClick={() => setQuery(item)}>
-                          <Clock className="w-4 h-4 mr-2 text-muted-foreground flex-shrink-0" />
-                          <span className="truncate">{item}</span>
-                        </Button>
-                        <Button variant="ghost" size="icon" aria-label={`Remove ${item}`} className="h-8 w-8 flex-shrink-0 text-muted-foreground hover:text-destructive" onClick={(e) => { e.stopPropagation(); removeHistoryItem(item); }}>
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
+                      <SwipeToDeleteRow key={`${item}-${idx}`} onDelete={() => removeHistoryItem(item)}>
+                        <button
+                          type="button"
+                          className="w-full flex items-center gap-2 px-3 py-3 text-left bg-background"
+                          onClick={() => setQuery(item)}
+                        >
+                          <Clock className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                          <span className="truncate text-sm text-foreground">{item}</span>
+                        </button>
+                      </SwipeToDeleteRow>
                     ))}
                   </div>
                 ) : (
