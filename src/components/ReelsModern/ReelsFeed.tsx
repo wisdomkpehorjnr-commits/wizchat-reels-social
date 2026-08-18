@@ -188,13 +188,36 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({ searchQuery = '', onClearS
 
   const handleLike = useCallback(async (id: string) => {
     if (!user) { toast({ title: 'Login required' }); return; }
+
+    // Optimistic: flip instantly, roll back if the request fails.
+    const wasLiked = !!likes[id];
+    setLikes(prev => ({ ...prev, [id]: !wasLiked }));
+    setPosts(prev => prev.map(p => {
+      if (p.id !== id) return p;
+      const count = Array.isArray(p.likes) ? p.likes.length : ((p as any).likeCount || 0);
+      const nextCount = Math.max(0, count + (wasLiked ? -1 : 1));
+      return { ...p, likeCount: nextCount, isLiked: !wasLiked } as Post;
+    }));
+
     try {
       await dataService.likePost(id);
       const likesData = await dataService.getLikes(id);
-      setPosts(prev => prev.map(p => p.id === id ? { ...p, likes: likesData, likeCount: likesData.length, isLiked: likesData.some((l: any) => l.userId === user.id) } : p));
-      setLikes(prev => ({ ...prev, [id]: !prev[id] }));
-    } catch { toast({ title: 'Like failed', variant: 'destructive' }); }
-  }, [toast, user]);
+      const liked = likesData.some((l: any) => (l.user_id ?? l.userId) === user.id);
+      setPosts(prev => prev.map(p => p.id === id
+        ? ({ ...p, likes: likesData, likeCount: likesData.length, isLiked: liked } as Post)
+        : p));
+      setLikes(prev => ({ ...prev, [id]: liked }));
+    } catch {
+      setLikes(prev => ({ ...prev, [id]: wasLiked }));
+      setPosts(prev => prev.map(p => {
+        if (p.id !== id) return p;
+        const count = (p as any).likeCount || 0;
+        return { ...p, likeCount: Math.max(0, count + (wasLiked ? 1 : -1)), isLiked: wasLiked } as Post;
+      }));
+      toast({ title: 'Like failed', variant: 'destructive' });
+    }
+  }, [toast, user, likes]);
+
 
   const handleShare = useCallback(async (post: Post) => {
     try {
