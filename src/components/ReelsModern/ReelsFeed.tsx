@@ -132,15 +132,33 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({ searchQuery = '', onClearS
 
   const normalizedQuery = searchQuery.trim().toLowerCase();
 
-  // Search matches reels by caption OR by the person who posted them.
-  // Users without reels never appear.
+  // Every searchable field attached to a reel: caption, author, hashtags,
+  // music metadata and generic video keywords. Users without reels never appear.
+  const buildSearchIndex = (p: Post): string => {
+    const any = p as any;
+    const parts: (string | undefined)[] = [
+      p.content,
+      any.title,
+      any.description,
+      p.user?.name,
+      (p.user as any)?.username,
+      (p.user as any)?.bio,
+      p.music?.title,
+      (p.music as any)?.artist,
+      p.mediaType,
+      p.isReel || p.videoUrl ? 'reel video' : undefined,
+      ...(Array.isArray(p.hashtags)
+        ? p.hashtags.map((h: any) => (typeof h === 'string' ? h : h?.name || h?.hashtag?.name))
+        : []),
+      ...(Array.isArray(any.tags) ? any.tags.map((t: any) => (typeof t === 'string' ? t : t?.name)) : []),
+    ];
+    return parts.filter(Boolean).join(' ').toLowerCase();
+  };
+
   const searchResults = normalizedQuery
-    ? posts.filter(p =>
-        (p.content || '').toLowerCase().includes(normalizedQuery) ||
-        (p.user?.name || '').toLowerCase().includes(normalizedQuery) ||
-        ((p.user as any)?.username || '').toLowerCase().includes(normalizedQuery)
-      )
+    ? posts.filter(p => buildSearchIndex(p).includes(normalizedQuery))
     : [];
+
 
   const displayPosts = tabPosts;
 
