@@ -220,11 +220,31 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({ searchQuery = '', onClearS
 
 
   const handleShare = useCallback(async (post: Post) => {
-    try {
-      if (navigator.share) await navigator.share({ title: post.content || 'Video', url: `${window.location.origin}/reels?reel=${post.id}` });
-      else { await navigator.clipboard.writeText(`${window.location.origin}/reels?reel=${post.id}`); toast({ title: 'Link copied' }); }
-    } catch {}
+    const url = `${window.location.origin}/reels?reel=${post.id}`;
+    const copyLink = async () => {
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(url);
+        } else {
+          const ta = document.createElement('textarea');
+          ta.value = url; ta.style.position = 'fixed'; ta.style.opacity = '0';
+          document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+        }
+        toast({ title: 'Link copied' });
+      } catch { /* clipboard blocked — stay silent */ }
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: post.content || 'Video', url });
+        return;
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return; // user dismissed the sheet
+      }
+    }
+    await copyLink();
   }, [toast]);
+
 
   const handleFollow = useCallback(async (userId: string) => {
     if (!user) { toast({ title: 'Login required' }); return; }
