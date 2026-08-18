@@ -132,15 +132,33 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({ searchQuery = '', onClearS
 
   const normalizedQuery = searchQuery.trim().toLowerCase();
 
-  // Search matches reels by caption OR by the person who posted them.
-  // Users without reels never appear.
+  // Every searchable field attached to a reel: caption, author, hashtags,
+  // music metadata and generic video keywords. Users without reels never appear.
+  const buildSearchIndex = (p: Post): string => {
+    const any = p as any;
+    const parts: (string | undefined)[] = [
+      p.content,
+      any.title,
+      any.description,
+      p.user?.name,
+      (p.user as any)?.username,
+      (p.user as any)?.bio,
+      p.music?.title,
+      (p.music as any)?.artist,
+      p.mediaType,
+      p.isReel || p.videoUrl ? 'reel video' : undefined,
+      ...(Array.isArray(p.hashtags)
+        ? p.hashtags.map((h: any) => (typeof h === 'string' ? h : h?.name || h?.hashtag?.name))
+        : []),
+      ...(Array.isArray(any.tags) ? any.tags.map((t: any) => (typeof t === 'string' ? t : t?.name)) : []),
+    ];
+    return parts.filter(Boolean).join(' ').toLowerCase();
+  };
+
   const searchResults = normalizedQuery
-    ? posts.filter(p =>
-        (p.content || '').toLowerCase().includes(normalizedQuery) ||
-        (p.user?.name || '').toLowerCase().includes(normalizedQuery) ||
-        ((p.user as any)?.username || '').toLowerCase().includes(normalizedQuery)
-      )
+    ? posts.filter(p => buildSearchIndex(p).includes(normalizedQuery))
     : [];
+
 
   const displayPosts = tabPosts;
 
@@ -170,20 +188,63 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({ searchQuery = '', onClearS
 
   const handleLike = useCallback(async (id: string) => {
     if (!user) { toast({ title: 'Login required' }); return; }
+
+    // Optimistic: flip instantly, roll back if the request fails.
+    const wasLiked = !!likes[id];
+    setLikes(prev => ({ ...prev, [id]: !wasLiked }));
+    setPosts(prev => prev.map(p => {
+      if (p.id !== id) return p;
+      const count = Array.isArray(p.likes) ? p.likes.length : ((p as any).likeCount || 0);
+      const nextCount = Math.max(0, count + (wasLiked ? -1 : 1));
+      return { ...p, likeCount: nextCount, isLiked: !wasLiked } as Post;
+    }));
+
     try {
       await dataService.likePost(id);
       const likesData = await dataService.getLikes(id);
-      setPosts(prev => prev.map(p => p.id === id ? { ...p, likes: likesData, likeCount: likesData.length, isLiked: likesData.some((l: any) => l.userId === user.id) } : p));
-      setLikes(prev => ({ ...prev, [id]: !prev[id] }));
-    } catch { toast({ title: 'Like failed', variant: 'destructive' }); }
-  }, [toast, user]);
+      const liked = likesData.some((l: any) => (l.user_id ?? l.userId) === user.id);
+      setPosts(prev => prev.map(p => p.id === id
+        ? ({ ...p, likes: likesData, likeCount: likesData.length, isLiked: liked } as Post)
+        : p));
+      setLikes(prev => ({ ...prev, [id]: liked }));
+    } catch {
+      setLikes(prev => ({ ...prev, [id]: wasLiked }));
+      setPosts(prev => prev.map(p => {
+        if (p.id !== id) return p;
+        const count = (p as any).likeCount || 0;
+        return { ...p, likeCount: Math.max(0, count + (wasLiked ? 1 : -1)), isLiked: wasLiked } as Post;
+      }));
+      toast({ title: 'Like failed', variant: 'destructive' });
+    }
+  }, [toast, user, likes]);
+
 
   const handleShare = useCallback(async (post: Post) => {
-    try {
-      if (navigator.share) await navigator.share({ title: post.content || 'Video', url: `${window.location.origin}/reels?reel=${post.id}` });
-      else { await navigator.clipboard.writeText(`${window.location.origin}/reels?reel=${post.id}`); toast({ title: 'Link copied' }); }
-    } catch {}
+    const url = `${window.location.origin}/reels?reel=${post.id}`;
+    const copyLink = async () => {
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(url);
+        } else {
+          const ta = document.createElement('textarea');
+          ta.value = url; ta.style.position = 'fixed'; ta.style.opacity = '0';
+          document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+        }
+        toast({ title: 'Link copied' });
+      } catch { /* clipboard blocked — stay silent */ }
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: post.content || 'Video', url });
+        return;
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return; // user dismissed the sheet
+      }
+    }
+    await copyLink();
   }, [toast]);
+
 
   const handleFollow = useCallback(async (userId: string) => {
     if (!user) { toast({ title: 'Login required' }); return; }
@@ -398,9 +459,10 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({ searchQuery = '', onClearS
 
               {/* Controls */}
               <ReelControls
-                likesCount={Array.isArray(p.likes) ? p.likes.length : ((p as any).likeCount || 0)}
+                likesCount={typeof (p as any).likeCount === 'number' ? (p as any).likeCount : (Array.isArray(p.likes) ? p.likes.length : 0)}
                 commentsCount={Array.isArray((p as any).comments) ? (p as any).comments.length : ((p as any).commentCount || 0)}
-                isLiked={!!(p as any).isLiked || !!likes[p.id]}
+                isLiked={likes[p.id] ?? !!(p as any).isLiked}
+
                 onLike={() => handleLike(p.id)}
                 onComment={() => setCommentsOpenFor(p.id)}
                 onShare={() => handleShare(p)}

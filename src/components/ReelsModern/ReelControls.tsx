@@ -38,11 +38,17 @@ export const ReelControls: React.FC<ReelControlsProps> = ({
   const btn =
     'w-12 h-12 rounded-2xl bg-background border border-border shadow-md flex items-center justify-center transition-transform active:scale-90';
 
+  // Counts sit directly over the video (not on a themed surface), so they keep a
+  // fixed light foreground but get a dim blurred pill so they stay legible on
+  // bright frames and in every theme.
+  const countPill =
+    'px-2 py-0.5 rounded-full bg-black/45 backdrop-blur-sm text-[11px] font-bold text-white leading-none';
+
   return (
     <div className="absolute right-3 bottom-6 z-40 flex flex-col items-center gap-4">
       {/* Like */}
       <div className="flex flex-col items-center gap-1">
-        <button onClick={handleLike} aria-label="Like" className={btn}>
+        <button onClick={handleLike} aria-label={isLiked ? 'Unlike' : 'Like'} aria-pressed={isLiked} className={btn}>
           <motion.div animate={animateLike ? { scale: [1, 1.4, 1] } : {}} transition={{ duration: 0.4 }}>
             <Heart
               className={`w-6 h-6 ${isLiked ? 'text-destructive fill-current' : 'text-foreground fill-none'}`}
@@ -50,7 +56,7 @@ export const ReelControls: React.FC<ReelControlsProps> = ({
             />
           </motion.div>
         </button>
-        <span className="text-white text-xs font-bold drop-shadow">{formatCount(likesCount)}</span>
+        <span className={countPill}>{formatCount(likesCount)}</span>
       </div>
 
       {/* Comment */}
@@ -58,8 +64,9 @@ export const ReelControls: React.FC<ReelControlsProps> = ({
         <button onClick={onComment} aria-label="Comments" className={btn}>
           <MessageCircle className="w-6 h-6 text-foreground" strokeWidth={2.2} />
         </button>
-        <span className="text-white text-xs font-bold drop-shadow">{formatCount(commentsCount)}</span>
+        <span className={countPill}>{formatCount(commentsCount)}</span>
       </div>
+
 
       {/* Share */}
       <button onClick={onShare} aria-label="Share" className={btn}>
