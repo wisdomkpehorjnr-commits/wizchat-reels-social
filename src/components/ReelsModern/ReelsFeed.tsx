@@ -459,9 +459,10 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({ searchQuery = '', onClearS
 
               {/* Controls */}
               <ReelControls
-                likesCount={Array.isArray(p.likes) ? p.likes.length : ((p as any).likeCount || 0)}
+                likesCount={typeof (p as any).likeCount === 'number' ? (p as any).likeCount : (Array.isArray(p.likes) ? p.likes.length : 0)}
                 commentsCount={Array.isArray((p as any).comments) ? (p as any).comments.length : ((p as any).commentCount || 0)}
-                isLiked={!!(p as any).isLiked || !!likes[p.id]}
+                isLiked={likes[p.id] ?? !!(p as any).isLiked}
+
                 onLike={() => handleLike(p.id)}
                 onComment={() => setCommentsOpenFor(p.id)}
                 onShare={() => handleShare(p)}
