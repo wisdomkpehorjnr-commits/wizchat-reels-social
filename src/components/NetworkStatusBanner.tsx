@@ -23,7 +23,7 @@ export function NetworkStatusBanner({
   const [status, setStatus] = useState<ConnectionStatus>('online');
   const [isVisible, setIsVisible] = useState(false);
   const [message, setMessage] = useState('');
-  const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const unsubscribe = networkStatusManager.subscribe((newStatus) => {

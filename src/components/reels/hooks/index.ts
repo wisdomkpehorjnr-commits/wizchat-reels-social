@@ -87,7 +87,7 @@ export const useVideoPlayer = (reel: Reel, videoElementRef: React.RefObject<HTML
  * Hook for handling gesture interactions
  */
 export const useGestureHandler = () => {
-  const tapTimeoutRef = useRef<NodeJS.Timeout>();
+  const tapTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const lastTapRef = useRef<number>(0);
   const [doubleTapDetected, setDoubleTapDetected] = useState(false);
 
@@ -200,7 +200,7 @@ export const useDebouncedCallback = <T extends (...args: any[]) => any>(
   callback: T,
   delay: number = 500
 ): ((...args: Parameters<T>) => void) => {
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   return useCallback(
     (...args: Parameters<T>) => {
@@ -221,7 +221,7 @@ export const useThrottledCallback = <T extends (...args: any[]) => any>(
   delay: number = 500
 ): ((...args: Parameters<T>) => void) => {
   const lastCallRef = useRef<number>(0);
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   return useCallback(
     (...args: Parameters<T>) => {

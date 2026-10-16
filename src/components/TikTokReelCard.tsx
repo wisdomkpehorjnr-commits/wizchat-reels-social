@@ -69,9 +69,9 @@ const TikTokReelCard: React.FC<TikTokReelCardProps> = ({
   const [watchStartTime, setWatchStartTime] = useState<number | null>(null);
   const [showCaptionExpanded, setShowCaptionExpanded] = useState(false);
   
-  const doubleTapTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const doubleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTapRef = useRef<number>(0);
-  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Initialize like state
   useEffect(() => {

@@ -46,7 +46,7 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
   const { user } = useAuth();
   const isOnline = useNetworkStatus();
   const { toast } = useToast();
-  const searchTimeoutRef = useRef<NodeJS.Timeout>();
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const inputRef = useRef<HTMLInputElement>(null);
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [imageModalSrc, setImageModalSrc] = useState('');
@@ -292,7 +292,7 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
   );
 
   const ImageTile = ({ r }: { r: SearchResult }) => {
-    const pressTimer = useRef<NodeJS.Timeout | null>(null);
+    const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const longPressed = useRef(false);
 
     const startPress = () => {
