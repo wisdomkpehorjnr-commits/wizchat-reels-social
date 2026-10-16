@@ -62,8 +62,8 @@ const ChatMessage = ({
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [tapCount, setTapCount] = useState(0);
   const [swipeOffset, setSwipeOffset] = useState(0);
-  const tapTimerRef = useRef<NodeJS.Timeout>();
-  const longPressTimerRef = useRef<NodeJS.Timeout>();
+  const tapTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const isOwn = message.userId === user?.id;
   
   const messageAge = Date.now() - message.timestamp.getTime();

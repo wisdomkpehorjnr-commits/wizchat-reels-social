@@ -14,7 +14,7 @@ const VoiceRecorder = ({ onSend, onCancel }: VoiceRecorderProps) => {
   const [isCanceling, setIsCanceling] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startPosRef = useRef({ x: 0, y: 0 });
   const canceledRef = useRef(false);
   const sendSoundRef = useRef<HTMLAudioElement | null>(null);

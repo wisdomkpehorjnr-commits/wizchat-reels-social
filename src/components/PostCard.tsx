@@ -217,7 +217,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(post.content);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+  const [longPressTimer, setLongPressTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
   const [longPressProgress, setLongPressProgress] = useState(0);
   const { downloadMedia } = useDownload();
   const [showPinDialog, setShowPinDialog] = useState(false);

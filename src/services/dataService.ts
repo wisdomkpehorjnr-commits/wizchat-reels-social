@@ -638,9 +638,15 @@ export const dataService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
+    // Map camelCase keys to the database's snake_case columns
+    const payload: { content?: string; image_url?: string; video_url?: string } = {};
+    if (updates.content !== undefined) payload.content = updates.content;
+    if (updates.imageUrl !== undefined) payload.image_url = updates.imageUrl;
+    if (updates.videoUrl !== undefined) payload.video_url = updates.videoUrl;
+
     const { data, error } = await supabase
       .from('posts')
-      .update(updates)
+      .update(payload)
       .eq('id', postId)
       .eq('user_id', user.id)
       .select()
@@ -667,9 +673,14 @@ export const dataService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
+    // Map camelCase keys to the database's snake_case columns
+    const payload: { content?: string; media_url?: string } = {};
+    if (updates.content !== undefined) payload.content = updates.content;
+    if (updates.mediaUrl !== undefined) payload.media_url = updates.mediaUrl;
+
     const { data, error } = await supabase
       .from('stories')
-      .update(updates)
+      .update(payload)
       .eq('id', storyId)
       .eq('user_id', user.id)
       .select()
