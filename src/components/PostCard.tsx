@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import FbPostActions from '@/components/FbPostActions';
 import { Card, CardContent } from '@/components/ui/card';
 import { formatDistanceToNow } from 'date-fns';
 import {
@@ -676,53 +677,16 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
           )}
 
           {/* Actions */}
-          <div className="pt-3">
-            <div className="flex items-center gap-5 sm:gap-6">
-              <button
-                type="button"
-                onClick={handleLikePost}
-                disabled={isOptimistic}
-                aria-label="Like"
-                className={`relative flex items-center gap-1.5 transition-colors disabled:opacity-50 ${isLiked ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                <ThumbsUp
-                  strokeWidth={2.2}
-                  className={`h-6 w-6 flex-shrink-0 transition-all duration-300 ${isLiked ? 'fill-current' : ''} ${isAnimating ? 'scale-150 rotate-12' : 'scale-100 rotate-0'}`}
-                />
-                {likeCount > 0 && (
-                  <span className={`text-sm font-semibold transition-all duration-300 ${isAnimating ? 'scale-125' : ''}`}>
-                    {likeCount}
-                  </span>
-                )}
-                {isAnimating && (
-                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full animate-ping"></span>
-                )}
-              </button>
+          <FbPostActions
+            isLiked={isLiked}
+            likeCount={likeCount}
+            commentCount={comments.length}
+            disabled={isOptimistic}
+            onLike={handleLikePost}
+            onComment={() => setShowCommentModal(true)}
+            onShare={() => setShowShareBoard(true)}
+          />
 
-              <button
-                type="button"
-                onClick={() => setShowCommentModal(true)}
-                disabled={isOptimistic}
-                aria-label="Comment"
-                className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-              >
-                <MessageSquare strokeWidth={2.2} className="h-6 w-6 flex-shrink-0" />
-                {comments.length > 0 && (
-                  <span className="text-sm font-semibold">{comments.length}</span>
-                )}
-              </button>
-
-              <button
-                type="button"
-                disabled={isOptimistic}
-                onClick={() => setShowShareBoard(true)}
-                aria-label="Share"
-                className="flex items-center text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-              >
-                <Share2 strokeWidth={2.2} className="h-6 w-6 flex-shrink-0" />
-              </button>
-            </div>
-          </div>
 
         </CardContent>
         
