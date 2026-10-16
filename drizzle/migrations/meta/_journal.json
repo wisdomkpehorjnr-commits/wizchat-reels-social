@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1792154869315,
+      "tag": "0000_replay_base_schema_1",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792154942954,
+      "tag": "0001_replay_base_schema_2",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792154980915,
+      "tag": "0002_replay_base_schema_3",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792155043477,
+      "tag": "0003_replay_base_schema_4",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792155062122,
+      "tag": "0004_finalize_grants_and_seed",
+      "breakpoints": true
+    }
+  ]
+}
