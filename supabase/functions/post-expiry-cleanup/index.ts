@@ -12,13 +12,6 @@ Deno.serve(async (req) => {
   if (authFailure) return authFailure
 
   try {
-    // delete_expired_posts is SECURITY DEFINER and bounded: it only removes
-    // rows past their expiry (topics 2 days, reels/videos 3 days, posts 15 days).
-    const { data, error } = await req.supabaseRpc
-      ? { data: null, error: null }
-      : { data: null, error: null }
-
-    // Use the local service-role client created below instead.
     const { createClient } = await import('npm:@supabase/supabase-js@2')
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
