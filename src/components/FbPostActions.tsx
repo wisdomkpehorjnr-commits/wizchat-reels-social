@@ -143,7 +143,6 @@ export const FbPostActions: React.FC<Props> = ({ isLiked, likeCount, commentCoun
       </div>
     </div>
   );
-  }
 };
 
 export default FbPostActions;
