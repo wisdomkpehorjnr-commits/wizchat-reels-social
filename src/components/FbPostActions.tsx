@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ThumbsUp, MessageCircle, Share2 } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, MessageCircle, Share2 } from 'lucide-react';
 
 interface Props {
   isLiked: boolean;
@@ -10,6 +10,9 @@ interface Props {
   onLike: () => void;
   onComment: () => void;
   onShare: () => void;
+  isDisliked?: boolean;
+  dislikeCount?: number;
+  onDislike?: () => void;
 }
 
 const fmt = (n: number) =>
@@ -18,7 +21,11 @@ const fmt = (n: number) =>
 const base =
   'relative flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-semibold transition-colors hover:bg-muted active:bg-muted disabled:opacity-50 select-none';
 
-export const FbPostActions: React.FC<Props> = ({ isLiked, likeCount, commentCount, disabled, onLike, onComment, onShare }) => {
+export const FbPostActions: React.FC<Props> = ({ isLiked, likeCount, commentCount, disabled, onLike, onComment, onShare, isDisliked, dislikeCount = 0, onDislike })
+  const [dislikeKey, setDislikeKey] = useState(0);
+  void 0;
+  return _render();
+  function _render() { => {
   const [likeKey, setLikeKey] = useState(0);
   const [commentKey, setCommentKey] = useState(0);
   const [shareKey, setShareKey] = useState(0);
@@ -80,6 +87,27 @@ export const FbPostActions: React.FC<Props> = ({ isLiked, likeCount, commentCoun
           <span>Like</span>
         </button>
 
+        {onDislike && (
+          <button
+            type="button"
+            disabled={disabled}
+            aria-label="Dislike"
+            aria-pressed={!!isDisliked}
+            onClick={() => { setDislikeKey(k => k + 1); onDislike(); }}
+            className={`${base} ${isDisliked ? 'text-destructive' : 'text-muted-foreground'}`}
+          >
+            <motion.span
+              key={dislikeKey}
+              animate={dislikeKey ? { scale: [1, 1.35, 1], rotate: [0, 20, -6, 0], y: [0, 4, 0] } : {}}
+              transition={{ duration: 0.5 }}
+              className="inline-flex"
+            >
+              <ThumbsDown className={`h-5 w-5 ${isDisliked ? 'fill-current' : ''}`} strokeWidth={2.2} />
+            </motion.span>
+            {dislikeCount > 0 && <span>{fmt(dislikeCount)}</span>}
+          </button>
+        )}
+
         <button
           type="button"
           disabled={disabled}
@@ -118,6 +146,7 @@ export const FbPostActions: React.FC<Props> = ({ isLiked, likeCount, commentCoun
       </div>
     </div>
   );
+  }
 };
 
 export default FbPostActions;
