@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
+import FbPostActions from '@/components/FbPostActions';
 import { Search, X, User, FileText, Image as ImageIcon, Users, Clock, Trash2, Heart, MessageCircle, Share2, UserPlus, ChevronRight, Download, Bookmark, Sparkles } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -243,19 +244,15 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
             </div>
           ) : null}
 
-          {/* Left-grouped icon-only actions — matches the main feed pattern */}
-          <div className="flex items-center gap-5 px-4 py-3 text-foreground">
-            <span className="flex items-center gap-1.5">
-              <Heart className="w-[22px] h-[22px]" strokeWidth={2} />
-              <span className="text-xs font-semibold">{r.data?.likes_count ?? r.data?.likeCount ?? 0}</span>
-            </span>
-            <span className="flex items-center gap-1.5">
-              <MessageCircle className="w-[22px] h-[22px]" strokeWidth={2} />
-              <span className="text-xs font-semibold">{r.data?.comments_count ?? 0}</span>
-            </span>
-            <span className="flex items-center">
-              <Share2 className="w-[22px] h-[22px]" strokeWidth={2} />
-            </span>
+          <div className="px-4 pb-2">
+            <FbPostActions
+              isLiked={false}
+              likeCount={r.data?.likes_count ?? r.data?.likeCount ?? 0}
+              commentCount={r.data?.comments_count ?? 0}
+              onLike={() => {}}
+              onComment={() => {}}
+              onShare={() => {}}
+            />
           </div>
         </CardContent>
       </Card>

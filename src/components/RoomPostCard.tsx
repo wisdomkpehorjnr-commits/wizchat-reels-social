@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import FbPostActions from '@/components/FbPostActions';
 import { MoreVertical, ThumbsUp, ThumbsDown, MessageSquare, Share2, Edit, Trash2, X, Send, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -753,60 +754,17 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
           )}
 
           {/* Actions */}
-          <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between border border-black dark:border-white rounded-lg p-0.5 sm:p-1 overflow-hidden">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={handleLikePost} 
-                className={`hover:text-blue-500 flex-1 min-w-0 ${isLiked ? 'text-blue-500' : 'text-gray-600 dark:text-gray-400'} border-0 px-1 sm:px-2`}
-              >
-                <ThumbsUp 
-                  className={`mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0 ${isLiked ? 'fill-blue-500 text-blue-500' : ''}`} 
-                />
-                <span className="text-xs sm:text-sm truncate">Like</span>
-                {likeCount > 0 && (
-                  <span className="ml-0.5 sm:ml-1 text-xs sm:text-sm flex-shrink-0">({likeCount})</span>
-                )}
-              </Button>
-              <div className="w-px h-4 sm:h-6 bg-black dark:bg-white flex-shrink-0"></div>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={handleDislikePost} 
-                className={`hover:text-red-500 flex-1 min-w-0 ${isDisliked ? 'text-red-500' : 'text-gray-600 dark:text-gray-400'} border-0 px-1 sm:px-2`}
-              >
-                <ThumbsDown 
-                  className={`mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0 ${isDisliked ? 'fill-red-500 text-red-500' : ''}`} 
-                />
-                <span className="text-xs sm:text-sm truncate">Dislike</span>
-                {dislikeCount > 0 && (
-                  <span className="ml-0.5 sm:ml-1 text-xs sm:text-sm flex-shrink-0">({dislikeCount})</span>
-                )}
-              </Button>
-              <div className="w-px h-4 sm:h-6 bg-black dark:bg-white flex-shrink-0"></div>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => setShowCommentModal(true)}
-                className="text-gray-600 dark:text-gray-400 border-0 flex-1 min-w-0 px-1 sm:px-2"
-              >
-                <MessageSquare className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                <span className="text-xs sm:text-sm truncate">Comment</span>
-                {commentCount > 0 && <span className="ml-0.5 sm:ml-1 text-xs sm:text-sm flex-shrink-0">({commentCount})</span>}
-              </Button>
-              <div className="w-px h-4 sm:h-6 bg-black dark:bg-white flex-shrink-0"></div>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => setShowShareBoard(true)}
-                className="text-gray-600 dark:text-gray-400 border-0 flex-1 min-w-0 px-1 sm:px-2"
-              >
-                <Share2 className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                <span className="text-xs sm:text-sm truncate">Share</span>
-              </Button>
-            </div>
-          </div>
+          <FbPostActions
+            isLiked={isLiked}
+            likeCount={likeCount}
+            commentCount={commentCount}
+            isDisliked={isDisliked}
+            dislikeCount={dislikeCount}
+            onLike={handleLikePost}
+            onDislike={handleDislikePost}
+            onComment={() => setShowCommentModal(true)}
+            onShare={() => setShowShareBoard(true)}
+          />
         </CardContent>
         
         <ConfirmationDialog

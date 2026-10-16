@@ -21,11 +21,8 @@ const fmt = (n: number) =>
 const base =
   'relative flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-semibold transition-colors hover:bg-muted active:bg-muted disabled:opacity-50 select-none';
 
-export const FbPostActions: React.FC<Props> = ({ isLiked, likeCount, commentCount, disabled, onLike, onComment, onShare, isDisliked, dislikeCount = 0, onDislike })
+export const FbPostActions: React.FC<Props> = ({ isLiked, likeCount, commentCount, disabled, onLike, onComment, onShare, isDisliked, dislikeCount = 0, onDislike }) => {
   const [dislikeKey, setDislikeKey] = useState(0);
-  void 0;
-  return _render();
-  function _render() { => {
   const [likeKey, setLikeKey] = useState(0);
   const [commentKey, setCommentKey] = useState(0);
   const [shareKey, setShareKey] = useState(0);
