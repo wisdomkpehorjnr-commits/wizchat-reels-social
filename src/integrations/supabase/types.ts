@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "12.2.3"
+    PostgrestVersion: "14.18"
   }
   public: {
     Tables: {
@@ -51,6 +51,7 @@ export type Database = {
           chat_id: string
           id: string
           joined_at: string | null
+          last_read_at: string | null
           role: string | null
           user_id: string
         }
@@ -58,6 +59,7 @@ export type Database = {
           chat_id: string
           id?: string
           joined_at?: string | null
+          last_read_at?: string | null
           role?: string | null
           user_id: string
         }
@@ -65,6 +67,7 @@ export type Database = {
           chat_id?: string
           id?: string
           joined_at?: string | null
+          last_read_at?: string | null
           role?: string | null
           user_id?: string
         }
@@ -100,6 +103,8 @@ export type Database = {
           is_group: boolean | null
           is_muted_all: boolean | null
           is_public: boolean | null
+          last_activity: string | null
+          last_message_id: string | null
           max_members: number | null
           member_count: number | null
           message_permission: string | null
@@ -121,6 +126,8 @@ export type Database = {
           is_group?: boolean | null
           is_muted_all?: boolean | null
           is_public?: boolean | null
+          last_activity?: string | null
+          last_message_id?: string | null
           max_members?: number | null
           member_count?: number | null
           message_permission?: string | null
@@ -142,6 +149,8 @@ export type Database = {
           is_group?: boolean | null
           is_muted_all?: boolean | null
           is_public?: boolean | null
+          last_activity?: string | null
+          last_message_id?: string | null
           max_members?: number | null
           member_count?: number | null
           message_permission?: string | null
@@ -294,7 +303,22 @@ export type Database = {
           following_id?: string
           id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "follows_follower_id_fkey"
+            columns: ["follower_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "follows_following_id_fkey"
+            columns: ["following_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       friends: {
         Row: {
@@ -892,6 +916,7 @@ export type Database = {
           expires_at: string
           id: string
           image_url: string | null
+          image_urls: Json | null
           is_reel: boolean | null
           media_type: string | null
           music_id: string | null
@@ -905,6 +930,7 @@ export type Database = {
           expires_at?: string
           id?: string
           image_url?: string | null
+          image_urls?: Json | null
           is_reel?: boolean | null
           media_type?: string | null
           music_id?: string | null
@@ -918,6 +944,7 @@ export type Database = {
           expires_at?: string
           id?: string
           image_url?: string | null
+          image_urls?: Json | null
           is_reel?: boolean | null
           media_type?: string | null
           music_id?: string | null
@@ -1131,6 +1158,7 @@ export type Database = {
           created_at: string
           id: string
           post_id: string
+          updated_at: string
           user_id: string
         }
         Insert: {
@@ -1138,6 +1166,7 @@ export type Database = {
           created_at?: string
           id?: string
           post_id: string
+          updated_at?: string
           user_id: string
         }
         Update: {
@@ -1145,6 +1174,7 @@ export type Database = {
           created_at?: string
           id?: string
           post_id?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: [
@@ -1153,6 +1183,13 @@ export type Database = {
             columns: ["post_id"]
             isOneToOne: false
             referencedRelation: "room_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "room_post_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1185,6 +1222,13 @@ export type Database = {
             columns: ["post_id"]
             isOneToOne: false
             referencedRelation: "room_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "room_post_reactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1231,23 +1275,30 @@ export type Database = {
             referencedRelation: "topic_rooms"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "room_posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       saved_posts: {
         Row: {
-          created_at: string | null
+          created_at: string
           id: string
           post_id: string
           user_id: string
         }
         Insert: {
-          created_at?: string | null
+          created_at?: string
           id?: string
           post_id: string
           user_id: string
         }
         Update: {
-          created_at?: string | null
+          created_at?: string
           id?: string
           post_id?: string
           user_id?: string
@@ -1369,6 +1420,13 @@ export type Database = {
             referencedRelation: "stories"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "story_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       story_views: {
@@ -1445,7 +1503,7 @@ export type Database = {
           id: string
           receiver_id: string
           started_at: string | null
-          status: string | null
+          status: string
         }
         Insert: {
           caller_id: string
@@ -1454,7 +1512,7 @@ export type Database = {
           id?: string
           receiver_id: string
           started_at?: string | null
-          status?: string | null
+          status?: string
         }
         Update: {
           caller_id?: string
@@ -1463,7 +1521,7 @@ export type Database = {
           id?: string
           receiver_id?: string
           started_at?: string | null
-          status?: string | null
+          status?: string
         }
         Relationships: [
           {
@@ -1487,10 +1545,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      are_users_friends: {
-        Args: { user1_id: string; user2_id: string }
-        Returns: boolean
-      }
       create_chat_with_participants: {
         Args: {
           p_description?: string
@@ -1553,6 +1607,10 @@ export type Database = {
       }
       is_group_member: {
         Args: { _group_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_user_in_group: {
+        Args: { p_group_id: string; p_user_id: string }
         Returns: boolean
       }
       mark_chat_messages_delivered: {

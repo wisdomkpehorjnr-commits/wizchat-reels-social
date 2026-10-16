@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { lovable } from '@/integrations/lovable/index';
 import { User } from '@/types';
 
 interface AuthContextType {
@@ -284,16 +285,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('Attempting Google login...');
     
     try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/`
-        }
+      const result = await lovable.auth.signInWithOAuth('google', {
+        redirect_uri: window.location.origin,
       });
 
-      if (error) {
-        console.error('Google login error:', error);
-        throw error;
+      if (result.error) {
+        console.error('Google login error:', result.error);
+        throw result.error;
       }
 
       console.log('Google login initiated');

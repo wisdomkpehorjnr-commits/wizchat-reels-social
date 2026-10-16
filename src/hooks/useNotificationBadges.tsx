@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -174,18 +174,15 @@ export const useNotificationBadges = () => {
     };
   }, [user]);
 
-  const clearBadge = async (tab: string) => {
+  const clearBadge = useCallback(async (tab: string) => {
     // Clear badge count (actual read marking happens per-chat in ChatPopup)
     if (tab === 'chat') {
       // The individual chat popup handles marking as read
     }
 
-    // Clear the badge count
-    setBadges(prev => ({
-      ...prev,
-      [tab]: 0
-    }));
-  };
+    // Clear the badge count — bail out if it is already 0 to avoid a re-render loop
+    setBadges(prev => (prev[tab as keyof BadgeCounts] === 0 ? prev : { ...prev, [tab]: 0 }));
+  }, []);
 
   return { badges, clearBadge };
 };

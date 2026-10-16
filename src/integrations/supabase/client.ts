@@ -3,32 +3,41 @@ import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 import { brokeredPreviewStorage } from './previewAuthStorage';
 
-const FALLBACK_URL = "https://cgydbjsuhwsnqsiskmex.supabase.co";
-const FALLBACK_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNneWRianN1aHdzbnFzaXNrbWV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMwNTI5MTgsImV4cCI6MjA2ODYyODkxOH0.eCdvFODSW4VSRjgYf6me2fTVsGTmhv_P7uWWgJYD8ak";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-// Guard against missing/blank/invalid env values in some deployments (they would
-// otherwise crash the whole app with "Failed to construct 'URL': Invalid URL").
-const isValidUrl = (value: unknown): value is string => {
-  if (typeof value !== 'string' || value.trim() === '') return false;
-  try {
-    const u = new URL(value.trim());
-    return u.protocol === 'https:' || u.protocol === 'http:';
-  } catch {
-    return false;
-  }
-};
 
-const envUrl = import.meta.env.VITE_SUPABASE_URL;
-const envKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? import.meta.env.VITE_SUPABASE_ANON_KEY;
+function isNewSupabaseApiKey(value: string): boolean {
+  return value.startsWith('sb_publishable_') || value.startsWith('sb_secret_');
+}
 
-const SUPABASE_URL = isValidUrl(envUrl) ? envUrl.trim() : FALLBACK_URL;
-const SUPABASE_PUBLISHABLE_KEY =
-  typeof envKey === 'string' && envKey.trim() !== '' ? envKey.trim() : FALLBACK_KEY;
+function createSupabaseFetch(supabaseKey: string): typeof fetch {
+  return (input, init) => {
+    const headers = new Headers(
+      typeof Request !== 'undefined' && input instanceof Request ? input.headers : undefined,
+    );
+
+    if (init?.headers) {
+      new Headers(init.headers).forEach((value, key) => headers.set(key, value));
+    }
+
+    // New Supabase API keys are opaque strings, not bearer JWTs.
+    if (isNewSupabaseApiKey(supabaseKey) && headers.get('Authorization') === `Bearer ${supabaseKey}`) {
+      headers.delete('Authorization');
+    }
+
+    headers.set('apikey', supabaseKey);
+    return fetch(input, { ...init, headers });
+  };
+}
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  global: {
+    fetch: createSupabaseFetch(SUPABASE_PUBLISHABLE_KEY),
+  },
   auth: {
     storage: brokeredPreviewStorage(),
     persistSession: true,
