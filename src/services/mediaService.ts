@@ -1,5 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
+import { getStorageMediaUrl } from './storageMedia';
 
 export class MediaService {
   private static readonly MAX_IMAGE_BYTES = 100 * 1024;
@@ -19,7 +20,7 @@ export class MediaService {
       if (!user) throw new Error('User not authenticated');
 
       const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}/${folder ? folder + '/' : ''}${Date.now()}.${fileExt}`;
+      const fileName = `${user.id}/${folder ? folder + '/' : ''}${crypto.randomUUID()}.${fileExt}`;
 
       console.log('Uploading file:', fileName, 'to bucket:', bucket);
 
@@ -35,12 +36,7 @@ export class MediaService {
         throw error;
       }
 
-      const { data: { publicUrl } } = supabase.storage
-        .from(bucket)
-        .getPublicUrl(data.path);
-
-      console.log('File uploaded successfully:', publicUrl);
-      return publicUrl;
+      return await getStorageMediaUrl(bucket, data.path);
     } catch (error) {
       console.error('MediaService upload error:', error);
       throw error;
@@ -98,7 +94,7 @@ export class MediaService {
 
   static async uploadGroupAvatar(file: File): Promise<string> {
     const compressedFile = await this.compressImage(file, 512, 0.82, this.MAX_IMAGE_BYTES);
-    return this.uploadFile(compressedFile, 'room-media', 'group-avatars');
+    return this.uploadFile(compressedFile, 'avatars', 'group-avatars');
   }
 
   static async uploadVoiceNote(file: File): Promise<string> {
@@ -122,7 +118,8 @@ export class MediaService {
 
     return new Promise((resolve, reject) => {
       const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d')!;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { reject(new Error('Image processing is unavailable')); return; }
       const img = new Image();
 
       img.onload = async () => {
@@ -178,7 +175,8 @@ export class MediaService {
     return new Promise((resolve, reject) => {
       const video = document.createElement('video');
       const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d')!;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { reject(new Error('Image processing is unavailable')); return; }
 
       video.onloadedmetadata = () => {
         video.currentTime = 1; // Capture frame at 1 second for better quality

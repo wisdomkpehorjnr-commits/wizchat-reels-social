@@ -24,6 +24,7 @@ import LoadingDots from '@/components/LoadingDots';
 import { cacheService } from '@/services/cacheService';
 import { useImageCache } from '@/hooks/useImageCache';
 import ProfileBackControls from '@/components/profile/ProfileBackControls';
+import { fetchMedia } from '@/services/storageMedia';
 
 // Cached cover image component - permanently cached, no re-downloads
 const CachedCoverImage: React.FC<{ src: string }> = ({ src }) => {
@@ -79,7 +80,7 @@ const useCachedMedia = (src?: string) => {
         if (!navigator.onLine) return;
 
         // Fetch and cache as data URL
-        const res = await fetch(src);
+        const res = await fetchMedia(src);
         if (!res.ok) return;
         const blob = await res.blob();
         const reader = new FileReader();
@@ -197,6 +198,12 @@ const Profile = () => {
   const cachedProfile = useMemo(() => targetUserId ? getProfileCache(targetUserId) : null, [targetUserId]);
 
   const [profileUser, setProfileUser] = useState<any>(cachedProfile?.profile || null);
+  useEffect(() => {
+    if (user && (!normalizedIdentifier || normalizedIdentifier === user.id || normalizedIdentifier === user.username)) {
+      setProfileUser(user);
+      saveProfileCache(user.id, { profile: user });
+    }
+  }, [user, normalizedIdentifier]);
   const [userPosts, setUserPosts] = useState<Post[]>(cachedProfile?.posts || []);
   const [userReels, setUserReels] = useState<Post[]>(cachedProfile?.reels || []);
   const [savedPosts, setSavedPosts] = useState<SavedPost[]>([]);

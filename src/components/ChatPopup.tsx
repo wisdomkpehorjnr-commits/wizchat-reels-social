@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { dataService } from '@/services/dataService';
 import { localMessageService, LocalMessage } from '@/services/localMessageService';
 import { MediaService } from '@/services/mediaService';
+import { getStorageMediaUrl } from '@/services/storageMedia';
 import ChatMessage from './ChatMessage';
 import OnlineStatusIndicator from './OnlineStatusIndicator';
 import ChatSettingsMenu from './chat/ChatSettingsMenu';
@@ -819,10 +820,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
               });
 
             if (!uploadError) {
-              const { data: { publicUrl: url } } = supabase.storage
-                .from(bucket)
-                .getPublicUrl(fileName);
-              publicUrl = url;
+              publicUrl = await getStorageMediaUrl(bucket, fileName);
               uploadSuccess = true;
               break;
             }
@@ -833,9 +831,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         }
         
         if (!uploadSuccess) {
-          // Last resort: Create object URL (temporary, but works for demo)
-          publicUrl = URL.createObjectURL(file);
-          console.warn('Using temporary object URL for media');
+          throw new Error('Unable to upload attachment. Please try again.');
         }
       }
 
@@ -956,10 +952,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
               .upload(fileName, audioFile);
             
             if (!uploadError) {
-              const { data: { publicUrl: url } } = supabase.storage
-                .from(bucket)
-                .getPublicUrl(fileName);
-              publicUrl = url;
+              publicUrl = await getStorageMediaUrl(bucket, fileName);
               uploadSuccess = true;
               break;
             }
@@ -969,7 +962,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         }
         
         if (!uploadSuccess) {
-          publicUrl = URL.createObjectURL(audioBlob);
+          throw new Error('Unable to upload voice note. Please try again.');
         }
       }
 

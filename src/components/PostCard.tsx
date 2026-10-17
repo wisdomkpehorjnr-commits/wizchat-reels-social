@@ -59,6 +59,10 @@ function OfflineAwareImage({ src, alt, className = '', ...props }: OfflineAwareI
   const displayUrl = cachedUrl || src;
 
   useEffect(() => {
+    setHasError(false);
+  }, [displayUrl]);
+
+  useEffect(() => {
     if (navigator.onLine && failedImagesSet.has(src)) {
       failedImagesSet.delete(src);
       setHasError(false);
@@ -96,10 +100,10 @@ function OfflineAwareImage({ src, alt, className = '', ...props }: OfflineAwareI
             <ImageOff className="w-8 h-8 text-muted-foreground/70" />
           </div>
           <p className="text-sm font-medium text-muted-foreground">
-            Image not available offline
+            {navigator.onLine ? 'Image unavailable' : 'Image not available offline'}
           </p>
           <p className="text-xs text-muted-foreground/70 mt-1">
-            Connect to view this content
+            {navigator.onLine ? 'This photo could not be loaded' : 'Connect to view this content'}
           </p>
         </div>
       </div>

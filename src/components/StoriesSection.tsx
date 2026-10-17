@@ -208,6 +208,7 @@ const saveStoriesToLocalStorage = (stories: Story[]) => {
 const StoryThumb: React.FC<{ src: string; name: string }> = ({ src, name }) => {
   const [err, setErr] = useState(false);
   const { cachedUrl } = useImageCache(src);
+  useEffect(() => { setErr(false); }, [cachedUrl]);
 
   if (err) {
     return (
@@ -259,10 +260,9 @@ const StoriesSection: React.FC = () => {
     if (storiesStore.stories.length > 0 && !isCacheStale) {
       console.debug('[Stories] Using cached stories, skipping fetch');
       setLoading(false);
-      return;
+    } else {
+      loadStories(storiesStore.stories.length > 0);
     }
-
-    loadStories(storiesStore.stories.length > 0);
 
     // Subscribe to real-time updates
     const channel = supabase.channel('stories-updates').on('postgres_changes', {
@@ -280,10 +280,8 @@ const StoriesSection: React.FC = () => {
 
   // Sync stories to store when they change
   useEffect(() => {
-    if (stories.length > 0) {
-      storiesStore.stories = stories;
-      saveStoriesToLocalStorage(stories);
-    }
+    storiesStore.stories = stories;
+    saveStoriesToLocalStorage(stories);
   }, [stories]);
 
   useEffect(() => {

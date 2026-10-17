@@ -467,11 +467,7 @@ const Home = () => {
       });
     } catch (error) {
       console.error('Error creating post:', error);
-      toast({
-        title: "Error",
-        description: "Failed to create post. Please try again.",
-        variant: "default"
-      });
+      throw error;
     }
   };
 

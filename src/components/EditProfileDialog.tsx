@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,6 +39,15 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({ open, onOpenChang
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState(user.avatar);
   const [coverPreview, setCoverPreview] = useState(user.coverImage);
+
+  useEffect(() => {
+    if (!open) return;
+    setFormData({ name: user.name, username: user.username, bio: user.bio || '', location: user.location || '', website: user.website || '', birthday: user.birthday ? new Date(user.birthday).toISOString().split('T')[0] : '', gender: user.gender || '', pronouns: user.pronouns || '', isPrivate: user.isPrivate || false });
+    setAvatarFile(null);
+    setCoverFile(null);
+    setAvatarPreview(user.avatar);
+    setCoverPreview(user.coverImage);
+  }, [open, user]);
 
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
