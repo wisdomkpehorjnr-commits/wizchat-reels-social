@@ -1,0 +1,3 @@
+- [ ] Fix online posting and backend access.
+- [ ] Fix profile, story, and related media uploads and display.
+- [ ] Verify authenticated posting/uploads and check preview errors.
