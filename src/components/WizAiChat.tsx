@@ -8,6 +8,7 @@ import ReactMarkdown from 'react-markdown';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { streamWizAiChat } from '@/services/wizaiService';
+import { MediaService } from '@/services/mediaService';
 import WizAiNotificationsPanel from './wizai/WizAiNotificationsPanel';
 import WizAiChatSidebar from './wizai/WizAiChatSidebar';
 import {
@@ -400,13 +401,7 @@ const WizAiChat = ({ onClose }: WizAiChatProps) => {
           const res = await fetch(result.imageUrl);
           const blob = await res.blob();
           const fileName = `wizai-gen-${Date.now()}.png`;
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from('posts')
-            .upload(`wizai/${fileName}`, blob, { contentType: 'image/png' });
-          if (!uploadError && uploadData) {
-            const { data: urlData } = supabase.storage.from('posts').getPublicUrl(uploadData.path);
-            displayUrl = urlData.publicUrl;
-          }
+          displayUrl = await MediaService.uploadPostImage(new File([blob], fileName, { type: 'image/png' }));
         }
       } catch (e) {
         console.error('Failed to upload generated image:', e);

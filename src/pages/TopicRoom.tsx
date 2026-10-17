@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Camera, Video, X, RefreshCw, ArrowUp } from "lucide-react";
 import RoomPostCard from '@/components/RoomPostCard';
+import { MediaService } from '@/services/mediaService';
 
 interface PostType {
   id: string;
@@ -238,13 +239,9 @@ const TopicRoom = () => {
     try {
       let mediaUrl = null;
       if (mediaFile) {
-        const fileName = `${Date.now()}.${mediaFile.name.split(".").pop()}`;
-        const { error: uploadError } = await supabase.storage.from("posts").upload(fileName, mediaFile);
-        if (uploadError) {
-          console.error('Upload error:', uploadError);
-          throw new Error('Failed to upload media');
-        }
-        mediaUrl = supabase.storage.from("posts").getPublicUrl(fileName).data.publicUrl;
+        mediaUrl = mediaType === 'video'
+          ? await MediaService.uploadPostVideo(mediaFile)
+          : await MediaService.uploadPostImage(mediaFile);
       }
 
       // Optimistic update - create temporary post
