@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { cacheService } from '@/services/cacheService';
+import { fetchMedia } from '@/services/storageMedia';
+import { parseStorageMedia } from '@/lib/storageMediaReference';
 
 // ============================================
 // ULTRA-FAST MODULE-LEVEL IN-MEMORY CACHE
@@ -139,8 +141,9 @@ function getCachedImageUrl(originalSrc: string): string {
 }
 
 // Background caching - deduped and non-blocking
-async function cacheImageAsync(imageUrl: string): Promise<void> {
-  if (!imageUrl) return;
+async function cacheImageAsync(sourceUrl: string): Promise<void> {
+  if (!sourceUrl) return;
+  const imageUrl = parseStorageMedia(sourceUrl)?.cacheKey || sourceUrl;
 
   // Already in memory cache and not expired?
   const existing = imageMemoryCache.get(imageUrl);
@@ -193,7 +196,7 @@ async function cacheImageAsync(imageUrl: string): Promise<void> {
       }
 
       // 3) Not in cache - fetch and store
-      const response = await fetch(imageUrl, { cache: 'force-cache' });
+      const response = await fetchMedia(imageUrl);
       if (!response.ok) return;
 
       const cloned = response.clone();
@@ -224,11 +227,12 @@ async function cacheImageAsync(imageUrl: string): Promise<void> {
 }
 
 // Hook for using cached images - instant URL + subscriber updates
-export function useImageCache(imageUrl: string | undefined): {
+export function useImageCache(sourceUrl: string | undefined): {
   cachedUrl: string;
   isLoading: boolean;
   error: Error | null;
 } {
+  const imageUrl = sourceUrl ? parseStorageMedia(sourceUrl)?.cacheKey || sourceUrl : undefined;
   // CRITICAL: Initialize synchronously from memory cache to prevent ANY empty-render blink
   const [cachedUrl, setCachedUrl] = useState<string>(() => {
     if (!imageUrl) return '';

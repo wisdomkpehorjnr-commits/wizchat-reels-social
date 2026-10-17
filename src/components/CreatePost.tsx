@@ -103,16 +103,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
           }
         });
 
-        // Add timeout to prevent hanging
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Upload timeout')), 30000) // 30 second timeout
-        );
-
         setUploadProgress(30);
-        const uploadResults = await Promise.race([
-          Promise.all(uploadPromises),
-          timeoutPromise
-        ]) as any[];
+        const uploadResults = await Promise.all(uploadPromises);
         
         setUploadProgress(70);
         

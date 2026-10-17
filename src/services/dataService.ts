@@ -40,7 +40,9 @@ const mapPostsFromQuery = (rows: any[], currentUserId?: string): Post[] => {
     let imageUrls = undefined;
     let imageUrl = post.image_url;
 
-    if (post.image_url) {
+    if (Array.isArray(post.image_urls) && post.image_urls.length > 0) {
+      imageUrls = post.image_urls;
+    } else if (post.image_url) {
       imageUrls = [post.image_url];
     }
 
@@ -133,6 +135,7 @@ export const dataService = {
     if (postData.imageUrls && Array.isArray(postData.imageUrls) && postData.imageUrls.length > 0) {
       // Store first image URL (the database only has image_url column, not image_urls)
       insertData.image_url = postData.imageUrls[0];
+      insertData.image_urls = postData.imageUrls;
       insertData.media_type = 'image';
       console.log('Setting image_url to first image:', insertData.image_url);
     } else if (postData.imageUrl) {
@@ -168,7 +171,9 @@ export const dataService = {
 
     // Convert single image_url to imageUrls array for consistency
     let imageUrls = undefined;
-    if (data.image_url) {
+    if (Array.isArray(data.image_urls) && data.image_urls.length > 0) {
+      imageUrls = data.image_urls;
+    } else if (data.image_url) {
       imageUrls = [data.image_url];
       console.log('Setting imageUrls from image_url:', imageUrls);
     }
