@@ -43,6 +43,20 @@
       "when": 1792155219257,
       "tag": "0005_create_story_likes",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792328662205,
+      "tag": "0006_fix_topic_membership_recursion",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792328749095,
+      "tag": "0007_restore_friendship_helper_and_group_admin_updates",
+      "breakpoints": true
     }
   ]
 }

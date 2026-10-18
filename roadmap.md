@@ -1,3 +1,5 @@
-- [ ] Fix online posting and backend access.
-- [ ] Fix profile, story, and related media uploads and display.
-- [ ] Verify authenticated posting/uploads and check preview errors.
+- [ ] Compare Cloud schema, permissions, functions and storage with retained old migration records.
+- [ ] Diagnose and repair group/topic errors; verify signed-in flows.
+- [ ] Compare old/new rows, auth users, files, functions and secrets (blocked: old backend access/export required).
+- [ ] Verify profile, story and related media uploads and display from the earlier repair.
+- [ ] Check current preview errors and report verified fixes and remaining access needs.

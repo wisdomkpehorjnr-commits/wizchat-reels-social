@@ -175,7 +175,7 @@ const Topics = () => {
                 .select('id')
                 .eq('room_id', room.id)
                 .eq('user_id', user.id)
-                .single();
+                .maybeSingle();
               isJoined = !!participant;
             }
 
@@ -230,21 +230,25 @@ const Topics = () => {
           user_id: user.id,
           joined_at: new Date().toISOString()
         }, {
-          onConflict: 'room_id,user_id'
+          onConflict: 'room_id,user_id', ignoreDuplicates: true
         });
 
       if (error) throw error;
 
       // Update local state
-      setRooms(prev => prev.map(room => 
+      setRooms(prev => {
+        const updated = prev.map(room => 
         room.id === roomId 
           ? { 
               ...room, 
               isJoined: true, 
-              participant_count: (room.participant_count || 0) + 1 
+              participant_count: (room.participant_count || 0) + (room.isJoined ? 0 : 1)
             }
           : room
-      ));
+        );
+        saveTopicsToCache(updated);
+        return updated;
+      });
 
       toast({
         title: "Success! 🎉",

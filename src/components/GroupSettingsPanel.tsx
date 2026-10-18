@@ -63,11 +63,12 @@ const GroupSettingsPanel = ({ chatId, onClose, onGroupDeleted }: GroupSettingsPa
     setLoading(true);
     try {
       // Load chat data
-      const { data: chatData } = await supabase
+      const { data: chatData, error: chatError } = await supabase
         .from('chats')
         .select('*')
         .eq('id', chatId)
         .single();
+      if (chatError) throw chatError;
 
       if (chatData) {
         setChat(chatData);
@@ -83,10 +84,11 @@ const GroupSettingsPanel = ({ chatId, onClose, onGroupDeleted }: GroupSettingsPa
       }
 
       // Load members
-      const { data: participantsData } = await supabase
+      const { data: participantsData, error: participantsError } = await supabase
         .from('chat_participants')
         .select('id, user_id, role, profiles:user_id(id, name, username, avatar)')
         .eq('chat_id', chatId) as any;
+      if (participantsError) throw participantsError;
 
       if (participantsData) {
         const mappedMembers = participantsData.map((p: any) => ({
@@ -134,7 +136,8 @@ const GroupSettingsPanel = ({ chatId, onClose, onGroupDeleted }: GroupSettingsPa
 
   const handleRemoveMember = async (member: Member) => {
     try {
-      await supabase.from('chat_participants').delete().eq('id', member.id);
+      const { error } = await supabase.from('chat_participants').delete().eq('id', member.id);
+      if (error) throw error;
       setMembers(prev => prev.filter(m => m.id !== member.id));
       toast({ title: 'Removed', description: `${member.name} has been removed` });
     } catch {
@@ -145,7 +148,8 @@ const GroupSettingsPanel = ({ chatId, onClose, onGroupDeleted }: GroupSettingsPa
 
   const handlePromoteToAdmin = async (member: Member) => {
     try {
-      await supabase.from('chat_participants').update({ role: 'admin' }).eq('id', member.id);
+      const { error } = await supabase.from('chat_participants').update({ role: 'admin' }).eq('id', member.id).select('id').single();
+      if (error) throw error;
       setMembers(prev => prev.map(m => m.id === member.id ? { ...m, role: 'admin' } : m));
       toast({ title: 'Promoted', description: `${member.name} is now an admin` });
     } catch {
@@ -155,7 +159,8 @@ const GroupSettingsPanel = ({ chatId, onClose, onGroupDeleted }: GroupSettingsPa
 
   const handleDemoteAdmin = async (member: Member) => {
     try {
-      await supabase.from('chat_participants').update({ role: 'member' }).eq('id', member.id);
+      const { error } = await supabase.from('chat_participants').update({ role: 'member' }).eq('id', member.id).select('id').single();
+      if (error) throw error;
       setMembers(prev => prev.map(m => m.id === member.id ? { ...m, role: 'member' } : m));
       toast({ title: 'Demoted', description: `${member.name} is now a regular member` });
     } catch {
@@ -165,10 +170,8 @@ const GroupSettingsPanel = ({ chatId, onClose, onGroupDeleted }: GroupSettingsPa
 
   const handleDeleteGroup = async () => {
     try {
-      // Delete all messages first
-      await supabase.from('messages').delete().eq('chat_id', chatId);
-      await supabase.from('chat_participants').delete().eq('chat_id', chatId);
-      await supabase.from('chats').delete().eq('id', chatId);
+      const { error } = await supabase.rpc('delete_owned_group_chat', { _chat_id: chatId });
+      if (error) throw error;
       toast({ title: 'Group deleted' });
       onGroupDeleted?.();
       onClose();
@@ -180,9 +183,10 @@ const GroupSettingsPanel = ({ chatId, onClose, onGroupDeleted }: GroupSettingsPa
 
   const handleLeaveGroup = async () => {
     try {
-      await supabase.from('chat_participants').delete()
+      const { error } = await supabase.from('chat_participants').delete()
         .eq('chat_id', chatId)
         .eq('user_id', user?.id);
+      if (error) throw error;
       toast({ title: 'Left group' });
       onGroupDeleted?.();
       onClose();
@@ -195,9 +199,11 @@ const GroupSettingsPanel = ({ chatId, onClose, onGroupDeleted }: GroupSettingsPa
   const handleTransferOwnership = async (member: Member) => {
     try {
       // Make them admin first
-      await supabase.from('chat_participants').update({ role: 'admin' }).eq('id', member.id);
+      const { error: roleError } = await supabase.from('chat_participants').update({ role: 'admin' }).eq('id', member.id).select('id').single();
+      if (roleError) throw roleError;
       // Transfer creator
-      await supabase.from('chats').update({ creator_id: member.userId }).eq('id', chatId);
+      const { error: ownerError } = await supabase.from('chats').update({ creator_id: member.userId }).eq('id', chatId).select('id').single();
+      if (ownerError) throw ownerError;
       setIsCreator(false);
       toast({ title: 'Ownership transferred', description: `${member.name} is now the owner` });
       loadGroupData();
