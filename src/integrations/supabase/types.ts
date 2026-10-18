@@ -1545,6 +1545,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      are_users_friends: {
+        Args: { user1_id: string; user2_id: string }
+        Returns: boolean
+      }
       create_chat_with_participants: {
         Args: {
           p_description?: string
@@ -1565,6 +1569,10 @@ export type Database = {
         Returns: string
       }
       delete_expired_posts: { Args: never; Returns: number }
+      delete_owned_group_chat: {
+        Args: { _chat_id: string }
+        Returns: undefined
+      }
       extend_post_expiry: { Args: { p_post_id: string }; Returns: string }
       get_chat_summaries: {
         Args: never
