@@ -43,6 +43,13 @@
       "when": 1792155219257,
       "tag": "0005_create_story_likes",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792328662205,
+      "tag": "0006_fix_topic_membership_recursion",
+      "breakpoints": true
     }
   ]
 }
