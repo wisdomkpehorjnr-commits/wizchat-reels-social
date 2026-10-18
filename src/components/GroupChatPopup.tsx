@@ -64,7 +64,7 @@ const GroupChatPopup = ({ groupId, onClose }: GroupChatPopupProps) => {
     } catch {}
   }, [groupId]);
 
-  useEffect(() => { loadGroupChat(); }, [groupId]);
+  useEffect(() => { loadGroupChat(); }, [groupId, user?.id]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
   // Mark as read
@@ -182,7 +182,7 @@ const GroupChatPopup = ({ groupId, onClose }: GroupChatPopupProps) => {
       setLoading(true);
       const chatMessages = await dataService.getMessages(groupId);
       // Enrich with is_deleted from DB
-      const enriched = chatMessages.map(m => ({ ...m, isDeleted: false }));
+    const enriched = chatMessages;
       
       // Try to get chat metadata
       const chats = await dataService.getChats();
@@ -364,7 +364,7 @@ const GroupChatPopup = ({ groupId, onClose }: GroupChatPopupProps) => {
   };
 
   const groupName = chat?.name || 'Group Chat';
-  const memberCount = chat?.participants?.length || 0;
+    const memberCount = chat?.allParticipants?.length || chat?.participants?.length || 0;
 
   if (showSettings) {
     return <GroupSettingsPanel chatId={groupId} onClose={() => setShowSettings(false)} onGroupDeleted={onClose} />;
