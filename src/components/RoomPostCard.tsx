@@ -23,6 +23,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import ShareBoard from './ShareBoard';
 import { useImageCache } from '@/hooks/useImageCache';
+import { isPersistedId } from '@/lib/persistedId';
 
 /** Offline placeholder for media that couldn't be cached */
 const OfflineMediaPlaceholder = ({ type = 'image' }: { type?: 'image' | 'video' }) => (
@@ -122,6 +123,7 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
 
   // Subscribe to real-time reaction updates
   useEffect(() => {
+    if (!isPersistedId(post.id)) return;
     const reactionsChannel = supabase
       .channel(`room_post_reactions:${post.id}`)
       .on('postgres_changes', {
@@ -142,6 +144,7 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
 
   // Load comment count initially and subscribe to real-time updates
   useEffect(() => {
+    if (!isPersistedId(post.id)) return;
     // Load initial comment count
     const loadInitialCommentCount = async () => {
       try {
@@ -214,6 +217,7 @@ const RoomPostCard = ({ post, onPostUpdate }: RoomPostCardProps) => {
   const REACTIONS_CACHE_KEY = `room_post_reactions_${post.id}`;
 
   const loadLikes = async () => {
+    if (!isPersistedId(post.id)) return;
     // Load from cache first for instant display
     try {
       const cached = localStorage.getItem(REACTIONS_CACHE_KEY);
