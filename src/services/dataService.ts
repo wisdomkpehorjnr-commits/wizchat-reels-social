@@ -757,7 +757,7 @@ export const dataService = {
 
       return data.map(chat => {
         // Get all participants including current user for proper chat identification
-        const allParticipants = (chat.chat_participants as any[])?.map(p => ({
+        const allParticipants = (chat.chat_participants as any[])?.filter(p => p.profiles).map(p => ({
           id: p.profiles.id,
           name: p.profiles.name,
           username: p.profiles.username,
@@ -841,7 +841,7 @@ export const dataService = {
         throw new Error('Failed to fetch created chat');
       }
 
-      const participants_data = chatData.chat_participants?.map((p: any) => ({
+      const participants_data = chatData.chat_participants?.filter((p: any) => p.profiles).map((p: any) => ({
         id: p.profiles.id,
         name: p.profiles.name,
         username: p.profiles.username,
@@ -1434,7 +1434,7 @@ export const dataService = {
     };
 
     try {
-      const groupId = crypto.randomUUID();
+      const groupId = chatId;
       const inviteCode = Math.random().toString(36).slice(2, 14);
       const groupInsert = {
         id: groupId,
@@ -1519,7 +1519,7 @@ export const dataService = {
       throw error;
     }
 
-    return data.map((item: any) => ({
+    return data.filter((item: any) => item.groups).map((item: any) => ({
       id: item.groups.id,
       name: item.groups.name,
       description: item.groups.description,
@@ -1541,7 +1541,7 @@ export const dataService = {
       .from('room_participants')
       .upsert([
         { room_id: roomId, user_id: user.id }
-      ], { onConflict: 'room_id,user_id' });
+      ], { onConflict: 'room_id,user_id', ignoreDuplicates: true });
     if (error) {
       console.error('Failed to insert/join room:', error);
       throw new Error(error.message || 'Failed to join topic (insert)');

@@ -52,23 +52,23 @@ const TopicRoom = () => {
       // Ensure user is a participant when entering the room
       const ensureParticipant = async () => {
         try {
-          await supabase
+          const { error } = await supabase
             .from('room_participants')
             .upsert({
               room_id: roomId,
               user_id: user.id,
               joined_at: new Date().toISOString()
             }, {
-              onConflict: 'room_id,user_id'
+              onConflict: 'room_id,user_id', ignoreDuplicates: true
             });
+          if (error) throw error;
+          await Promise.all([loadRoom(), loadPosts()]);
         } catch (err) {
           console.warn('Error ensuring participant status:', err);
         }
       };
       
       ensureParticipant();
-      loadRoom();
-      loadPosts();
       
       const channel = supabase
         .channel(`room_posts:${roomId}`)
@@ -129,7 +129,7 @@ const TopicRoom = () => {
   }, [roomId, user?.id]);
 
   const loadRoom = async () => {
-    const { data } = await supabase.from('topic_rooms').select('name').eq('id', roomId).single();
+    const { data } = await supabase.from('topic_rooms').select('name').eq('id', roomId).maybeSingle();
     if (data) setRoomName(data.name);
   };
 
@@ -285,11 +285,11 @@ const TopicRoom = () => {
             user_id: user.id,
             joined_at: new Date().toISOString()
           }, {
-            onConflict: 'room_id,user_id'
+            onConflict: 'room_id,user_id', ignoreDuplicates: true
           });
         
         if (participantError) {
-          console.warn('Error ensuring participant status:', participantError);
+          throw participantError;
         }
       }
 

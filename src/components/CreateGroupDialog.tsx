@@ -162,13 +162,14 @@ const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
 
       // Update group settings
       const { supabase } = await import('@/integrations/supabase/client');
-      await supabase.from('chats').update({
+      const { error: settingsError } = await supabase.from('chats').update({
         group_type: groupType,
         message_permission: messagePermission,
         approval_required: approvalRequired,
         max_members: maxMembers,
         tags: selectedTags,
       }).eq('id', chatId);
+      if (settingsError) throw settingsError;
 
       toast({ title: 'Success', description: 'Group created successfully' });
       onGroupCreated?.(chatId, groupName.trim());
