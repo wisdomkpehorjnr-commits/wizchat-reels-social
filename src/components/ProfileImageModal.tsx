@@ -1,6 +1,7 @@
 import React from 'react';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useImageCache } from '@/hooks/useImageCache';
 
 interface ProfileImageModalProps {
   src: string;
@@ -10,6 +11,9 @@ interface ProfileImageModalProps {
 }
 
 const ProfileImageModal: React.FC<ProfileImageModalProps> = ({ src, alt, isOpen, onClose }) => {
+  // Cached blob URL so profile photos open instantly, even offline.
+  const { cachedUrl } = useImageCache(isOpen ? src : undefined);
+
   if (!isOpen) return null;
 
   const handleBackgroundClick = (e: React.MouseEvent) => {
@@ -34,7 +38,7 @@ const ProfileImageModal: React.FC<ProfileImageModalProps> = ({ src, alt, isOpen,
         </Button>
         
         <img
-          src={src}
+          src={cachedUrl || src}
           alt={alt}
           className="max-w-full max-h-full object-contain animate-scale-in rounded-full"
           style={{ maxHeight: '90vh', maxWidth: '90vw' }}

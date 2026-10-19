@@ -1,6 +1,7 @@
 import React from 'react';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useImageCache } from '@/hooks/useImageCache';
 
 interface ImageModalProps {
   src: string;
@@ -10,6 +11,10 @@ interface ImageModalProps {
 }
 
 const ImageModal: React.FC<ImageModalProps> = ({ src, alt, isOpen, onClose }) => {
+  // Resolve through the permanent media cache so full-screen viewing works
+  // offline and never re-downloads an image the feed already showed.
+  const { cachedUrl } = useImageCache(isOpen ? src : undefined);
+
   if (!isOpen) return null;
 
   const handleBackgroundClick = (e: React.MouseEvent) => {
@@ -34,7 +39,7 @@ const ImageModal: React.FC<ImageModalProps> = ({ src, alt, isOpen, onClose }) =>
         </Button>
         
         <img
-          src={src}
+          src={cachedUrl || src}
           alt={alt}
           className="max-w-full max-h-full object-contain animate-scale-in"
           style={{ maxHeight: '90vh', maxWidth: '90vw' }}
