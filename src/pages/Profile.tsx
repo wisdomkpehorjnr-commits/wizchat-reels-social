@@ -37,6 +37,13 @@ const CachedCoverImage: React.FC<{ src: string }> = ({ src }) => {
   );
 };
 
+// Grid thumbnail that resolves through the permanent media cache, so private
+// storage files display correctly and stay viewable offline.
+const CachedGridImage: React.FC<{ src: string; className?: string }> = ({ src, className }) => {
+  const { cachedUrl } = useImageCache(src);
+  return <img src={cachedUrl} alt="" className={className} loading="eager" decoding="sync" />;
+};
+
 // =============================================
 // PERSISTENT PROFILE CACHE
 // =============================================
@@ -739,12 +746,7 @@ const Profile = () => {
                     <Card className="overflow-hidden cursor-pointer hover:ring-2 ring-primary group relative rounded-md">
                       <div className="aspect-square relative bg-muted">
                         {post.imageUrl ? (
-                          <img
-                            src={post.imageUrl}
-                            alt=""
-                            className="w-full h-full object-cover"
-                            onError={(e) => { (e.currentTarget as HTMLImageElement).src = OFFLINE_IMG; }}
-                          />
+                          <CachedGridImage src={post.imageUrl} className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center p-3">
                             <p className="text-xs text-muted-foreground line-clamp-4">{post.content}</p>
@@ -808,7 +810,7 @@ const Profile = () => {
                     >
                       <div className="aspect-square relative bg-muted">
                         {saved.post?.imageUrl ? (
-                          <img src={saved.post.imageUrl} alt="" className="w-full h-full object-cover" />
+                          <CachedGridImage src={saved.post.imageUrl} className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center p-4">
                             <p className="text-sm text-muted-foreground line-clamp-3">{saved.post?.content}</p>
