@@ -37,6 +37,13 @@ const CachedCoverImage: React.FC<{ src: string }> = ({ src }) => {
   );
 };
 
+// Grid thumbnail that resolves through the permanent media cache, so private
+// storage files display correctly and stay viewable offline.
+const CachedGridImage: React.FC<{ src: string; className?: string }> = ({ src, className }) => {
+  const { cachedUrl } = useImageCache(src);
+  return <img src={cachedUrl} alt="" className={className} loading="eager" decoding="sync" />;
+};
+
 // =============================================
 // PERSISTENT PROFILE CACHE
 // =============================================
@@ -124,6 +131,28 @@ const ReelPreview: React.FC<{ reel: any; isMuted: boolean; onDelete?: (id: strin
   const videoRef = useRef<HTMLVideoElement>(null);
   const [generatedPoster, setGeneratedPoster] = useState<string | null>(null);
 
+  // Private storage rejects raw public URLs, so resolve the video through the
+  // authenticated media fetcher into a local object URL.
+  const [videoSrc, setVideoSrc] = useState<string | null>(null);
+  useEffect(() => {
+    if (!reel.videoUrl) { setVideoSrc(null); return; }
+    let objectUrl: string | null = null;
+    let mounted = true;
+    fetchMedia(reel.videoUrl)
+      .then(r => (r.ok ? r.blob() : null))
+      .then(b => {
+        if (b && mounted) {
+          objectUrl = URL.createObjectURL(b);
+          setVideoSrc(objectUrl);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [reel.videoUrl]);
+
   // Generate a poster from the first frame if no thumbnail exists
   useEffect(() => {
     if (!reel.videoUrl || reel.imageUrl || cachedPoster || generatedPoster) return;
@@ -151,7 +180,7 @@ const ReelPreview: React.FC<{ reel: any; isMuted: boolean; onDelete?: (id: strin
       {reel.videoUrl ? (
         <video
           ref={videoRef}
-          src={`${reel.videoUrl}#t=0.1`}
+          src={videoSrc ? `${videoSrc}#t=0.1` : undefined}
           className="w-full h-full object-cover"
           muted
           playsInline
@@ -739,12 +768,7 @@ const Profile = () => {
                     <Card className="overflow-hidden cursor-pointer hover:ring-2 ring-primary group relative rounded-md">
                       <div className="aspect-square relative bg-muted">
                         {post.imageUrl ? (
-                          <img
-                            src={post.imageUrl}
-                            alt=""
-                            className="w-full h-full object-cover"
-                            onError={(e) => { (e.currentTarget as HTMLImageElement).src = OFFLINE_IMG; }}
-                          />
+                          <CachedGridImage src={post.imageUrl} className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center p-3">
                             <p className="text-xs text-muted-foreground line-clamp-4">{post.content}</p>
@@ -808,7 +832,7 @@ const Profile = () => {
                     >
                       <div className="aspect-square relative bg-muted">
                         {saved.post?.imageUrl ? (
-                          <img src={saved.post.imageUrl} alt="" className="w-full h-full object-cover" />
+                          <CachedGridImage src={saved.post.imageUrl} className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center p-4">
                             <p className="text-sm text-muted-foreground line-clamp-3">{saved.post?.content}</p>

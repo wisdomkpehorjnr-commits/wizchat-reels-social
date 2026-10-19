@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ThumbsUp, ThumbsDown, MessageCircle, Share2 } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, MessageCircleMore, Share2 } from 'lucide-react';
 
 interface Props {
   isLiked: boolean;
@@ -49,7 +49,9 @@ export const FbPostActions: React.FC<Props> = ({ isLiked, likeCount, commentCoun
           {commentCount > 0 && <span>{fmt(commentCount)} {commentCount === 1 ? 'comment' : 'comments'}</span>}
         </div>
       )}
-      <div className="flex items-center border-t border-border pt-1">
+      {/* Theme-aware action bar: the padded muted strip adapts per theme
+          (light grey, dark grey, Ultra ash, Ghana warm) instead of a fixed color */}
+      <div className="flex items-center gap-1 rounded-2xl bg-muted px-1.5 py-1">
         <button
           type="button"
           disabled={disabled}
@@ -118,7 +120,7 @@ export const FbPostActions: React.FC<Props> = ({ isLiked, likeCount, commentCoun
             transition={{ duration: 0.4 }}
             className="inline-flex"
           >
-            <MessageCircle className="h-5 w-5" strokeWidth={2.2} />
+            <MessageCircleMore className="h-5 w-5" strokeWidth={2.2} />
           </motion.span>
           <span>Comment</span>
         </button>

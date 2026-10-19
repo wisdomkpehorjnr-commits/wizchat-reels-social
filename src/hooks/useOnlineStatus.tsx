@@ -12,8 +12,10 @@ export const useOnlineStatus = (userId: string) => {
       return;
     }
 
-    // Create a presence channel for this user
-    const channel = supabase.channel(`user_${userId}`)
+    // Create a presence channel for this user. The channel name must be unique
+    // per hook instance: supabase.channel() returns the existing channel for a
+    // duplicate topic, and adding callbacks after it subscribed throws.
+    const channel = supabase.channel(`user_${userId}_${Math.random().toString(36).slice(2)}`)
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState();
         setIsOnline(Object.keys(state).length > 0);
