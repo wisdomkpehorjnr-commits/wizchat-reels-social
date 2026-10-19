@@ -131,6 +131,28 @@ const ReelPreview: React.FC<{ reel: any; isMuted: boolean; onDelete?: (id: strin
   const videoRef = useRef<HTMLVideoElement>(null);
   const [generatedPoster, setGeneratedPoster] = useState<string | null>(null);
 
+  // Private storage rejects raw public URLs, so resolve the video through the
+  // authenticated media fetcher into a local object URL.
+  const [videoSrc, setVideoSrc] = useState<string | null>(null);
+  useEffect(() => {
+    if (!reel.videoUrl) { setVideoSrc(null); return; }
+    let objectUrl: string | null = null;
+    let mounted = true;
+    fetchMedia(reel.videoUrl)
+      .then(r => (r.ok ? r.blob() : null))
+      .then(b => {
+        if (b && mounted) {
+          objectUrl = URL.createObjectURL(b);
+          setVideoSrc(objectUrl);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [reel.videoUrl]);
+
   // Generate a poster from the first frame if no thumbnail exists
   useEffect(() => {
     if (!reel.videoUrl || reel.imageUrl || cachedPoster || generatedPoster) return;
@@ -158,7 +180,7 @@ const ReelPreview: React.FC<{ reel: any; isMuted: boolean; onDelete?: (id: strin
       {reel.videoUrl ? (
         <video
           ref={videoRef}
-          src={`${reel.videoUrl}#t=0.1`}
+          src={videoSrc ? `${videoSrc}#t=0.1` : undefined}
           className="w-full h-full object-cover"
           muted
           playsInline
