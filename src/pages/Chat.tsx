@@ -1,3 +1,6 @@
+import { markChatOpened } from '@/lib/messageToastGuard';
+markChatOpenedOnLoad();
+function markChatOpenedOnLoad(){ try { markChatOpened(); } catch {} }
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Layout from '@/components/Layout';
 import ChatPopup from '@/components/ChatPopup';

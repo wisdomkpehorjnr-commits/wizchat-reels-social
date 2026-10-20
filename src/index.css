@@ -857,3 +857,12 @@ button {
   font-weight: normal !important;
 }
 
+
+/* Ultra theme contrast fixes */
+.ultra [class*="bg-white"] { background-color: #000 !important; color: #fff !important; border: 1px solid rgba(255,255,255,.35) !important; }
+.ultra [class*="bg-white"] svg { color: #fff !important; }
+.ultra [role="dialog"] button, .ultra [role="menu"] button { color: #fff; }
+.ultra [role="dialog"] svg, .ultra [role="menu"] svg { color: #fff; }
+.ultra [class*="bg-white"] *, .ultra .bg-popover *, .ultra .bg-card * { color: #fff; }
+.ultra .story-ring, .ultra [class*="ring-green"], .ultra [class*="ring-primary"] { --tw-ring-color: #fff !important; border-color: #fff !important; }
+.ultra [class*="from-green"][class*="rounded-full"], .ultra [class*="border-primary"][class*="rounded-full"] { background-image: none !important; background-color: #fff !important; border-color: #fff !important; }
