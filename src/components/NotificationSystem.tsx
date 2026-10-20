@@ -1,3 +1,4 @@
+import { shouldToastMessage } from '@/lib/messageToastGuard';
 import { useState, useEffect } from 'react';
 import { Bell, Check, X, User, MessageCircle, Heart, UserPlus, Maximize2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -78,7 +79,7 @@ const NotificationSystem = () => {
         setUnreadCount(prev => prev + 1);
         // If this notification represents a new chat message, show a small themed drop-in toast
         try {
-          if (mapped.type === 'message' || mapped.type === 'new_message') {
+          if ((mapped.type === 'message' || mapped.type === 'new_message') && shouldToastMessage(mapped.data?.message_id || mapped.id, n.created_at)) {
             const truncate = (s: string | undefined, l = 80) => {
               if (!s) return '';
               return s.length > l ? s.slice(0, l).trim() + '…' : s;

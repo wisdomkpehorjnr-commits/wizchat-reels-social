@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from './use-toast';
 import { ToastAction } from '@/components/ui/toast';
 import { useNavigate } from 'react-router-dom';
+import { shouldToastMessage } from '@/lib/messageToastGuard';
 
 interface QueuedMessage {
   id: string;
@@ -88,6 +89,7 @@ export const useOfflineMessageQueue = () => {
         // Process messages sequentially with a delay between each toast
         for (let i = 0; i < newMessages.length; i++) {
           const msg = newMessages[i] as any;
+          if (!shouldToastMessage(msg.id, msg.created_at)) continue;
 
           // Get sender name
           let senderName = 'New message';
@@ -167,7 +169,7 @@ export const useOfflineMessageQueue = () => {
     };
 
     processQueuedMessages();
-  }, [isOnline, user, toast, navigate]);
+  }, [isOnline, user?.id]);
 
   // Public API to get/set last sync time
   return {

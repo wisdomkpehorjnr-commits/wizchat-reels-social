@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -21,6 +21,8 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import PasscodeLock from "./features/passcode/PasscodeLock";
 import { SyncIndicator } from "./components/SyncIndicator";
 import { NetworkStatusBanner } from "./components/NetworkStatusBanner";
+
+import { lazyWithRetry as lazy, prefetchAllPages } from "./lib/lazyWithRetry";
 
 // ✅ Lazy load non-critical pages
 const Chat = lazy(() => import("./pages/Chat"));
@@ -92,6 +94,8 @@ const PageLoader = () => {
 
 const App = () => {
   const [showUpdate, setShowUpdate] = useState(isSwUpdateAvailable());
+
+  useEffect(() => { prefetchAllPages(); }, []);
 
   useEffect(() => {
     const handler = () => setShowUpdate(true);
