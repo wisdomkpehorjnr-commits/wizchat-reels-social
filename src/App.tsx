@@ -95,6 +95,8 @@ const PageLoader = () => {
 const App = () => {
   const [showUpdate, setShowUpdate] = useState(isSwUpdateAvailable());
 
+  useEffect(() => { prefetchAllPages(); }, []);
+
   useEffect(() => {
     const handler = () => setShowUpdate(true);
     window.addEventListener('sw-update-available', handler);
