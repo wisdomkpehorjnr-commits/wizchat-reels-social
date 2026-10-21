@@ -1,5 +1,4 @@
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -76,6 +75,8 @@
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
+    --media-background: 0 0% 0%;
+    --media-foreground: 0 0% 100%;
   }
 
   .dark {
@@ -109,9 +110,9 @@
   .ultra {
     --background: 0 0% 0%;
     --foreground: 0 0% 100%;
-    --card: 0 0% 8%;
+    --card: 0 0% 0%;
     --card-foreground: 0 0% 100%;
-    --popover: 0 0% 8%;
+    --popover: 0 0% 0%;
     --popover-foreground: 0 0% 100%;
     --primary: 0 0% 100%;
     --primary-foreground: 0 0% 0%;
@@ -173,33 +174,7 @@
     color: hsl(0 0% 0%) !important;
   }
 
-  /* Ultra mode - remove ALL green colors */
-  .ultra .green-border,
-  .ultra [class*="border-green"],
-  .ultra [class*="border-emerald"] {
-    border-color: hsl(0 0% 30%) !important;
-  }
 
-  .ultra [class*="bg-green"],
-  .ultra [class*="bg-emerald"] {
-    background-color: hsl(0 0% 100%) !important;
-    color: hsl(0 0% 0%) !important;
-  }
-
-  .ultra [class*="text-green"],
-  .ultra [class*="text-emerald"],
-  .ultra .from-green-600,
-  .ultra .to-emerald-600 {
-    color: hsl(0 0% 100%) !important;
-    background: none !important;
-    -webkit-background-clip: unset !important;
-    -webkit-text-fill-color: hsl(0 0% 100%) !important;
-  }
-
-  .ultra [class*="hover:bg-green"]:hover,
-  .ultra [class*="hover:bg-emerald"]:hover {
-    background-color: hsl(0 0% 90%) !important;
-  }
 }
 
 @layer base {
@@ -233,14 +208,6 @@
   }
 }
 
-/* Fix button text visibility */
-.btn, button {
-  color: hsl(var(--foreground)) !important;
-}
-
-.btn-primary, button[class*="bg-primary"] {
-  color: hsl(var(--primary-foreground)) !important;
-}
 
 /* Ensure proper contrast for all interactive elements */
 .hover\:bg-muted\/50:hover {
@@ -307,10 +274,6 @@ input::placeholder, textarea::placeholder {
   --text-strong-contrast: 0 0% 100%;
 }
 
-/* Ensure all text elements have proper contrast */
-h1, h2, h3, h4, h5, h6, p, span, div {
-  color: hsl(var(--foreground));
-}
 
 /* Profile page specific fixes */
 .profile-text {
@@ -335,10 +298,6 @@ h1, h2, h3, h4, h5, h6, p, span, div {
   color: hsl(var(--foreground)) !important;
 }
 
-/* Button text fixes */
-button {
-  color: hsl(var(--foreground));
-}
 
 /* Hide scrollbar but keep functionality */
 .scrollbar-hide {
@@ -367,319 +326,6 @@ button {
 
 .animate-marquee:hover {
   animation-play-state: paused;
-}
-
-/* ============= ULTRA THEME COMPREHENSIVE OVERRIDES ============= */
-/* Ensure NO black text on black background, NO white text on white */
-
-.ultra,
-.ultra * {
-  --tw-text-opacity: 1;
-}
-
-/* Force all backgrounds in ultra mode to be dark */
-.ultra .bg-white,
-.ultra .dark\:bg-gray-900,
-.ultra .dark\:bg-gray-800,
-.ultra .dark\:bg-gray-700 {
-  background-color: hsl(0 0% 0%) !important;
-}
-
-/* Cards and elevated surfaces */
-.ultra .bg-card,
-.ultra [class*="dark:bg-gray-800"],
-.ultra [class*="dark:bg-gray-700"] {
-  background-color: hsl(0 0% 8%) !important;
-}
-
-/* Force all text to be white in ultra mode */
-.ultra h1, .ultra h2, .ultra h3, .ultra h4, .ultra h5, .ultra h6,
-.ultra p, .ultra span, .ultra label, .ultra a, .ultra li,
-.ultra .text-gray-900, .ultra .text-gray-800, .ultra .text-gray-700,
-.ultra .text-gray-600, .ultra .text-gray-500,
-.ultra .dark\:text-white, .ultra .dark\:text-gray-100,
-.ultra .dark\:text-gray-200, .ultra .dark\:text-gray-300,
-.ultra .dark\:text-gray-400 {
-  color: hsl(0 0% 100%) !important;
-}
-
-/* Muted text should be light gray, not dark */
-.ultra .text-muted-foreground,
-.ultra .text-gray-400,
-.ultra .text-gray-500 {
-  color: hsl(0 0% 65%) !important;
-}
-
-/* Input fields with visible borders and white text */
-.ultra input,
-.ultra textarea,
-.ultra select,
-.ultra .dark\:bg-gray-900 input,
-.ultra .dark\:bg-gray-800 input {
-  background-color: hsl(0 0% 12%) !important;
-  border-color: hsl(0 0% 30%) !important;
-  color: hsl(0 0% 100%) !important;
-}
-
-.ultra input::placeholder,
-.ultra textarea::placeholder {
-  color: hsl(0 0% 50%) !important;
-}
-
-/* Buttons - ensure text is visible */
-.ultra button {
-  color: hsl(0 0% 100%) !important;
-}
-
-.ultra button[class*="bg-primary"],
-.ultra button[class*="bg-white"],
-.ultra .btn-primary {
-  background-color: hsl(0 0% 100%) !important;
-  color: hsl(0 0% 0%) !important;
-}
-
-/* Card titles and content */
-.ultra .card-text,
-.ultra [class*="CardTitle"],
-.ultra [class*="CardContent"] {
-  color: hsl(0 0% 100%) !important;
-}
-
-/* Badge and status elements */
-.ultra .badge,
-.ultra [class*="Badge"] {
-  border-color: hsl(0 0% 40%) !important;
-}
-
-/* Dropdown menus and popovers */
-.ultra [role="menu"],
-.ultra [role="listbox"],
-.ultra .popover-content,
-.ultra [class*="DropdownMenuContent"],
-.ultra [class*="DropdownMenuItem"] {
-  background-color: hsl(0 0% 8%) !important;
-  color: hsl(0 0% 100%) !important;
-  border-color: hsl(0 0% 25%) !important;
-}
-
-/* Avatar fallback */
-.ultra .avatar-fallback,
-.ultra [class*="AvatarFallback"] {
-  background-color: hsl(0 0% 20%) !important;
-  color: hsl(0 0% 100%) !important;
-}
-
-/* Skeleton loaders */
-.ultra [class*="Skeleton"],
-.ultra .skeleton {
-  background-color: hsl(0 0% 15%) !important;
-}
-
-/* Tabs */
-.ultra [role="tablist"] {
-  background-color: hsl(0 0% 8%) !important;
-}
-
-.ultra [role="tab"] {
-  color: hsl(0 0% 65%) !important;
-}
-
-.ultra [role="tab"][data-state="active"] {
-  color: hsl(0 0% 0%) !important;
-  background-color: hsl(0 0% 100%) !important;
-}
-
-/* Scrollbars for ultra mode */
-.ultra ::-webkit-scrollbar-track {
-  background: hsl(0 0% 5%);
-}
-
-.ultra ::-webkit-scrollbar-thumb {
-  background: hsl(0 0% 25%);
-}
-
-/* Links */
-.ultra a:not([class*="bg-"]) {
-  color: hsl(0 0% 100%) !important;
-}
-
-.ultra a:hover {
-  color: hsl(0 0% 80%) !important;
-}
-
-/* ============= ULTRA THEME CHAT SPECIFIC FIXES ============= */
-/* Ensure chat messages are always readable in Ultra mode */
-
-/* Chat message bubbles - incoming messages */
-.ultra [class*="bg-muted"],
-.ultra .bg-\[hsl\(var\(--muted\)\)\],
-.ultra [class*="dark:bg-\[hsl\(220,10%,18%\)\]"] {
-  background-color: hsl(0 0% 15%) !important;
-}
-
-/* Ensure message text is white on dark backgrounds */
-.ultra .rounded-\[18px\] p,
-.ultra .rounded-\[18px\] span,
-.ultra .rounded-lg p,
-.ultra .rounded-lg span {
-  color: hsl(0 0% 100%) !important;
-}
-
-/* Own messages with primary bg should have dark text */
-.ultra .bg-primary {
-  background-color: hsl(0 0% 100%) !important;
-}
-
-.ultra .bg-primary p,
-.ultra .bg-primary span,
-.ultra .bg-primary .text-primary-foreground {
-  color: hsl(0 0% 0%) !important;
-}
-
-/* Chat header and footer */
-.ultra .border-b,
-.ultra .border-t {
-  border-color: hsl(0 0% 20%) !important;
-}
-
-/* Chat timestamps */
-.ultra .text-xs.text-muted-foreground,
-.ultra [class*="text-xs"][class*="text-muted"] {
-  color: hsl(0 0% 60%) !important;
-}
-
-/* Reply reference in chat */
-.ultra .border-l-4 {
-  border-color: hsl(0 0% 50%) !important;
-}
-
-.ultra .border-l-4 p {
-  color: hsl(0 0% 85%) !important;
-}
-
-/* Voice message player */
-.ultra [class*="VoiceMessage"],
-.ultra audio {
-  background-color: hsl(0 0% 12%) !important;
-}
-
-/* Chat input area */
-.ultra .border-t.p-4 {
-  background-color: hsl(0 0% 5%) !important;
-}
-
-/* Context menu and reactions */
-.ultra [role="menu"] button,
-.ultra [role="menu"] div {
-  color: hsl(0 0% 100%) !important;
-}
-
-/* Message status icons */
-.ultra .text-primary {
-  color: hsl(0 0% 100%) !important;
-}
-
-/* Scroll areas */
-.ultra [data-radix-scroll-area-viewport] {
-  background-color: hsl(0 0% 0%) !important;
-}
-
-/* ============= ULTRA THEME GREEN COLOR REMOVAL ============= */
-/* NetworkStatusBanner and SyncIndicator - remove green when online */
-
-.ultra .bg-green-50,
-.ultra .dark\:bg-green-950,
-.ultra [class*="bg-green"] {
-  background-color: hsl(0 0% 15%) !important;
-}
-
-.ultra .text-green-600,
-.ultra .text-green-700,
-.ultra .text-green-800,
-.ultra .dark\:text-green-300,
-.ultra .dark\:text-green-400,
-.ultra [class*="text-green"] {
-  color: hsl(0 0% 100%) !important;
-}
-
-.ultra .border-green-200,
-.ultra .dark\:border-green-800,
-.ultra [class*="border-green"] {
-  border-color: hsl(0 0% 30%) !important;
-}
-
-/* Selection overlay in chat - make it grayscale */
-.ultra .bg-green-500\/20,
-.ultra .dark\:bg-green-500\/15,
-.ultra .border-green-500\/40,
-.ultra .dark\:border-green-500\/30 {
-  background-color: hsl(0 0% 100% / 0.15) !important;
-  border-color: hsl(0 0% 100% / 0.3) !important;
-}
-
-/* ============= ULTRA THEME ADDITIONAL FIXES ============= */
-
-/* Dialog and modal backgrounds */
-.ultra [role="dialog"],
-.ultra [data-state="open"] > div {
-  background-color: hsl(0 0% 5%) !important;
-}
-
-/* Toast notifications */
-.ultra [data-sonner-toast],
-.ultra [class*="toast"] {
-  background-color: hsl(0 0% 10%) !important;
-  color: hsl(0 0% 100%) !important;
-  border-color: hsl(0 0% 25%) !important;
-}
-
-/* Ensure all interactive elements have visible focus states */
-.ultra *:focus-visible {
-  outline: 2px solid hsl(0 0% 100%) !important;
-  outline-offset: 2px;
-}
-
-/* Fix for any remaining colored backgrounds */
-.ultra .bg-blue-50,
-.ultra .bg-amber-50,
-.ultra .bg-red-50,
-.ultra .dark\:bg-blue-950,
-.ultra .dark\:bg-amber-950,
-.ultra .dark\:bg-red-950 {
-  background-color: hsl(0 0% 12%) !important;
-}
-
-.ultra .text-blue-600,
-.ultra .text-amber-600,
-.ultra .text-red-600,
-.ultra .dark\:text-blue-400,
-.ultra .dark\:text-amber-400,
-.ultra .dark\:text-red-400 {
-  color: hsl(0 0% 100%) !important;
-}
-
-.ultra .border-blue-200,
-.ultra .border-amber-200,
-.ultra .border-red-200,
-.ultra .dark\:border-blue-800,
-.ultra .dark\:border-amber-800,
-.ultra .dark\:border-red-800 {
-  border-color: hsl(0 0% 30%) !important;
-}
-
-/* ============= ULTRA THEME NAV TAB FIX ============= */
-/* Active nav tabs: primary bg is white, so icons/text must be black */
-.ultra nav button[class*="bg-primary"] svg,
-.ultra nav button[class*="bg-primary"] span,
-.ultra nav a[class*="bg-primary"] svg,
-.ultra nav a[class*="bg-primary"] span,
-.ultra header button[class*="bg-primary"] svg,
-.ultra header button[class*="bg-primary"] span,
-.ultra header a[class*="bg-primary"] svg,
-.ultra header a[class*="bg-primary"] span,
-.ultra button[data-state="active"] svg,
-.ultra button[data-state="active"] span {
-  color: hsl(0 0% 0%) !important;
 }
 
 /* ============= GHANA PRIDE THEME OVERRIDES ============= */
@@ -858,11 +504,43 @@ button {
 }
 
 
-/* Ultra theme contrast fixes */
-.ultra [class*="bg-white"] { background-color: #000 !important; color: #fff !important; border: 1px solid rgba(255,255,255,.35) !important; }
-.ultra [class*="bg-white"] svg { color: #fff !important; }
-.ultra [role="dialog"] button, .ultra [role="menu"] button { color: #fff; }
-.ultra [role="dialog"] svg, .ultra [role="menu"] svg { color: #fff; }
-.ultra [class*="bg-white"] *, .ultra .bg-popover *, .ultra .bg-card * { color: #fff; }
-.ultra .story-ring, .ultra [class*="ring-green"], .ultra [class*="ring-primary"] { --tw-ring-color: #fff !important; border-color: #fff !important; }
-.ultra [class*="from-green"][class*="rounded-full"], .ultra [class*="border-primary"][class*="rounded-full"] { background-image: none !important; background-color: #fff !important; border-color: #fff !important; }
+/* Ultra compatibility for legacy pages. Exact utility matches deliberately
+   exclude hover variants, opacity surfaces, swatches and media progress bars. */
+.ultra :is(.bg-white, .bg-gray-50, .bg-gray-100, .bg-gray-800, .bg-gray-900,
+  .dark\:bg-gray-700, .dark\:bg-gray-800, .dark\:bg-gray-900) {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+.ultra :is(.text-black, .text-gray-900, .text-gray-800, .text-gray-700,
+  .text-green-600, .text-green-700, .text-emerald-600) {
+  color: hsl(var(--foreground));
+}
+.ultra :is(.text-gray-500, .text-gray-600) { color: hsl(var(--muted-foreground)); }
+.ultra :is(.green-border, .border-green-500, .border-emerald-500) { border-color: hsl(var(--border)); }
+.ultra :is(.bg-green-500, .bg-green-600, .bg-emerald-500, .bg-emerald-600) {
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+/* A filled action owns its foreground, including nested labels and icons. */
+.ultra :is(.bg-primary, .btn-primary, .bg-green-500, .bg-green-600,
+  .bg-emerald-500, .bg-emerald-600) :is(svg, span, p) {
+  color: hsl(var(--primary-foreground));
+}
+.ultra :is(button, a).bg-primary { color: hsl(var(--primary-foreground)); }
+.ultra [role="tab"][data-state="active"] {
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+.ultra [role="tab"][data-state="active"] :is(svg, span) { color: inherit; }
+.ultra :is([role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]) {
+  background-color: hsl(var(--popover));
+  color: hsl(var(--popover-foreground));
+  border-color: hsl(var(--border));
+}
+.ultra .story-ring { background: hsl(var(--primary)); }
+.ultra .story-progress-track { background: hsl(var(--media-foreground) / .3); }
+.ultra .story-progress-fill { background: hsl(var(--media-foreground)); }
+.ultra .story-overlay-control { color: hsl(var(--media-foreground)); background: transparent; border: 0; }
+.ultra .story-overlay-control :is(svg, span) { color: inherit; }
+.ultra .story-liked { color: hsl(var(--media-foreground)); }
+.ultra .story-liked svg { fill: currentColor; }

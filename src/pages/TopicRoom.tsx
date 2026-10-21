@@ -368,7 +368,7 @@ const TopicRoom = () => {
         <div className="max-w-4xl mx-auto space-y-6">
           {/* Topic Header */}
           <div className="flex items-center justify-between mb-6">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{roomName || 'Topic Room'}</h1>
+            <h1 className="text-3xl font-bold text-foreground">{roomName || 'Topic Room'}</h1>
             <div className="flex gap-2">
               <Button
                 variant="ghost"
@@ -395,16 +395,16 @@ const TopicRoom = () => {
           </div>
 
           {/* Create Post Card */}
-          <Card className="border-2 border-green-500 bg-white dark:bg-gray-800 shadow-lg">
+          <Card className="border-2 border-green-500 bg-card text-card-foreground shadow-lg">
             <CardHeader className="pb-4">
-              <CardTitle className="text-xl font-semibold text-gray-900 dark:text-white">Create a Post</CardTitle>
+              <CardTitle className="text-xl font-semibold text-foreground">Create a Post</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <Textarea 
                 placeholder="What's on your mind?" 
                 value={content} 
                 onChange={(e) => setContent(e.target.value)} 
-                className="min-h-[100px] bg-white dark:bg-gray-700 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600" 
+                className="min-h-[100px] bg-background text-foreground border-input" 
               />
 
               {mediaPreview && (
@@ -470,7 +470,7 @@ const TopicRoom = () => {
                 <Button 
                   onClick={handlePost} 
                   disabled={(!content.trim() && !mediaFile) || uploading} 
-                  className="bg-green-600 hover:bg-green-700 text-white px-6"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 px-6"
                 >
                   {uploading ? 'Posting...' : 'Post'}
                 </Button>
@@ -481,18 +481,18 @@ const TopicRoom = () => {
           {/* Posts Feed */}
           <div className="space-y-4">
             {loadingPosts ? (
-              <Card className="border-2 border-green-500 bg-white dark:bg-gray-800">
+              <Card className="border-2 border-green-500 bg-card text-card-foreground">
                 <CardContent className="p-8 text-center">
                   <div className="flex flex-col items-center justify-center gap-3">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
-                    <p className="text-gray-600 dark:text-gray-300 font-medium">Loading posts...</p>
+                    <p className="text-muted-foreground font-medium">Loading posts...</p>
                   </div>
                 </CardContent>
               </Card>
             ) : posts.length === 0 ? (
-              <Card className="border-2 border-green-500 bg-white dark:bg-gray-800">
+              <Card className="border-2 border-green-500 bg-card text-card-foreground">
                 <CardContent className="p-8 text-center">
-                  <p className="text-gray-600 dark:text-gray-300">No posts yet. Be the first to post!</p>
+                  <p className="text-muted-foreground">No posts yet. Be the first to post!</p>
                 </CardContent>
               </Card>
             ) : (

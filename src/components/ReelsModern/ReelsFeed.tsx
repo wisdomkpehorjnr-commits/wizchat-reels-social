@@ -377,7 +377,7 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({ searchQuery = '', onClearS
 
 
       {isDataSaverEnabled && (
-        <div className="absolute top-12 left-0 right-0 z-50 bg-yellow-500/90 text-black text-center py-1 text-xs font-bold">
+        <div className="absolute top-12 left-0 right-0 z-50 bg-muted text-foreground text-center py-1 text-xs font-bold">
           Data Saver Mode
         </div>
       )}
@@ -390,7 +390,7 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({ searchQuery = '', onClearS
 
       {displayPosts.length === 0 && !loading && (
         <div className="flex items-center justify-center h-full">
-          <p className="text-white/60 text-sm">
+          <p className="text-muted-foreground text-sm">
             {activeTab === 'following' ? 'No reels from people you follow yet' : 'No reels yet'}
           </p>
         </div>

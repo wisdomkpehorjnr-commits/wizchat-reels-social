@@ -363,9 +363,9 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
       {/* Progress bars */}
       <div className="absolute top-0 left-0 right-0 z-50 flex gap-1 px-2 pt-2">
         {currentStories.map((_, i) => (
-          <div key={i} className="flex-1 h-[3px] rounded-full bg-white/30 overflow-hidden">
+          <div key={i} className="story-progress-track flex-1 h-[3px] rounded-full bg-white/30 overflow-hidden">
             <div
-              className="h-full bg-white rounded-full transition-none"
+              className="story-progress-fill h-full bg-white rounded-full transition-none"
               style={{
                 width: i < storyIndex ? '100%' : i === storyIndex ? `${progress}%` : '0%',
               }}
@@ -392,9 +392,9 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
           {isOwnStory && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="text-white p-2 rounded-full hover:bg-white/20 relative z-50">
+                <Button variant="ghost" size="icon" aria-label="Story options" className="story-overlay-control text-white p-2 rounded-full relative z-50">
                   <MoreVertical className="w-6 h-6" strokeWidth={2.5} />
-                </button>
+                </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="bg-card border-border z-[200]">
                 <DropdownMenuItem onClick={() => { setEditCaption(story.content || ''); setIsEditingCaption(true); setIsPaused(true); pauseTimer(); }}>
@@ -461,32 +461,32 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
       <div className="absolute bottom-0 left-0 right-0 z-50 px-4 pb-6 pt-8 bg-gradient-to-t from-black/90 via-black/60 to-transparent">
         <div className="flex items-center justify-between">
           {isOwnStory ? (
-            <button
-              className="flex items-center gap-2 text-white font-bold px-3 py-2 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-md"
+            <Button variant="ghost" aria-label="Story views"
+              className="story-overlay-control flex items-center gap-2 text-white font-bold px-3 py-2 rounded-full"
               onClick={(e) => { e.stopPropagation(); handleShowViewers(); }}
             >
               <Eye className="w-6 h-6 text-white drop-shadow-lg" strokeWidth={2.5} />
               <span className="text-sm font-bold text-white drop-shadow-lg">{actualViewCount || viewers.length || story.viewerCount || 0}</span>
-            </button>
+            </Button>
           ) : (
-            <button
-              className="flex items-center gap-2 text-white font-bold px-3 py-2 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-md"
+            <Button variant="ghost" aria-label="Reply to story"
+              className="story-overlay-control flex items-center gap-2 text-white font-bold px-3 py-2 rounded-full"
               onClick={(e) => { e.stopPropagation(); setShowReply(true); setIsPaused(true); pauseTimer(); }}
             >
               <MessageCircle className="w-6 h-6 text-white drop-shadow-lg" strokeWidth={2.5} />
               <span className="text-sm font-bold text-white drop-shadow-lg">Reply</span>
-            </button>
+            </Button>
           )}
 
-          <button
-            className={`flex items-center gap-2 px-3 py-2 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-md font-bold ${isLiked ? 'text-red-500' : 'text-white'}`}
+          <Button variant="ghost" aria-label={isLiked ? 'Unlike story' : 'Like story'} aria-pressed={isLiked}
+            className={`story-overlay-control flex items-center gap-2 px-3 py-2 rounded-full font-bold ${isLiked ? 'story-liked text-red-500' : 'text-white'}`}
             onClick={(e) => { e.stopPropagation(); handleLike(); }}
           >
             <Heart className={`w-6 h-6 drop-shadow-lg ${isLiked ? 'fill-red-500 text-red-500' : 'text-white'}`} strokeWidth={2.5} />
             {isOwnStory && likeCount > 0 && (
               <span className="text-sm font-bold text-white drop-shadow-lg">{likeCount}</span>
             )}
-          </button>
+          </Button>
         </div>
       </div>
 
