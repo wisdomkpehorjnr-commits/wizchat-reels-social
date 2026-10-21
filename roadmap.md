@@ -3,3 +3,4 @@
 - [ ] Compare old/new rows, auth users, files, functions and secrets (blocked: old backend access/export required).
 - [ ] Verify profile, story and related media uploads and display from the earlier repair.
 - [ ] Check current preview errors and report verified fixes and remaining access needs.
+- [ ] Audit Ultra page-by-page, fix contrast together, verify menus/media, and publish to main website.
