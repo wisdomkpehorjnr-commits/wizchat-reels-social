@@ -534,7 +534,7 @@ const Friends = () => {
                             <Button
                               onClick={() => acceptFriendRequest(request.id)}
                               size="sm"
-                              className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700 text-white"
+                              className="h-7 px-2 text-xs bg-primary text-primary-foreground hover:bg-primary/90"
                             >
                               <Check className="w-3 h-3 mr-1" />
                               Accept

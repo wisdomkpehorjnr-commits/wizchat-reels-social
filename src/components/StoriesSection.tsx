@@ -583,7 +583,7 @@ const StoriesSection: React.FC = () => {
         {groupedStories.map(storyGroup => (
           <div key={storyGroup.userId} className="flex-shrink-0 text-center cursor-pointer" onClick={() => viewStoryGroup(storyGroup)}>
             <div className="relative">
-              <div className="w-16 h-16 rounded-full p-0.5 bg-gradient-to-r from-green-500 to-emerald-500 overflow-hidden">
+              <div className="story-ring w-16 h-16 rounded-full p-0.5 bg-primary overflow-hidden">
               {storyGroup.latestStory.mediaUrl ? (
                   storyGroup.latestStory.mediaType === 'image' ? (
                     <StoryThumb src={storyGroup.latestStory.mediaUrl} name={storyGroup.user.name} />
@@ -591,8 +591,8 @@ const StoriesSection: React.FC = () => {
                     <video src={storyGroup.latestStory.mediaUrl} className="w-full h-full object-cover rounded-full" muted />
                   )
                 ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-primary/60 to-accent/60 flex items-center justify-center rounded-full">
-                    <span className="text-primary-foreground text-xs font-bold">
+                  <div className="w-full h-full bg-muted flex items-center justify-center rounded-full">
+                    <span className="text-foreground text-xs font-bold">
                       {storyGroup.latestStory.content?.charAt(0) || storyGroup.user.name.charAt(0)}
                     </span>
                   </div>
@@ -669,7 +669,7 @@ const StoriesSection: React.FC = () => {
               <Button type="button" variant="outline" onClick={() => setShowCreateDialog(false)} className="text-foreground">
                 Cancel
               </Button>
-              <Button onClick={createStory} disabled={isUploading || !storyContent.trim() && !storyMedia} className="text-foreground">
+              <Button onClick={createStory} disabled={isUploading || !storyContent.trim() && !storyMedia}>
                 {isUploading ? 'Sharing...' : 'Share Story'}
               </Button>
             </div>

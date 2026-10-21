@@ -804,9 +804,9 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
 
       {/* Comment Modal */}
       <Dialog open={showCommentModal} onOpenChange={setShowCommentModal}>
-        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col bg-white dark:bg-gray-800">
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col bg-popover text-popover-foreground">
           <DialogHeader>
-            <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-white">
+            <DialogTitle className="text-xl font-semibold text-foreground">
               Comments ({comments.length})
             </DialogTitle>
           </DialogHeader>
@@ -814,10 +814,10 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
           <ScrollArea className="flex-1 pr-4 mt-4">
             {loadingComments ? (
               <div className="flex justify-center items-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
             ) : comments.length === 0 ? (
-              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+              <div className="text-center py-8 text-muted-foreground">
                 No comments yet. Be the first to comment!
               </div>
             ) : (
@@ -907,7 +907,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
           </ScrollArea>
 
           {/* Add Comment */}
-          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="mt-4 pt-4 border-t border-border">
             <div className="flex gap-2">
               <Textarea
                 placeholder="Write a comment..."
@@ -919,13 +919,13 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
                     handleAddComment();
                   }
                 }}
-                className="flex-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600"
+                className="flex-1 bg-background text-foreground border-input"
                 rows={2}
               />
               <Button 
                 onClick={handleAddComment} 
                 disabled={!newComment.trim() || postingComment}
-                className="bg-green-600 hover:bg-green-700 text-white"
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 {postingComment ? (
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
