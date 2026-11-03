@@ -4,3 +4,6 @@
 - [ ] Verify profile, story and related media uploads and display from the earlier repair.
 - [ ] Check current preview errors and report verified fixes and remaining access needs.
 - [ ] Audit Ultra page-by-page, fix contrast together, verify menus/media, and publish to main website.
+- [ ] Match home post cards to global-search post cards, preserving owner menu and expandable descriptions.
+- [ ] Fix All/Posts search-result navigation to the original home-feed post.
+- [ ] Replace verification badge with the uploaded scalloped style and show it across verified-user surfaces.
