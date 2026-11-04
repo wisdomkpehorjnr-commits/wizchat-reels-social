@@ -29,6 +29,8 @@ const SmartAvatar: React.FC<SmartAvatarProps> = ({
   const { cachedUrl } = useImageCache(src || undefined);
   const finalSrc = (cachedUrl || src || '').trim();
   const [errored, setErrored] = React.useState(false);
+  // Reset error when a new (e.g. freshly cached) source arrives
+  React.useEffect(() => { setErrored(false); }, [finalSrc]);
 
   const showImage = !!finalSrc && !errored;
 
