@@ -253,28 +253,32 @@ const Home = () => {
     const handleRefreshHome = () => refreshFeed();
     window.addEventListener('refreshHome', handleRefreshHome);
 
-    // Handle post URL parameter
-    const urlParams = new URLSearchParams(window.location.search);
-    const postId = urlParams.get('post');
-    if (postId) {
+    // Handle post URL parameter (and in-app jumps from search)
+    const jumpTo = (postId: string) => {
+      let tries = 0;
       const scrollToPost = () => {
         const postElement = document.querySelector(`[data-post-id="${postId}"]`);
         if (postElement) {
           postElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          postElement.classList.add('ring-4', 'ring-green-500', 'ring-offset-2', 'transition-all');
+          postElement.classList.add('ring-4', 'ring-primary', 'ring-offset-2', 'transition-all');
           setTimeout(() => {
-            postElement.classList.remove('ring-4', 'ring-green-500', 'ring-offset-2');
+            postElement.classList.remove('ring-4', 'ring-primary', 'ring-offset-2');
           }, 2000);
-        } else {
-          setTimeout(scrollToPost, 500);
+        } else if (tries++ < 20) {
+          setTimeout(scrollToPost, 400);
         }
       };
       window.history.replaceState({}, '', '/');
-      setTimeout(scrollToPost, 1000);
-    }
+      setTimeout(scrollToPost, 300);
+    };
+    const initialPost = new URLSearchParams(window.location.search).get('post');
+    if (initialPost) jumpTo(initialPost);
+    const onJump = (e: Event) => jumpTo((e as CustomEvent).detail);
+    window.addEventListener('scroll-to-post', onJump);
 
     return () => {
       window.removeEventListener('refreshHome', handleRefreshHome);
+      window.removeEventListener('scroll-to-post', onJump);
     };
   }, []);
 

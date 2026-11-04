@@ -557,17 +557,17 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
   return (
     <>
       <Card 
-        className={`w-full border-2 border-green-500 bg-background ${isOptimistic ? 'opacity-75 animate-pulse' : ''}`}
+        className={`w-full rounded-2xl overflow-hidden border-border/60 bg-card text-card-foreground shadow-sm ${isOptimistic ? 'opacity-75 animate-pulse' : ''}`}
         data-post-id={post.id}
       >
-        <CardContent className="p-6">
+        <CardContent className="p-0">
           {/* Header */}
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between px-4 pt-4 pb-3">
             <ClickableUserInfo 
               user={post.user}
               showAvatar={true}
               showName={true}
-              avatarSize="w-10 h-10"
+              avatarSize="w-9 h-9"
             />
             
             <div className="flex items-center space-x-2">
@@ -577,7 +577,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
                   <span>Posting...</span>
                 </div>
               )}
-              <span className="text-sm text-gray-600 dark:text-gray-400">
+              <span className="text-xs text-muted-foreground">
                 {formatDistanceToNow(post.createdAt, { addSuffix: true })}
               </span>
               
@@ -609,34 +609,34 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
 
           {/* Content */}
           {isEditing ? (
-            <div className="mb-4">
+            <div className="px-4 pb-3">
               <Textarea
                 value={editedContent}
                 onChange={(e) => setEditedContent(e.target.value)}
-                className="border-2 border-green-500 bg-white dark:bg-gray-700"
+                className="bg-background text-foreground"
               />
               <div className="flex justify-end mt-2 gap-2">
                 <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>
                   Cancel
                 </Button>
-                <Button size="sm" onClick={handleUpdatePost} className="bg-green-600 hover:bg-green-700">
+                <Button size="sm" onClick={handleUpdatePost} className="">
                   Save
                 </Button>
               </div>
             </div>
           ) : (
-            <div className="mb-4">
-              {post.content && <ReadMoreText text={post.content} maxLength={750} className="text-foreground mb-4" />}
+            <div>
+              {post.content && <div className="px-4 pb-3"><ReadMoreText text={post.content} maxLength={250} className="text-sm text-foreground" /></div>}
               
               {/* Media content */}
               {Array.isArray(post.imageUrls) && post.imageUrls.length > 0 ? (
-                <div className="mt-2 space-y-2">
+                <div className="space-y-0.5">
                   {post.imageUrls.map((img, idx) => (
-                    <div key={idx} className="rounded-lg overflow-hidden">
+                    <div key={idx} className="overflow-hidden bg-muted">
                       <OfflineAwareImage
                         src={img}
                         alt={`Post image ${idx + 1}`}
-                        className="w-full object-cover max-h-96 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                        className="w-full object-cover max-h-[32rem] cursor-pointer active:opacity-90 transition-opacity"
                         onClick={() => {
                           setImageModalSrc(img);
                           setImageModalOpen(true);
@@ -651,11 +651,11 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
                   ))}
                 </div>
               ) : post.imageUrl && (
-                <div className="mt-2 rounded-lg overflow-hidden">
+                <div className="overflow-hidden bg-muted">
                   <OfflineAwareImage 
                     src={post.imageUrl} 
                     alt="Post content" 
-                    className="w-full object-cover max-h-96 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                    className="w-full object-cover max-h-[32rem] cursor-pointer active:opacity-90 transition-opacity"
                     onClick={() => {
                       setImageModalSrc(post.imageUrl!);
                       setImageModalOpen(true);
@@ -681,6 +681,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
           )}
 
           {/* Actions */}
+          <div className="px-4 pt-2 pb-2">
           <FbPostActions
             isLiked={isLiked}
             likeCount={likeCount}
@@ -690,6 +691,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
             onComment={() => setShowCommentModal(true)}
             onShare={() => setShowShareBoard(true)}
           />
+          </div>
 
 
         </CardContent>
