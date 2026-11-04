@@ -1,3 +1,4 @@
+import VerifiedBadge from '@/components/VerifiedBadge';
 import { useState, useEffect, useRef } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Pin, PinOff, BellOff, Ban, AlertTriangle, Trash2, Archive, ArchiveRestore, Star, StarOff, Eye } from 'lucide-react';
@@ -168,7 +169,7 @@ const ChatListItem = ({ friend, isPinned, onClick, isWizAi, onPinToggle, onDelet
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2 mb-1.5">
             <div className="flex items-center gap-1.5 flex-1 min-w-0">
-              <p className={`font-semibold truncate ${isWizAi ? 'text-primary' : ''}`}>{friend.name}</p>
+              <p className={`font-semibold truncate ${isWizAi ? 'text-primary' : ''}`}>{friend.name}{((friend) as any)?.is_verified && <VerifiedBadge size={15} className="ml-1 align-middle" />}</p>
               {pinned && <Pin className="w-3 h-3 text-primary flex-shrink-0" />}
               {isFavorite && <Star className="w-3 h-3 text-yellow-500 fill-yellow-500 flex-shrink-0" />}
             </div>

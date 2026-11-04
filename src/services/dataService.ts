@@ -156,7 +156,8 @@ export const dataService = {
           name,
           username,
           email,
-          avatar
+          avatar,
+          is_verified
         )
       `)
       .single();
@@ -256,7 +257,8 @@ export const dataService = {
           name,
           username,
           email,
-          avatar
+          avatar,
+          is_verified
         )
       `)
       .eq('post_id', postId);
@@ -319,7 +321,8 @@ export const dataService = {
           name,
           username,
           email,
-          avatar
+          avatar,
+          is_verified
         )
       `)
       .eq('post_id', postId)
@@ -398,7 +401,8 @@ export const dataService = {
           name,
           username,
           email,
-          avatar
+          avatar,
+          is_verified
         )
       `)
       .single();
@@ -449,14 +453,16 @@ export const dataService = {
           name,
           username,
           email,
-          avatar
+          avatar,
+          is_verified
         ),
         addressee:profiles!friends_addressee_id_fkey (
           id,
           name,
           username,
           email,
-          avatar
+          avatar,
+          is_verified
         )
       `)
       .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`);
@@ -1239,7 +1245,7 @@ export const dataService = {
       data.map(async (reaction) => {
         const { data: userData } = await supabase
           .from('profiles')
-          .select('id, name, username, avatar')
+          .select('id, name, username, avatar, is_verified')
           .eq('id', reaction.user_id)
           .single();
 
@@ -1638,7 +1644,8 @@ export const dataService = {
           name,
           username,
           email,
-          avatar
+          avatar,
+          is_verified
         )
       `)
       .single();

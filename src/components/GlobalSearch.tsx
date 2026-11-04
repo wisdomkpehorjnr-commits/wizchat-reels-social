@@ -133,8 +133,11 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
     const id = r?.data?.id || r?.id;
     if (!id) return;
     commitHistory();
-    if (r && isReelResult(r)) setDetailReelId(id);
-    else setDetailPost({ id, data: r?.data });
+    if (r && isReelResult(r)) { setDetailReelId(id); return; }
+    // Send the user to the post's original spot in the home feed
+    onClose();
+    navigate(`/?post=${id}`);
+    setTimeout(() => window.dispatchEvent(new CustomEvent('scroll-to-post', { detail: id })), 50);
   };
 
   const goToGroup = (r: SearchResult) => { commitHistory(); onClose(); navigate(`/topic-room/${r.id}`); };
@@ -229,7 +232,7 @@ const GlobalSearch = ({ isOpen, onClose }: GlobalSearchProps) => {
           <div className="flex items-center gap-2.5 px-4 pt-4 pb-3">
             <SmartAvatar src={author?.avatar} alt={author?.name || ''} className="w-9 h-9" />
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-foreground truncate">{author?.name || r.subtitle?.replace(/^by /, '') || 'Unknown'}</p>
+              <p className="text-sm font-semibold text-foreground truncate flex items-center gap-1"><span className="truncate">{author?.name || r.subtitle?.replace(/^by /, '') || 'Unknown'}</span>{(author?.is_verified || r.data?.is_verified) && <VerifiedBadge size={16} />}</p>
               {author?.username && <p className="text-xs text-muted-foreground truncate">@{author.username}</p>}
             </div>
           </div>

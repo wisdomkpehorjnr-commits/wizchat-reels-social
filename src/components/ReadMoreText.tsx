@@ -23,10 +23,10 @@ const ReadMoreText = ({ text, maxLength = 750, className = '' }: ReadMoreTextPro
         {expanded ? text : `${text.slice(0, maxLength)}...`}
       </p>
       <button
-        onClick={() => setExpanded(!expanded)}
+        onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
         className="text-primary text-sm font-medium mt-1 hover:underline"
       >
-        {expanded ? 'Hide' : 'Read more'}
+        {expanded ? 'Show less' : 'Read more'}
       </button>
     </div>
   );

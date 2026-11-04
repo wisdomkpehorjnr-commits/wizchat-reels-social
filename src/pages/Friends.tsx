@@ -1,3 +1,4 @@
+import VerifiedBadge from '@/components/VerifiedBadge';
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '@/components/Layout';
@@ -378,7 +379,7 @@ const Friends = () => {
                               <div className="min-w-0 flex-1">
                                 <Link to={`/profile/${searchUser.username}`}>
                                   <h4 className="font-medium text-sm text-foreground hover:text-primary truncate">
-                                    {searchUser.name}
+                                    {searchUser.name}{((searchUser) as any)?.is_verified && <VerifiedBadge size={15} className="ml-1 align-middle" />}
                                   </h4>
                                 </Link>
                                 <p className="text-xs text-muted-foreground truncate">@{searchUser.username}</p>
@@ -450,7 +451,7 @@ const Friends = () => {
                           </Link>
                           <Link to={`/profile/${friendUser.username}`}>
                             <h3 className="font-medium text-sm text-foreground mb-1 hover:text-primary truncate">
-                              {friendUser.name}
+                              {friendUser.name}{((friendUser) as any)?.is_verified && <VerifiedBadge size={15} className="ml-1 align-middle" />}
                             </h3>
                           </Link>
                           <p className="text-xs text-muted-foreground mb-2 truncate">@{friendUser.username}</p>
@@ -524,7 +525,7 @@ const Friends = () => {
                             <div className="min-w-0 flex-1">
                               <Link to={`/profile/${request.requester.username}`}>
                                 <h4 className="font-medium text-sm text-foreground hover:text-primary truncate">
-                                  {request.requester.name}
+                                  {request.requester.name}{((request.requester) as any)?.is_verified && <VerifiedBadge size={15} className="ml-1 align-middle" />}
                                 </h4>
                               </Link>
                               <p className="text-xs text-muted-foreground truncate">@{request.requester.username}</p>
@@ -582,7 +583,7 @@ const Friends = () => {
                             <div className="min-w-0 flex-1">
                               <Link to={`/profile/${request.addressee.username}`}>
                                 <h4 className="font-medium text-sm text-foreground hover:text-primary truncate">
-                                  {request.addressee.name}
+                                  {request.addressee.name}{((request.addressee) as any)?.is_verified && <VerifiedBadge size={15} className="ml-1 align-middle" />}
                                 </h4>
                               </Link>
                               <p className="text-xs text-muted-foreground truncate">@{request.addressee.username}</p>

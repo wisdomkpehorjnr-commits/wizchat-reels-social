@@ -1,3 +1,4 @@
+import VerifiedBadge from '@/components/VerifiedBadge';
 
 import { useState, useEffect, useRef } from 'react';
 import { Send, Paperclip, Users, Settings, Search, Plus, Crown, Shield, ArrowLeft } from 'lucide-react';
@@ -80,7 +81,7 @@ const ChatInterface = ({ chat, onClose }: ChatInterfaceProps) => {
               id: msgPayload.id,
               chatId: msgPayload.chat_id,
               userId: msgPayload.user_id,
-              user: { id: profile?.id || msgPayload.user_id, name: profile?.name || 'Unknown', username: profile?.username || '', email: '', avatar: profile?.avatar || '', photoURL: profile?.avatar || '', createdAt: new Date(), followerCount: 0, followingCount: 0, profileViews: 0 } as User,
+              user: { id: profile?.id || msgPayload.user_id, name: profile?.name || 'Unknown', username: profile?.username || '', email: '', avatar: profile?.avatar || '', photoURL: profile?.avatar || '', createdAt: new Date(), followerCount: 0, followingCount: 0, profileViews: 0, is_verified: !!profile?.is_verified } as User,
               content: msgPayload.content,
               type: msgPayload.type as 'text' | 'voice' | 'image' | 'video',
               mediaUrl: msgPayload.media_url,
@@ -256,7 +257,7 @@ const ChatInterface = ({ chat, onClose }: ChatInterfaceProps) => {
           
           <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
             {!isOwn && (
-              <span className="text-xs text-muted-foreground mb-1">{message.user.name}</span>
+              <span className="text-xs text-muted-foreground mb-1">{message.user.name}{((message.user) as any)?.is_verified && <VerifiedBadge size={15} className="ml-1 align-middle" />}</span>
             )}
             
             <div
@@ -323,7 +324,7 @@ const ChatInterface = ({ chat, onClose }: ChatInterfaceProps) => {
           
           <div>
             <h3 className="font-semibold text-foreground">
-              {chat.isGroup ? chat.name : chat.participants[0]?.name}
+              {chat.isGroup ? chat.name : chat.participants[0]?.name}{!chat.isGroup && ((chat.participants[0]) as any)?.is_verified && <VerifiedBadge size={15} className="ml-1 align-middle" />}
             </h3>
             <p className="text-sm text-muted-foreground">
               {chat.isGroup ? `${chat.participants.length} members` : (isOnline ? 'Active now' : '')}

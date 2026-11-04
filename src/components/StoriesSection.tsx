@@ -1,3 +1,4 @@
+import VerifiedBadge from '@/components/VerifiedBadge';
 import React, { useState, useEffect, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -114,7 +115,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
               </AvatarFallback>
             </Avatar>
             <div>
-              <p className="font-medium text-white">{story.user.name}</p>
+              <p className="font-medium text-white">{story.user.name}{((story.user) as any)?.is_verified && <VerifiedBadge size={15} className="ml-1 align-middle" />}</p>
               <p className="text-xs text-white/70">
                 {new Date(story.createdAt).toLocaleString()}
               </p>
