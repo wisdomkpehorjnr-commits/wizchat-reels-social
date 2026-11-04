@@ -1,3 +1,4 @@
+import VerifiedBadge from '@/components/VerifiedBadge';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -382,7 +383,7 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
             <AvatarFallback className="text-sm text-white">{story.user.name.charAt(0)}</AvatarFallback>
           </Avatar>
           <div>
-            <p className="text-white font-bold text-sm">{story.user.name}</p>
+            <p className="text-white font-bold text-sm">{story.user.name}{((story.user) as any)?.is_verified && <VerifiedBadge size={15} className="ml-1 align-middle" />}</p>
             <p className="text-white/60 text-xs">
               {new Date(story.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </p>
@@ -519,7 +520,7 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
                         <AvatarFallback>{v.profiles?.name?.charAt(0) || '?'}</AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="text-sm font-semibold text-foreground">{v.profiles?.name}</p>
+                        <p className="text-sm font-semibold text-foreground">{v.profiles?.name}{((v.profiles) as any)?.is_verified && <VerifiedBadge size={15} className="ml-1 align-middle" />}</p>
                         <p className="text-xs text-muted-foreground">@{v.profiles?.username}</p>
                       </div>
                     </div>

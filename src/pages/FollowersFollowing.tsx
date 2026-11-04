@@ -1,3 +1,4 @@
+import VerifiedBadge from '@/components/VerifiedBadge';
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Search, UserPlus } from 'lucide-react';
@@ -92,7 +93,7 @@ const FollowersFollowing = () => {
         const followerIds = followersRows.map(f => f.follower_id);
         const { data: followerProfiles } = await supabase
           .from('profiles')
-          .select('id, name, username, avatar, bio')
+          .select('id, name, username, avatar, bio, is_verified')
           .in('id', followerIds);
         loadedFollowers = (followerProfiles || []).map(p => ({
           id: p.id,
@@ -115,7 +116,7 @@ const FollowersFollowing = () => {
         const followingIds = followingRows.map(f => f.following_id);
         const { data: followingProfiles } = await supabase
           .from('profiles')
-          .select('id, name, username, avatar, bio')
+          .select('id, name, username, avatar, bio, is_verified')
           .in('id', followingIds);
         loadedFollowing = (followingProfiles || []).map(p => ({
           id: p.id,
@@ -196,7 +197,7 @@ const FollowersFollowing = () => {
         </Avatar>
 
         <div className="flex-1 min-w-0 cursor-pointer" onClick={() => navigate(`/profile/${person.id}`)}>
-          <p className="font-semibold text-sm text-foreground truncate">{person.name}</p>
+          <p className="font-semibold text-sm text-foreground truncate">{person.name}{((person) as any)?.is_verified && <VerifiedBadge size={15} className="ml-1 align-middle" />}</p>
           <p className="text-xs text-muted-foreground truncate">@{person.username}</p>
           {person.bio && (
             <p className="text-xs text-muted-foreground/80 truncate mt-0.5">{person.bio}</p>
