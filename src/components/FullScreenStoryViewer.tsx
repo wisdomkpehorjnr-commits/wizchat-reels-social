@@ -288,7 +288,7 @@ const FullScreenStoryViewer: React.FC<FullScreenStoryViewerProps> = ({
     try {
       const { data } = await supabase
         .from('story_views')
-        .select('*, profiles:user_id(id, name, username, avatar)')
+        .select('*, profiles:user_id(id, name, username, avatar, is_verified)')
         .eq('story_id', story.id);
       const viewerData = data || [];
       setViewers(viewerData);
