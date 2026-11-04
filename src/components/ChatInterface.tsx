@@ -81,7 +81,7 @@ const ChatInterface = ({ chat, onClose }: ChatInterfaceProps) => {
               id: msgPayload.id,
               chatId: msgPayload.chat_id,
               userId: msgPayload.user_id,
-              user: { id: profile?.id || msgPayload.user_id, name: profile?.name || 'Unknown', username: profile?.username || '', email: '', avatar: profile?.avatar || '', photoURL: profile?.avatar || '', createdAt: new Date(), followerCount: 0, followingCount: 0, profileViews: 0 } as User,
+              user: { id: profile?.id || msgPayload.user_id, name: profile?.name || 'Unknown', username: profile?.username || '', email: '', avatar: profile?.avatar || '', photoURL: profile?.avatar || '', createdAt: new Date(), followerCount: 0, followingCount: 0, profileViews: 0, is_verified: !!profile?.is_verified } as User,
               content: msgPayload.content,
               type: msgPayload.type as 'text' | 'voice' | 'image' | 'video',
               mediaUrl: msgPayload.media_url,
