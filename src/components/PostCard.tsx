@@ -34,10 +34,12 @@ import { useImageCache } from '@/hooks/useImageCache';
 import PostStreakView from './PostStreakView';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sparkles } from 'lucide-react';
+import streakLogo from '@/assets/wizchat-streak-logo.png';
 
 interface PostCardProps {
   post: any;
   onPostUpdate: () => void;
+  streakMode?: boolean;
 }
 
 // Offline-aware image component with glass placeholder and automatic caching
@@ -209,7 +211,7 @@ function LazyVideo({ videoUrl, posterUrl, onLongPressStart, onLongPressEnd }: La
   );
 }
 
-const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
+const PostCard = ({ post, onPostUpdate, streakMode = false }: PostCardProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -563,7 +565,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
     <>
       <Card 
         className={`w-full rounded-2xl overflow-hidden border-border/60 bg-card text-card-foreground shadow-sm ${isOptimistic ? 'opacity-75 animate-pulse' : ''}`}
-        data-post-id={post.id}
+        data-post-id={streakMode ? undefined : post.id}
       >
         <CardContent className="p-0">
           {/* Header */}
@@ -687,7 +689,12 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
 
           {/* Actions */}
           <div className="px-4 pt-2 pb-2">
-          <FbPostActions
+          {streakMode ? (
+            <div className="flex h-14 items-center justify-center gap-1 text-muted-foreground" aria-label="From Wizchat">
+              <img src={streakLogo} alt="" className="h-3 w-3 object-contain" />
+              <span className="text-[9px] font-medium">Wizchat</span>
+            </div>
+          ) : <FbPostActions
             isLiked={isLiked}
             likeCount={likeCount}
             commentCount={comments.length}
@@ -695,7 +702,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
             onLike={handleLikePost}
             onComment={() => setShowCommentModal(true)}
             onShare={() => setShowShareBoard(true)}
-          />
+          />}
           </div>
 
 
