@@ -31,6 +31,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import ShareBoard from './ShareBoard';
 import PremiumCodeVerification from './PremiumCodeVerification';
 import { useImageCache } from '@/hooks/useImageCache';
+import PostStreakView from './PostStreakView';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Sparkles } from 'lucide-react';
 
 interface PostCardProps {
   post: any;
@@ -485,6 +488,8 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
   };
 
   const [showDownloadConfirm, setShowDownloadConfirm] = useState(false);
+  const [showStreak, setShowStreak] = useState(false);
+  const isMobile = useIsMobile();
   const [downloadUrl, setDownloadUrl] = useState('');
   const [isVideoDownload, setIsVideoDownload] = useState(false);
   const [imageModalOpen, setImageModalOpen] = useState(false);
@@ -626,7 +631,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
             </div>
           ) : (
             <div>
-              {post.content && <div className="px-4 pb-3"><ReadMoreText text={post.content} maxLength={250} className="text-sm text-foreground" /></div>}
+              {post.content && <div className="px-4 pb-3"><ReadMoreText text={post.content} maxLength={isMobile ? 140 : 250} className="text-sm text-foreground" /></div>}
               
               {/* Media content */}
               {Array.isArray(post.imageUrls) && post.imageUrls.length > 0 ? (
@@ -636,7 +641,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
                       <OfflineAwareImage
                         src={img}
                         alt={`Post image ${idx + 1}`}
-                        className="w-full object-cover max-h-[32rem] cursor-pointer active:opacity-90 transition-opacity"
+                        className={`w-full object-cover cursor-pointer ${isMobile ? 'aspect-[4/3]' : 'max-h-[32rem]'} active:opacity-90 transition-opacity`}
                         onClick={() => {
                           setImageModalSrc(img);
                           setImageModalOpen(true);
@@ -655,7 +660,7 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
                   <OfflineAwareImage 
                     src={post.imageUrl} 
                     alt="Post content" 
-                    className="w-full object-cover max-h-[32rem] cursor-pointer active:opacity-90 transition-opacity"
+                    className={`w-full object-cover cursor-pointer ${isMobile ? 'aspect-[4/3]' : 'max-h-[32rem]'} active:opacity-90 transition-opacity`}
                     onClick={() => {
                       setImageModalSrc(post.imageUrl!);
                       setImageModalOpen(true);
@@ -759,6 +764,16 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
                     <Pin className="w-5 h-5 flex-shrink-0 text-primary" />
                     <span>Save Post</span>
                   </motion.button>
+                  <motion.button
+                    className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-left text-foreground font-medium text-sm transition-all hover:bg-primary/10 active:bg-primary/20 border border-transparent hover:border-primary/20"
+                    initial={{ opacity: 0, x: -12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.15 }}
+                    onClick={() => { setShowDownloadConfirm(false); setShowStreak(true); }}
+                  >
+                    <Sparkles className="w-5 h-5 flex-shrink-0 text-primary" />
+                    <span>Streak</span>
+                  </motion.button>
                   {/* Cancel option intentionally removed — tap outside or back gesture dismisses */}
                 </div>
               </motion.div>
@@ -766,6 +781,10 @@ const PostCard = ({ post, onPostUpdate }: PostCardProps) => {
           )}
         </AnimatePresence>
         
+        <AnimatePresence>
+          {showStreak && <PostStreakView post={post} onClose={() => setShowStreak(false)} />}
+        </AnimatePresence>
+
         <ImageModal
           src={imageModalSrc}
           alt="Post image"
