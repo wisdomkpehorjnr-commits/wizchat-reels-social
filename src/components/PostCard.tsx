@@ -693,7 +693,7 @@ const PostCard = ({ post, onPostUpdate, streakMode = false, streakFooterHeight }
           {/* Actions */}
           <div className="px-4 pt-2 pb-2" data-post-actions>
           {streakMode ? (
-            <div className="flex min-h-14 items-center justify-center gap-1 text-muted-foreground" style={streakFooterHeight ? { height: Math.max(56, streakFooterHeight - 16) } : undefined} aria-label="From Wizchat">
+            <div className="flex h-14 items-center justify-center gap-1 text-muted-foreground" style={streakFooterHeight ? { height: Math.max(0, streakFooterHeight - 16) } : undefined} aria-label="From Wizchat">
               <img src={streakLogo} alt="" className="h-3 w-3 object-contain" />
               <span className="text-[9px] font-medium">Wizchat</span>
             </div>
