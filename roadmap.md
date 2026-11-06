@@ -1,4 +1,4 @@
-- [ ] Finish Streak refinements and repair the missing post content build error; verify original proportions, expandable descriptions, tiny Wizchat branding, single backdrop and mobile capture.
+- [x] Finish Streak refinements and repair the missing post content build error; verified identical mobile card dimensions, expandable descriptions, tiny Wizchat branding, one backdrop, screenshot download and shared-story playback (test story removed).
 - [ ] Compare Cloud schema, permissions, functions and storage with retained old migration records.
 - [ ] Diagnose and repair group/topic errors; verify signed-in flows.
 - [ ] Compare old/new rows, auth users, files, functions and secrets (blocked: old backend access/export required).
