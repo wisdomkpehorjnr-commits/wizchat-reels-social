@@ -62,6 +62,7 @@
     --secondary-foreground: 222.2 84% 4.9%;
     --muted: 210 40% 96%;
     --muted-foreground: 215.4 16.3% 46.9%;
+    --navigation-active-icon: 0 0% 95%;
     --accent: 210 40% 96%;
     --accent-foreground: 222.2 84% 4.9%;
     --destructive: 0 84.2% 60.2%;
@@ -133,6 +134,7 @@
     --chart-4: 0 0% 40%;
     --chart-5: 0 0% 20%;
     --text-strong-contrast: 0 0% 100%;
+    --navigation-active-icon: 0 0% 40%;
   }
 
   /* Ghana Pride Theme - Red, Yellow & Green */
@@ -544,3 +546,16 @@ input::placeholder, textarea::placeholder {
 .ultra .story-overlay-control :is(svg, span) { color: inherit; }
 .ultra .story-liked { color: hsl(var(--media-foreground)); }
 .ultra .story-liked svg { fill: currentColor; }
+
+/* Larger-screen chrome shares mobile's muted icon tone, with a paired
+   grey foreground for filled active tabs (including Ultra's white surface). */
+@media (min-width: 768px) {
+  svg.app-chrome-icon {
+    color: hsl(var(--muted-foreground)) !important;
+    stroke-width: 2.4;
+  }
+  svg.app-chrome-icon-active {
+    color: hsl(var(--navigation-active-icon)) !important;
+    stroke-width: 2.6;
+  }
+}

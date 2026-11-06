@@ -497,10 +497,11 @@ const Home = () => {
             <div className="flex items-center gap-2">
               <Button 
                 onClick={() => setShowSearch(true)}
+                aria-label="Global search"
                 variant="outline"
                 size="sm"
               >
-                <Search className="w-4 h-4" />
+                <Search className="w-4 h-4 app-chrome-icon" />
               </Button>
               <Button 
                 onClick={refreshFeed}
@@ -508,7 +509,7 @@ const Home = () => {
                 variant="outline"
                 size="sm"
               >
-                <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-4 h-4 mr-2 app-chrome-icon ${refreshing ? 'animate-spin' : ''}`} />
                 {refreshing ? 'Refreshing...' : 'Refresh'}
               </Button>
             </div>

@@ -13,11 +13,12 @@ const ThemeToggle: React.FC = () => {
       size="sm"
       onClick={toggleDarkMode}
       className="w-9 h-9 p-0"
+      aria-label="Switch theme"
     >
       {isDarkMode ? (
-        <Sun className="w-4 h-4" />
+        <Sun className="w-4 h-4 app-chrome-icon" />
       ) : (
-        <Moon className="w-4 h-4" />
+        <Moon className="w-4 h-4 app-chrome-icon" />
       )}
     </Button>
   );
