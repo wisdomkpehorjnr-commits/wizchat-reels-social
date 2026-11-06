@@ -40,6 +40,7 @@ interface PostCardProps {
   post: any;
   onPostUpdate: () => void;
   streakMode?: boolean;
+  streakFooterHeight?: number;
 }
 
 // Offline-aware image component with glass placeholder and automatic caching
@@ -211,7 +212,7 @@ function LazyVideo({ videoUrl, posterUrl, onLongPressStart, onLongPressEnd }: La
   );
 }
 
-const PostCard = ({ post, onPostUpdate, streakMode = false }: PostCardProps) => {
+const PostCard = ({ post, onPostUpdate, streakMode = false, streakFooterHeight }: PostCardProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -316,8 +317,9 @@ const PostCard = ({ post, onPostUpdate, streakMode = false }: PostCardProps) => 
       const map = new Map(list.map((c) => [c.id, c]));
       const roots: any[] = [];
       list.forEach((c) => {
-        if (c.parentId && map.has(c.parentId)) {
-          map.get(c.parentId)!.replies.push(c);
+        const parent = c.parentId ? map.get(c.parentId) : undefined;
+        if (parent) {
+          parent.replies.push(c);
         } else {
           roots.push(c);
         }
@@ -498,6 +500,7 @@ const PostCard = ({ post, onPostUpdate, streakMode = false }: PostCardProps) => 
   const [imageModalSrc, setImageModalSrc] = useState('');
 
   const handleLongPressStart = (mediaUrl: string, isVideo: boolean) => {
+    if (streakMode) return;
     setLongPressProgress(0);
     const startTime = Date.now();
     
@@ -664,12 +667,12 @@ const PostCard = ({ post, onPostUpdate, streakMode = false }: PostCardProps) => 
                     alt="Post content" 
                     className={`w-full object-cover cursor-pointer ${isMobile ? 'aspect-[4/3]' : 'max-h-[32rem]'} active:opacity-90 transition-opacity`}
                     onClick={() => {
-                      setImageModalSrc(post.imageUrl!);
+                      setImageModalSrc(post.imageUrl);
                       setImageModalOpen(true);
                     }}
-                    onTouchStart={() => handleLongPressStart(post.imageUrl!, false)}
+                    onTouchStart={() => handleLongPressStart(post.imageUrl, false)}
                     onTouchEnd={handleLongPressEnd}
-                    onMouseDown={() => handleLongPressStart(post.imageUrl!, false)}
+                    onMouseDown={() => handleLongPressStart(post.imageUrl, false)}
                     onMouseUp={handleLongPressEnd}
                     onMouseLeave={handleLongPressEnd}
                   />
@@ -680,7 +683,7 @@ const PostCard = ({ post, onPostUpdate, streakMode = false }: PostCardProps) => 
                  <LazyVideo
                    videoUrl={post.videoUrl}
                    posterUrl={post.imageUrl || `${post.videoUrl}#t=0.5`}
-                   onLongPressStart={() => handleLongPressStart(post.videoUrl!, true)}
+                   onLongPressStart={() => handleLongPressStart(post.videoUrl, true)}
                    onLongPressEnd={handleLongPressEnd}
                  />
                )}
@@ -688,9 +691,9 @@ const PostCard = ({ post, onPostUpdate, streakMode = false }: PostCardProps) => 
           )}
 
           {/* Actions */}
-          <div className="px-4 pt-2 pb-2">
+          <div className="px-4 pt-2 pb-2" data-post-actions>
           {streakMode ? (
-            <div className="flex h-14 items-center justify-center gap-1 text-muted-foreground" aria-label="From Wizchat">
+            <div className="flex h-14 items-center justify-center gap-1 text-muted-foreground" style={streakFooterHeight ? { height: Math.max(0, streakFooterHeight - 16) } : undefined} aria-label="From Wizchat">
               <img src={streakLogo} alt="" className="h-3 w-3 object-contain" />
               <span className="text-[9px] font-medium">Wizchat</span>
             </div>
@@ -789,7 +792,16 @@ const PostCard = ({ post, onPostUpdate, streakMode = false }: PostCardProps) => 
         </AnimatePresence>
         
         <AnimatePresence>
-          {showStreak && <PostStreakView post={post} onClose={() => setShowStreak(false)} />}
+          {!streakMode && showStreak && (
+            <PostStreakView post={post} onClose={() => setShowStreak(false)}>
+              <PostCard
+                post={post}
+                onPostUpdate={onPostUpdate}
+                streakMode
+                streakFooterHeight={document.querySelector(`[data-post-id="${post.id}"] [data-post-actions]`)?.getBoundingClientRect().height}
+              />
+            </PostStreakView>
+          )}
         </AnimatePresence>
 
         <ImageModal
