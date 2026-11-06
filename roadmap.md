@@ -1,4 +1,4 @@
-- [ ] Refine Streak to match the original post with expandable descriptions, tiny uploaded Wizchat branding, and a single blurred background; verify mobile capture.
+- [ ] Finish Streak refinements and repair the missing post content build error; verify original proportions, expandable descriptions, tiny Wizchat branding, single backdrop and mobile capture.
 - [ ] Compare Cloud schema, permissions, functions and storage with retained old migration records.
 - [ ] Diagnose and repair group/topic errors; verify signed-in flows.
 - [ ] Compare old/new rows, auth users, files, functions and secrets (blocked: old backend access/export required).

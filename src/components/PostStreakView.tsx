@@ -23,8 +23,19 @@ const PostStreakView = ({ post, onClose, children }: Props) => {
   const originalWidth = document.querySelector(`[data-post-id="${post.id}"]`)?.getBoundingClientRect().width;
 
   const capture = async () => {
-    if (!frameRef.current) throw new Error('no frame');
-    return toPng(frameRef.current, { pixelRatio: 2, cacheBust: false });
+    const frame = frameRef.current;
+    if (!frame) throw new Error('no frame');
+    await document.fonts.ready;
+    await Promise.all(Array.from(frame.querySelectorAll('img')).map(async (image) => {
+      if (!image.complete) {
+        await new Promise<void>((resolve) => {
+          image.addEventListener('load', () => resolve(), { once: true });
+          image.addEventListener('error', () => resolve(), { once: true });
+        });
+      }
+      await image.decode().catch(() => undefined);
+    }));
+    return toPng(frame, { pixelRatio: 2, cacheBust: false, skipFonts: true });
   };
 
   const handleScreenshot = async () => {
@@ -37,7 +48,7 @@ const PostStreakView = ({ post, onClose, children }: Props) => {
       document.body.appendChild(a);
       a.click();
       a.remove();
-      toast({ title: 'Saved', description: 'Screenshot saved to your device' });
+      toast({ title: 'Screenshot downloaded' });
     } catch {
       toast({ title: 'Could not take screenshot', description: 'Please try again' });
     }
