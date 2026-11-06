@@ -7,3 +7,4 @@
 - Group deletion uses an authenticated owner-checked transaction; never delete memberships first and lose authorization mid-operation.
 - Theme surfaces own paired semantic foregrounds; never force all descendants white or match background classes by substring, because filled actions, translucent states and media controls require different contrast pairs.
 - Render Streak through PostCard's dedicated presentation mode so original media, proportions and expandable captions stay consistent; capture only that card, excluding overlay controls.
+- Scope larger-screen navigation and toolbar icon treatment through the shared app-chrome-icon class and paired theme tokens, preserving mobile styling and filled-tab contrast.

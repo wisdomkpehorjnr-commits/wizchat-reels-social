@@ -122,15 +122,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 variant={isActivePath(item.path) ? "default" : "ghost"}
                 size="sm"
                 asChild
-                className={isActivePath(item.path) ? "bg-primary text-primary-foreground" : "text-foreground hover:text-foreground"}
+                className={isActivePath(item.path) ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-muted-foreground"}
               >
                 <Link 
                   to={item.path} 
                   className="flex items-center gap-2 relative"
                   onClick={item.path === '/' ? handleHomeClick : undefined}
                 >
-                  <item.icon className="w-4 h-4" />
-                  <span className="hidden lg:inline text-foreground">{item.label}</span>
+                  <item.icon className={`w-5 h-5 app-chrome-icon ${isActivePath(item.path) ? 'app-chrome-icon-active' : ''}`} />
+                  <span className="hidden lg:inline">{item.label}</span>
                   {item.badge && item.badge > 0 ? (
                     <Badge 
                       variant="destructive" 

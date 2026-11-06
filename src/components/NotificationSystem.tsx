@@ -439,8 +439,8 @@ const NotificationSystem = () => {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm" className="relative">
-          <Bell className="w-5 h-5 text-foreground" />
+        <Button variant="ghost" size="sm" className="relative" aria-label="Notifications">
+          <Bell className="w-5 h-5 text-foreground app-chrome-icon" />
           {unreadCount > 0 && (
             <Badge 
               variant="destructive" 
