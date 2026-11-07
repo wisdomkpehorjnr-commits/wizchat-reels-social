@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ListSkeleton } from "@/components/SkeletonLoaders";
 
 const TOPICS_CACHE_KEY = 'wizchat_topics_cache';
+const REMOVED_ROOM_IDS = new Set(['69af114b-3419-45ac-9bc3-0d40c2f7b080','cb2fe813-3372-4be0-b2d7-432d69d7bd5b']);
 const TOPICS_MIN_REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 const normalizeTopicRoomName = (name: string) => {
@@ -50,7 +51,7 @@ const topicsStore: TopicsStore = {
     if (cached) {
       const parsed = JSON.parse(cached);
       if (parsed?.data && Array.isArray(parsed.data)) {
-        topicsStore.rooms = parsed.data.map((r: TopicRoomType) => ({
+        topicsStore.rooms = parsed.data.filter((r: TopicRoomType) => !REMOVED_ROOM_IDS.has(r.id)).map((r: TopicRoomType) => ({
           ...r,
           name: normalizeTopicRoomName(r.name)
         }));
@@ -327,7 +328,7 @@ const Topics = () => {
                   )}
                 </div>
               ) : (
-                rooms.map((room) => (
+                rooms.filter((room) => !REMOVED_ROOM_IDS.has(room.id)).map((room) => (
                   <Card
                     key={room.id}
                     className="border border-primary/50 hover:border-primary cursor-pointer bg-card transition-all shadow-sm"

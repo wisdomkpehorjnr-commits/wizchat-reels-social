@@ -549,6 +549,8 @@ input::placeholder, textarea::placeholder {
 
 /* Larger-screen chrome shares mobile's muted icon tone, with a paired
    grey foreground for filled active tabs (including Ultra's white surface). */
+svg.app-mobile-nav-icon { color: hsl(var(--muted-foreground)); }
+svg.app-chrome-icon { color: hsl(var(--muted-foreground)) !important; stroke-width: 2.4; }
 @media (min-width: 768px) {
   svg.app-chrome-icon {
     color: hsl(var(--muted-foreground)) !important;

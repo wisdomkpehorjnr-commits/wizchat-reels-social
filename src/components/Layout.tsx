@@ -223,7 +223,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                <item.icon className="w-6 h-6" strokeWidth={active ? 2.6 : 2.2} />
+                <item.icon className={`w-6 h-6 ${active ? '' : 'app-mobile-nav-icon'}`} strokeWidth={active ? 2.6 : 2.4} />
                 <span className={`text-[10px] font-medium leading-none ${active ? 'text-primary-foreground' : 'text-muted-foreground'}`}>
                   {item.label}
                 </span>

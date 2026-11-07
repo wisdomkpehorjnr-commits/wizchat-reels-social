@@ -166,7 +166,7 @@ const Friends = () => {
       saveFriendsToCache(userFriends);
     } catch (error) {
       console.error('Error loading friends:', error);
-      if (!silent && friendsStore.friends.length === 0) {
+      if (!silent && friendsStore.friends.length === 0 && navigator.onLine) {
         const err = error instanceof Error ? error : new Error('Failed to load friends');
         setError(err);
         toast({
@@ -341,12 +341,7 @@ const Friends = () => {
                   <Users className="w-6 h-6 mr-2" />
                   Friends
                 </CardTitle>
-                {isOffline && (
-                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                    <WifiOff className="w-4 h-4" />
-                    Offline
-                  </div>
-                )}
+                
               </div>
             </CardHeader>
             <CardContent>
@@ -487,11 +482,11 @@ const Friends = () => {
                     {isOffline ? (
                       <>
                         <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-muted/30 backdrop-blur-xl flex items-center justify-center">
-                          <WifiOff className="w-7 h-7 text-muted-foreground" />
+                          <Users className="w-7 h-7 text-muted-foreground" />
                         </div>
-                        <h3 className="text-lg font-semibold mb-2">You're offline</h3>
+                        <h3 className="text-lg font-semibold mb-2">Your friends will appear here</h3>
                         <p className="text-muted-foreground">
-                          Connect to the internet to see your friends
+                          They'll load as soon as you're back online
                         </p>
                       </>
                     ) : (
