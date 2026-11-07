@@ -25,7 +25,13 @@ interface ThemeProviderProps {
 }
 
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
-  const [themeMode, setThemeModeState] = useState<ThemeMode>('light');
+  const [themeMode, setThemeModeState] = useState<ThemeMode>(() => {
+    try {
+      const saved = localStorage.getItem('theme') as ThemeMode;
+      if (saved && ['light', 'dark', 'ultra', 'ghana'].includes(saved)) return saved;
+    } catch {}
+    return 'light';
+  });
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme') as ThemeMode;

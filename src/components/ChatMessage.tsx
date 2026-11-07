@@ -176,13 +176,13 @@ const ChatMessage = ({
       return <Clock className="w-3 h-3 text-muted-foreground/50 animate-pulse" />;
     }
     if (message.status === 'sent') {
-      return <Check className="w-3 h-3 text-primary" />;
+      return <Check className="w-3.5 h-3.5 text-primary-foreground/70" strokeWidth={2.5} />;
     }
     if (message.status === 'delivered') {
-      return <CheckCheck className="w-3 h-3 text-muted-foreground" />;
+      return <CheckCheck className="w-3.5 h-3.5 text-primary-foreground/70" strokeWidth={2.5} />;
     }
     if (message.status === 'read') {
-      return <CheckCheck className="w-3 h-3 text-primary" />;
+      return <CheckCheck className="w-3.5 h-3.5 chat-read-tick" strokeWidth={2.75} />;
     }
     if (message.status === 'failed') {
       return (
@@ -203,7 +203,7 @@ const ChatMessage = ({
     return null;
   };
 
-  const isDeleted = (message as any).isDeleted;
+  const isDeleted = (message as any).isDeleted || (message as any).is_deleted || message.content === 'This message was deleted';
   const displayContent = isDeleted ? '' : message.content.replace(' [edited]', '');
 
   // Deleted message rendering
@@ -217,9 +217,9 @@ const ChatMessage = ({
               <AvatarFallback className="text-xs">{message.user.name.charAt(0)}</AvatarFallback>
             </Avatar>
           )}
-          <div className={`px-3 py-2 rounded-[18px] ${isOwn ? 'bg-muted/50' : 'bg-muted/30'} border border-border/50`}>
-            <p className="text-sm italic text-muted-foreground">🚫 This message was deleted</p>
-            <span className="text-xs text-muted-foreground/50">{formatTime(message.timestamp)}</span>
+          <div className="px-3 py-2 rounded-[18px] bg-background/20 backdrop-blur-xl border border-foreground/15 shadow-sm">
+            <p className="text-sm italic text-foreground/70">🚫 This message was deleted</p>
+            <span className="text-xs text-foreground/50">{formatTime(message.timestamp)}</span>
           </div>
         </div>
       </div>

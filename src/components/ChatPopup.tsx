@@ -247,7 +247,8 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         { event: '*', schema: 'public', table: 'message_receipts', filter: `chat_id=eq.${chatId}` },
         async () => {
           if (!user?.id) return;
-          const ownIds = messages.filter(m => m.userId === user.id).map(m => m.id);
+          let ownIds: string[] = [];
+          setMessages(prev => { ownIds = prev.filter(m => m.userId === user.id && !String(m.id).startsWith('temp')).map(m => m.id); return prev; });
           if (ownIds.length === 0) return;
           const statuses = await getMessageStatuses(chatId, ownIds);
           setMessages(prev => prev.map(m => {

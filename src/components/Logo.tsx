@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTheme } from '@/contexts/ThemeContext';
+import { ULTRA_LOGO_DATA_URL } from '@/assets/ultraLogo';
 
 const LOGO_CACHE_KEY = 'wizchat-logo-dataurl-v2';
 const LOGO_PATH = '/lovable-uploads/3af45968-ee0a-4afb-9557-c058030ab8dc.png';
@@ -50,7 +52,9 @@ interface LogoProps {
 }
 
 const Logo: React.FC<LogoProps> = ({ size = 'md', className = '' }) => {
-  const cachedSrc = useCachedLogo();
+  const normalSrc = useCachedLogo();
+  const { isUltraMode } = useTheme();
+  const cachedSrc = isUltraMode ? ULTRA_LOGO_DATA_URL : normalSrc;
   const sizeClasses = {
     sm: 'w-8 h-8',
     md: 'w-12 h-12',
