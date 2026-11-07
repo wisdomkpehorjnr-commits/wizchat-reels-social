@@ -440,7 +440,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
           return {
           ...msg,
             type: frontendType,
-            status: (msg.seen ? 'read' : 'delivered') as MessageStatus,
+            status: (msg.seen ? 'read' : (msg.userId === user?.id ? 'sent' : 'delivered')) as MessageStatus,
             fileName: msg.mediaUrl ? msg.mediaUrl.split('/').pop()?.split('?')[0] : undefined
           };
         });
