@@ -57,6 +57,13 @@
       "when": 1792328749095,
       "tag": "0007_restore_friendship_helper_and_group_admin_updates",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794070250783,
+      "tag": "0008_remove_duplicate_news_rooms",
+      "breakpoints": true
     }
   ]
 }
