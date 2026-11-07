@@ -1,0 +1,1 @@
+DELETE FROM public.topic_rooms WHERE id IN ('69af114b-3419-45ac-9bc3-0d40c2f7b080','cb2fe813-3372-4be0-b2d7-432d69d7bd5b');
