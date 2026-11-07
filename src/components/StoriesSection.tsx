@@ -574,7 +574,7 @@ const StoriesSection: React.FC = () => {
       <div className="flex gap-4 p-4 overflow-x-auto bg-background/50 backdrop-blur-sm border-b border-green-500/30">
         {/* Add Story Button */}
         <div className="flex-shrink-0 text-center">
-          <Button variant="outline" size="lg" className="w-16 h-16 rounded-full p-0 backdrop-blur-sm bg-card border-green-500/50 hover:bg-muted/50" onClick={() => setShowCreateDialog(true)}>
+          <Button variant="outline" size="lg" className="w-16 h-16 rounded-full p-0 backdrop-blur-sm bg-card border-green-500/50 hover:bg-muted/50 your-story-ring" onClick={() => setShowCreateDialog(true)}>
             <Plus className="w-6 h-6 text-foreground" />
           </Button>
           <p className="text-xs mt-1 text-foreground">Your Story</p>

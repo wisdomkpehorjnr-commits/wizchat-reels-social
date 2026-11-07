@@ -561,3 +561,11 @@ svg.app-chrome-icon { color: hsl(var(--muted-foreground)) !important; stroke-wid
     stroke-width: 2.6;
   }
 }
+
+/* Read receipts: bright tick readable on the sent bubble */
+.chat-read-tick { color: hsl(var(--primary-foreground)); filter: drop-shadow(0 0 1px hsl(var(--primary-foreground) / 0.6)); }
+.ultra .chat-read-tick { color: hsl(var(--primary-foreground)); }
+
+/* Ultra: black & white wordmark and white Your Story ring */
+.ultra .wizchat-wordmark { background-image: none !important; -webkit-text-fill-color: hsl(var(--foreground)); color: hsl(var(--foreground)); letter-spacing: -0.01em; }
+.ultra .your-story-ring { border-color: hsl(var(--foreground)) !important; border-width: 2px; }

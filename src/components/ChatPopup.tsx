@@ -247,7 +247,8 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
         { event: '*', schema: 'public', table: 'message_receipts', filter: `chat_id=eq.${chatId}` },
         async () => {
           if (!user?.id) return;
-          const ownIds = messages.filter(m => m.userId === user.id).map(m => m.id);
+          let ownIds: string[] = [];
+          setMessages(prev => { ownIds = prev.filter(m => m.userId === user.id && !String(m.id).startsWith('temp')).map(m => m.id); return prev; });
           if (ownIds.length === 0) return;
           const statuses = await getMessageStatuses(chatId, ownIds);
           setMessages(prev => prev.map(m => {
@@ -439,7 +440,7 @@ const ChatPopup = ({ user: chatUser, onClose }: ChatPopupProps) => {
           return {
           ...msg,
             type: frontendType,
-            status: (msg.seen ? 'read' : 'delivered') as MessageStatus,
+            status: (msg.seen ? 'read' : (msg.userId === user?.id ? 'sent' : 'delivered')) as MessageStatus,
             fileName: msg.mediaUrl ? msg.mediaUrl.split('/').pop()?.split('?')[0] : undefined
           };
         });
