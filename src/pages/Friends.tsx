@@ -5,7 +5,9 @@ import Layout from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage as RawAvatarImage } from '@/components/ui/avatar';
+import { useImageCache } from '@/hooks/useImageCache';
+const AvatarImage = ({ src }: { src?: string }) => { const { cachedUrl } = useImageCache(src || undefined); return <RawAvatarImage src={cachedUrl || src} />; };
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -194,6 +196,7 @@ const Friends = () => {
       setSearchResults(filteredUsers);
     } catch (error) {
       console.error('Error searching users:', error);
+      if (!navigator.onLine) return;
       toast({
         title: "Error",
         description: "Failed to search users",
