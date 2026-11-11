@@ -139,7 +139,24 @@ function dispatch(action: Action) {
 
 type Toast = Omit<ToasterToast, "id">
 
-function toast({ ...props }: Toast) {
+const ERROR_TEXT = /(fail|error|could not|couldn't|unable|cannot|can't|went wrong|try again|network|offline|timed? ?out)/i
+
+const textOf = (node: React.ReactNode) => (typeof node === "string" || typeof node === "number" ? String(node) : "")
+
+// Every failure message in the app is replaced by one calm, theme-aware connection notice.
+function friendly(props: Toast): Toast {
+  const isError = props.variant === "destructive" || ERROR_TEXT.test(`${textOf(props.title)} ${textOf(props.description)}`)
+  if (!isError) return props
+  return {
+    ...props,
+    variant: "default",
+    title: "Check your internet connection",
+    description: "This needs internet. Please reconnect and try again.",
+  }
+}
+
+function toast({ ...rawProps }: Toast) {
+  const props = friendly(rawProps)
   const id = genId()
 
   const update = (props: ToasterToast) =>
