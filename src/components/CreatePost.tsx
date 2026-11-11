@@ -31,7 +31,11 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
       // Append instead of replace. Prevent duplicates by name + size.
       const imageFiles = files.filter(f => f.type?.startsWith('image/'));
       const newFiles = imageFiles.filter(f => !selectedFiles.some(sel => sel.name === f.name && sel.size === f.size));
-      const allFiles = [...selectedFiles, ...newFiles];
+      let allFiles = [...selectedFiles, ...newFiles];
+      if (allFiles.length > 15) {
+        allFiles = allFiles.slice(0, 15);
+        toast({ title: 'Up to 15 photos', description: 'Only the first 15 photos were added.' });
+      }
       setSelectedFiles(allFiles);
       setPreviewUrls(allFiles.map(f => URL.createObjectURL(f)));
       if (imageFiles.length) { setVideoFile(null); setVideoPreview(null); }
