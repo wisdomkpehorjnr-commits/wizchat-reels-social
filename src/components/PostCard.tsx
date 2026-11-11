@@ -32,6 +32,7 @@ import ShareBoard from './ShareBoard';
 import PremiumCodeVerification from './PremiumCodeVerification';
 import { useImageCache } from '@/hooks/useImageCache';
 import PostStreakView from './PostStreakView';
+import { PostImageGrid, PostImageGallery } from './PostImageGrid';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sparkles } from 'lucide-react';
 import streakLogo from '@/assets/wizchat-streak-logo.png';
@@ -47,6 +48,7 @@ interface PostCardProps {
 interface OfflineAwareImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   src: string;
   alt: string;
+  wrapperClassName?: string;
 }
 
 // Track images that have been successfully loaded in this session
@@ -54,7 +56,7 @@ const loadedImagesSet = new Set<string>();
 // Track images that failed to load while offline — persists across remounts
 const failedImagesSet = new Set<string>();
 
-function OfflineAwareImage({ src, alt, className = '', ...props }: OfflineAwareImageProps) {
+export function OfflineAwareImage({ src, alt, className = '', wrapperClassName, ...props }: OfflineAwareImageProps) {
   const alreadyLoaded = loadedImagesSet.has(src);
   const alreadyFailedOffline = failedImagesSet.has(src) && !navigator.onLine;
   const [hasError, setHasError] = useState(alreadyFailedOffline);
@@ -87,15 +89,24 @@ function OfflineAwareImage({ src, alt, className = '', ...props }: OfflineAwareI
     return () => window.removeEventListener('online', handleOnline);
   }, [src]);
 
+  const [attempts, setAttempts] = useState(0);
   const handleError = () => {
-    if (!navigator.onLine) {
-      failedImagesSet.add(src);
+    // Online: a fresh upload can take a moment to become readable — retry quietly
+    // instead of flashing an "unavailable" message.
+    if (navigator.onLine) {
+      if (attempts < 6) {
+        const next = attempts + 1;
+        setAttempts(next);
+        setTimeout(() => setRetryKey(k => k + 1), 400 * next);
+      }
+      return;
     }
+    failedImagesSet.add(src);
     setHasError(true);
   };
 
   // Offline placeholder — clean icon, no broken emoji image
-  if (hasError) {
+  if (hasError && !navigator.onLine) {
     return (
       <div
         className={`flex flex-col items-center justify-center bg-muted/30 backdrop-blur-xl border border-border/50 rounded-lg ${className}`}
@@ -117,7 +128,7 @@ function OfflineAwareImage({ src, alt, className = '', ...props }: OfflineAwareI
   }
 
   // Already loaded in this session — render instantly, fully static, no blink
-  if (alreadyLoaded) {
+  if (alreadyLoaded && attempts === 0) {
     return (
       <img
         key={`${src}-${retryKey}`}
@@ -139,8 +150,10 @@ function OfflineAwareImage({ src, alt, className = '', ...props }: OfflineAwareI
 
   // First-time load: HIDE img until loaded to prevent broken-image/alt-text flash
   return (
-    <div className="relative" style={{ minHeight: '200px' }}>
-      <div className={`absolute inset-0 bg-muted/20 rounded-lg transition-opacity ${isLoaded ? 'opacity-0 pointer-events-none' : 'opacity-100'}`} />
+    <div className={`relative ${wrapperClassName || ''}`} style={wrapperClassName ? undefined : { minHeight: '200px' }}>
+      <div className={`absolute inset-0 flex items-center justify-center bg-muted/40 transition-opacity ${isLoaded ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+        <span className="h-4 w-4 rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground/70 animate-spin" />
+      </div>
       <img
         key={`${src}-${retryKey}`}
         src={displayUrl}
@@ -498,6 +511,8 @@ const PostCard = ({ post, onPostUpdate, streakMode = false, streakFooterHeight }
   const [isVideoDownload, setIsVideoDownload] = useState(false);
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [imageModalSrc, setImageModalSrc] = useState('');
+  const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
+  const imageCount = Array.isArray(post.imageUrls) && post.imageUrls.length > 0 ? post.imageUrls.length : (post.imageUrl ? 1 : 0);
 
   const handleLongPressStart = (mediaUrl: string, isVideo: boolean) => {
     if (streakMode) return;
@@ -639,18 +654,18 @@ const PostCard = ({ post, onPostUpdate, streakMode = false, streakFooterHeight }
               {post.content && <div className="px-4 pb-3"><ReadMoreText text={post.content} maxLength={isMobile ? 140 : 250} className="text-sm text-foreground" /></div>}
               
               {/* Media content */}
-              {Array.isArray(post.imageUrls) && post.imageUrls.length > 0 ? (
-                <div className="space-y-0.5">
-                  {post.imageUrls.map((img, idx) => (
-                    <div key={idx} className="overflow-hidden bg-muted">
+              {(() => {
+                const imgs: string[] = Array.isArray(post.imageUrls) && post.imageUrls.length > 0 ? post.imageUrls : (post.imageUrl ? [post.imageUrl] : []);
+                if (imgs.length === 0) return null;
+                if (imgs.length === 1) {
+                  const img = imgs[0];
+                  return (
+                    <div className="overflow-hidden bg-muted">
                       <OfflineAwareImage
                         src={img}
-                        alt={`Post image ${idx + 1}`}
+                        alt="Post image"
                         className={`w-full object-cover cursor-pointer ${isMobile ? 'aspect-[4/3]' : 'max-h-[32rem]'} active:opacity-90 transition-opacity`}
-                        onClick={() => {
-                          setImageModalSrc(img);
-                          setImageModalOpen(true);
-                        }}
+                        onClick={() => { setImageModalSrc(img); setImageModalOpen(true); }}
                         onTouchStart={() => handleLongPressStart(img, false)}
                         onTouchEnd={handleLongPressEnd}
                         onMouseDown={() => handleLongPressStart(img, false)}
@@ -658,28 +673,20 @@ const PostCard = ({ post, onPostUpdate, streakMode = false, streakFooterHeight }
                         onMouseLeave={handleLongPressEnd}
                       />
                     </div>
-                  ))}
-                </div>
-              ) : post.imageUrl && (
-                <div className="overflow-hidden bg-muted">
-                  <OfflineAwareImage 
-                    src={post.imageUrl} 
-                    alt="Post content" 
-                    className={`w-full object-cover cursor-pointer ${isMobile ? 'aspect-[4/3]' : 'max-h-[32rem]'} active:opacity-90 transition-opacity`}
-                    onClick={() => {
-                      setImageModalSrc(post.imageUrl);
-                      setImageModalOpen(true);
-                    }}
-                    onTouchStart={() => handleLongPressStart(post.imageUrl, false)}
-                    onTouchEnd={handleLongPressEnd}
-                    onMouseDown={() => handleLongPressStart(post.imageUrl, false)}
-                    onMouseUp={handleLongPressEnd}
-                    onMouseLeave={handleLongPressEnd}
+                  );
+                }
+                return (
+                  <PostImageGrid
+                    images={imgs}
+                    isMobile={isMobile}
+                    onOpen={(i) => setGalleryIndex(i)}
+                    onLongPressStart={(img) => handleLongPressStart(img, false)}
+                    onLongPressEnd={handleLongPressEnd}
                   />
-                </div>
-              )}
-              
-               {post.videoUrl && (
+                );
+              })()}
+
+              {post.videoUrl && (
                  <LazyVideo
                    videoUrl={post.videoUrl}
                    posterUrl={post.imageUrl || `${post.videoUrl}#t=0.5`}
@@ -774,7 +781,7 @@ const PostCard = ({ post, onPostUpdate, streakMode = false, streakFooterHeight }
                     <Pin className="w-5 h-5 flex-shrink-0 text-primary" />
                     <span>Save Post</span>
                   </motion.button>
-                  <motion.button
+                  {imageCount <= 1 && <motion.button
                     className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-left text-foreground font-medium text-sm transition-all hover:bg-primary/10 active:bg-primary/20 border border-transparent hover:border-primary/20"
                     initial={{ opacity: 0, x: -12 }}
                     animate={{ opacity: 1, x: 0 }}
@@ -783,7 +790,7 @@ const PostCard = ({ post, onPostUpdate, streakMode = false, streakFooterHeight }
                   >
                     <Sparkles className="w-5 h-5 flex-shrink-0 text-primary" />
                     <span>Streak</span>
-                  </motion.button>
+                  </motion.button>}
                   {/* Cancel option intentionally removed — tap outside or back gesture dismisses */}
                 </div>
               </motion.div>
@@ -801,6 +808,16 @@ const PostCard = ({ post, onPostUpdate, streakMode = false, streakFooterHeight }
                 streakFooterHeight={document.querySelector(`[data-post-id="${post.id}"] [data-post-actions]`)?.getBoundingClientRect().height}
               />
             </PostStreakView>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {galleryIndex !== null && (
+            <PostImageGallery
+              images={Array.isArray(post.imageUrls) ? post.imageUrls : []}
+              startIndex={galleryIndex}
+              onClose={() => setGalleryIndex(null)}
+            />
           )}
         </AnimatePresence>
 
