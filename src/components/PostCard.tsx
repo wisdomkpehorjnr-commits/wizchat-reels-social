@@ -36,7 +36,7 @@ import { PostImageGrid, PostImageGallery } from './PostImageGrid';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sparkles } from 'lucide-react';
 import streakLogo from '@/assets/wizchat-streak-logo.png';
-import { POST_TEXT_FONT_FAMILIES } from '@/lib/postTextStyle';
+import { getPostTextPresentation } from '@/lib/postTextStyle';
 
 interface PostCardProps {
   post: any;
@@ -655,22 +655,16 @@ const PostCard = ({ post, onPostUpdate, streakMode = false, streakFooterHeight }
               {post.content && (
                 <div
                   className={post.mediaType === 'text' && !post.imageUrl && !(post.imageUrls?.length) && !post.videoUrl
-                    ? 'post-text-glass mx-3 mb-3 rounded-2xl p-5 sm:mx-4 sm:p-7'
+                    ? 'post-text-glass mx-3 mb-3 flex aspect-[4/3] items-center justify-center overflow-hidden rounded-2xl p-5 sm:mx-4 sm:p-7'
                     : 'px-4 pb-3'}
                   style={post.mediaType === 'text' && !post.imageUrl && !(post.imageUrls?.length) && !post.videoUrl ? {
-                    backgroundColor: post.textStyle?.backgroundColor || undefined,
-                    color: post.textStyle?.textColor || undefined,
-                    fontFamily: post.textStyle?.fontFamily
-                      ? POST_TEXT_FONT_FAMILIES[post.textStyle.fontFamily]
-                      : undefined,
-                    fontWeight: post.textStyle?.bold ? 700 : 400,
-                    fontStyle: post.textStyle?.italic ? 'italic' : 'normal',
+                    ...getPostTextPresentation(post.textStyle),
                   } : undefined}
                 >
                   <ReadMoreText
                     text={post.content}
                     maxLength={isMobile ? 140 : 250}
-                    className={`text-sm ${post.textStyle?.textColor ? '' : 'text-foreground'}`}
+                    className={`text-sm ${post.textStyle?.textColor ? '' : 'text-foreground'} ${post.textStyle?.textAlign === 'center' ? 'text-center' : post.textStyle?.textAlign === 'right' ? 'text-right' : post.textStyle?.textAlign === 'justify' ? 'text-justify' : ''}`}
                   />
                 </div>
               )}

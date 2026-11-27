@@ -150,7 +150,7 @@ export const dataService = {
 
     console.log('Insert data:', insertData);
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('posts')
       .insert(insertData)
       .select(`
@@ -165,6 +165,36 @@ export const dataService = {
         )
       `)
       .single();
+
+    const schemaError = error as { code?: string; message?: string } | null;
+    const missingTextStyleColumn = Boolean(
+      insertData.text_style &&
+      schemaError &&
+      (schemaError.code === '42703' || schemaError.code === 'PGRST204') &&
+      schemaError.message?.toLowerCase().includes('text_style')
+    );
+    let textStylePersisted = true;
+    if (missingTextStyleColumn) {
+      console.warn('Post text styling column is not deployed yet; retrying post without persisted styling.');
+      const compatibleInsertData = { ...insertData };
+      delete compatibleInsertData.text_style;
+      textStylePersisted = false;
+      ({ data, error } = await supabase
+        .from('posts')
+        .insert(compatibleInsertData)
+        .select(`
+          *,
+          user:user_id (
+            id,
+            name,
+            username,
+            email,
+            avatar,
+            is_verified
+          )
+        `)
+        .single());
+    }
 
     if (error) {
       console.error('Error creating post:', error);
@@ -192,7 +222,8 @@ export const dataService = {
       imageUrls: imageUrls,
       videoUrl: data.video_url,
       mediaType: data.media_type as 'text' | 'image' | 'video',
-      textStyle: data.text_style as PostTextStyle | undefined,
+      textStyle: (data.text_style as PostTextStyle | undefined) || postData.textStyle,
+      textStylePersisted,
       isReel: data.is_reel,
       likes: [],
       comments: [],

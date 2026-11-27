@@ -64,8 +64,15 @@ main.relative.isolate section article.group:hover {
 }
 
 .create-post-picker-glass {
-  border-radius: 1rem;
+  max-height: min(72vh, 36rem);
+  overflow-y: auto;
+  border: 1px solid hsl(var(--foreground) / 0.14);
+  border-radius: 1.35rem !important;
+  background: hsl(var(--popover) / 0.9) !important;
   color: hsl(var(--foreground));
+  box-shadow: 0 24px 70px hsl(var(--foreground) / 0.18), inset 0 1px 0 hsl(var(--foreground) / 0.1);
+  backdrop-filter: blur(32px) saturate(155%);
+  -webkit-backdrop-filter: blur(32px) saturate(155%);
 }
 
 .create-post-action {

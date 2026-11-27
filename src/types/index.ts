@@ -31,6 +31,7 @@ export interface Post {
   videoUrl?: string;
   mediaType?: 'text' | 'image' | 'video';
   textStyle?: PostTextStyle;
+  textStylePersisted?: boolean;
   isReel?: boolean;
   musicId?: string;
   music?: MusicTrack;
@@ -43,9 +44,12 @@ export interface Post {
 }
 
 export interface PostTextStyle {
-  fontFamily?: 'system' | 'serif' | 'rounded' | 'mono' | 'cursive';
+  fontFamily?: 'system' | 'serif' | 'rounded' | 'mono' | 'cursive' | 'elegant' | 'modern' | 'classic' | 'handwritten' | 'condensed';
   textColor?: string;
   backgroundColor?: string;
+  backgroundAccentColor?: string;
+  backgroundMode?: 'glass' | 'solid' | 'gradient' | 'blur';
+  textAlign?: 'left' | 'center' | 'right' | 'justify';
   bold?: boolean;
   italic?: boolean;
 }

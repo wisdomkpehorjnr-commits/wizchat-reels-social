@@ -4,19 +4,43 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Bold, Camera, Italic, Palette, Plus, Send, Type, X } from 'lucide-react';
+import {
+  AlignCenter, AlignJustify, AlignLeft, AlignRight, Bold, Camera, Italic,
+  Palette, Plus, Send, Type, X,
+} from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { MediaService } from '@/services/mediaService';
 import type { PostTextStyle } from '@/types';
-import { POST_TEXT_FONT_FAMILIES } from '@/lib/postTextStyle';
+import { getPostTextPresentation, POST_TEXT_FONT_FAMILIES, POST_TEXT_GRADIENTS } from '@/lib/postTextStyle';
 import './social-glass.css';
 
 interface CreatePostProps {
-  onPostCreated?: (postData: any) => void;
+  onPostCreated?: (postData: CreatePostData) => Promise<{ textStylePersisted?: boolean } | void> | { textStylePersisted?: boolean } | void;
   placeholder?: string;
 }
+
+export interface CreatePostData {
+  content: string;
+  imageUrls?: string[];
+  videoUrl?: string;
+  mediaType: 'text' | 'image' | 'video';
+  isReel: boolean;
+  textStyle?: PostTextStyle;
+}
+
+const MAX_POST_WORDS = 2000;
+const TEXT_COLORS = [
+  '#111827', '#ffffff', '#f8fafc', '#9ca3af', '#64748b', '#334155', '#7f1d1d', '#dc2626',
+  '#f97316', '#f59e0b', '#facc15', '#84cc16', '#22c55e', '#059669', '#14b8a6', '#06b6d4',
+  '#0ea5e9', '#3b82f6', '#4f46e5', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899', '#be123c',
+];
+const BACKGROUND_COLORS = [
+  '#ffffff', '#f8fafc', '#e2e8f0', '#fef3c7', '#ffedd5', '#fee2e2', '#fce7f3', '#ede9fe',
+  '#dbeafe', '#cffafe', '#ccfbf1', '#d1fae5', '#ecfccb', '#fef9c3', '#fed7aa', '#fecaca',
+  '#fbcfe8', '#ddd6fe', '#bfdbfe', '#a5f3fc', '#99f6e4', '#a7f3d0', '#bef264', '#1f2937',
+];
 
 const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "What's on your mind?" }) => {
   const { user } = useAuth();
@@ -30,6 +54,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
   const [videoPreview, setVideoPreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const wordCount = content.trim() ? content.trim().split(/\s+/).length : 0;
+  const hasValidWordCount = wordCount <= MAX_POST_WORDS;
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
@@ -70,6 +96,14 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
         title: "Error",
         description: "Please add some content or select a file",
         variant: "destructive",
+      });
+      return;
+    }
+    if (!hasValidWordCount) {
+      toast({
+        title: 'Post is too long',
+        description: `Posts can contain up to ${MAX_POST_WORDS.toLocaleString()} words.`,
+        variant: 'destructive',
       });
       return;
     }
@@ -130,9 +164,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
       };
       setUploadProgress(95);
 
-      if (onPostCreated) {
-        await onPostCreated(postData);
-      }
+      const creationResult = onPostCreated ? await onPostCreated(postData) : undefined;
 
       setUploadProgress(100);
       setContent('');
@@ -145,7 +177,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
 
       toast({
         title: "Success",
-        description: "Post created successfully!",
+        description: creationResult?.textStylePersisted === false
+          ? 'Posted successfully. Custom formatting will persist after the post text-style database migration is applied.'
+          : 'Post created successfully!',
         duration: 2000
       });
     } catch (error) {
@@ -178,22 +212,19 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
               <AvatarFallback className="text-foreground">{user.name?.charAt(0)}</AvatarFallback>
             </Avatar>
             <div className="flex-1">
-              <div className="create-post-text-surface rounded-2xl p-3 transition-colors">
+              <div className="create-post-text-surface rounded-2xl p-3 transition-colors" style={getPostTextPresentation(textStyle)}>
                 <Textarea
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   onFocus={() => setShowFormatting(true)}
                   placeholder={placeholder}
                   className="min-h-[100px] resize-none border-none focus:ring-0 placeholder:text-muted-foreground bg-transparent"
-                  style={{
-                    color: textStyle.textColor,
-                    backgroundColor: textStyle.backgroundColor || 'transparent',
-                    fontFamily: textStyle.fontFamily ? POST_TEXT_FONT_FAMILIES[textStyle.fontFamily] : undefined,
-                    fontWeight: textStyle.bold ? 700 : 400,
-                    fontStyle: textStyle.italic ? 'italic' : 'normal',
-                  }}
+                  style={{ ...getPostTextPresentation(textStyle), backgroundColor: 'transparent', backgroundImage: 'none' }}
                   disabled={isSubmitting}
                 />
+                <div className={`mt-1 text-right text-[11px] ${hasValidWordCount ? 'text-muted-foreground' : 'text-destructive font-medium'}`}>
+                  {wordCount.toLocaleString()} / {MAX_POST_WORDS.toLocaleString()} words
+                </div>
               </div>
               {showFormatting && (
                 <div className="create-post-format-toolbar mt-2 flex flex-wrap items-center gap-1.5 rounded-2xl p-2">
@@ -204,14 +235,19 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
                         <span className="text-xs">Font</span>
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent align="start" className="create-post-picker-glass w-56 p-2">
+                    <PopoverContent align="start" className="create-post-picker-glass w-60 p-2">
                       <p className="px-2 py-1 text-xs font-semibold text-muted-foreground">Font style</p>
                       {([
                         ['system', 'System'],
                         ['serif', 'Serif'],
                         ['rounded', 'Rounded'],
                         ['mono', 'Monospace'],
-                        ['cursive', 'Handwritten'],
+                        ['cursive', 'Cursive'],
+                        ['elegant', 'Elegant'],
+                        ['modern', 'Modern'],
+                        ['classic', 'Classic'],
+                        ['handwritten', 'Handwritten'],
+                        ['condensed', 'Condensed'],
                       ] as const).map(([font, label]) => (
                         <button
                           key={font}
@@ -232,7 +268,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
                         <span className="text-xs">Text</span>
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent align="start" className="create-post-picker-glass w-64 space-y-3">
+                    <PopoverContent align="start" className="create-post-picker-glass w-72 space-y-3 p-4">
                       <label className="flex items-center justify-between text-sm font-medium text-foreground">
                         Text color
                         <input
@@ -243,8 +279,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
                           className="h-9 w-12 cursor-pointer rounded-lg border border-border bg-transparent p-1"
                         />
                       </label>
-                      <div className="grid grid-cols-8 gap-1.5">
-                        {['#111827', '#ffffff', '#ef4444', '#f97316', '#f59e0b', '#84cc16', '#22c55e', '#14b8a6', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#ec4899', '#78716c', '#64748b'].map(color => (
+                      <div className="grid grid-cols-8 gap-2">
+                        {TEXT_COLORS.map(color => (
                           <button key={color} type="button" aria-label={`Set text color ${color}`} onClick={() => setTextStyle(previous => ({ ...previous, textColor: color }))} className="h-6 w-6 rounded-full border border-foreground/20" style={{ backgroundColor: color }} />
                         ))}
                       </div>
@@ -258,23 +294,95 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
                         <span className="text-xs">Background</span>
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent align="start" className="create-post-picker-glass w-64 space-y-3">
-                      <label className="flex items-center justify-between text-sm font-medium text-foreground">
-                        Background color
-                        <input
-                          type="color"
-                          aria-label="Choose background color"
-                          value={textStyle.backgroundColor || '#d1fae5'}
-                          onChange={event => setTextStyle(previous => ({ ...previous, backgroundColor: event.target.value }))}
-                          className="h-9 w-12 cursor-pointer rounded-lg border border-border bg-transparent p-1"
-                        />
-                      </label>
-                      <div className="grid grid-cols-8 gap-1.5">
-                        {['#ffffff', '#fef3c7', '#ffedd5', '#fee2e2', '#fce7f3', '#ede9fe', '#dbeafe', '#cffafe', '#ccfbf1', '#d1fae5', '#ecfccb', '#f1f5f9', '#1f2937', '#7f1d1d', '#312e81', '#064e3b'].map(color => (
-                          <button key={color} type="button" aria-label={`Set background color ${color}`} onClick={() => setTextStyle(previous => ({ ...previous, backgroundColor: color }))} className="h-6 w-6 rounded-full border border-foreground/20" style={{ backgroundColor: color }} />
-                        ))}
+                    <PopoverContent align="start" className="create-post-picker-glass w-[min(22rem,calc(100vw-2rem))] space-y-4 p-4">
+                      <div>
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Background style</p>
+                        <div className="grid grid-cols-4 gap-1 rounded-xl bg-muted/50 p-1">
+                          {([
+                            ['glass', 'Glass'],
+                            ['solid', 'Solid'],
+                            ['gradient', 'Gradient'],
+                            ['blur', 'Color blur'],
+                          ] as const).map(([mode, label]) => (
+                            <button
+                              key={mode}
+                              type="button"
+                              aria-pressed={(textStyle.backgroundMode || 'glass') === mode}
+                              onClick={() => setTextStyle(previous => ({ ...previous, backgroundMode: mode }))}
+                              className={`rounded-lg px-1.5 py-2 text-[11px] font-medium transition-colors ${(textStyle.backgroundMode || 'glass') === mode ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                      <button type="button" onClick={() => setTextStyle(previous => ({ ...previous, backgroundColor: undefined }))} className="text-xs font-medium text-primary">Use blurred glass</button>
+                      {textStyle.backgroundMode !== 'glass' && (
+                        <>
+                          <div className="flex items-center justify-between">
+                            <label className="text-sm font-medium text-foreground">
+                              {textStyle.backgroundMode === 'solid' ? 'Background color' : 'First color'}
+                              <input
+                                type="color"
+                                aria-label="Choose first background color"
+                                value={textStyle.backgroundColor || '#d1fae5'}
+                                onChange={event => setTextStyle(previous => ({ ...previous, backgroundColor: event.target.value }))}
+                                className="ml-2 h-8 w-10 cursor-pointer rounded-lg border border-border bg-transparent p-1 align-middle"
+                              />
+                            </label>
+                            {textStyle.backgroundMode !== 'solid' && (
+                              <label className="text-sm font-medium text-foreground">
+                                Second color
+                                <input
+                                  type="color"
+                                  aria-label="Choose second background color"
+                                  value={textStyle.backgroundAccentColor || '#818cf8'}
+                                  onChange={event => setTextStyle(previous => ({ ...previous, backgroundAccentColor: event.target.value }))}
+                                  className="ml-2 h-8 w-10 cursor-pointer rounded-lg border border-border bg-transparent p-1 align-middle"
+                                />
+                              </label>
+                            )}
+                          </div>
+                          {textStyle.backgroundMode !== 'solid' && (
+                            <div>
+                              <p className="mb-2 text-xs font-semibold text-muted-foreground">Color blends</p>
+                              <div className="grid grid-cols-4 gap-2">
+                                {POST_TEXT_GRADIENTS.map(({ label, colors }) => (
+                                  <button
+                                    key={label}
+                                    type="button"
+                                    aria-label={`${label} background`}
+                                    title={label}
+                                    onClick={() => setTextStyle(previous => ({ ...previous, backgroundMode: previous.backgroundMode === 'blur' ? 'blur' : 'gradient', backgroundColor: colors[0], backgroundAccentColor: colors[1] }))}
+                                    className={`h-9 rounded-xl border border-foreground/10 transition-transform hover:scale-105 ${textStyle.backgroundColor === colors[0] && textStyle.backgroundAccentColor === colors[1] ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''}`}
+                                    style={{ backgroundImage: `linear-gradient(135deg, ${colors[0]}, ${colors[1]})` }}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {textStyle.backgroundMode === 'solid' && (
+                            <div className="grid grid-cols-8 gap-2">
+                              {BACKGROUND_COLORS.map(color => (
+                                <button
+                                  key={color}
+                                  type="button"
+                                  aria-label={`Set background color ${color}`}
+                                  onClick={() => setTextStyle(previous => ({ ...previous, backgroundColor: color }))}
+                                  className={`h-6 w-6 rounded-full border border-foreground/20 ${textStyle.backgroundColor === color ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''}`}
+                                  style={{ backgroundColor: color }}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setTextStyle(previous => ({ ...previous, backgroundMode: 'glass', backgroundColor: undefined, backgroundAccentColor: undefined }))}
+                        className="text-xs font-medium text-primary"
+                      >
+                        Reset to blurred glass
+                      </button>
                     </PopoverContent>
                   </Popover>
                   <Button
@@ -295,6 +403,26 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
                     onClick={() => setTextStyle(previous => ({ ...previous, italic: !previous.italic }))}
                     className={`create-post-action h-9 w-9 rounded-xl p-0 ${textStyle.italic ? 'bg-primary/15 text-primary' : ''}`}
                   ><Italic className="h-4 w-4" /></Button>
+                  <div className="mx-1 h-6 w-px bg-border" aria-hidden="true" />
+                  {([
+                    ['left', AlignLeft, 'Align text left'],
+                    ['center', AlignCenter, 'Center text'],
+                    ['right', AlignRight, 'Align text right'],
+                    ['justify', AlignJustify, 'Justify text'],
+                  ] as const).map(([alignment, Icon, label]) => (
+                    <Button
+                      key={alignment}
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      aria-label={label}
+                      aria-pressed={(textStyle.textAlign || 'left') === alignment}
+                      onClick={() => setTextStyle(previous => ({ ...previous, textAlign: alignment }))}
+                      className={`create-post-action h-9 w-9 rounded-xl p-0 ${(textStyle.textAlign || 'left') === alignment ? 'bg-primary/15 text-primary' : ''}`}
+                    >
+                      <Icon className="h-4 w-4" />
+                    </Button>
+                  ))}
                 </div>
               )}
             </div>
@@ -390,7 +518,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
             </div>
             <Button
               type="submit"
-              disabled={(!content.trim() && selectedFiles.length === 0 && !videoFile) || isSubmitting}
+              disabled={(!content.trim() && selectedFiles.length === 0 && !videoFile) || !hasValidWordCount || isSubmitting}
               className="create-post-submit rounded-full px-5 font-semibold"
             >
               {isSubmitting ? (

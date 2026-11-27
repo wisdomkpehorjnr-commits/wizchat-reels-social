@@ -17,6 +17,8 @@ import GlobalSearch from '@/components/GlobalSearch';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { preloadPostsImages } from '@/services/preloadService';
 import { offlineDataManager } from '@/services/offlineDataManager';
+import type { CreatePostData } from '@/components/CreatePost';
+import type { Post } from '@/types';
 
 // =============================================
 // PERSISTENT MODULE-LEVEL STORE (survives all remounts)
@@ -263,24 +265,54 @@ const Home = () => {
     }
   };
 
-  const handlePostCreated = async (postData: any) => {
+  const handlePostCreated = async (postData: CreatePostData) => {
+    if (!user) throw new Error('You must be signed in to create a post.');
+    const optimisticPost: Post = {
+      id: `temp-${crypto.randomUUID()}`,
+      userId: user.id,
+      user,
+      content: postData.content,
+      imageUrls: postData.imageUrls,
+      videoUrl: postData.videoUrl,
+      mediaType: postData.mediaType,
+      textStyle: postData.textStyle,
+      isReel: postData.isReel,
+      likes: [],
+      comments: [],
+      reactions: [],
+      hashtags: [],
+      createdAt: new Date(),
+    };
+    const addOptimisticPost = (nextPosts: Post[]) => {
+      homeStore.posts = nextPosts;
+      homeStore.postCount = nextPosts.length;
+      saveToLocalStorage(nextPosts, 0);
+      setPosts(nextPosts);
+    };
+
+    addOptimisticPost([optimisticPost, ...posts]);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     try {
       const createdPost = await dataService.createPost(postData);
-      setPosts(prevPosts => {
-        const updated = [createdPost, ...prevPosts];
+      setPosts(currentPosts => {
+        const updated = currentPosts.map(post => post.id === optimisticPost.id ? createdPost : post);
+        homeStore.posts = updated;
+        homeStore.postCount = updated.length;
+        saveToLocalStorage(updated, 0);
+        offlineDataManager.cacheFeed(updated, 2 * 60 * 60 * 1000).catch(error => {
+          console.warn('Unable to cache the updated feed:', error);
+        });
+        return updated;
+      });
+      return { textStylePersisted: createdPost.textStylePersisted };
+    } catch (error) {
+      setPosts(currentPosts => {
+        const updated = currentPosts.filter(post => post.id !== optimisticPost.id);
         homeStore.posts = updated;
         homeStore.postCount = updated.length;
         saveToLocalStorage(updated, homeStore.scrollY);
-        try { offlineDataManager.cacheFeed(updated, 2 * 60 * 60 * 1000).catch(() => {}); } catch {}
         return updated;
       });
-      setTimeout(() => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        homeStore.scrollY = 0;
-        saveToLocalStorage(homeStore.posts, 0);
-      }, 100);
-      toast({ title: 'Success', description: 'Post created successfully!', duration: 2000 });
-    } catch (error) {
       throw error;
     }
   };
