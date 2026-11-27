@@ -8,7 +8,8 @@ import { dataService } from '@/services/dataService';
 import { ProfileService } from '@/services/profileService';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
-import { User, Friend } from '@/types';
+import { User } from '@/types';
+import './social-glass.css';
 
 const FriendsSuggestionCard = () => {
   const { user } = useAuth();
@@ -19,9 +20,7 @@ const FriendsSuggestionCard = () => {
   const [followingStates, setFollowingStates] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    if (user) {
-      loadSuggestions();
-    }
+    if (user) loadSuggestions();
   }, [user]);
 
   const loadSuggestions = async () => {
@@ -29,43 +28,26 @@ const FriendsSuggestionCard = () => {
 
     try {
       setLoading(true);
-      
-      // Get all users (we'll filter out friends)
       const allUsers = await dataService.searchUsers('');
-      
-      // Get current user's friends
       const friends = await dataService.getFriends();
       const friendIds = new Set<string>();
-      
+
       friends.forEach(friend => {
-        if (friend.requester.id === user.id) {
-          friendIds.add(friend.addressee.id);
-        } else {
-          friendIds.add(friend.requester.id);
-        }
+        if (friend.requester.id === user.id) friendIds.add(friend.addressee.id);
+        else friendIds.add(friend.requester.id);
       });
 
-      // Filter out current user and existing friends
-      const filteredUsers = allUsers.filter(u => 
-        u.id !== user.id && !friendIds.has(u.id)
-      );
-
-      // Shuffle and take first 10 suggestions
-      const shuffled = filteredUsers.sort(() => Math.random() - 0.5);
-      const suggestionsList = shuffled.slice(0, 10);
-      
+      const filteredUsers = allUsers.filter(u => u.id !== user.id && !friendIds.has(u.id));
+      const suggestionsList = filteredUsers.sort(() => Math.random() - 0.5).slice(0, 10);
       setSuggestions(suggestionsList);
 
-      // Load following states
       const states: Record<string, boolean> = {};
       for (const suggestion of suggestionsList) {
-        const isFollowing = await dataService.checkIfFollowing(suggestion.id);
-        states[suggestion.id] = isFollowing;
+        states[suggestion.id] = await dataService.checkIfFollowing(suggestion.id);
       }
       setFollowingStates(states);
     } catch (error) {
       console.error('Error loading friend suggestions:', error);
-      // Silently fail - do not show toast for failed suggestions
     } finally {
       setLoading(false);
     }
@@ -76,112 +58,90 @@ const FriendsSuggestionCard = () => {
       if (currentlyFollowing) {
         await ProfileService.unfollowUser(userId);
         setFollowingStates(prev => ({ ...prev, [userId]: false }));
-        toast({
-          title: "Unfollowed",
-          description: "You are no longer following this user"
-        });
+        toast({ title: 'Unfollowed', description: 'You are no longer following this user' });
       } else {
         await ProfileService.followUser(userId);
         setFollowingStates(prev => ({ ...prev, [userId]: true }));
-        toast({
-          title: "Following",
-          description: "You are now following this user!"
-        });
+        toast({ title: 'Following', description: 'You are now following this user!' });
       }
     } catch (error) {
       console.error('Error toggling follow:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update follow status",
-        variant: "default"
-      });
+      toast({ title: 'Error', description: 'Failed to update follow status', variant: 'default' });
     }
   };
 
   const handleAddFriend = async (userId: string) => {
     try {
       await dataService.sendFriendRequest(userId);
-      toast({
-        title: "Success",
-        description: "Friend request sent!"
-      });
-      // Remove from suggestions
+      toast({ title: 'Success', description: 'Friend request sent!' });
       setSuggestions(prev => prev.filter(u => u.id !== userId));
     } catch (error) {
       console.error('Error sending friend request:', error);
-      toast({
-        title: "Error",
-        description: "Failed to send friend request",
-        variant: "default"
-      });
+      toast({ title: 'Error', description: 'Failed to send friend request', variant: 'default' });
     }
   };
 
-  if (loading || suggestions.length === 0) {
-    return null;
-  }
+  if (loading || suggestions.length === 0) return null;
 
   return (
-    <Card className="w-full border-2 border-green-500 bg-background mb-6">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-lg font-semibold text-foreground">
+    <Card className="mb-6 w-full overflow-hidden rounded-[2rem] border-0 bg-card/55 shadow-xl shadow-primary/[0.04] backdrop-blur-2xl">
+      <CardHeader className="pb-2 pt-5 sm:px-6">
+        <CardTitle className="text-lg font-semibold tracking-tight text-foreground sm:text-xl">
           People You May Know
         </CardTitle>
+        <p className="text-sm text-muted-foreground">Find new people to connect with</p>
       </CardHeader>
-      <CardContent className="p-4">
-        <div className="overflow-x-auto scrollbar-hide">
-          <div className="flex space-x-4 pb-2" style={{ minWidth: 'max-content' }}>
-            {suggestions.map((suggestion) => (
-              <div
+      <CardContent className="p-4 pt-3 sm:px-6 sm:pb-6">
+        <div className="overflow-x-auto scrollbar-hide -mx-1 px-1">
+          <div className="flex gap-4 pb-2" style={{ minWidth: 'max-content' }}>
+            {suggestions.map((suggestion, index) => (
+              <article
                 key={suggestion.id}
-                className="flex-shrink-0 w-48 border border-green-500 rounded-lg bg-background hover:shadow-md transition-shadow"
+                className="group w-52 flex-shrink-0 rounded-[1.75rem] bg-background/45 p-4 text-center shadow-lg shadow-primary/[0.035] backdrop-blur-2xl transition-[transform,background-color,box-shadow] duration-300 hover:-translate-y-1 hover:bg-background/65 hover:shadow-xl hover:shadow-primary/[0.08] motion-reduce:transition-none sm:w-56"
+                style={{ animationDelay: `${Math.min(index * 50, 350)}ms` }}
               >
-                <div className="p-4 text-center">
-                  <div 
-                    className="cursor-pointer mb-3"
-                    onClick={() => navigate(`/profile/${suggestion.username || suggestion.id}`)}
+                <button
+                  type="button"
+                  onClick={() => navigate(`/profile/${suggestion.username || suggestion.id}`)}
+                  className="mb-3 block w-full rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+                  aria-label={`View ${suggestion.name}'s profile`}
+                >
+                  <Avatar className="mx-auto h-16 w-16 shadow-md ring-4 ring-primary/10 transition-transform duration-300 group-hover:scale-105 sm:h-[4.5rem] sm:w-[4.5rem]">
+                    <AvatarImage src={suggestion.avatar} />
+                    <AvatarFallback className="bg-primary/10 text-lg font-semibold text-primary">
+                      {suggestion.name?.charAt(0) || 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+                </button>
+                <button
+                  type="button"
+                  className="max-w-full truncate rounded-md text-sm font-semibold text-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+                  onClick={() => navigate(`/profile/${suggestion.username || suggestion.id}`)}
+                >
+                  {suggestion.name}
+                </button>
+                <p className="mb-4 mt-1 truncate text-xs text-muted-foreground">@{suggestion.username || 'user'}</p>
+                <div className="space-y-2">
+                  <Button
+                    variant={followingStates[suggestion.id] ? 'secondary' : 'default'}
+                    size="sm"
+                    onClick={() => handleFollowToggle(suggestion.id, !!followingStates[suggestion.id])}
+                    className="h-10 w-full rounded-full px-4 text-xs font-semibold shadow-sm transition-all duration-200 hover:scale-[1.03] active:scale-95 motion-reduce:transform-none"
                   >
-                    <Avatar className="w-16 h-16 mx-auto">
-                      <AvatarImage src={suggestion.avatar} />
-                      <AvatarFallback className="text-lg bg-gradient-to-br from-purple-400 to-pink-400 text-white">
-                        {suggestion.name?.charAt(0) || 'U'}
-                      </AvatarFallback>
-                    </Avatar>
-                  </div>
-                  
-                  <h3 
-                    className="font-medium text-sm text-foreground mb-1 hover:text-green-500 cursor-pointer truncate"
-                    onClick={() => navigate(`/profile/${suggestion.username || suggestion.id}`)}
+                    <Heart className={`mr-1.5 h-4 w-4 ${followingStates[suggestion.id] ? 'fill-current' : ''}`} />
+                    {followingStates[suggestion.id] ? 'Following' : 'Follow'}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handleAddFriend(suggestion.id)}
+                    className="h-10 w-full rounded-full bg-primary/10 px-4 text-xs font-semibold text-primary shadow-none transition-all duration-200 hover:scale-[1.03] hover:bg-primary/15 active:scale-95 motion-reduce:transform-none"
                   >
-                    {suggestion.name}
-                  </h3>
-                  
-                  <p className="text-xs text-muted-foreground mb-3 truncate">
-                    @{suggestion.username || 'user'}
-                  </p>
-                  
-                  <div className="space-y-2">
-                    <Button
-                      variant={followingStates[suggestion.id] ? "secondary" : "default"}
-                      size="sm"
-                      onClick={() => handleFollowToggle(suggestion.id, followingStates[suggestion.id])}
-                      className="w-full h-7 text-xs bg-green-600 hover:bg-green-700 text-white"
-                    >
-                      <Heart className={`w-3 h-3 mr-1 ${followingStates[suggestion.id] ? 'fill-current' : ''}`} />
-                      {followingStates[suggestion.id] ? 'Following' : 'Follow'}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleAddFriend(suggestion.id)}
-                      className="w-full h-7 text-xs border-green-500 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20"
-                    >
-                      <UserPlus className="w-3 h-3 mr-1" />
-                      Add Friend
-                    </Button>
-                  </div>
+                    <UserPlus className="mr-1.5 h-4 w-4" />
+                    Add friend
+                  </Button>
                 </div>
-              </div>
+              </article>
             ))}
           </div>
         </div>
@@ -191,4 +151,3 @@ const FriendsSuggestionCard = () => {
 };
 
 export default FriendsSuggestionCard;
-

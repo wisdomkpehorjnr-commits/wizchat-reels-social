@@ -1,0 +1,58 @@
+/* Scoped glass treatment for the accepted-friends cards rendered in the Friends tab.
+   Loaded with the social suggestion cards so it does not change app-wide surfaces. */
+[role="tabpanel"] .grid > div:has(> div.text-center) {
+  border: 0 !important;
+  border-radius: 1.75rem !important;
+  background: hsl(var(--card) / 0.56) !important;
+  box-shadow: 0 12px 32px hsl(var(--primary) / 0.045) !important;
+  backdrop-filter: blur(24px) saturate(145%);
+  -webkit-backdrop-filter: blur(24px) saturate(145%);
+  padding: 0.35rem;
+  transition: transform 220ms ease, background-color 220ms ease, box-shadow 220ms ease;
+}
+
+[role="tabpanel"] .grid > div:has(> div.text-center):hover {
+  transform: translateY(-3px);
+  background: hsl(var(--card) / 0.72) !important;
+  box-shadow: 0 18px 38px hsl(var(--primary) / 0.09) !important;
+}
+
+[role="tabpanel"] .grid > div:has(> div.text-center) > div.text-center {
+  padding: 1.15rem 0.85rem !important;
+}
+
+[role="tabpanel"] .grid > div:has(> div.text-center) > div.text-center > a:first-child > span {
+  width: 3.75rem;
+  height: 3.75rem;
+  margin-bottom: 0.85rem;
+  box-shadow: 0 6px 18px hsl(var(--primary) / 0.1);
+  outline: 4px solid hsl(var(--primary) / 0.08);
+}
+
+[role="tabpanel"] .grid > div:has(> div.text-center) button {
+  min-height: 2.5rem;
+  border: 0 !important;
+  border-radius: 9999px !important;
+  font-weight: 600;
+  transition: transform 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+}
+
+[role="tabpanel"] .grid > div:has(> div.text-center) button:active {
+  transform: scale(0.96);
+}
+
+[role="tabpanel"] .grid > div:has(> div.text-center) button:last-child {
+  background: hsl(var(--destructive) / 0.08) !important;
+  color: hsl(var(--destructive)) !important;
+}
+
+[role="tabpanel"] .grid > div:has(> div.text-center) button:last-child:hover {
+  background: hsl(var(--destructive) / 0.15) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [role="tabpanel"] .grid > div:has(> div.text-center),
+  [role="tabpanel"] .grid > div:has(> div.text-center) button {
+    transition: none;
+  }
+}

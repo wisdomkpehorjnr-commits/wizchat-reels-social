@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getCachedPymk, getPymk, PymkUser } from '@/services/peopleYouMayKnowService';
 import { supabase } from '@/integrations/supabase/client';
 import SmartAvatar from '@/components/SmartAvatar';
+import './social-glass.css';
 
 /**
  * People You May Know card — pinned and shown every N posts.
@@ -43,46 +44,54 @@ const PeopleYouMayKnowCard = () => {
   };
 
   return (
-    <Card className="w-full border-primary/30 bg-card mb-6">
-      <CardContent className="p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Users className="w-4 h-4 text-primary" />
-          <h3 className="text-sm font-semibold text-foreground">People You May Know</h3>
+    <Card className="mb-6 w-full overflow-hidden rounded-[2rem] border-0 bg-card/55 shadow-xl shadow-primary/[0.04] backdrop-blur-2xl">
+      <CardContent className="p-4 sm:p-6">
+        <div className="mb-4 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <Users className="h-5 w-5" aria-hidden="true" />
+          </div>
+          <div>
+            <h3 className="text-base font-semibold tracking-tight text-foreground sm:text-lg">People You May Know</h3>
+            <p className="text-xs text-muted-foreground sm:text-sm">Good people, shared connections</p>
+          </div>
         </div>
-        <div className="overflow-x-auto -mx-1 px-1">
-          <div className="flex gap-3 pb-1" style={{ minWidth: 'max-content' }}>
-            {users.slice(0, 15).map((u) => (
-              <div
+        <div className="overflow-x-auto -mx-1 px-1 scrollbar-hide">
+          <div className="flex gap-4 pb-2" style={{ minWidth: 'max-content' }}>
+            {users.slice(0, 15).map((u, index) => (
+              <article
                 key={u.id}
-                className="flex-shrink-0 w-40 border border-border rounded-xl bg-background p-3 text-center hover:shadow-md transition-shadow"
+                className="group w-48 flex-shrink-0 rounded-[1.75rem] bg-background/45 p-4 text-center shadow-lg shadow-primary/[0.035] backdrop-blur-2xl transition-[transform,background-color,box-shadow] duration-300 hover:-translate-y-1 hover:bg-background/65 hover:shadow-xl hover:shadow-primary/[0.08] motion-reduce:transition-none sm:w-52"
+                style={{ animationDelay: `${Math.min(index * 50, 350)}ms` }}
               >
                 <button
+                  type="button"
                   onClick={() => navigate(`/profile/${u.id}`)}
-                  className="block mx-auto mb-2"
+                  className="mb-3 block w-full rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+                  aria-label={`View ${u.name}'s profile`}
                 >
-                  <SmartAvatar src={u.avatar} alt={u.name} className="w-14 h-14 mx-auto" />
+                  <SmartAvatar src={u.avatar} alt={u.name} className="mx-auto h-[4.5rem] w-[4.5rem] shadow-md ring-4 ring-primary/10 transition-transform duration-300 group-hover:scale-105" />
                 </button>
-                <p
-                  className="text-xs font-medium text-foreground truncate cursor-pointer hover:text-primary"
+                <button
+                  type="button"
+                  className="max-w-full truncate rounded-md text-sm font-semibold text-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
                   onClick={() => navigate(`/profile/${u.id}`)}
                 >
                   {u.name}
-                </p>
-                <p className="text-[10px] text-muted-foreground truncate mb-2">
-                  @{u.username}
-                  {u.mutualCount && u.mutualCount > 0 ? ` · ${u.mutualCount} mutual` : ''}
+                </button>
+                <p className="mb-4 mt-1 truncate text-xs text-muted-foreground">
+                  @{u.username}{u.mutualCount && u.mutualCount > 0 ? ` · ${u.mutualCount} mutual` : ''}
                 </p>
                 <Button
                   size="sm"
-                  variant="outline"
-                  className="w-full h-7 text-xs gap-1"
+                  variant="secondary"
+                  className="h-10 w-full rounded-full bg-primary/10 px-4 text-xs font-semibold text-primary shadow-none transition-all duration-200 hover:scale-[1.03] hover:bg-primary/15 active:scale-95 motion-reduce:transform-none"
                   disabled={pendingFriend.has(u.id)}
                   onClick={() => addFriend(u.id)}
                 >
-                  <UserPlus className="w-3 h-3" />
-                  {pendingFriend.has(u.id) ? 'Sent' : 'Add Friend'}
+                  <UserPlus className="mr-1.5 h-4 w-4" />
+                  {pendingFriend.has(u.id) ? 'Request sent' : 'Add friend'}
                 </Button>
-              </div>
+              </article>
             ))}
           </div>
         </div>
