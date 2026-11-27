@@ -30,6 +30,7 @@ export interface Post {
   imageUrls?: string[];
   videoUrl?: string;
   mediaType?: 'text' | 'image' | 'video';
+  textStyle?: PostTextStyle;
   isReel?: boolean;
   musicId?: string;
   music?: MusicTrack;
@@ -39,6 +40,14 @@ export interface Post {
   hashtags: Hashtag[];
   createdAt: Date;
   expiresAt?: Date;
+}
+
+export interface PostTextStyle {
+  fontFamily?: 'system' | 'serif' | 'rounded' | 'mono' | 'cursive';
+  textColor?: string;
+  backgroundColor?: string;
+  bold?: boolean;
+  italic?: boolean;
 }
 
 export interface Comment {

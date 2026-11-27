@@ -290,6 +290,7 @@ export class ProfileService {
           imageUrl: post.image_url,
           videoUrl: post.video_url,
           mediaType: post.media_type as 'text' | 'image' | 'video',
+          textStyle: post.text_style,
           isReel: post.is_reel,
           musicId: post.music_id,
           likes: post.likes?.map((like: any) => like.user_id) || [],

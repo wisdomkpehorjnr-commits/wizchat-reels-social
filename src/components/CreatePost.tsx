@@ -4,10 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Camera, Video, X, Plus } from 'lucide-react';
+import { Bold, Camera, Italic, Palette, Plus, Send, Type, X } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { MediaService } from '@/services/mediaService';
+import type { PostTextStyle } from '@/types';
+import { POST_TEXT_FONT_FAMILIES } from '@/lib/postTextStyle';
 import './social-glass.css';
 
 interface CreatePostProps {
@@ -19,6 +22,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
   const { user } = useAuth();
   const { toast } = useToast();
   const [content, setContent] = useState('');
+  const [textStyle, setTextStyle] = useState<PostTextStyle>({});
+  const [showFormatting, setShowFormatting] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -29,6 +34,20 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
     if (files.length) {
+      const video = files.find(file => file.type?.startsWith('video/'));
+      if (video) {
+        if (video.size > MediaService.MAX_VIDEO_BYTES) {
+          toast({ title: 'Video too large', description: 'Reels must be under 25MB.', variant: 'destructive' });
+          event.target.value = '';
+          return;
+        }
+        setSelectedFiles([]);
+        setPreviewUrls([]);
+        setVideoFile(video);
+        setVideoPreview(URL.createObjectURL(video));
+        event.target.value = '';
+        return;
+      }
       // Append instead of replace. Prevent duplicates by name + size.
       const imageFiles = files.filter(f => f.type?.startsWith('image/'));
       const newFiles = imageFiles.filter(f => !selectedFiles.some(sel => sel.name === f.name && sel.size === f.size));
@@ -40,24 +59,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
       setSelectedFiles(allFiles);
       setPreviewUrls(allFiles.map(f => URL.createObjectURL(f)));
       if (imageFiles.length) { setVideoFile(null); setVideoPreview(null); }
+      event.target.value = '';
     }
-  };
-
-  const handleVideoSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = (event.target.files || [])[0];
-    if (!file) return;
-    if (!file.type?.startsWith('video/')) {
-      toast({ title: 'Please select a video file', variant: 'destructive' });
-      return;
-    }
-    if (file.size > MediaService.MAX_VIDEO_BYTES) {
-      toast({ title: 'Video too large', description: 'Reels must be under 25MB.', variant: 'destructive' });
-      return;
-    }
-    setSelectedFiles([]);
-    setPreviewUrls([]);
-    setVideoFile(file);
-    setVideoPreview(URL.createObjectURL(file));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -123,6 +126,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
         videoUrl,
         mediaType,
         isReel: mediaType === 'video',
+        textStyle: mediaType === 'text' ? textStyle : undefined,
       };
       setUploadProgress(95);
 
@@ -132,14 +136,12 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
 
       setUploadProgress(100);
       setContent('');
+      setTextStyle({});
+      setShowFormatting(false);
       setSelectedFiles([]);
       setPreviewUrls([]);
       setVideoFile(null);
       setVideoPreview(null);
-      const fileInput = document.getElementById('file-input') as HTMLInputElement;
-      if (fileInput) fileInput.value = '';
-      const videoInput = document.getElementById('video-input') as HTMLInputElement;
-      if (videoInput) videoInput.value = '';
 
       toast({
         title: "Success",
@@ -176,13 +178,125 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
               <AvatarFallback className="text-foreground">{user.name?.charAt(0)}</AvatarFallback>
             </Avatar>
             <div className="flex-1">
-              <Textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder={placeholder}
-                className="min-h-[100px] resize-none border-none focus:ring-0 text-foreground placeholder:text-muted-foreground bg-transparent"
-                disabled={isSubmitting}
-              />
+              <div className="create-post-text-surface rounded-2xl p-3 transition-colors">
+                <Textarea
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  onFocus={() => setShowFormatting(true)}
+                  placeholder={placeholder}
+                  className="min-h-[100px] resize-none border-none focus:ring-0 placeholder:text-muted-foreground bg-transparent"
+                  style={{
+                    color: textStyle.textColor,
+                    backgroundColor: textStyle.backgroundColor || 'transparent',
+                    fontFamily: textStyle.fontFamily ? POST_TEXT_FONT_FAMILIES[textStyle.fontFamily] : undefined,
+                    fontWeight: textStyle.bold ? 700 : 400,
+                    fontStyle: textStyle.italic ? 'italic' : 'normal',
+                  }}
+                  disabled={isSubmitting}
+                />
+              </div>
+              {showFormatting && (
+                <div className="create-post-format-toolbar mt-2 flex flex-wrap items-center gap-1.5 rounded-2xl p-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button type="button" variant="ghost" size="sm" className="create-post-action h-9 gap-2 rounded-xl px-2.5" aria-label="Choose font style">
+                        <Type className="h-4 w-4" />
+                        <span className="text-xs">Font</span>
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="start" className="create-post-picker-glass w-56 p-2">
+                      <p className="px-2 py-1 text-xs font-semibold text-muted-foreground">Font style</p>
+                      {([
+                        ['system', 'System'],
+                        ['serif', 'Serif'],
+                        ['rounded', 'Rounded'],
+                        ['mono', 'Monospace'],
+                        ['cursive', 'Handwritten'],
+                      ] as const).map(([font, label]) => (
+                        <button
+                          key={font}
+                          type="button"
+                          onClick={() => setTextStyle(previous => ({ ...previous, fontFamily: font }))}
+                          className="w-full rounded-lg px-2 py-2 text-left text-sm text-foreground hover:bg-accent"
+                          style={{ fontFamily: POST_TEXT_FONT_FAMILIES[font] }}
+                        >
+                          {label}{textStyle.fontFamily === font ? ' ✓' : ''}
+                        </button>
+                      ))}
+                    </PopoverContent>
+                  </Popover>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button type="button" variant="ghost" size="sm" className="create-post-action h-9 gap-2 rounded-xl px-2.5" aria-label="Choose text color">
+                        <Palette className="h-4 w-4" />
+                        <span className="text-xs">Text</span>
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="start" className="create-post-picker-glass w-64 space-y-3">
+                      <label className="flex items-center justify-between text-sm font-medium text-foreground">
+                        Text color
+                        <input
+                          type="color"
+                          aria-label="Choose text color"
+                          value={textStyle.textColor || '#111827'}
+                          onChange={event => setTextStyle(previous => ({ ...previous, textColor: event.target.value }))}
+                          className="h-9 w-12 cursor-pointer rounded-lg border border-border bg-transparent p-1"
+                        />
+                      </label>
+                      <div className="grid grid-cols-8 gap-1.5">
+                        {['#111827', '#ffffff', '#ef4444', '#f97316', '#f59e0b', '#84cc16', '#22c55e', '#14b8a6', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#ec4899', '#78716c', '#64748b'].map(color => (
+                          <button key={color} type="button" aria-label={`Set text color ${color}`} onClick={() => setTextStyle(previous => ({ ...previous, textColor: color }))} className="h-6 w-6 rounded-full border border-foreground/20" style={{ backgroundColor: color }} />
+                        ))}
+                      </div>
+                      <button type="button" onClick={() => setTextStyle(previous => ({ ...previous, textColor: undefined }))} className="text-xs font-medium text-primary">Use theme text color</button>
+                    </PopoverContent>
+                  </Popover>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button type="button" variant="ghost" size="sm" className="create-post-action h-9 gap-2 rounded-xl px-2.5" aria-label="Choose background color">
+                        <span className="h-4 w-4 rounded border border-foreground/30" style={{ backgroundColor: textStyle.backgroundColor || 'hsl(var(--card) / 0.6)' }} />
+                        <span className="text-xs">Background</span>
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="start" className="create-post-picker-glass w-64 space-y-3">
+                      <label className="flex items-center justify-between text-sm font-medium text-foreground">
+                        Background color
+                        <input
+                          type="color"
+                          aria-label="Choose background color"
+                          value={textStyle.backgroundColor || '#d1fae5'}
+                          onChange={event => setTextStyle(previous => ({ ...previous, backgroundColor: event.target.value }))}
+                          className="h-9 w-12 cursor-pointer rounded-lg border border-border bg-transparent p-1"
+                        />
+                      </label>
+                      <div className="grid grid-cols-8 gap-1.5">
+                        {['#ffffff', '#fef3c7', '#ffedd5', '#fee2e2', '#fce7f3', '#ede9fe', '#dbeafe', '#cffafe', '#ccfbf1', '#d1fae5', '#ecfccb', '#f1f5f9', '#1f2937', '#7f1d1d', '#312e81', '#064e3b'].map(color => (
+                          <button key={color} type="button" aria-label={`Set background color ${color}`} onClick={() => setTextStyle(previous => ({ ...previous, backgroundColor: color }))} className="h-6 w-6 rounded-full border border-foreground/20" style={{ backgroundColor: color }} />
+                        ))}
+                      </div>
+                      <button type="button" onClick={() => setTextStyle(previous => ({ ...previous, backgroundColor: undefined }))} className="text-xs font-medium text-primary">Use blurred glass</button>
+                    </PopoverContent>
+                  </Popover>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Bold"
+                    aria-pressed={Boolean(textStyle.bold)}
+                    onClick={() => setTextStyle(previous => ({ ...previous, bold: !previous.bold }))}
+                    className={`create-post-action h-9 w-9 rounded-xl p-0 ${textStyle.bold ? 'bg-primary/15 text-primary' : ''}`}
+                  ><Bold className="h-4 w-4" /></Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Italic"
+                    aria-pressed={Boolean(textStyle.italic)}
+                    onClick={() => setTextStyle(previous => ({ ...previous, italic: !previous.italic }))}
+                    className={`create-post-action h-9 w-9 rounded-xl p-0 ${textStyle.italic ? 'bg-primary/15 text-primary' : ''}`}
+                  ><Italic className="h-4 w-4" /></Button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -236,17 +350,18 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
               <input
                 id="file-input"
                 type="file"
-                accept="image/*"
+                accept="image/*,video/*"
                 multiple
                 onChange={handleFileSelect}
                 className="hidden"
                 disabled={isSubmitting}
               />
               <input
-                id="video-input"
+                id="camera-input"
                 type="file"
-                accept="video/*"
-                onChange={handleVideoSelect}
+                accept="image/*"
+                multiple
+                onChange={handleFileSelect}
                 className="hidden"
                 disabled={isSubmitting}
               />
@@ -266,35 +381,24 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
                 variant="ghost"
                 size="sm"
                 aria-label="Add photo"
-                onClick={() => document.getElementById('file-input')?.click()}
+                onClick={() => document.getElementById('camera-input')?.click()}
                 className="create-post-action h-10 w-10 p-0"
                 disabled={isSubmitting}
               >
-                <Camera className="w-5 h-5 text-foreground" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                aria-label="Add video to Reels"
-                onClick={() => document.getElementById('video-input')?.click()}
-                className="create-post-action h-10 w-10 p-0"
-                disabled={isSubmitting}
-              >
-                <Video className="w-5 h-5 text-primary" />
+                <Camera className="w-5 h-5 text-emerald-500" />
               </Button>
             </div>
             <Button
               type="submit"
               disabled={(!content.trim() && selectedFiles.length === 0 && !videoFile) || isSubmitting}
-              className="create-post-submit px-6 font-semibold"
+              className="create-post-submit rounded-full px-5 font-semibold"
             >
               {isSubmitting ? (
                 <div className="flex items-center space-x-2">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
                   <span>Posting... {uploadProgress > 0 && `${uploadProgress}%`}</span>
                 </div>
-              ) : 'Post'}
+              ) : <><Send className="mr-2 h-4 w-4" />Post</>}
             </Button>
           </div>
         </form>

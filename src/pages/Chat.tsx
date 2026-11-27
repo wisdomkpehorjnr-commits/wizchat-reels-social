@@ -445,7 +445,7 @@ const Chat = () => {
         <div className="flex-shrink-0 px-4 pt-4 pb-2 bg-background border-b border-border">
           <div className="max-w-4xl mx-auto">
             <div className="flex items-center justify-between mb-3">
-              <h1 className="text-2xl font-bold text-foreground">Chat</h1>
+              <h1 className="home-instagram-title text-2xl text-foreground">Chat</h1>
               <div className="flex items-center gap-2">
                 <Button onClick={() => setIsCreateGroupOpen(true)} size="sm" className="gap-1 btn-primary">
                   <Plus className="w-4 h-4" /> New Group

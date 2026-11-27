@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { Post, User, Comment, Reaction, Chat, Message, MessageReaction } from '@/types';
+import { Post, PostTextStyle, User, Comment, Reaction, Chat, Message, MessageReaction } from '@/types';
 import { mediaService } from '@/services/mediaService';
 
 const POSTS_WITH_RELATIONS_SELECT = `
@@ -55,6 +55,7 @@ const mapPostsFromQuery = (rows: any[], currentUserId?: string): Post[] => {
       imageUrls,
       videoUrl: post.video_url,
       mediaType: post.media_type as 'text' | 'image' | 'video',
+      textStyle: post.text_style as PostTextStyle | undefined,
       isReel: post.is_reel,
       likes,
       likeCount: likes.length,
@@ -122,6 +123,9 @@ export const dataService = {
       media_type: postData.mediaType === 'image' ? 'image' : 'text',
       is_reel: false
     };
+    if (postData.textStyle && insertData.media_type === 'text') {
+      insertData.text_style = postData.textStyle;
+    }
 
     // Video / reel support
     if (postData.videoUrl) {
@@ -188,6 +192,7 @@ export const dataService = {
       imageUrls: imageUrls,
       videoUrl: data.video_url,
       mediaType: data.media_type as 'text' | 'image' | 'video',
+      textStyle: data.text_style as PostTextStyle | undefined,
       isReel: data.is_reel,
       likes: [],
       comments: [],

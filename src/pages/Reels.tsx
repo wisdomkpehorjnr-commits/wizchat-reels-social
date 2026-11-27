@@ -22,7 +22,7 @@ const ReelsPage: React.FC = () => {
                 <span className="w-8 h-8 rounded-xl bg-primary/15 flex items-center justify-center">
                   <Clapperboard className="w-4 h-4 text-primary" />
                 </span>
-                <span className="text-lg font-semibold tracking-tight text-foreground">Reels</span>
+                <span className="home-instagram-title text-lg text-foreground">Reels</span>
               </div>
               <div className="flex-1" />
               <button

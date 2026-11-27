@@ -340,7 +340,7 @@ const Friends = () => {
           <Card className="border-2 green-border mb-6">
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle className="text-2xl font-bold text-foreground flex items-center">
+                <CardTitle className="home-instagram-title text-2xl text-foreground flex items-center">
                   <Users className="w-6 h-6 mr-2" />
                   Friends
                 </CardTitle>

@@ -920,6 +920,7 @@ export type Database = {
           is_reel: boolean | null
           media_type: string | null
           music_id: string | null
+          text_style: Json | null
           updated_at: string | null
           user_id: string
           video_url: string | null
@@ -934,6 +935,7 @@ export type Database = {
           is_reel?: boolean | null
           media_type?: string | null
           music_id?: string | null
+          text_style?: Json | null
           updated_at?: string | null
           user_id: string
           video_url?: string | null
@@ -948,6 +950,7 @@ export type Database = {
           is_reel?: boolean | null
           media_type?: string | null
           music_id?: string | null
+          text_style?: Json | null
           updated_at?: string | null
           user_id?: string
           video_url?: string | null
