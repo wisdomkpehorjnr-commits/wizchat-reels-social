@@ -1,154 +1,77 @@
-/* Lightweight theme-aware glass borders and depth for the redesigned social cards. */
-
-/* The Friends tab's accepted-friend tiles. */
+/* Modern glass and social-card depth */
 [role="tabpanel"] .grid > div:has(> div.text-center) {
-  border: 1px solid hsl(var(--primary) / 0.18) !important;
+  border: 1px solid hsl(var(--foreground) / 0.12) !important;
   border-radius: 1.75rem !important;
   background: hsl(var(--card) / 0.56) !important;
-  box-shadow: 0 12px 32px hsl(var(--primary) / 0.045), inset 0 1px 0 hsl(var(--foreground) / 0.045) !important;
+  box-shadow: 0 12px 32px hsl(var(--foreground) / 0.055), inset 0 1px 0 hsl(var(--foreground) / 0.06) !important;
   backdrop-filter: blur(24px) saturate(145%);
   -webkit-backdrop-filter: blur(24px) saturate(145%);
-  padding: 0.35rem;
   transition: transform 220ms ease, background-color 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
 }
-
 [role="tabpanel"] .grid > div:has(> div.text-center):hover {
   transform: translateY(-3px);
-  border-color: hsl(var(--primary) / 0.3) !important;
+  border-color: hsl(var(--foreground) / 0.18) !important;
   background: hsl(var(--card) / 0.72) !important;
-  box-shadow: 0 18px 38px hsl(var(--primary) / 0.09), inset 0 1px 0 hsl(var(--foreground) / 0.06) !important;
+  box-shadow: 0 18px 38px hsl(var(--foreground) / 0.08), inset 0 1px 0 hsl(var(--foreground) / 0.08) !important;
 }
 
-[role="tabpanel"] .grid > div:has(> div.text-center) > div.text-center {
-  padding: 1.15rem 0.85rem !important;
-}
-
-[role="tabpanel"] .grid > div:has(> div.text-center) > div.text-center > a:first-child > span {
-  width: 3.75rem;
-  height: 3.75rem;
-  margin-bottom: 0.85rem;
-  box-shadow: 0 6px 18px hsl(var(--primary) / 0.1);
-  outline: 4px solid hsl(var(--primary) / 0.08);
-}
-
-[role="tabpanel"] .grid > div:has(> div.text-center) button {
-  min-height: 2.5rem;
-  border: 1px solid hsl(var(--primary) / 0.12) !important;
-  border-radius: 9999px !important;
-  font-weight: 600;
-  transition: transform 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
-}
-
-[role="tabpanel"] .grid > div:has(> div.text-center) button:active {
-  transform: scale(0.96);
-}
-
-[role="tabpanel"] .grid > div:has(> div.text-center) button:last-child {
-  border-color: hsl(var(--destructive) / 0.14) !important;
-  background: hsl(var(--destructive) / 0.08) !important;
-  color: hsl(var(--destructive)) !important;
-}
-
-[role="tabpanel"] .grid > div:has(> div.text-center) button:last-child:hover {
-  background: hsl(var(--destructive) / 0.15) !important;
-}
-
-/* Suggestion cards used on Home, plus each person tile. */
 div.w-full.overflow-hidden.rounded-\[2rem\]:has(article.group) {
-  border: 1px solid hsl(var(--primary) / 0.2) !important;
-  box-shadow: 0 16px 42px hsl(var(--primary) / 0.055), inset 0 1px 0 hsl(var(--foreground) / 0.05) !important;
+  border: 1px solid hsl(var(--foreground) / 0.12) !important;
+  box-shadow: 0 16px 42px hsl(var(--foreground) / 0.06), inset 0 1px 0 hsl(var(--foreground) / 0.06) !important;
 }
-
 article.group {
-  border: 1px solid hsl(var(--primary) / 0.18);
-  box-shadow: 0 10px 28px hsl(var(--primary) / 0.045), inset 0 1px 0 hsl(var(--foreground) / 0.045) !important;
+  border: 1px solid hsl(var(--foreground) / 0.12);
+  box-shadow: 0 10px 28px hsl(var(--foreground) / 0.055), inset 0 1px 0 hsl(var(--foreground) / 0.05) !important;
 }
-
 article.group:hover {
-  border-color: hsl(var(--primary) / 0.32);
-  box-shadow: 0 18px 36px hsl(var(--primary) / 0.09), inset 0 1px 0 hsl(var(--foreground) / 0.07) !important;
+  border-color: hsl(var(--foreground) / 0.18);
+  box-shadow: 0 18px 36px hsl(var(--foreground) / 0.08), inset 0 1px 0 hsl(var(--foreground) / 0.07) !important;
 }
 
-/* Topics hero and room tiles. */
-main.relative.isolate > div.mx-auto.max-w-5xl > header {
-  border: 1px solid hsl(var(--primary) / 0.2);
-  box-shadow: 0 18px 44px hsl(var(--primary) / 0.055), inset 0 1px 0 hsl(var(--foreground) / 0.05);
-}
-
+main.relative.isolate > div.mx-auto.max-w-5xl > header,
 main.relative.isolate section article.group {
-  border: 1px solid hsl(var(--primary) / 0.2);
-  box-shadow: 0 12px 30px hsl(var(--primary) / 0.055), inset 0 1px 0 hsl(var(--foreground) / 0.05);
+  border: 1px solid hsl(var(--foreground) / 0.12);
+  box-shadow: 0 12px 30px hsl(var(--foreground) / 0.055), inset 0 1px 0 hsl(var(--foreground) / 0.05);
 }
-
 main.relative.isolate section article.group:hover {
-  border-color: hsl(var(--primary) / 0.34);
-  box-shadow: 0 20px 40px hsl(var(--primary) / 0.11), inset 0 1px 0 hsl(var(--foreground) / 0.075);
+  border-color: hsl(var(--foreground) / 0.18);
+  box-shadow: 0 20px 40px hsl(var(--foreground) / 0.08), inset 0 1px 0 hsl(var(--foreground) / 0.07);
 }
 
-/* Create-post composer: compact width, rounded glass and theme-token surfaces. */
 .create-post-glass {
   width: min(100%, 40rem);
   margin-inline: auto;
-  overflow: hidden;
-  border: 1px solid hsl(var(--primary) / 0.2) !important;
+  border: 1px solid hsl(var(--foreground) / 0.12) !important;
   border-radius: 1.75rem !important;
   background: hsl(var(--card) / 0.58) !important;
-  box-shadow: 0 18px 44px hsl(var(--primary) / 0.06), inset 0 1px 0 hsl(var(--foreground) / 0.06) !important;
+  box-shadow: 0 18px 44px hsl(var(--foreground) / 0.06), inset 0 1px 0 hsl(var(--foreground) / 0.06) !important;
   backdrop-filter: blur(28px) saturate(150%);
-  -webkit-backdrop-filter: blur(28px) saturate(150%);
 }
 
-.create-post-glass textarea {
-  border-radius: 1.25rem;
+.home-instagram-title {
+  font-family: 'Brush Script MT', 'Segoe Script', 'Snell Roundhand', cursive;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
 }
 
-.create-post-glass .create-post-action {
-  border: 1px solid hsl(var(--primary) / 0.18) !important;
-  border-radius: 9999px !important;
-  background: hsl(var(--background) / 0.42) !important;
-  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.06);
-  transition: transform 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
-}
-
-.create-post-glass .create-post-action:hover {
-  transform: translateY(-1px);
-  background: hsl(var(--primary) / 0.1) !important;
-  box-shadow: 0 6px 16px hsl(var(--primary) / 0.1);
-}
-
-.create-post-glass .create-post-action:active,
-.create-post-glass .create-post-submit:active {
-  transform: scale(0.95);
-}
-
-.create-post-glass .create-post-submit {
-  min-height: 2.75rem;
-  border: 1px solid hsl(var(--primary) / 0.28) !important;
-  border-radius: 9999px !important;
-  background: hsl(var(--primary) / 0.16) !important;
-  color: hsl(var(--foreground)) !important;
-  box-shadow: 0 8px 20px hsl(var(--primary) / 0.12), inset 0 1px 0 hsl(var(--foreground) / 0.12);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  transition: transform 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
-}
-
-.create-post-glass .create-post-submit:hover:not(:disabled) {
-  transform: translateY(-1px);
-  background: hsl(var(--primary) / 0.24) !important;
-  box-shadow: 0 12px 24px hsl(var(--primary) / 0.17), inset 0 1px 0 hsl(var(--foreground) / 0.15);
-}
-
-.create-post-glass .create-post-submit:disabled {
-  opacity: 0.55;
+/* Tablet and desktop: full-width, matching the global-search post style. */
+@media (min-width: 768px) {
+  .home-feed-list,
+  .home-feed-list [data-post-id],
+  .home-feed-list [data-post-id] > [data-post-card],
+  .home-feed-list [data-post-id] > div {
+    width: 100%;
+    max-width: none;
+  }
+  .home-feed-list [data-post-id] > article,
+  .home-feed-list [data-post-id] > div > article,
+  .home-feed-list [data-post-id] > .rounded-2xl,
+  .home-feed-list [data-post-id] > [class*="rounded"] {
+    width: 100%;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [role="tabpanel"] .grid > div:has(> div.text-center),
-  [role="tabpanel"] .grid > div:has(> div.text-center) button,
-  article.group,
-  .create-post-glass .create-post-action,
-  .create-post-glass .create-post-submit {
-    transition: none;
-  }
+  [role="tabpanel"] .grid > div:has(> div.text-center), article.group { transition: none; }
 }

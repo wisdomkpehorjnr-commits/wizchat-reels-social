@@ -5,20 +5,19 @@ type ToasterProps = React.ComponentProps<typeof Sonner>
 
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme = "system" } = useTheme()
-
   return (
     <Sonner
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
+      richColors
+      closeButton
       toastOptions={{
         classNames: {
-          toast:
-            "group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg",
-          description: "group-[.toast]:text-muted-foreground",
-          actionButton:
-            "group-[.toast]:bg-primary group-[.toast]:text-primary-foreground",
-          cancelButton:
-            "group-[.toast]:bg-muted group-[.toast]:text-muted-foreground",
+          toast: "!rounded-2xl !border-primary/20 !bg-card/85 !text-foreground !shadow-2xl !backdrop-blur-2xl !px-5 !py-4",
+          description: "!text-muted-foreground",
+          actionButton: "!rounded-full !bg-primary/15 !text-primary",
+          cancelButton: "!rounded-full !bg-muted/60 !text-foreground",
+          closeButton: "!rounded-full",
         },
       }}
       {...props}
