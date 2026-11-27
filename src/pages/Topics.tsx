@@ -1,10 +1,9 @@
 import React, { useEffect, useState, useRef } from "react";
 import Layout from "@/components/Layout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { MessageCircle, Users, Flame, WifiOff } from "lucide-react";
+import { MessageCircle, Users, Flame, WifiOff, Sparkles } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { ListSkeleton } from "@/components/SkeletonLoaders";
@@ -279,114 +278,110 @@ const Topics = () => {
 
   return (
     <Layout>
-      <div className="container mx-auto px-4 py-6">
-        <div className="max-w-4xl mx-auto space-y-6">
-          {/* Topic Rooms Header Card */}
-          <Card className="border-2 border-primary bg-card shadow-lg">
-            <CardHeader className="p-6">
-              <CardTitle className="text-4xl font-extrabold text-foreground">
-                Topic Rooms
-              </CardTitle>
-              <p className="text-muted-foreground mt-2 text-lg">
-                Join discussions on topics you're interested in
-              </p>
-            </CardHeader>
-          </Card>
+      <main className="relative isolate min-h-full overflow-hidden px-4 py-8 sm:py-12">
+        {/* Soft, theme-aware ambient color keeps the glass surfaces feeling light. */}
+        <div aria-hidden="true" className="pointer-events-none absolute -top-24 left-1/2 -z-10 h-72 w-72 -translate-x-1/2 rounded-full bg-primary/10 blur-3xl sm:h-96 sm:w-96" />
+        <div aria-hidden="true" className="pointer-events-none absolute right-[-5rem] top-72 -z-10 h-64 w-64 rounded-full bg-primary/5 blur-3xl" />
 
-          {/* Hot Topic Rooms Section */}
-          <Card className="border-2 border-primary bg-card shadow-lg">
-            <CardHeader className="p-6 pb-4">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-2xl font-bold text-foreground flex items-center gap-2">
-                  <Flame className="w-6 h-6 text-orange-500" />
-                  Hot Topic Rooms
-                </CardTitle>
-                {isOffline && (
-                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                    <WifiOff className="w-4 h-4" />
-                    Offline
-                  </div>
-                )}
+        <div className="mx-auto max-w-5xl space-y-8">
+          <header className="animate-in fade-in slide-in-from-bottom-3 duration-500 rounded-[2rem] bg-card/55 p-6 shadow-xl shadow-primary/[0.04] backdrop-blur-2xl sm:p-9">
+            <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+              <div className="max-w-2xl">
+                <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-primary/10 px-3.5 py-2 text-sm font-medium text-primary">
+                  <Sparkles className="h-4 w-4" aria-hidden="true" />
+                  <span>Find your people</span>
+                </div>
+                <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-5xl">Topic Rooms</h1>
+                <p className="mt-3 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+                  Your next great conversation starts here. Join a room and connect over what you love.
+                </p>
               </div>
-            </CardHeader>
-            <CardContent className="p-6 pt-0 space-y-3">
-              {loading && !isOffline ? (
-                <div className="py-4">
-                  <ListSkeleton itemType="topic" count={4} />
+              {isOffline && (
+                <div role="status" className="inline-flex w-fit items-center gap-2 rounded-full bg-card/70 px-4 py-2.5 text-sm text-muted-foreground shadow-sm backdrop-blur-xl">
+                  <WifiOff className="h-4 w-4" aria-hidden="true" />
+                  <span>Offline · showing saved topics</span>
                 </div>
-              ) : rooms.length === 0 ? (
-                <div className="text-center py-8">
-                  {isOffline ? (
-                    <div className="flex flex-col items-center gap-3">
-                      <div className="w-14 h-14 rounded-full bg-muted/30 backdrop-blur-xl flex items-center justify-center">
-                        <WifiOff className="w-7 h-7 text-muted-foreground" />
-                      </div>
-                      <p className="text-muted-foreground text-sm">Connect to the internet to discover topic rooms</p>
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground">No topic rooms yet.</p>
-                  )}
-                </div>
-              ) : (
-                rooms.filter((room) => !REMOVED_ROOM_IDS.has(room.id)).map((room) => (
-                  <Card
-                    key={room.id}
-                    className="border border-primary/50 hover:border-primary cursor-pointer bg-card transition-all shadow-sm"
-                    onClick={() => room.isJoined ? navigate(`/topic-room/${room.id}`) : undefined}
-                  >
-                    <CardContent className="p-4 flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-4 flex-1 min-w-0">
-                        {/* Chat Icon */}
-                        <div className="flex-shrink-0">
-                          <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-                            <MessageCircle className="w-6 h-6 text-primary-foreground" />
-                          </div>
-                        </div>
-                        
-                        {/* Topic Info */}
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-foreground font-semibold text-base mb-1 truncate">
-                            {normalizeTopicRoomName(room.name)}
-                          </h3>
-                          <div className="flex items-center gap-4 text-sm">
-                            <div className="flex items-center gap-1 text-muted-foreground">
-                              <Users className="w-4 h-4" />
-                              <span>{room.participant_count || 0}</span>
-                            </div>
-                            <p className="text-muted-foreground text-sm line-clamp-1 flex-1">
-                              {room.description || "Join the discussion"}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Join/Open Button */}
-                      <div className="flex-shrink-0">
-                        {room.isJoined ? (
-                          <Button
-                            className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 h-9"
-                            onClick={(e) => handleOpenRoom(room.id, e)}
-                          >
-                            Open
-                          </Button>
-                        ) : (
-                          <Button
-                            className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 h-9"
-                            onClick={(e) => handleJoinRoom(room.id, e)}
-                            disabled={joiningRoomId === room.id}
-                          >
-                            {joiningRoomId === room.id ? 'Joining...' : 'Join'}
-                          </Button>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </header>
+
+          <section aria-labelledby="hot-topics-title" className="animate-in fade-in slide-in-from-bottom-3 duration-700">
+            <div className="mb-5 flex items-center gap-3 px-1">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-orange-500/10 text-orange-500">
+                <Flame className="h-5 w-5" aria-hidden="true" />
+              </div>
+              <div>
+                <h2 id="hot-topics-title" className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">Hot Topic Rooms</h2>
+                <p className="mt-0.5 text-sm text-muted-foreground">Explore conversations happening now</p>
+              </div>
+            </div>
+
+            {loading && !isOffline ? (
+              <div className="rounded-[2rem] bg-card/45 p-4 shadow-lg shadow-primary/[0.03] backdrop-blur-xl sm:p-6">
+                <ListSkeleton itemType="topic" count={4} />
+              </div>
+            ) : rooms.length === 0 ? (
+              <div className="flex flex-col items-center rounded-[2rem] bg-card/55 px-6 py-14 text-center shadow-lg shadow-primary/[0.03] backdrop-blur-2xl">
+                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-muted/60 text-muted-foreground">
+                  {isOffline ? <WifiOff className="h-7 w-7" /> : <MessageCircle className="h-7 w-7" />}
+                </div>
+                <p className="font-medium text-foreground">{isOffline ? 'Your saved topics will appear here' : 'No topic rooms yet'}</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {isOffline ? 'Connect to discover new rooms.' : 'Check back soon for conversations to join.'}
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2 sm:gap-4">
+                {rooms.filter((room) => !REMOVED_ROOM_IDS.has(room.id)).map((room, index) => (
+                  <article
+                    key={room.id}
+                    className="group animate-in fade-in slide-in-from-bottom-2 rounded-[1.75rem] bg-card/55 p-4 shadow-lg shadow-primary/[0.035] backdrop-blur-2xl transition-[transform,background-color,box-shadow] duration-300 hover:-translate-y-1 hover:bg-card/75 hover:shadow-xl hover:shadow-primary/[0.08] motion-reduce:animate-none motion-reduce:transition-none sm:p-5"
+                    style={{ animationDelay: `${Math.min(index * 65, 390)}ms`, animationFillMode: 'both' }}
+                  >
+                    <div className="flex min-h-[92px] items-center gap-4">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary transition-transform duration-300 group-hover:scale-105 group-hover:bg-primary/15">
+                        <MessageCircle className="h-5 w-5" aria-hidden="true" />
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <h3 className="truncate text-base font-semibold text-foreground sm:text-lg">
+                          {normalizeTopicRoomName(room.name)}
+                        </h3>
+                        <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+                          {room.description || 'Join the discussion'}
+                        </p>
+                        <div className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                          <Users className="h-3.5 w-3.5" aria-hidden="true" />
+                          <span>{room.participant_count || 0} {room.participant_count === 1 ? 'member' : 'members'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex justify-end">
+                      {room.isJoined ? (
+                        <Button
+                          className="h-10 rounded-full bg-primary/10 px-5 font-semibold text-primary shadow-none transition-all duration-200 hover:scale-[1.03] hover:bg-primary/15 active:scale-95 focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2"
+                          onClick={(e) => handleOpenRoom(room.id, e)}
+                        >
+                          Open room <span aria-hidden="true" className="ml-1 transition-transform duration-200 group-hover:translate-x-0.5">→</span>
+                        </Button>
+                      ) : (
+                        <Button
+                          className="h-10 rounded-full bg-primary px-6 font-semibold text-primary-foreground shadow-md shadow-primary/15 transition-all duration-200 hover:scale-[1.03] hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20 active:scale-95 focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2"
+                          onClick={(e) => handleJoinRoom(room.id, e)}
+                          disabled={joiningRoomId === room.id}
+                        >
+                          {joiningRoomId === room.id ? 'Joining...' : 'Join room'}
+                        </Button>
+                      )}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
         </div>
-      </div>
+      </main>
     </Layout>
   );
 };
