@@ -39,7 +39,7 @@ main.relative.isolate section article.group:hover {
 }
 
 .create-post-glass {
-  width: min(100%, 40rem);
+  width: 100%;
   margin-inline: auto;
   border: 1px solid hsl(var(--foreground) / 0.12) !important;
   border-radius: 1.75rem !important;
