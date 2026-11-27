@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import AppErrorBoundary from './components/AppErrorBoundary'
 import './index.css'
+import './components/social-glass.css'
 import { initializeOfflineMode } from './lib/offlineConfig'
 import { setWaitingSW } from './lib/swUpdateState'
 import { initAppFont } from './components/FontSelector'
@@ -51,7 +52,6 @@ document.addEventListener('touchend', (e) => {
 document.addEventListener('touchmove', (e) => {
   if ((e as TouchEvent).touches.length > 1) e.preventDefault();
 }, { passive: false });
-
 
 // --- Service Worker registration with auto-update ---
 const isInIframe = (() => { try { return window.self !== window.top; } catch { return true; } })();

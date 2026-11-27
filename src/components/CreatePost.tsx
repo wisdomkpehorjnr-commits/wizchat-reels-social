@@ -4,10 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Camera, Video, X } from 'lucide-react';
+import { Camera, Video, X, Plus } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { MediaService } from '@/services/mediaService';
+import './social-glass.css';
 
 interface CreatePostProps {
   onPostCreated?: (postData: any) => void;
@@ -59,7 +60,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
     setVideoPreview(URL.createObjectURL(file));
   };
 
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim() && selectedFiles.length === 0 && !videoFile) {
@@ -86,12 +86,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
         setUploadProgress(80);
       }
 
-
-      
       // Upload files in parallel for faster processing
       if (selectedFiles.length > 0) {
         setUploadProgress(10);
-        
         const uploadPromises = selectedFiles.map(async (file, index) => {
           try {
             let url: string;
@@ -109,10 +106,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
 
         setUploadProgress(30);
         const uploadResults = await Promise.all(uploadPromises);
-        
         setUploadProgress(70);
-        
-        // Process results
+
         for (const result of uploadResults) {
           if (result.type === 'image') {
             imageUrls.push(result.url);
@@ -120,7 +115,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
           }
         }
       }
-      
+
       setUploadProgress(90);
       const postData = {
         content: content.trim(),
@@ -146,21 +141,18 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
       const videoInput = document.getElementById('video-input') as HTMLInputElement;
       if (videoInput) videoInput.value = '';
 
-      
-      // Success feedback
-      toast({ 
-        title: "Success", 
+      toast({
+        title: "Success",
         description: "Post created successfully!",
         duration: 2000
       });
     } catch (error) {
       console.error('Error creating post:', error);
       setUploadProgress(0);
-      
       const errorMessage = error instanceof Error ? error.message : "Failed to create post";
-      toast({ 
-        title: "Error", 
-        description: errorMessage, 
+      toast({
+        title: "Error",
+        description: errorMessage,
         variant: "destructive",
         duration: 5000
       });
@@ -175,8 +167,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
   }
 
   return (
-    <Card className="border-2 green-border bg-card">
-      <CardContent className="p-4">
+    <Card className="create-post-glass">
+      <CardContent className="p-4 sm:p-5">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="flex space-x-3">
             <Avatar className="w-10 h-10">
@@ -193,41 +185,38 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
               />
             </div>
           </div>
-          
+
           {/* Preview media grid */}
           {selectedFiles.length > 0 && previewUrls.length > 0 && (
-            <div className="mt-3 p-3 border border-border rounded-lg grid grid-cols-2 md:grid-cols-3 gap-2">
-              {previewUrls.map((url, idx) => {
-                return (
-                  <div key={idx} className="relative">
-                    <img 
-                      src={url} 
-                      alt={`Preview ${idx+1}`}
-                      className="object-cover w-full md:w-32 md:h-32 h-24 rounded"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        const newFiles = selectedFiles.filter((_, i) => i !== idx);
-                        const newUrls = previewUrls.filter((_, i) => i !== idx);
-                        setSelectedFiles(newFiles);
-                        setPreviewUrls(newUrls);
-                      }}
-                      className="absolute top-1 right-1 text-xs bg-white/80"
-                    >Remove</Button>
-                  </div>
-                );
-              })}
+            <div className="mt-3 p-3 border border-border rounded-2xl grid grid-cols-2 md:grid-cols-3 gap-2">
+              {previewUrls.map((url, idx) => (
+                <div key={idx} className="relative">
+                  <img
+                    src={url}
+                    alt={`Preview ${idx + 1}`}
+                    className="object-cover w-full md:w-32 md:h-32 h-24 rounded-xl"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      const newFiles = selectedFiles.filter((_, i) => i !== idx);
+                      const newUrls = previewUrls.filter((_, i) => i !== idx);
+                      setSelectedFiles(newFiles);
+                      setPreviewUrls(newUrls);
+                    }}
+                    className="absolute top-1 right-1 rounded-full text-xs bg-background/80"
+                  >Remove</Button>
+                </div>
+              ))}
             </div>
           )}
-          
 
           {/* Video preview (reel) */}
           {videoPreview && (
-            <div className="mt-3 p-3 border border-border rounded-xl">
-              <div className="relative w-40 aspect-[9/16] rounded-xl overflow-hidden bg-muted">
+            <div className="mt-3 p-3 border border-border rounded-2xl">
+              <div className="relative w-40 aspect-[9/16] rounded-2xl overflow-hidden bg-muted">
                 <video src={videoPreview} className="w-full h-full object-cover" muted playsInline controls />
                 <button
                   type="button"
@@ -265,9 +254,20 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
                 type="button"
                 variant="ghost"
                 size="sm"
+                aria-label="Add media"
+                onClick={() => document.getElementById('file-input')?.click()}
+                className="create-post-action h-10 w-10 p-0 text-primary"
+                disabled={isSubmitting}
+              >
+                <Plus className="h-6 w-6 stroke-[3]" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
                 aria-label="Add photo"
                 onClick={() => document.getElementById('file-input')?.click()}
-                className="border border-border rounded-xl p-2 hover:bg-accent transition-colors"
+                className="create-post-action h-10 w-10 p-0"
                 disabled={isSubmitting}
               >
                 <Camera className="w-5 h-5 text-foreground" />
@@ -278,7 +278,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
                 size="sm"
                 aria-label="Add video to Reels"
                 onClick={() => document.getElementById('video-input')?.click()}
-                className="border border-border rounded-xl p-2 hover:bg-accent transition-colors"
+                className="create-post-action h-10 w-10 p-0"
                 disabled={isSubmitting}
               >
                 <Video className="w-5 h-5 text-primary" />
@@ -287,12 +287,11 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
             <Button
               type="submit"
               disabled={(!content.trim() && selectedFiles.length === 0 && !videoFile) || isSubmitting}
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
+              className="create-post-submit px-6 font-semibold"
             >
-
               {isSubmitting ? (
                 <div className="flex items-center space-x-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
                   <span>Posting... {uploadProgress > 0 && `${uploadProgress}%`}</span>
                 </div>
               ) : 'Post'}
