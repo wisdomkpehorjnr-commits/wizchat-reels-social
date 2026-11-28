@@ -1,5 +1,5 @@
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -34,37 +34,22 @@ interface LayoutProps {
   children: React.ReactNode;
 }
 
-interface FloatingPosition {
+interface Position {
   left: number;
   top: number;
 }
 
-interface DragState {
-  pointerId: number;
-  startX: number;
-  startY: number;
-  originLeft: number;
-  originTop: number;
-  moved: boolean;
-}
-
-const FLOATING_NAV_STORAGE_KEY = 'wizchat_desktop_navigation_position';
-const FLOATING_NAV_MARGIN = 12;
+const POSITION_KEY = 'wizchat_desktop_navigation_position';
+const MARGIN = 12;
 
 const clampPosition = (
   left: number,
   top: number,
   width: number,
   height: number
-): FloatingPosition => ({
-  left: Math.max(
-    FLOATING_NAV_MARGIN,
-    Math.min(left, window.innerWidth - width - FLOATING_NAV_MARGIN)
-  ),
-  top: Math.max(
-    FLOATING_NAV_MARGIN,
-    Math.min(top, window.innerHeight - height - FLOATING_NAV_MARGIN)
-  ),
+): Position => ({
+  left: Math.max(MARGIN, Math.min(left, window.innerWidth - width - MARGIN)),
+  top: Math.max(MARGIN, Math.min(top, window.innerHeight - height - MARGIN)),
 });
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
@@ -84,21 +69,25 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { icon: MessageSquare, label: t('topics'), path: '/topics', badge: badges.topics },
   ];
 
+  const isActivePath = (path: string) => location.pathname === path;
+
   const homeTapRef = useRef<{
     count: number;
     timer: ReturnType<typeof setTimeout> | null;
   }>({ count: 0, timer: null });
 
   const floatingNavRef = useRef<HTMLDivElement | null>(null);
-  const dragHandleRef = useRef<HTMLButtonElement | null>(null);
-  const dragStateRef = useRef<DragState | null>(null);
+  const dragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    left: number;
+    top: number;
+    moved: boolean;
+  } | null>(null);
 
-  const [floatingPosition, setFloatingPosition] =
-    useState<FloatingPosition | null>(null);
+  const [position, setPosition] = useState<Position | null>(null);
 
-  const isActivePath = (path: string) => location.pathname === path;
-
-  // Preserve the existing notification badge behavior.
   useEffect(() => {
     const tabMap: { [key: string]: keyof typeof badges } = {
       '/': 'home',
@@ -108,13 +97,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     };
 
     const currentTab = tabMap[location.pathname];
-
-    if (currentTab) {
-      clearBadge(currentTab);
-    }
+    if (currentTab) clearBadge(currentTab);
   }, [location.pathname, clearBadge]);
 
-  // Preserve Home double-tap behavior and clean up its timer.
   useEffect(() => {
     return () => {
       if (homeTapRef.current.timer) {
@@ -125,7 +110,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const handleHomeClick = (e: React.MouseEvent) => {
     e.preventDefault();
-
     window.dispatchEvent(new CustomEvent('wizchat-home-pressed'));
 
     if (location.pathname !== '/') {
@@ -142,10 +126,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
     if (homeTapRef.current.count >= 2) {
       window.scrollTo({ top: 0, behavior: 'smooth' });
-      document.scrollingElement?.scrollTo({
-        top: 0,
-        behavior: 'smooth',
-      });
+      document.scrollingElement?.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     homeTapRef.current.timer = setTimeout(() => {
@@ -153,8 +134,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     }, 500);
   };
 
-  // Position the floating navigation after its actual dimensions are known.
-  // The saved position is restored, then clamped to the current screen.
+  // Restore the saved position and centre the pill on first use.
   useEffect(() => {
     const nav = floatingNavRef.current;
     if (!nav) return;
@@ -162,79 +142,55 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     const width = nav.offsetWidth;
     const height = nav.offsetHeight;
 
-    let savedPosition: FloatingPosition | null = null;
+    let saved: Position | null = null;
 
     try {
-      const stored = localStorage.getItem(FLOATING_NAV_STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-
+      const value = localStorage.getItem(POSITION_KEY);
+      if (value) {
+        const parsed = JSON.parse(value);
         if (
-          typeof parsed?.left === 'number' &&
-          typeof parsed?.top === 'number'
+          typeof parsed.left === 'number' &&
+          typeof parsed.top === 'number'
         ) {
-          savedPosition = parsed;
+          saved = parsed;
         }
       }
     } catch {
-      savedPosition = null;
+      saved = null;
     }
 
-    const defaultPosition = {
-      left: (window.innerWidth - width) / 2,
-      top: window.innerHeight - height - 28,
-    };
-
-    const nextPosition = clampPosition(
-      savedPosition?.left ?? defaultPosition.left,
-      savedPosition?.top ?? defaultPosition.top,
+    const next = clampPosition(
+      saved?.left ?? (window.innerWidth - width) / 2,
+      saved?.top ?? window.innerHeight - height - 22,
       width,
       height
     );
 
-    nav.style.left = `${nextPosition.left}px`;
-    nav.style.top = `${nextPosition.top}px`;
+    nav.style.left = `${next.left}px`;
+    nav.style.top = `${next.top}px`;
+    setPosition(next);
 
-    setFloatingPosition(nextPosition);
+    const resize = () => {
+      const current = floatingNavRef.current;
+      if (!current) return;
 
-    const handleResize = () => {
-      const currentNav = floatingNavRef.current;
-      if (!currentNav) return;
-
-      const rect = currentNav.getBoundingClientRect();
-
-      const next = clampPosition(
+      const rect = current.getBoundingClientRect();
+      const adjusted = clampPosition(
         rect.left,
         rect.top,
-        currentNav.offsetWidth,
-        currentNav.offsetHeight
+        current.offsetWidth,
+        current.offsetHeight
       );
 
-      currentNav.style.left = `${next.left}px`;
-      currentNav.style.top = `${next.top}px`;
-
-      setFloatingPosition(next);
-
-      try {
-        localStorage.setItem(
-          FLOATING_NAV_STORAGE_KEY,
-          JSON.stringify(next)
-        );
-      } catch {
-        // Position persistence is optional.
-      }
+      current.style.left = `${adjusted.left}px`;
+      current.style.top = `${adjusted.top}px`;
+      setPosition(adjusted);
     };
 
-    window.addEventListener('resize', handleResize);
-
-    return () => {
-      window.removeEventListener('resize', handleResize);
-    };
+    window.addEventListener('resize', resize);
+    return () => window.removeEventListener('resize', resize);
   }, []);
 
-  // Start dragging from the dedicated grip.
-  // Pointer capture keeps dragging responsive even when the pointer moves
-  // outside the grip or the navigation pill.
   const handleDragStart = (e: React.PointerEvent<HTMLButtonElement>) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
 
@@ -245,157 +201,114 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
     const rect = nav.getBoundingClientRect();
 
-    dragStateRef.current = {
+    dragRef.current = {
       pointerId: e.pointerId,
       startX: e.clientX,
       startY: e.clientY,
-      originLeft: rect.left,
-      originTop: rect.top,
+      left: rect.left,
+      top: rect.top,
       moved: false,
     };
 
     e.currentTarget.setPointerCapture(e.pointerId);
   };
 
-  // Move the navigation directly with the pointer.
-  // No React state update or CSS transition is used during the drag,
-  // avoiding delayed or floaty movement.
   const handleDragMove = (e: React.PointerEvent<HTMLButtonElement>) => {
-    const drag = dragStateRef.current;
+    const drag = dragRef.current;
     const nav = floatingNavRef.current;
 
     if (!drag || !nav || drag.pointerId !== e.pointerId) return;
 
-    const deltaX = e.clientX - drag.startX;
-    const deltaY = e.clientY - drag.startY;
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
 
-    if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) {
+    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
       drag.moved = true;
     }
 
     const next = clampPosition(
-      drag.originLeft + deltaX,
-      drag.originTop + deltaY,
+      drag.left + dx,
+      drag.top + dy,
       nav.offsetWidth,
       nav.offsetHeight
     );
 
+    // Direct DOM movement keeps dragging immediate and fluid.
     nav.style.left = `${next.left}px`;
     nav.style.top = `${next.top}px`;
   };
 
-  const finishDragging = (e: React.PointerEvent<HTMLButtonElement>) => {
-    const drag = dragStateRef.current;
+  const finishDrag = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = dragRef.current;
     const nav = floatingNavRef.current;
 
     if (!drag || !nav || drag.pointerId !== e.pointerId) return;
 
     const rect = nav.getBoundingClientRect();
-
-    const finalPosition = clampPosition(
+    const next = clampPosition(
       rect.left,
       rect.top,
       nav.offsetWidth,
       nav.offsetHeight
     );
 
-    setFloatingPosition(finalPosition);
+    setPosition(next);
 
     if (drag.moved) {
       try {
-        localStorage.setItem(
-          FLOATING_NAV_STORAGE_KEY,
-          JSON.stringify(finalPosition)
-        );
+        localStorage.setItem(POSITION_KEY, JSON.stringify(next));
       } catch {
-        // Keep the current position for this session if storage is unavailable.
+        // Position still works for the current session.
       }
     }
 
-    dragStateRef.current = null;
+    dragRef.current = null;
   };
 
-  // Keyboard support for repositioning the navigation.
-  const handleDragKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
-    const nav = floatingNavRef.current;
-    if (!nav || !floatingPosition) return;
+  const handleGripKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (!position || !floatingNavRef.current) return;
 
     const step = e.shiftKey ? 40 : 12;
+    let left = position.left;
+    let top = position.top;
 
-    let left = floatingPosition.left;
-    let top = floatingPosition.top;
-
-    switch (e.key) {
-      case 'ArrowLeft':
-        left -= step;
-        break;
-      case 'ArrowRight':
-        left += step;
-        break;
-      case 'ArrowUp':
-        top -= step;
-        break;
-      case 'ArrowDown':
-        top += step;
-        break;
-      default:
-        return;
-    }
+    if (e.key === 'ArrowLeft') left -= step;
+    else if (e.key === 'ArrowRight') left += step;
+    else if (e.key === 'ArrowUp') top -= step;
+    else if (e.key === 'ArrowDown') top += step;
+    else return;
 
     e.preventDefault();
 
-    const next = clampPosition(
-      left,
-      top,
-      nav.offsetWidth,
-      nav.offsetHeight
-    );
+    const nav = floatingNavRef.current;
+    const next = clampPosition(left, top, nav.offsetWidth, nav.offsetHeight);
 
     nav.style.left = `${next.left}px`;
     nav.style.top = `${next.top}px`;
-
-    setFloatingPosition(next);
+    setPosition(next);
 
     try {
-      localStorage.setItem(
-        FLOATING_NAV_STORAGE_KEY,
-        JSON.stringify(next)
-      );
+      localStorage.setItem(POSITION_KEY, JSON.stringify(next));
     } catch {
-      // Keyboard repositioning still works without storage.
+      // Ignore unavailable storage.
     }
   };
 
-  const savePosition = useCallback(() => {
-    if (!floatingNavRef.current) return;
-
-    const rect = floatingNavRef.current.getBoundingClientRect();
-
-    const next = clampPosition(
-      rect.left,
-      rect.top,
-      floatingNavRef.current.offsetWidth,
-      floatingNavRef.current.offsetHeight
-    );
-
-    setFloatingPosition(next);
-  }, []);
-
   return (
     <div className="min-h-screen bg-background">
-      {/* Main application header */}
-      <header className="sticky top-0 z-50 w-full border-b border-border/70 bg-background/95 backdrop-blur-xl supports-[backdrop-filter]:bg-background/80">
+      {/* Application header */}
+      <header className="sticky top-0 z-50 w-full border-b border-border/70 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center justify-between px-4">
           <div className="flex items-center gap-6">
             <Link to="/" className="flex items-center gap-2">
               <Logo size="sm" />
-              <span className="wizchat-wordmark bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-xl font-extrabold text-transparent">
+              <span className="wizchat-wordmark bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-xl font-bold text-transparent">
                 WizchatPro
               </span>
             </Link>
           </div>
 
-          {/* The old lightweight desktop navigation has been removed. */}
+          {/* Desktop navigation now lives in the floating glass pill. */}
 
           <div className="flex items-center gap-2">
             <ThemeToggle />
@@ -420,12 +333,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               </DropdownMenuTrigger>
 
               <DropdownMenuContent
-                className="w-56 rounded-xl border border-border bg-background/95 p-2 shadow-xl backdrop-blur-xl"
+                className="w-56 rounded-xl border border-border bg-background/90 p-2 shadow-lg backdrop-blur-xl"
                 align="end"
                 forceMount
               >
                 <div className="flex flex-col space-y-1 p-2">
-                  <p className="text-sm font-bold leading-none text-foreground">
+                  <p className="text-sm font-medium leading-none text-foreground">
                     {user?.name}
                   </p>
                   <p className="text-xs leading-none text-muted-foreground">
@@ -436,21 +349,21 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <DropdownMenuSeparator />
 
                 <DropdownMenuItem asChild>
-                  <Link to="/profile" className="cursor-pointer">
+                  <Link to="/profile" className="cursor-pointer text-foreground">
                     <User className="mr-2 h-4 w-4" />
                     <span>Profile</span>
                   </Link>
                 </DropdownMenuItem>
 
                 <DropdownMenuItem asChild>
-                  <Link to="/settings" className="cursor-pointer">
+                  <Link to="/settings" className="cursor-pointer text-foreground">
                     <Settings className="mr-2 h-4 w-4" />
                     <span>Settings</span>
                   </Link>
                 </DropdownMenuItem>
 
                 <DropdownMenuItem asChild>
-                  <Link to="/premium" className="cursor-pointer">
+                  <Link to="/premium" className="cursor-pointer text-foreground">
                     <Crown className="mr-2 h-4 w-4" />
                     <span>Premium</span>
                   </Link>
@@ -459,7 +372,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <DropdownMenuSeparator />
 
                 <DropdownMenuItem
-                  className="cursor-pointer p-0"
+                  className="cursor-pointer p-0 text-foreground"
                   onSelect={(e) => e.preventDefault()}
                 >
                   <LogoutButton
@@ -474,43 +387,58 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         </div>
       </header>
 
-      {/* Main application content */}
+      {/* Main content */}
       <main className="flex-1 pb-16 md:pb-0">
         {children}
       </main>
 
-      {/* Desktop and tablet floating navigation */}
+      {/* Compact transparent glass navigation for tablets and desktop */}
       <div
         ref={floatingNavRef}
         className="fixed z-[60] hidden md:block"
         style={{
-          left: floatingPosition?.left ?? 0,
-          top: floatingPosition?.top ?? 0,
-          visibility: floatingPosition ? 'visible' : 'hidden',
+          left: position?.left ?? 0,
+          top: position?.top ?? 0,
+          visibility: position ? 'visible' : 'hidden',
           touchAction: 'none',
         }}
       >
-        <div className="flex items-center gap-1.5 rounded-[24px] border border-border/70 bg-background/85 p-2 shadow-[0_12px_45px_rgba(0,0,0,0.16)] ring-1 ring-black/[0.03] backdrop-blur-2xl dark:shadow-[0_14px_50px_rgba(0,0,0,0.55)]">
-          {/* Dedicated drag grip */}
+        <div
+          className="
+            flex items-center gap-1
+            rounded-full
+            border border-white/35 dark:border-white/15
+            bg-white/25 dark:bg-black/25
+            px-1.5 py-1.5
+            shadow-[0_8px_32px_rgba(0,0,0,0.10)]
+            ring-1 ring-black/[0.025]
+            backdrop-blur-2xl
+            supports-[backdrop-filter]:bg-white/20
+            dark:supports-[backdrop-filter]:bg-black/20
+          "
+        >
+          {/* Drag handle */}
           <button
-            ref={dragHandleRef}
             type="button"
-            aria-label="Move navigation bar. Use arrow keys to reposition."
-            title="Drag to move navigation"
+            aria-label="Move navigation. Use arrow keys to reposition."
+            title="Drag to move"
             onPointerDown={handleDragStart}
             onPointerMove={handleDragMove}
-            onPointerUp={finishDragging}
-            onPointerCancel={finishDragging}
-            onKeyDown={handleDragKeyDown}
-            className="flex h-11 w-8 shrink-0 cursor-grab touch-none items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:cursor-grabbing"
+            onPointerUp={finishDrag}
+            onPointerCancel={finishDrag}
+            onKeyDown={handleGripKeyDown}
+            className="
+              flex h-9 w-6 shrink-0 touch-none
+              cursor-grab items-center justify-center
+              rounded-full text-foreground/45
+              transition-colors hover:bg-white/25 hover:text-foreground
+              active:cursor-grabbing
+            "
           >
-            <GripVertical className="h-5 w-5" strokeWidth={3} />
+            <GripVertical className="h-4 w-4" strokeWidth={3} />
           </button>
 
-          <nav
-            aria-label="Main navigation"
-            className="flex items-center gap-1"
-          >
+          <nav aria-label="Main navigation" className="flex items-center gap-0.5">
             {navItems.map((item) => {
               const active = isActivePath(item.path);
 
@@ -518,42 +446,36 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <Link
                   key={item.path}
                   to={item.path}
-                  onClick={
-                    item.path === '/'
-                      ? handleHomeClick
-                      : undefined
-                  }
+                  title={item.label}
+                  aria-label={item.label}
                   aria-current={active ? 'page' : undefined}
-                  className={`group relative flex min-w-[82px] flex-1 items-center justify-center gap-2 rounded-[17px] px-3.5 py-3 transition-all duration-200 ease-out active:scale-[0.96] lg:min-w-[108px] ${
-                    active
-                      ? 'bg-primary text-primary-foreground shadow-[0_5px_16px_rgba(16,185,129,0.24)]'
-                      : 'text-muted-foreground hover:bg-muted/90 hover:text-foreground'
-                  }`}
+                  onClick={item.path === '/' ? handleHomeClick : undefined}
+                  className={`
+                    relative flex h-10 w-10 shrink-0
+                    items-center justify-center
+                    rounded-full
+                    transition-[background-color,color,transform,box-shadow]
+                    duration-150 ease-out
+                    active:scale-90
+                    ${
+                      active
+                        ? 'bg-primary text-primary-foreground shadow-[0_3px_12px_rgba(16,185,129,0.30)]'
+                        : 'text-foreground/65 hover:bg-white/25 hover:text-foreground dark:hover:bg-white/10'
+                    }
+                  `}
                 >
                   <item.icon
-                    className="h-[22px] w-[22px] shrink-0"
-                    strokeWidth={active ? 3 : 2.7}
+                    className="h-[21px] w-[21px]"
+                    strokeWidth={2.8}
                   />
-
-                  <span
-                    className={`hidden whitespace-nowrap text-[13px] tracking-[-0.01em] lg:inline ${
-                      active ? 'font-extrabold' : 'font-bold'
-                    }`}
-                  >
-                    {item.label}
-                  </span>
 
                   {item.badge > 0 && (
                     <Badge
                       variant="destructive"
-                      className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-background p-0 text-[10px] font-extrabold"
+                      className="absolute -right-0.5 -top-0.5 flex h-[17px] min-w-[17px] items-center justify-center rounded-full border border-background px-1 text-[9px] font-extrabold"
                     >
                       {item.badge > 99 ? '99+' : item.badge}
                     </Badge>
-                  )}
-
-                  {active && (
-                    <span className="absolute bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-primary-foreground/90 lg:hidden" />
                   )}
                 </Link>
               );
@@ -562,7 +484,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         </div>
       </div>
 
-      {/* Original mobile navigation — unchanged and mobile-only */}
+      {/* Original mobile navigation remains unchanged */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 px-3 pb-3 pt-1 pointer-events-none md:hidden">
         <div className="pointer-events-auto flex items-center justify-around gap-1 rounded-3xl border border-border bg-background/95 px-2 py-2 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/70">
           {navItems.map((item) => {
@@ -572,11 +494,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <Link
                 key={item.path}
                 to={item.path}
-                onClick={
-                  item.path === '/'
-                    ? handleHomeClick
-                    : undefined
-                }
+                onClick={item.path === '/' ? handleHomeClick : undefined}
                 className={`relative flex flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl px-2 py-2 transition-all duration-200 active:scale-95 ${
                   active
                     ? 'scale-[1.04] bg-primary text-primary-foreground shadow-md'
@@ -584,17 +502,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 }`}
               >
                 <item.icon
-                  className={`h-6 w-6 ${
-                    active ? '' : 'app-mobile-nav-icon'
-                  }`}
+                  className={`h-6 w-6 ${active ? '' : 'app-mobile-nav-icon'}`}
                   strokeWidth={active ? 2.6 : 2.4}
                 />
 
                 <span
                   className={`text-[10px] font-medium leading-none ${
-                    active
-                      ? 'text-primary-foreground'
-                      : 'text-muted-foreground'
+                    active ? 'text-primary-foreground' : 'text-muted-foreground'
                   }`}
                 >
                   {item.label}
