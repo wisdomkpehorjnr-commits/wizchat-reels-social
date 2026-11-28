@@ -44,9 +44,9 @@ const PeopleYouMayKnowCard = () => {
   };
 
   return (
-    <Card className="mb-6 w-full overflow-hidden rounded-[2rem] border-0 bg-card/55 shadow-xl shadow-primary/[0.04] backdrop-blur-2xl">
-      <CardContent className="p-4 sm:p-6">
-        <div className="mb-4 flex items-center gap-3">
+    <Card className="pymk-card mb-6 w-full overflow-hidden rounded-[2rem] border-0 bg-card">
+      <CardContent className="p-3 sm:p-4">
+        <div className="mb-3 flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
             <Users className="h-5 w-5" aria-hidden="true" />
           </div>
@@ -60,13 +60,13 @@ const PeopleYouMayKnowCard = () => {
             {users.slice(0, 15).map((u, index) => (
               <article
                 key={u.id}
-                className="group w-48 flex-shrink-0 rounded-[1.75rem] bg-background/45 p-4 text-center shadow-lg shadow-primary/[0.035] backdrop-blur-2xl transition-[transform,background-color,box-shadow] duration-300 hover:-translate-y-1 hover:bg-background/65 hover:shadow-xl hover:shadow-primary/[0.08] motion-reduce:transition-none sm:w-52"
+                className="group w-48 flex-shrink-0 rounded-[1.75rem] bg-card p-3 text-center transition-[transform,box-shadow] duration-300 hover:-translate-y-1 motion-reduce:transition-none sm:w-52"
                 style={{ animationDelay: `${Math.min(index * 50, 350)}ms` }}
               >
                 <button
                   type="button"
                   onClick={() => navigate(`/profile/${u.id}`)}
-                  className="mb-3 block w-full rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+                  className="mb-2 block w-full rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
                   aria-label={`View ${u.name}'s profile`}
                 >
                   <SmartAvatar src={u.avatar} alt={u.name} className="mx-auto h-[4.5rem] w-[4.5rem] shadow-md ring-4 ring-primary/10 transition-transform duration-300 group-hover:scale-105" />
@@ -78,13 +78,13 @@ const PeopleYouMayKnowCard = () => {
                 >
                   {u.name}
                 </button>
-                <p className="mb-4 mt-1 truncate text-xs text-muted-foreground">
+                <p className="mb-3 mt-1 truncate text-xs text-muted-foreground">
                   @{u.username}{u.mutualCount && u.mutualCount > 0 ? ` · ${u.mutualCount} mutual` : ''}
                 </p>
                 <Button
                   size="sm"
                   variant="secondary"
-                  className="h-10 w-full rounded-full bg-primary/10 px-4 text-xs font-semibold text-primary shadow-none transition-all duration-200 hover:scale-[1.03] hover:bg-primary/15 active:scale-95 motion-reduce:transform-none"
+                  className="h-9 w-full rounded-full bg-primary/10 px-4 text-xs font-semibold text-primary shadow-none transition-all duration-200 hover:scale-[1.03] hover:bg-primary/15 active:scale-95 motion-reduce:transform-none"
                   disabled={pendingFriend.has(u.id)}
                   onClick={() => addFriend(u.id)}
                 >
