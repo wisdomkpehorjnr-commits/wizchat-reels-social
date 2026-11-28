@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import OptimizedReelPlayer from './OptimizedReelPlayer';
 import MoreBottomSheet from './MoreBottomSheet';
@@ -13,7 +12,6 @@ import {
   Heart,
   MessageCircle,
   Send,
-  MoreVertical,
   Repeat2,
   Phone,
 } from 'lucide-react';
@@ -798,7 +796,7 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-black">
-      {/* Floating glass feed navigation */}
+      {/* Fixed floating glass feed navigation */}
       <div className="reels-feed-tabs pointer-events-none absolute left-0 right-0 top-0 z-50 flex justify-center bg-gradient-to-b from-black/55 via-black/20 to-transparent pb-7 pt-4">
         <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-white/20 bg-black/35 p-1 shadow-xl backdrop-blur-2xl">
           <button
@@ -852,10 +850,16 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
         </div>
       )}
 
+      {/* Stable, contained vertical reel scroller */}
       <div
         ref={containerRef}
-        className="h-full w-full snap-y snap-mandatory overflow-y-auto touch-pan-y"
-        style={{ WebkitOverflowScrolling: 'touch' }}
+        className="h-full min-h-0 w-full snap-y snap-mandatory overflow-x-hidden overflow-y-auto overscroll-y-contain touch-pan-y"
+        style={{
+          height: '100%',
+          WebkitOverflowScrolling: 'touch',
+          overscrollBehaviorY: 'contain',
+          scrollBehavior: 'auto',
+        }}
       >
         {visiblePosts.map((p, i) => {
           const isDescLong =
@@ -877,7 +881,7 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
             <div
               key={p.id}
               data-index={i}
-              className="reel-item relative h-full min-h-0 w-full snap-start overflow-hidden"
+              className="reel-item relative h-full min-h-full w-full snap-start snap-always overflow-hidden"
             >
               {p.shouldRender ? (
                 <OptimizedReelPlayer
@@ -897,7 +901,7 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
               <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-28 bg-gradient-to-b from-black/35 to-transparent" />
 
               {/* Creator details and caption */}
-              <div className="absolute bottom-7 left-4 right-[86px] z-30 text-white">
+              <div className="absolute bottom-3 left-4 right-[82px] z-30 max-h-[38%] overflow-y-auto overscroll-contain pr-1 text-white [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 <div className="mb-3 flex min-w-0 items-center gap-2.5">
                   <div className="shrink-0 rounded-full bg-gradient-to-tr from-fuchsia-500 via-rose-500 to-amber-400 p-[2px]">
                     <Avatar className="h-10 w-10 border-2 border-black">
@@ -977,33 +981,47 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
                 </div>
               </div>
 
-              {/* Clean Instagram-style Reels action rail */}
-              <div className="absolute right-2 top-[54%] z-30 flex -translate-y-1/2 flex-col items-center gap-2 sm:right-4">
+              {/* Premium Reels action rail */}
+              <div className="absolute right-2 top-[54%] z-30 flex -translate-y-1/2 flex-col items-center gap-2 sm:right-4 sm:gap-2.5">
                 {/* Like */}
                 <div className="flex flex-col items-center gap-0.5">
                   <motion.button
                     type="button"
-                    aria-label={(likes[p.id] ?? !!(p as any).isLiked) ? 'Unlike reel' : 'Like reel'}
-                    aria-pressed={likes[p.id] ?? !!(p as any).isLiked}
+                    aria-label={
+                      (likes[p.id] ?? !!(p as any).isLiked)
+                        ? 'Unlike reel'
+                        : 'Like reel'
+                    }
+                    aria-pressed={
+                      likes[p.id] ?? !!(p as any).isLiked
+                    }
                     onClick={e => {
                       e.stopPropagation();
                       handleLike(p.id);
                     }}
                     whileTap={{ scale: 0.82 }}
-                    className="flex h-11 w-11 items-center justify-center rounded-full text-white drop-shadow-[0_2px_5px_rgba(0,0,0,0.85)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                    className="flex h-10 w-10 items-center justify-center rounded-full text-white drop-shadow-[0_2px_5px_rgba(0,0,0,0.85)] transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
                   >
                     <motion.span
-                      animate={(likes[p.id] ?? !!(p as any).isLiked) ? { scale: [1, 1.25, 1] } : { scale: 1 }}
-                      transition={{ duration: 0.3 }}
+                      animate={
+                        (likes[p.id] ?? !!(p as any).isLiked)
+                          ? { scale: [1, 1.3, 1] }
+                          : { scale: 1 }
+                      }
+                      transition={{ duration: 0.35 }}
                     >
                       <Heart
-                        className={`h-7 w-7 ${(likes[p.id] ?? !!(p as any).isLiked) ? 'fill-rose-500 text-rose-500' : 'fill-none text-white'}`}
-                        strokeWidth={2.5}
+                        className={`h-8 w-8 ${
+                          (likes[p.id] ?? !!(p as any).isLiked)
+                            ? 'fill-rose-500 text-rose-500'
+                            : 'fill-white text-white'
+                        }`}
+                        strokeWidth={2.4}
                       />
                     </motion.span>
                   </motion.button>
 
-                  <span className="text-[11px] font-bold leading-none text-white [text-shadow:0_2px_5px_rgba(0,0,0,0.9)]">
+                  <span className="text-[12px] font-extrabold leading-tight text-white [text-shadow:0_2px_5px_rgba(0,0,0,0.9)]">
                     {formatReelCount(
                       typeof (p as any).likeCount === 'number'
                         ? (p as any).likeCount
@@ -1024,12 +1042,20 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
                       setCommentsOpenFor(p.id);
                     }}
                     whileTap={{ scale: 0.86 }}
-                    className="flex h-11 w-11 items-center justify-center rounded-full text-white drop-shadow-[0_2px_5px_rgba(0,0,0,0.85)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                    className="flex h-10 w-10 items-center justify-center rounded-full text-white drop-shadow-[0_2px_5px_rgba(0,0,0,0.85)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
                   >
-                    <MessageCircle className="h-7 w-7" strokeWidth={2.5} />
+                    <span className="relative flex h-7 w-7 items-center justify-center">
+                      <MessageCircle
+                        className="h-7 w-7 fill-white text-white"
+                        strokeWidth={2.2}
+                      />
+                      <span className="absolute top-[9px] text-[10px] font-black leading-none tracking-[1px] text-black">
+                        •••
+                      </span>
+                    </span>
                   </motion.button>
 
-                  <span className="text-[11px] font-bold leading-none text-white [text-shadow:0_2px_5px_rgba(0,0,0,0.9)]">
+                  <span className="text-[12px] font-extrabold leading-tight text-white [text-shadow:0_2px_5px_rgba(0,0,0,0.9)]">
                     {formatReelCount(
                       Array.isArray((p as any).comments)
                         ? (p as any).comments.length
@@ -1042,26 +1068,29 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
                 <div className="flex flex-col items-center gap-0.5">
                   <motion.button
                     type="button"
-                    aria-label={reposted[p.id] ? 'Remove repost' : 'Repost reel'}
+                    aria-label={
+                      reposted[p.id] ? 'Remove repost' : 'Repost reel'
+                    }
                     aria-pressed={!!reposted[p.id]}
                     onClick={e => {
                       e.stopPropagation();
                       handleRepost(p.id);
                     }}
                     whileTap={{ scale: 0.86 }}
-                    className={`flex h-11 w-11 items-center justify-center rounded-full drop-shadow-[0_2px_5px_rgba(0,0,0,0.85)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
-                      reposted[p.id] ? 'text-emerald-400' : 'text-white'
-                    }`}
+                    className="flex h-10 w-10 items-center justify-center rounded-full text-white drop-shadow-[0_2px_5px_rgba(0,0,0,0.85)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
                   >
-                    <Repeat2 className="h-7 w-7" strokeWidth={2.5} />
+                    <Repeat2
+                      className="h-8 w-8"
+                      strokeWidth={3}
+                    />
                   </motion.button>
 
-                  <span className="text-[11px] font-bold leading-none text-white [text-shadow:0_2px_5px_rgba(0,0,0,0.9)]">
+                  <span className="text-[12px] font-extrabold leading-tight text-white [text-shadow:0_2px_5px_rgba(0,0,0,0.9)]">
                     {formatReelCount(repostCounts[p.id] || 0)}
                   </span>
                 </div>
 
-                {/* Share */}
+                {/* Native share */}
                 <motion.button
                   type="button"
                   aria-label="Share reel"
@@ -1070,9 +1099,12 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
                     handleShare(p);
                   }}
                   whileTap={{ scale: 0.86 }}
-                  className="flex h-11 w-11 items-center justify-center rounded-full text-white drop-shadow-[0_2px_5px_rgba(0,0,0,0.85)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                  className="flex h-10 w-10 items-center justify-center rounded-full text-white drop-shadow-[0_2px_5px_rgba(0,0,0,0.85)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
                 >
-                  <Send className="h-7 w-7" strokeWidth={2.5} />
+                  <Send
+                    className="h-8 w-8 fill-white text-white"
+                    strokeWidth={2.8}
+                  />
                 </motion.button>
 
                 {/* WhatsApp */}
@@ -1084,10 +1116,18 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
                     handleWhatsAppShare(p);
                   }}
                   whileTap={{ scale: 0.86 }}
-                  className="relative flex h-11 w-11 items-center justify-center rounded-full text-white drop-shadow-[0_2px_5px_rgba(0,0,0,0.85)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-[#25D366] shadow-lg transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
                 >
-                  <MessageCircle className="h-7 w-7" strokeWidth={2.5} />
-                  <Phone className="absolute h-3.5 w-3.5" strokeWidth={2.8} />
+                  <span className="relative flex h-7 w-7 items-center justify-center">
+                    <MessageCircle
+                      className="h-7 w-7 fill-white text-white"
+                      strokeWidth={2}
+                    />
+                    <Phone
+                      className="absolute h-3.5 w-3.5 -rotate-[25deg] text-[#168B45]"
+                      strokeWidth={3.2}
+                    />
+                  </span>
                 </motion.button>
 
                 {/* More options */}
@@ -1099,9 +1139,13 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({
                     handleMore(p);
                   }}
                   whileTap={{ scale: 0.86 }}
-                  className="flex h-10 w-11 items-center justify-center rounded-full text-white drop-shadow-[0_2px_5px_rgba(0,0,0,0.85)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                  className="flex h-9 w-10 items-center justify-center rounded-full text-white drop-shadow-[0_2px_5px_rgba(0,0,0,0.85)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
                 >
-                  <MoreVertical className="h-7 w-7" strokeWidth={2.5} />
+                  <span className="flex flex-col items-center justify-center gap-[3px]">
+                    <span className="h-[5px] w-[5px] rounded-full bg-white" />
+                    <span className="h-[5px] w-[5px] rounded-full bg-white" />
+                    <span className="h-[5px] w-[5px] rounded-full bg-white" />
+                  </span>
                 </motion.button>
               </div>
             </div>
