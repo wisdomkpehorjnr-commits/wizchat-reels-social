@@ -1,6 +1,6 @@
+
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import OptimizedReelPlayer from './OptimizedReelPlayer';
-import ReelControls from './ReelControls';
 import MoreBottomSheet from './MoreBottomSheet';
 import CommentsModal from './CommentsModal';
 import { useToast } from '@/hooks/use-toast';
@@ -8,7 +8,8 @@ import { Post } from '@/types';
 import { dataService } from '@/services/dataService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMediaOptimization } from '@/hooks/useMediaOptimization';
-import { WifiOff } from 'lucide-react';
+import { WifiOff, Heart, MessageCircle, Send, MoreHorizontal } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import VerifiedBadge from '@/components/VerifiedBadge';
 import { supabase } from '@/integrations/supabase/client';
@@ -30,17 +31,29 @@ const reelsStore: ReelsStore = { reels: [], lastFetchTime: 0, isInitialized: fal
     const cached = localStorage.getItem(REELS_CACHE_KEY);
     if (cached) {
       const parsed = JSON.parse(cached);
-      if (parsed?.data?.length) { reelsStore.reels = parsed.data; reelsStore.lastFetchTime = parsed.timestamp || 0; }
+      if (parsed?.data?.length) {
+        reelsStore.reels = parsed.data;
+        reelsStore.lastFetchTime = parsed.timestamp || 0;
+      }
     }
   } catch {}
   reelsStore.isInitialized = true;
 })();
 
 const saveReelsToLocalStorage = (reels: Post[]) => {
-  try { localStorage.setItem(REELS_CACHE_KEY, JSON.stringify({ data: reels, timestamp: Date.now() })); } catch {}
+  try {
+    localStorage.setItem(REELS_CACHE_KEY, JSON.stringify({ data: reels, timestamp: Date.now() }));
+  } catch {}
 };
 
 type FeedTab = 'foryou' | 'following';
+
+// Format large engagement counts
+const formatReelCount = (value: number) => {
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
+  return String(value);
+};
 
 // Bottom nav height on mobile
 const BOTTOM_NAV_HEIGHT = 64;
@@ -183,7 +196,6 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({ searchQuery = '', onClearS
     setJumpToId(id);
     onClearSearch?.();
   }, [onClearSearch]);
-
 
 
   const handleLike = useCallback(async (id: string) => {
@@ -358,32 +370,46 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({ searchQuery = '', onClearS
 
   return (
 
-    <div className="relative w-full h-full bg-background overflow-hidden">
-      {/* For You / Following tabs - theme-aware sticky pill */}
-      <div className="reels-feed-tabs absolute top-0 left-0 right-0 z-50 pt-3 pb-2 flex justify-center gap-6 bg-background/80 backdrop-blur-xl border-b border-border/40">
-        <button
-          onClick={() => setActiveTab('foryou')}
-          className={`text-base font-bold transition-all pb-1 ${activeTab === 'foryou' ? 'text-foreground border-b-2 border-foreground' : 'text-muted-foreground'}`}
-        >
-          For You
-        </button>
-        <button
-          onClick={() => setActiveTab('following')}
-          className={`text-base font-bold transition-all pb-1 ${activeTab === 'following' ? 'text-foreground border-b-2 border-foreground' : 'text-muted-foreground'}`}
-        >
-          Following
-        </button>
+    <div className="relative w-full h-full bg-black overflow-hidden">
+      {/* Floating glass feed navigation */}
+      <div className="reels-feed-tabs absolute top-0 left-0 right-0 z-50 pt-4 pb-7 flex justify-center pointer-events-none bg-gradient-to-b from-black/55 via-black/20 to-transparent">
+        <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-white/20 bg-black/35 p-1 shadow-xl backdrop-blur-2xl">
+          <button
+            type="button"
+            onClick={() => setActiveTab('foryou')}
+            aria-pressed={activeTab === 'foryou'}
+            className={`rounded-full px-5 py-2 text-sm font-bold transition-all duration-200 active:scale-95 ${
+              activeTab === 'foryou'
+                ? 'bg-white text-black shadow-md'
+                : 'text-white/80 hover:bg-white/10 hover:text-white'
+            }`}
+          >
+            For You
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('following')}
+            aria-pressed={activeTab === 'following'}
+            className={`rounded-full px-5 py-2 text-sm font-bold transition-all duration-200 active:scale-95 ${
+              activeTab === 'following'
+                ? 'bg-white text-black shadow-md'
+                : 'text-white/80 hover:bg-white/10 hover:text-white'
+            }`}
+          >
+            Following
+          </button>
+        </div>
       </div>
 
 
       {isDataSaverEnabled && (
-        <div className="absolute top-12 left-0 right-0 z-50 bg-muted text-foreground text-center py-1 text-xs font-bold">
+        <div className="absolute top-16 left-0 right-0 z-50 bg-black/45 backdrop-blur-xl text-white text-center py-1.5 text-xs font-bold">
           Data Saver Mode
         </div>
       )}
 
       {isOffline && posts.length > 0 && (
-        <div className="absolute top-12 left-0 right-0 z-50 bg-white/10 backdrop-blur-xl text-white text-center py-1.5 text-xs font-bold">
+        <div className="absolute top-16 left-0 right-0 z-50 bg-black/45 backdrop-blur-xl text-white text-center py-1.5 text-xs font-bold">
           <WifiOff className="w-3 h-3 inline-block mr-1" /> Offline
         </div>
       )}
@@ -416,58 +442,150 @@ export const ReelsFeed: React.FC<ReelsFeedProps> = ({ searchQuery = '', onClearS
                 </div>
               )}
 
-              {/* Bottom gradient for text readability */}
-              <div className="absolute bottom-0 left-0 right-0 h-48 bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none z-10" />
+              {/* Video readability gradients */}
+              <div className="absolute inset-x-0 bottom-0 z-10 h-[52%] bg-gradient-to-t from-black/90 via-black/45 to-transparent pointer-events-none" />
+              <div className="absolute inset-x-0 top-0 z-10 h-28 bg-gradient-to-b from-black/35 to-transparent pointer-events-none" />
 
-              {/* User info + description */}
-              <div className="absolute left-4 bottom-6 z-30 max-w-[65%]">
-                <div className="flex items-center gap-2 mb-2">
-                  <Avatar className="w-9 h-9 border-2 border-white/40">
-                    <AvatarImage src={postUser?.avatar || postUser?.photoURL} />
-                    <AvatarFallback className="text-white bg-white/20 text-xs font-bold">
-                      {postUser?.name?.charAt(0) || '?'}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex items-center gap-1">
-                    <span className="text-white font-bold text-sm drop-shadow">{postUser?.name}</span>
-                    {isVerified && <VerifiedBadge className="w-4 h-4" />}
+              {/* Creator details and caption */}
+              <div className="absolute left-4 right-[86px] bottom-7 z-30 text-white">
+                <div className="mb-3 flex min-w-0 items-center gap-2.5">
+                  <div className="shrink-0 rounded-full bg-gradient-to-tr from-fuchsia-500 via-rose-500 to-amber-400 p-[2px]">
+                    <Avatar className="h-10 w-10 border-2 border-black">
+                      <AvatarImage src={postUser?.avatar || postUser?.photoURL} />
+                      <AvatarFallback className="bg-zinc-800 text-xs font-bold text-white">
+                        {postUser?.name?.charAt(0)?.toUpperCase() || '?'}
+                      </AvatarFallback>
+                    </Avatar>
                   </div>
-                  {!isOwnPost && !isFollowing && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleFollow(p.userId); }}
-                      className="ml-1 px-2.5 py-0.5 rounded-full bg-white/20 border border-white/30 text-white text-xs font-semibold hover:bg-white/30 transition-colors"
+
+                  <div className="flex min-w-0 items-center gap-1">
+                    <span className="truncate text-sm font-extrabold text-white drop-shadow-md">
+                      {postUser?.name || 'User'}
+                    </span>
+                    {isVerified && <VerifiedBadge className="h-4 w-4 shrink-0" />}
+                  </div>
+
+                  {!isOwnPost && (
+                    <motion.button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!isFollowing) handleFollow(p.userId);
+                      }}
+                      whileTap={{ scale: 0.94 }}
+                      className={`ml-1 shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-bold transition-all ${
+                        isFollowing
+                          ? 'border-white/30 bg-white/15 text-white backdrop-blur-md'
+                          : 'border-white bg-white text-black hover:bg-white/90'
+                      }`}
                     >
-                      Follow
-                    </button>
+                      {isFollowing ? 'Following' : 'Follow'}
+                    </motion.button>
                   )}
                 </div>
 
                 {p.content && (
-                  <div className="text-white text-sm leading-snug drop-shadow">
+                  <div className="max-w-full text-[13px] leading-relaxed text-white drop-shadow-md sm:text-sm">
                     <span>{descText}</span>
                     {isDescLong && (
                       <button
-                        onClick={(e) => { e.stopPropagation(); setExpandedDesc(prev => ({ ...prev, [p.id]: !prev[p.id] })); }}
-                        className="ml-1 text-white/70 font-semibold text-xs"
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setExpandedDesc(prev => ({ ...prev, [p.id]: !prev[p.id] }));
+                        }}
+                        className="ml-1 font-bold text-white/75 hover:text-white"
                       >
                         {isExpanded ? 'less' : 'more'}
                       </button>
                     )}
                   </div>
                 )}
+
+                <div className="mt-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-white/70">
+                  <span>WizChat Reels</span>
+                  <span className="h-1 w-1 rounded-full bg-white/60" />
+                  <span className="normal-case tracking-normal">Watch and discover</span>
+                </div>
               </div>
 
-              {/* Controls */}
-              <ReelControls
-                likesCount={typeof (p as any).likeCount === 'number' ? (p as any).likeCount : (Array.isArray(p.likes) ? p.likes.length : 0)}
-                commentsCount={Array.isArray((p as any).comments) ? (p as any).comments.length : ((p as any).commentCount || 0)}
-                isLiked={likes[p.id] ?? !!(p as any).isLiked}
+              {/* Floating glass action rail */}
+              <div className="absolute bottom-24 right-3 z-30 flex flex-col items-center gap-4 sm:right-5">
+                <div className="flex flex-col items-center gap-1.5">
+                  <motion.button
+                    type="button"
+                    aria-label={(likes[p.id] ?? !!(p as any).isLiked) ? 'Unlike reel' : 'Like reel'}
+                    aria-pressed={likes[p.id] ?? !!(p as any).isLiked}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleLike(p.id);
+                    }}
+                    whileTap={{ scale: 0.84 }}
+                    className="flex h-12 w-12 items-center justify-center rounded-full border border-white/25 bg-black/35 text-white shadow-lg backdrop-blur-xl transition-colors hover:bg-white/20"
+                  >
+                    <motion.span
+                      animate={(likes[p.id] ?? !!(p as any).isLiked) ? { scale: [1, 1.3, 1] } : { scale: 1 }}
+                      transition={{ duration: 0.35 }}
+                    >
+                      <Heart
+                        className={`h-6 w-6 ${
+                          (likes[p.id] ?? !!(p as any).isLiked)
+                            ? 'fill-rose-500 text-rose-500'
+                            : 'text-white'
+                        }`}
+                        strokeWidth={2.2}
+                      />
+                    </motion.span>
+                  </motion.button>
+                  <span className="rounded-full bg-black/45 px-2 py-0.5 text-[11px] font-bold leading-none text-white backdrop-blur-sm">
+                    {formatReelCount(typeof (p as any).likeCount === 'number' ? (p as any).likeCount : (Array.isArray(p.likes) ? p.likes.length : 0))}
+                  </span>
+                </div>
 
-                onLike={() => handleLike(p.id)}
-                onComment={() => setCommentsOpenFor(p.id)}
-                onShare={() => handleShare(p)}
-                onMore={() => handleMore(p)}
-              />
+                <div className="flex flex-col items-center gap-1.5">
+                  <motion.button
+                    type="button"
+                    aria-label="View comments"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCommentsOpenFor(p.id);
+                    }}
+                    whileTap={{ scale: 0.88 }}
+                    className="flex h-12 w-12 items-center justify-center rounded-full border border-white/25 bg-black/35 text-white shadow-lg backdrop-blur-xl transition-colors hover:bg-white/20"
+                  >
+                    <MessageCircle className="h-6 w-6" strokeWidth={2.2} />
+                  </motion.button>
+                  <span className="rounded-full bg-black/45 px-2 py-0.5 text-[11px] font-bold leading-none text-white backdrop-blur-sm">
+                    {formatReelCount(Array.isArray((p as any).comments) ? (p as any).comments.length : ((p as any).commentCount || 0))}
+                  </span>
+                </div>
+
+                <motion.button
+                  type="button"
+                  aria-label="Share reel"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleShare(p);
+                  }}
+                  whileTap={{ scale: 0.88 }}
+                  className="flex h-12 w-12 items-center justify-center rounded-full border border-white/25 bg-black/35 text-white shadow-lg backdrop-blur-xl transition-colors hover:bg-white/20"
+                >
+                  <Send className="h-6 w-6" strokeWidth={2.2} />
+                </motion.button>
+
+                <motion.button
+                  type="button"
+                  aria-label="More reel options"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleMore(p);
+                  }}
+                  whileTap={{ scale: 0.88 }}
+                  className="flex h-12 w-12 items-center justify-center rounded-full border border-white/25 bg-black/35 text-white shadow-lg backdrop-blur-xl transition-colors hover:bg-white/20"
+                >
+                  <MoreHorizontal className="h-6 w-6" strokeWidth={2.2} />
+                </motion.button>
+              </div>
             </div>
           );
         })}
