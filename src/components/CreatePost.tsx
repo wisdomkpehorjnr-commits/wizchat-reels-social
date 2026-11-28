@@ -5,7 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
-  AlignCenter, AlignJustify, AlignLeft, AlignRight, Bold, Camera, Italic,
+  AlignCenter, AlignJustify, AlignLeft, AlignRight, Bold, Italic,
   Palette, Plus, Send, Type, X,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -204,21 +204,21 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
 
   return (
     <Card className="create-post-glass">
-      <CardContent className="p-4 sm:p-5">
-        <form onSubmit={handleSubmit} className="space-y-4">
+      <CardContent className="p-2.5 sm:p-3">
+        <form onSubmit={handleSubmit} className="space-y-2">
           <div className="flex space-x-3">
             <Avatar className="w-10 h-10">
               <AvatarImage src={user.photoURL} />
               <AvatarFallback className="text-foreground">{user.name?.charAt(0)}</AvatarFallback>
             </Avatar>
             <div className="flex-1">
-              <div className="create-post-text-surface rounded-2xl p-3 transition-colors" style={getPostTextPresentation(textStyle)}>
+              <div className="create-post-text-surface rounded-2xl p-2 transition-colors" style={getPostTextPresentation(textStyle)}>
                 <Textarea
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   onFocus={() => setShowFormatting(true)}
                   placeholder={placeholder}
-                  className="min-h-[100px] resize-none border-none focus:ring-0 placeholder:text-muted-foreground bg-transparent"
+                  className="min-h-[76px] resize-none border-none focus:ring-0 placeholder:text-muted-foreground bg-transparent"
                   style={{ ...getPostTextPresentation(textStyle), backgroundColor: 'transparent', backgroundImage: 'none' }}
                   disabled={isSubmitting}
                 />
@@ -484,15 +484,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
                 className="hidden"
                 disabled={isSubmitting}
               />
-              <input
-                id="camera-input"
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handleFileSelect}
-                className="hidden"
-                disabled={isSubmitting}
-              />
               <Button
                 type="button"
                 variant="ghost"
@@ -503,17 +494,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onPostCreated, placeholder = "W
                 disabled={isSubmitting}
               >
                 <Plus className="h-6 w-6 stroke-[3]" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                aria-label="Add photo"
-                onClick={() => document.getElementById('camera-input')?.click()}
-                className="create-post-action h-10 w-10 p-0"
-                disabled={isSubmitting}
-              >
-                <Camera className="w-5 h-5 text-emerald-500" />
               </Button>
             </div>
             <Button
