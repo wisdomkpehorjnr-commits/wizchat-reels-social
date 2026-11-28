@@ -1,6 +1,6 @@
 import VerifiedBadge from '@/components/VerifiedBadge';
 import { useMemo, useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,7 +19,8 @@ import {
   Clock,
   Check,
   X,
-  Heart,
+  UserCheck,
+  MessageCircle,
   WifiOff
 } from 'lucide-react';
 import { Friend, User } from '@/types';
@@ -47,6 +48,7 @@ const saveFriendsToCache = (friends: Friend[]) => {
 const Friends = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   // Synchronously hydrate from localStorage so revisits render instantly (no skeleton flash)
   const localStorageFriends = useMemo((): Friend[] => {
@@ -91,6 +93,7 @@ const Friends = () => {
   });
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [confirmRemove, setConfirmRemove] = useState<{ friendId: string; friendUser: User } | null>(null);
+  const [openingChatId, setOpeningChatId] = useState<string | null>(null);
   const hasLoadedRef = useRef(false);
 
   // When async caches hydrate, reflect them immediately
@@ -324,6 +327,28 @@ const Friends = () => {
   };
 
 
+  const openChat = async (friendUser: User) => {
+    if (!user?.id || openingChatId) return;
+    setOpeningChatId(friendUser.id);
+    try {
+      const { data: chatId, error } = await supabase.rpc('get_or_create_direct_chat', {
+        p_other_user_id: friendUser.id
+      });
+      if (error) throw error;
+      navigate('/chat');
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('openChatWithUser', {
+          detail: { userId: friendUser.id, chatId }
+        }));
+      }, 300);
+    } catch (error) {
+      console.error('Error opening chat:', error);
+      toast({ title: "Error", description: "Couldn't open the chat. Please try again.", variant: "destructive" });
+    } finally {
+      setOpeningChatId(null);
+    }
+  };
+
   // Filter friends by status
   const acceptedFriends = friends.filter(f => f.status === 'accepted');
   const pendingRequests = friends.filter(f => 
@@ -419,63 +444,91 @@ const Friends = () => {
 
             <TabsContent value="friends" className="mt-6">
               {loading && !isOffline ? (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-                  {[...Array(10)].map((_, i) => (
-                    <Card key={i} className="border green-border">
-                      <CardContent className="p-3">
-                        <Skeleton className="w-12 h-12 rounded-full mx-auto mb-2" />
-                        <Skeleton className="w-20 h-3 mx-auto mb-1" />
-                        <Skeleton className="w-16 h-2 mx-auto mb-2" />
-                        <Skeleton className="w-full h-6 mb-1" />
-                        <Skeleton className="w-full h-6" />
-                      </CardContent>
-                    </Card>
+                <div className="space-y-3">
+                  {[...Array(6)].map((_, i) => (
+                    <div key={i} className="flex items-center gap-3 rounded-3xl border border-border/60 bg-card p-3 shadow-sm sm:gap-4 sm:p-4">
+                      <Skeleton className="h-14 w-14 flex-shrink-0 rounded-full sm:h-16 sm:w-16" />
+                      <div className="min-w-0 flex-1 space-y-2">
+                        <Skeleton className="h-4 w-32" />
+                        <Skeleton className="h-3 w-24" />
+                      </div>
+                      <Skeleton className="hidden h-9 w-28 rounded-full sm:block" />
+                      <Skeleton className="hidden h-9 w-9 rounded-full sm:block" />
+                      <Skeleton className="hidden h-9 w-24 rounded-full sm:block" />
+                    </div>
                   ))}
                 </div>
               ) : acceptedFriends.length > 0 ? (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                <div className="space-y-3">
                   {acceptedFriends.map((friend) => {
                     const friendUser = friend.requester.id === user?.id ? friend.addressee : friend.requester;
+                    const isFollowing = Boolean(followingStates[friendUser.id]);
                     return (
-                      <Card key={friend.id} className="border green-border hover:shadow-md transition-all duration-200 hover:scale-[1.02]">
-                        <CardContent className="p-3 text-center">
-                          <Link to={`/profile/${friendUser.username}`}>
-                            <Avatar className="w-12 h-12 mx-auto mb-2">
-                              <AvatarImage src={friendUser.avatar} />
-                              <AvatarFallback className="text-sm">
-                                {friendUser.name.charAt(0)}
-                              </AvatarFallback>
-                            </Avatar>
-                          </Link>
-                          <Link to={`/profile/${friendUser.username}`}>
-                            <h3 className="font-medium text-sm text-foreground mb-1 hover:text-primary truncate">
-                              {friendUser.name}{((friendUser) as any)?.is_verified && <VerifiedBadge size={15} className="ml-1 align-middle" />}
+                      <div
+                        key={friend.id}
+                        className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2.5 rounded-3xl border border-border/60 bg-card p-3 shadow-sm transition-colors hover:bg-muted/30 sm:grid-cols-[auto_1fr_auto] sm:gap-x-4 sm:p-4"
+                      >
+                        <Link
+                          to={`/profile/${friendUser.username}`}
+                          className="row-span-2 sm:row-span-1"
+                          aria-label={`View ${friendUser.name}'s profile`}
+                        >
+                          <Avatar className="h-14 w-14 ring-2 ring-primary/15 sm:h-16 sm:w-16">
+                            <AvatarImage src={friendUser.avatar} />
+                            <AvatarFallback className="text-base font-semibold">
+                              {friendUser.name.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
+                        </Link>
+
+                        <div className="min-w-0">
+                          <Link to={`/profile/${friendUser.username}`} className="block">
+                            <h3 className="flex items-center text-[15px] font-bold text-foreground hover:text-primary">
+                              <span className="truncate">{friendUser.name}</span>
+                              {((friendUser) as any)?.is_verified && <VerifiedBadge size={15} className="ml-1 flex-shrink-0" />}
                             </h3>
                           </Link>
-                          <p className="text-xs text-muted-foreground mb-2 truncate">@{friendUser.username}</p>
-                          
-                          <div className="space-y-1.5">
-                            <Button
-                              variant={followingStates[friendUser.id] ? "secondary" : "default"}
-                              size="sm"
-                              onClick={() => handleFollowToggle(friendUser.id, followingStates[friendUser.id])}
-                              className="w-full h-7 text-xs"
-                            >
-                              <Heart className={`w-3 h-3 mr-1 ${followingStates[friendUser.id] ? 'fill-current' : ''}`} />
-                              {followingStates[friendUser.id] ? 'Following' : 'Follow'}
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setConfirmRemove({ friendId: friend.id, friendUser })}
-                              className="w-full h-7 text-xs text-destructive hover:text-destructive-foreground hover:bg-destructive"
-                            >
-                              <UserMinus className="w-3 h-3 mr-1" />
-                              Remove
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
+                          <p className="truncate text-sm text-muted-foreground">@{friendUser.username}</p>
+                        </div>
+
+                        <div className="col-start-2 flex items-center gap-2 sm:col-start-3 sm:row-start-1">
+                          <Button
+                            variant={isFollowing ? "secondary" : "default"}
+                            size="sm"
+                            onClick={() => handleFollowToggle(friendUser.id, isFollowing)}
+                            className={`h-9 rounded-full px-4 text-[13px] font-bold shadow-none ${
+                              isFollowing
+                                ? 'bg-primary/10 text-primary hover:bg-primary/20'
+                                : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                            }`}
+                          >
+                            {isFollowing ? <UserCheck className="mr-1.5 h-4 w-4" /> : <UserPlus className="mr-1.5 h-4 w-4" />}
+                            {isFollowing ? 'Following' : 'Follow'}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openChat(friendUser)}
+                            disabled={openingChatId === friendUser.id}
+                            aria-label={`Message ${friendUser.name}`}
+                            title="Message"
+                            className="h-9 w-9 rounded-full border-border p-0"
+                          >
+                            <MessageCircle className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setConfirmRemove({ friendId: friend.id, friendUser })}
+                            aria-label={`Remove ${friendUser.name}`}
+                            title="Remove"
+                            className="h-9 w-9 rounded-full bg-destructive/10 p-0 text-[13px] font-bold text-destructive shadow-none hover:bg-destructive hover:text-destructive-foreground sm:w-auto sm:px-4"
+                          >
+                            <UserMinus className="h-4 w-4" />
+                            <span className="ml-1.5 hidden sm:inline">Remove</span>
+                          </Button>
+                        </div>
+                      </div>
                     );
                   })}
                 </div>
