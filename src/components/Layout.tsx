@@ -77,6 +77,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   }>({ count: 0, timer: null });
 
   const floatingNavRef = useRef<HTMLDivElement | null>(null);
+
   const dragRef = useRef<{
     pointerId: number;
     startX: number;
@@ -134,7 +135,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     }, 500);
   };
 
-  // Restore the saved position and centre the pill on first use.
+  // Restore saved position and centre the pill on first use.
   useEffect(() => {
     const nav = floatingNavRef.current;
     if (!nav) return;
@@ -148,6 +149,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       const value = localStorage.getItem(POSITION_KEY);
       if (value) {
         const parsed = JSON.parse(value);
+
         if (
           typeof parsed.left === 'number' &&
           typeof parsed.top === 'number'
@@ -175,6 +177,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       if (!current) return;
 
       const rect = current.getBoundingClientRect();
+
       const adjusted = clampPosition(
         rect.left,
         rect.top,
@@ -233,7 +236,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       nav.offsetHeight
     );
 
-    // Direct DOM movement keeps dragging immediate and fluid.
     nav.style.left = `${next.left}px`;
     nav.style.top = `${next.top}px`;
   };
@@ -245,6 +247,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     if (!drag || !nav || drag.pointerId !== e.pointerId) return;
 
     const rect = nav.getBoundingClientRect();
+
     const next = clampPosition(
       rect.left,
       rect.top,
@@ -258,7 +261,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       try {
         localStorage.setItem(POSITION_KEY, JSON.stringify(next));
       } catch {
-        // Position still works for the current session.
+        // Position remains available for this session.
       }
     }
 
@@ -281,7 +284,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     e.preventDefault();
 
     const nav = floatingNavRef.current;
-    const next = clampPosition(left, top, nav.offsetWidth, nav.offsetHeight);
+
+    const next = clampPosition(
+      left,
+      top,
+      nav.offsetWidth,
+      nav.offsetHeight
+    );
 
     nav.style.left = `${next.left}px`;
     nav.style.top = `${next.top}px`;
@@ -307,8 +316,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               </span>
             </Link>
           </div>
-
-          {/* Desktop navigation now lives in the floating glass pill. */}
 
           <div className="flex items-center gap-2">
             <ThemeToggle />
@@ -392,7 +399,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         {children}
       </main>
 
-      {/* Compact transparent glass navigation for tablets and desktop */}
+      {/* Compact floating glass navigation: tablet and desktop */}
       <div
         ref={floatingNavRef}
         className="fixed z-[60] hidden md:block"
@@ -405,16 +412,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       >
         <div
           className="
-            flex items-center gap-1
+            flex items-center gap-1.5
             rounded-full
-            border border-white/35 dark:border-white/15
-            bg-white/25 dark:bg-black/25
-            px-1.5 py-1.5
+            border border-white/45 dark:border-white/20
+            bg-white/25 dark:bg-slate-900/25
+            px-2 py-1.5
             shadow-[0_8px_32px_rgba(0,0,0,0.10)]
-            ring-1 ring-black/[0.025]
+            ring-1 ring-white/20 dark:ring-white/10
             backdrop-blur-2xl
-            supports-[backdrop-filter]:bg-white/20
-            dark:supports-[backdrop-filter]:bg-black/20
           "
         >
           {/* Drag handle */}
@@ -430,15 +435,20 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             className="
               flex h-9 w-6 shrink-0 touch-none
               cursor-grab items-center justify-center
-              rounded-full text-foreground/45
-              transition-colors hover:bg-white/25 hover:text-foreground
+              rounded-full
+              text-slate-500 dark:text-slate-300
+              hover:bg-white/25 dark:hover:bg-white/10
+              hover:text-slate-700 dark:hover:text-white
               active:cursor-grabbing
             "
           >
             <GripVertical className="h-4 w-4" strokeWidth={3} />
           </button>
 
-          <nav aria-label="Main navigation" className="flex items-center gap-0.5">
+          <nav
+            aria-label="Main navigation"
+            className="flex items-center gap-1.5"
+          >
             {navItems.map((item) => {
               const active = isActivePath(item.path);
 
@@ -459,13 +469,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     active:scale-90
                     ${
                       active
-                        ? 'bg-primary text-primary-foreground shadow-[0_3px_12px_rgba(16,185,129,0.30)]'
-                        : 'text-foreground/65 hover:bg-white/25 hover:text-foreground dark:hover:bg-white/10'
+                        ? 'bg-primary shadow-[0_3px_12px_rgba(16,185,129,0.30)]'
+                        : 'hover:bg-white/30 dark:hover:bg-white/10'
                     }
                   `}
                 >
                   <item.icon
-                    className="h-[21px] w-[21px]"
+                    className={`h-[21px] w-[21px] ${
+                      active
+                        ? 'text-white'
+                        : 'text-slate-500 dark:text-slate-300 group-hover:text-slate-700 dark:group-hover:text-white'
+                    }`}
                     strokeWidth={2.8}
                   />
 
