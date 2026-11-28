@@ -12,13 +12,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {
   Home,
-  MessageCircle,
-  Users,
+  Film,
+  MessagesSquare,
+  UsersRound,
+  Newspaper,
   User,
   Settings,
-  MessageSquare,
   Crown,
-  Clapperboard,
   GripVertical,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -63,10 +63,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const navItems = [
     { icon: Home, label: t('home'), path: '/', badge: 0 },
-    { icon: Clapperboard, label: 'Reels', path: '/reels', badge: 0 },
-    { icon: MessageCircle, label: t('chat'), path: '/chat', badge: 0 },
-    { icon: Users, label: t('friends'), path: '/friends', badge: badges.friends },
-    { icon: MessageSquare, label: t('topics'), path: '/topics', badge: badges.topics },
+    { icon: Film, label: 'Reels', path: '/reels', badge: 0 },
+    { icon: MessagesSquare, label: t('chat'), path: '/chat', badge: 0 },
+    { icon: UsersRound, label: t('friends'), path: '/friends', badge: badges.friends },
+    { icon: Newspaper, label: t('topics'), path: '/topics', badge: badges.topics },
   ];
 
   const isActivePath = (path: string) => location.pathname === path;
@@ -135,7 +135,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     }, 500);
   };
 
-  // Restore saved position and centre the pill on first use.
+  // Restore saved position and centre the navigation on first use.
   useEffect(() => {
     const nav = floatingNavRef.current;
     if (!nav) return;
@@ -399,7 +399,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         {children}
       </main>
 
-      {/* Compact floating glass navigation: tablet and desktop */}
+      {/* Modern floating glass navigation: tablet and desktop */}
       <div
         ref={floatingNavRef}
         className="fixed z-[60] hidden md:block"
@@ -410,16 +410,19 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           touchAction: 'none',
         }}
       >
+        {/* Outer glass holder */}
         <div
           className="
-            flex items-center gap-1.5
-            rounded-full
-            border border-white/45 dark:border-white/20
-            bg-white/25 dark:bg-slate-900/25
-            px-2 py-1.5
-            shadow-[0_8px_32px_rgba(0,0,0,0.10)]
-            ring-1 ring-white/20 dark:ring-white/10
+            flex items-center gap-2
+            rounded-[1.4rem]
+            border border-white/60 dark:border-white/15
+            bg-white/65 dark:bg-slate-950/65
+            px-2.5 py-2
+            shadow-[0_12px_40px_rgba(0,0,0,0.13),inset_0_1px_0_rgba(255,255,255,0.55)]
+            ring-1 ring-black/5 dark:ring-white/10
             backdrop-blur-2xl
+            supports-[backdrop-filter]:bg-white/50
+            dark:supports-[backdrop-filter]:bg-slate-950/55
           "
         >
           {/* Drag handle */}
@@ -433,21 +436,22 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             onPointerCancel={finishDrag}
             onKeyDown={handleGripKeyDown}
             className="
-              flex h-9 w-6 shrink-0 touch-none
+              flex h-10 w-7 shrink-0 touch-none
               cursor-grab items-center justify-center
-              rounded-full
-              text-slate-500 dark:text-slate-300
-              hover:bg-white/25 dark:hover:bg-white/10
-              hover:text-slate-700 dark:hover:text-white
+              rounded-xl
+              text-foreground/65
+              transition-all duration-200
+              hover:bg-foreground/10 hover:text-foreground
               active:cursor-grabbing
             "
           >
-            <GripVertical className="h-4 w-4" strokeWidth={3} />
+            <GripVertical className="h-[18px] w-[18px]" strokeWidth={2.8} />
           </button>
 
+          {/* Navigation tabs */}
           <nav
             aria-label="Main navigation"
-            className="flex items-center gap-1.5"
+            className="flex items-center gap-1"
           >
             {navItems.map((item) => {
               const active = isActivePath(item.path);
@@ -461,32 +465,57 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   aria-current={active ? 'page' : undefined}
                   onClick={item.path === '/' ? handleHomeClick : undefined}
                   className={`
-                    relative flex h-10 w-10 shrink-0
-                    items-center justify-center
-                    rounded-full
-                    transition-[background-color,color,transform,box-shadow]
-                    duration-150 ease-out
-                    active:scale-90
+                    group relative flex h-11 shrink-0
+                    items-center justify-center gap-2
+                    rounded-xl px-3.5
+                    transition-all duration-300 ease-out
+                    motion-reduce:transition-none
                     ${
                       active
-                        ? 'bg-primary shadow-[0_3px_12px_rgba(16,185,129,0.30)]'
-                        : 'hover:bg-white/30 dark:hover:bg-white/10'
+                        ? 'scale-[1.03] bg-primary text-primary-foreground shadow-[0_5px_18px_rgba(16,185,129,0.30)]'
+                        : 'text-foreground/75 hover:bg-foreground/10 hover:text-foreground'
                     }
                   `}
                 >
                   <item.icon
-                    className={`h-[21px] w-[21px] ${
-                      active
-                        ? 'text-white'
-                        : 'text-slate-500 dark:text-slate-300 group-hover:text-slate-700 dark:group-hover:text-white'
-                    }`}
-                    strokeWidth={2.8}
+                    className={`
+                      h-[21px] w-[21px] shrink-0
+                      transition-all duration-300
+                      ${
+                        active
+                          ? 'scale-110 text-primary-foreground'
+                          : 'text-foreground/75 group-hover:scale-110 group-hover:text-foreground'
+                      }
+                    `}
+                    strokeWidth={2.7}
                   />
+
+                  <span
+                    className={`
+                      whitespace-nowrap text-[13px] font-semibold
+                      tracking-[-0.01em]
+                      transition-all duration-300
+                      ${
+                        active
+                          ? 'text-primary-foreground'
+                          : 'text-foreground/75 group-hover:text-foreground'
+                      }
+                    `}
+                  >
+                    {item.label}
+                  </span>
 
                   {item.badge > 0 && (
                     <Badge
                       variant="destructive"
-                      className="absolute -right-0.5 -top-0.5 flex h-[17px] min-w-[17px] items-center justify-center rounded-full border border-background px-1 text-[9px] font-extrabold"
+                      className="
+                        absolute -right-1.5 -top-1.5
+                        flex h-[18px] min-w-[18px]
+                        items-center justify-center
+                        rounded-full border-2 border-background
+                        px-1 text-[9px] font-extrabold
+                        shadow-sm
+                      "
                     >
                       {item.badge > 99 ? '99+' : item.badge}
                     </Badge>
